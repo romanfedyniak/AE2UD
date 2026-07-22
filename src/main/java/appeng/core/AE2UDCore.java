@@ -24,15 +24,15 @@ import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
 import javax.annotation.Nullable;
 import java.util.Map;
 
-@IFMLLoadingPlugin.Name("AE2ELCore")
+@IFMLLoadingPlugin.Name("AE2UDCore")
 @IFMLLoadingPlugin.MCVersion("1.12.2")
 @IFMLLoadingPlugin.SortingIndex(1001)
 @IFMLLoadingPlugin.TransformerExclusions("appeng.core.transformer")
-public class AE2ELCore implements IFMLLoadingPlugin {
+public class AE2UDCore implements IFMLLoadingPlugin {
     @Override
     public String[] getASMTransformerClass() {
         return new String[]{
-                "appeng.core.transformer.AE2ELTransformer"
+                "appeng.core.transformer.AE2UDTransformer"
         };
     }
 

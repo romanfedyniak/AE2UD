@@ -1,6 +1,6 @@
-# Applied Energistics 2 Unofficial Extended Life
+# Applied Energistics 2 Unofficial Deconstructed
 
-[![Downloads](http://cf.way2muchnoise.eu/570458.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2-extended-life) [![MCVersion](http://cf.way2muchnoise.eu/versions/570458.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2-extended-life) [![GitHub issues](https://img.shields.io/github/issues/AE2-UEL/Applied-Energistics-2.svg)](https://github.com/AE2-UEL/Applied-Energistics-2/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/AE2-UEL/Applied-Energistics-2.svg)](https://github.com/AE2-UEL/Applied-Energistics-2/pulls)
+[![GitHub issues](https://img.shields.io/github/issues/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/pulls)
 
 ---
 
@@ -8,9 +8,9 @@
 
 A maintained fork of a Mod about Matter, Energy and using them to conquer the world.
 
-This project started as a fork of [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2) by [PrototypeTrousers](https://github.com/PrototypeTrousers), initially addressing issues related to the [Nomifactory](https://www.curseforge.com/minecraft/modpacks/nomifactory) modpack. It is now being maintained by the [AE2 Unofficial Extended Life Team](https://github.com/AE2-UEL).
+**AE2UD is a heavily reworked, API-breaking fork.** It is not a drop-in replacement for vanilla AE2 or other AE2 forks - its API and internals are being deliberately restructured, so addons built against vanilla AE2 are not expected to work here without changes.
 
-See [Releases](https://github.com/PrototypeTrousers/Applied-Energistics-2/releases) for the compiled jars.
+This project started as a fork of [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2) by [PrototypeTrousers](https://github.com/PrototypeTrousers), initially addressing issues related to the [Nomifactory](https://www.curseforge.com/minecraft/modpacks/nomifactory) modpack, and was later maintained by the [AE2 Unofficial Extended Life Team](https://github.com/AE2-UEL) (now unmaintained). AE2UD continues from that lineage as an independent, actively developed fork.
 
 ## RecipeStages
 
@@ -38,6 +38,7 @@ The second argument allows you to customize which stages exactly you want to be 
 
 Special thanks to:
 
+* The AE2 Unofficial Extended Life Team for maintaining the fork this project continues from
 * PrototypeTrousers for the initial fork
 * Notch et al for Minecraft
 * Lex et al for MinecraftForge

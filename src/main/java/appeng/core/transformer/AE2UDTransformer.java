@@ -19,7 +19,7 @@
 
 package appeng.core.transformer;
 
-import appeng.core.AE2ELCore;
+import appeng.core.AE2UDCore;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
@@ -45,7 +45,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.function.Consumer;
 
-public class AE2ELTransformer implements IClassTransformer {
+public class AE2UDTransformer implements IClassTransformer {
 
     @Override
     public byte[] transform(String name, String transformedName, byte[] basicClass) {
@@ -92,7 +92,7 @@ public class AE2ELTransformer implements IClassTransformer {
     }
 
     public static void spliceClasses(final ClassNode data, final String className, final String... methods) {
-        try (InputStream stream = AE2ELCore.class.getClassLoader().getResourceAsStream(className.replace('.', '/') + ".class")) {
+        try (InputStream stream = AE2UDCore.class.getClassLoader().getResourceAsStream(className.replace('.', '/') + ".class")) {
             spliceClasses(data, ByteStreams.toByteArray(stream), className, methods);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -103,7 +103,7 @@ public class AE2ELTransformer implements IClassTransformer {
     public static void spliceClasses(final ClassNode nodeData, final byte[] dataSplice, final String className, final String... methods) {
         // System.out.println("Splicing from " + className + " to " + targetClassName)
         if (dataSplice == null) {
-            throw new RuntimeException("Class " + className + " not found! This is a AE2EL bug!");
+            throw new RuntimeException("Class " + className + " not found! This is a AE2UD bug!");
         }
 
         final Set<String> methodSet = Sets.newHashSet(methods);
@@ -153,7 +153,7 @@ public class AE2ELTransformer implements IClassTransformer {
                             }
                         }
 
-                        oldMn.name = methodList.get((methodList.indexOf(oldMn.name)) & (~1)) + "_ae2el_old";
+                        oldMn.name = methodList.get((methodList.indexOf(oldMn.name)) & (~1)) + "_ae2ud_old";
                         nodeData.methods.add(oldMn);
                         added = true;
                         break;

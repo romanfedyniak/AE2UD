@@ -19,5 +19,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AE2-UEL
+          name: AE2UD
           path: build/libs/*.jar # Make sure this path matches the location of your build artifacts
