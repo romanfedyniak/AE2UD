@@ -19,14 +19,12 @@
 package appeng.tile.inventory;
 
 
-import appeng.api.AEApi;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
-import appeng.util.item.AEItemStack;
 import appeng.util.iterators.AEInvIterator;
 import appeng.util.iterators.InvIterator;
 import net.minecraft.item.ItemStack;
@@ -40,7 +38,7 @@ import java.util.Iterator;
 
 public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterable<ItemStack> {
     private final IAEAppEngInventory te;
-    private final IAEItemStack[] inv;
+    private final GenericStack[] inv;
     private final int size;
     private int maxStack;
     private boolean dirtyFlag = false;
@@ -49,21 +47,21 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
         this.te = te;
         this.size = s;
         this.maxStack = 64;
-        this.inv = new IAEItemStack[s];
+        this.inv = new GenericStack[s];
     }
 
     public AppEngInternalAEInventory(final IAEAppEngInventory te, final int s, int stackSize) {
         this.te = te;
         this.size = s;
         this.maxStack = stackSize;
-        this.inv = new IAEItemStack[s];
+        this.inv = new GenericStack[s];
     }
 
     public void setMaxStackSize(final int s) {
         this.maxStack = s;
     }
 
-    public IAEItemStack getAEStackInSlot(final int var1) {
+    public GenericStack getAEStackInSlot(final int var1) {
         return this.inv[var1];
     }
 
@@ -78,9 +76,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             try {
                 final NBTTagCompound c = new NBTTagCompound();
 
-                if (this.inv[x] != null) {
-                    this.inv[x].writeToNBT(c);
-                }
+                GenericStack.writeTag(c, this.inv[x]);
 
                 target.setTag("#" + x, c);
             } catch (final Exception ignored) {
@@ -101,7 +97,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
                 final NBTTagCompound c = target.getCompoundTag("#" + x);
 
                 if (c != null) {
-                    this.inv[x] = AEItemStack.fromNBT(c);
+                    this.inv[x] = GenericStack.readTag(c);
                 }
             } catch (final Exception e) {
                 AELog.debug(e);
@@ -120,11 +116,12 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
     @Override
     public ItemStack getStackInSlot(final int var1) {
-        if (this.inv[var1] == null) {
+        final GenericStack stack = this.inv[var1];
+        if (stack == null || !(stack.what() instanceof AEItemKey itemKey)) {
             return ItemStack.EMPTY;
         }
 
-        return this.inv[var1].createItemStack();
+        return itemKey.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()));
     }
 
     @Override
@@ -152,11 +149,8 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
         if (!simulate) {
             if (existing.isEmpty()) {
-                this.inv[slot] = AEApi.instance()
-                        .storage()
-                        .getStorageChannel(IItemStorageChannel.class)
-                        .createStack(
-                                reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+                this.inv[slot] = GenericStack
+                        .fromItemStack(reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
             } else {
                 existing.grow(reachedLimit ? limit : stack.getCount());
             }
@@ -191,7 +185,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
     @Override
     public void setStackInSlot(final int slot, final ItemStack newItemStack) {
         ItemStack oldStack = this.getStackInSlot(slot).copy();
-        this.inv[slot] = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(newItemStack);
+        this.inv[slot] = GenericStack.fromItemStack(newItemStack);
 
         if (this.te != null && Platform.isServer()) {
             ItemStack newStack = newItemStack.copy();
@@ -231,7 +225,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
         return new InvIterator(this);
     }
 
-    public Iterator<IAEItemStack> getNewAEIterator() {
+    public Iterator<GenericStack> getNewAEIterator() {
         return new AEInvIterator(this);
     }
 

@@ -42,6 +42,16 @@ public interface ICellGuiHandler {
     boolean isHandlerFor(AEKeyType keyType);
 
     /**
+     * Lets a handler claim one specific cell item ahead of the generic handler for its key type.
+     * <p>
+     * An addon shipping a cell with its own screen overrides this; the registry prefers a
+     * specialized handler over a generic one for the same key type.
+     */
+    default boolean isSpecializedFor(ItemStack is) {
+        return false;
+    }
+
+    /**
      * Opens the chest GUI for the given cell.
      */
     void openChestGui(EntityPlayer player, IChestOrDrive chest, ICellHandler cellHandler, StorageCell inv, ItemStack is,

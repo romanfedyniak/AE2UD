@@ -652,7 +652,7 @@ Consequences:
 
 ## 8.3 Amendment after wave 1a — `ICraftingGrid.getCraftables()`
 
-**This is a change to the frozen API. Pending owner confirmation.**
+**This was a change to the frozen API. Approved by the owner 2026-07-27.**
 
 A wave 1a agent, per rule 2, stopped instead of inventing a workaround and reported: the old `IAEItemStack` carried a **craftable** flag (plus `countRequestable`), and `KeyCounter` only has a `long`. After migration a terminal could no longer tell that the network has a pattern for an item it does not physically stock — the "craftable" rows in the terminal would simply vanish.
 
@@ -820,13 +820,15 @@ void onCraftingCPUChange(AEKey what, IActionSource source);
 
 ### IMPORTANT for wave 2 — the shape of `appeng.crafting` that is already assumed
 
-`CraftingGridCache` and `CraftingCPUCluster` are **already written** as though `appeng.crafting` looks like the following. This is not a proposal — it is what the assembled wave 1b code already stands on. Wave 2 must match it exactly or the integration will diverge:
+**Approved by the owner 2026-07-27.** `CraftingGridCache` and `CraftingCPUCluster` are **already written** as though `appeng.crafting` looks like the following. This is not a proposal — it is what the assembled wave 1b code already stands on. Wave 2 must match it exactly or the integration will diverge:
 
 ```java
 MECraftingInventory(MEStorage, boolean, boolean, boolean);   // plus MEStorage-style insert/extract/getAvailableStacks
 CraftingJob(World, IGrid, IActionSource, GenericStack, ICraftingCallback);
 GenericStack CraftingLink.injectItems(GenericStack, Actionable);
 ```
+
+Note on `MECraftingInventory`: the old class had five constructors, two of which are relevant — `(IMEInventory<IAEItemStack>, boolean, boolean, boolean)` and `(IMEMonitor<IAEItemStack>, IActionSource, boolean, boolean, boolean)`. Both source types collapse into `MEStorage`, so the two merge into one and the `IActionSource` parameter disappears. The four-argument form above is the one already used, at `CraftingCPUCluster.java:785`. If a call site turns out to need the action source, **add** a five-argument overload — that is an addition and breaks nothing. Do not change the four-argument form. The three booleans are unchanged: `logExtracted`, `logInjections`, `logMissing`. The old `(IItemList<IAEItemStack>)` constructor becomes `(KeyCounter)`.
 
 One more wave 1b assumption: `CraftingGridCache implements IStorageProvider, MEStorage` and mounts itself into the network at priority `Integer.MAX_VALUE`. This preserves the old trick where the CPU pretends to be the highest-priority storage in order to intercept insertion and detect that a craft has finished. Without it `completeJob()` is never called.
 
@@ -845,6 +847,130 @@ One more wave 1b assumption: `CraftingGridCache implements IStorageProvider, MES
 - `ContainerCraftingCPU` — implement `ICraftingCPUListener` instead of `IMEMonitorHandlerReceiver<IAEItemStack>`; `cpu.addListener(this, null)` on attach, `cpu.removeListener(this)` on detach. Wave 4.
 - `PacketMEInventoryUpdate` is `IAEItemStack`-based and needs an `appendItem(GenericStack)`-shaped overload. Wave 4, affects every terminal.
 - `TileDrive` — new `DriveWatcher(StorageCell, Runnable)` constructor. Wave 2.
+
+### Wave 2 — `crafting`, `tile`, `helpers`, `capabilities`, `core` (done)
+
+**Deleted:** `tile\misc\CondenserVoidInventory` (merged into `CondenserItemInventory` — `MEStorage` is not per-channel, so one class covers item plus void-everything-else).
+
+**Created:** `core\api\AEItemKeyType`, `core\api\AEFluidKeyType` — the first concrete key types. The Forge registry is built in `Registration.newRegistry()` (`RegistryEvent.NewRegistry`) and both types are registered inline in that same handler, which is the only construction that provably runs before item registration.
+
+```java
+// appeng.core.api.AEItemKeyType extends AEKeyType     — registry name AEKeyTypes.ITEMS_ID
+// appeng.core.api.AEFluidKeyType extends AEKeyType    — registry name AEKeyTypes.FLUIDS_ID
+//   getAmountPerOperation() = 125, getAmountPerByte() = 8000, getAmountPerUnit() = 1000, getUnitSymbol() = "B"
+// Button textures/icons are PLACEHOLDERS (states.png + vanilla chest / water bucket). Wave 4 replaces them.
+
+// appeng.core.api.ApiStorage implements IStorageHelper — delegates entirely to appeng.util.Platform statics
+
+// appeng.core.api.ApiClientHelper implements IClientHelper
+public void addCellInformation(StorageCell handler, List<String> lines);   // sticky tooltip preserved
+
+// appeng.core.features.registries.cell.BasicCellHandler / CreativeCellHandler implements ICellHandler
+public boolean isCell(ItemStack);
+public StorageCell getCellInventory(ItemStack, @Nullable ISaveProvider host);
+// getStatusForCell/cellIdleDrain removed — that information lives on the returned StorageCell
+
+// appeng.core.features.registries.cell.CellRegistry   (main-only registry, see the open question below)
+public static synchronized void addCellGuiHandler(ICellGuiHandler);
+public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType);
+public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType, ItemStack cell);  // prefers isSpecializedFor
+
+// appeng.crafting.MECraftingInventory implements MEStorage
+public MECraftingInventory();
+public MECraftingInventory(MEStorage target, boolean logExtracted, boolean logInjections, boolean logMissing);
+public MECraftingInventory(KeyCounter counter);
+public KeyCounter getItemList();   public boolean commit(IActionSource src);
+
+// appeng.crafting.CraftingJob implements ICraftingJob
+public CraftingJob(World, IGrid, IActionSource, GenericStack what, ICraftingCallback);
+public void populatePlan(KeyCounter plan);                        // frozen interface method — MERGES the two
+public void populatePlan(KeyCounter used, KeyCounter requestable); // additive, full fidelity — see §9.2
+public GenericStack getOutput();
+
+// appeng.crafting.CraftingLink
+public GenericStack injectItems(GenericStack input, Actionable mode);
+
+// appeng.crafting.CraftingTreeProcess / CraftingTreeNode
+public void addContainers(GenericStack container);
+public CraftingTreeNode(ICraftingGrid, CraftingJob, AEKey wat, CraftingTreeProcess par, int slot, int depth);
+
+// appeng.crafting.CraftBranchFailure / CraftingCalculationFailure
+public CraftBranchFailure(AEKey what, long howMany);
+
+// appeng.helpers.DualityInterface — now implements MEStorage directly (was IStorageMonitorable)
+public MEStorage getInventory();
+public MEStorage getMonitorable(IActionSource src, MEStorage myInterface);
+public GenericStack injectCraftedItems(ICraftingLink link, GenericStack items, Actionable mode);
+public void onStackReturnedToNetwork(GenericStack stack);
+public GenericStack getUnlockStack();
+
+// appeng.helpers.IInterfaceHost
+default void onStackReturnNetwork(GenericStack stack);
+
+// appeng.helpers.MultiCraftingTracker
+public boolean handleCrafting(int x, long itemToCraft, AEKey what, InventoryAdaptor d, World w,
+        IGrid g, ICraftingGrid cg, IActionSource mySrc);
+
+// appeng.helpers.PatternHelper implements ICraftingPatternDetails
+GenericStack[] getInputs()/getCondensedInputs()/getCondensedOutputs()/getOutputs();
+List<GenericStack> getSubstituteInputs(int slot);
+
+// appeng.helpers.WirelessTerminalGuiObject implements IPortableCell
+public MEStorage getInventory();    // returns this
+// NOTE: addListener/removeListener were dropped here — see §10 "Third case", wave 4 must resolve
+
+// appeng.capabilities.NullMENetworkAccessor
+public MEStorage getInventory(IActionSource src);
+
+// appeng.tile.inventory.AppEngInternalAEInventory
+public GenericStack getAEStackInSlot(int slot);
+public Iterator<GenericStack> getNewAEIterator();
+
+// appeng.tile.inventory.AppEngCellInventory
+public void setHandler(int slot, StorageCell handler);
+
+// appeng.tile.inventory.AppEngNetworkInventory
+public AppEngNetworkInventory(Supplier<IStorageService> networkSupplier, IActionSource source,
+        IAEAppEngInventory inventory, int size, int maxStack);
+
+// appeng.tile.crafting.TileCraftingMonitorTile
+public void setJob(GenericStack is);   public GenericStack getJobProgress();
+
+// appeng.tile.misc.TileInterface
+public void onStackReturnNetwork(GenericStack stack);
+public GenericStack injectCraftedItems(ICraftingLink link, GenericStack items, Actionable mode);
+
+// appeng.tile.misc.TileSecurityStation / storage.TileChest
+public MEStorage getInventory();                             // ITerminalHost
+public void mountInventories(IStorageMounts storageMounts);  // TileChest + TileDrive, via IStorageProvider
+```
+
+Notes from wave 2 that later waves depend on:
+
+- **A cell's key type** is read as `is.getItem() instanceof IBasicCellItem c ? c.getKeyType() : AEKeyType.items()`. The creative cell item does not implement `IBasicCellItem` yet — wave 3 owns it.
+- **`TileChest` security gating** is preserved by an in-file `SecurityAwareCellStorage` wrapper around `DriveWatcher`, because `MEStorage` has no permission hook. Machine-sourced access still bypasses it, as before.
+- **Cell status lights** map `DriveWatcher.getStatus()` → `CellState` → the old 0–4 `DriveSlotState` scale, duplicated in `TileDrive` and `TileChest` because the rendering side (`appeng.block`) is untouched.
+- **`ICellGuiHandler.isSpecializedFor(ItemStack)` was restored** after wave 2 dropped it. It is a `default false` addon extension point — an addon shipping a cell with its own screen overrides it. `CellRegistry.getGuiHandler(AEKeyType, ItemStack)` honours it; `TileChest.openGui()` calls that overload.
+
+**Open question for the owner:** `ICellGuiHandler` lives in `src/api`, but its registry (`CellRegistry`) is in `src/main` under an internal package, because the frozen `StorageCells` only covers `ICellHandler` and upstream has no GUI-handler concept at all. An addon can therefore implement the interface but must import an internal class to register it. The alternative is adding `addCellGuiHandler`/`getGuiHandler` to `StorageCells` in api — symmetric, and keeps addons out of internal packages.
+
+## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
+
+**Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
+
+A literal translation therefore compiles cleanly and silently changes behaviour. Wave 2 found a real instance: `CraftingTreeProcess.addProcess()` and `getTimes()` compared a *condensed* (summed) amount against a *per-slot* amount and relied on size-insensitive equality. Translated literally, any recipe using the same item in more than one slot would have quietly failed to match.
+
+**Rule:** when the old code compared stacks for identity, compare `a.what().equals(b.what())`, not `a.equals(b)`. Only compare whole `GenericStack`s when the amount genuinely is part of the comparison. Audit every `.equals(` you carry over from a stack comparison, and say in your report which ones you checked.
+
+Audited clean as of wave 2: `appeng.me`, `appeng.crafting`, `appeng.helpers`, `appeng.util`, `appeng.tile`, `appeng.core`.
+
+## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
+
+The old crafting plan stored **two** numbers per key on one `IAEItemStack`: `stackSize` (used/missing) and `countRequestable` (to be produced by crafting). A `KeyCounter` holds one `long` per key, so the two cannot coexist in it.
+
+Wave 2 solved this without touching the frozen API: `CraftingTreeNode`/`CraftingTreeProcess` thread two separate counters, the frozen `ICraftingJob.populatePlan(KeyCounter)` merges them, and an **additive** concrete overload `CraftingJob.populatePlan(KeyCounter used, KeyCounter requestable)` exposes the unmerged split.
+
+The only caller is `ContainerCraftConfirm.java:201` (`this.result.populatePlan(plan)`), which is exactly the GUI that displays the used/craft split in separate columns. Wave 4 must therefore **hold the concrete `CraftingJob` type and call the two-argument overload**, otherwise the craft-confirm screen loses a distinction it used to show. If holding the concrete type turns out to be impractical, the alternative is amending `ICraftingJob` to take two counters — a frozen-API change requiring owner approval, so raise it rather than merging silently.
 
 ## 10. AE2UD-specific features that upstream does not have
 
@@ -865,6 +991,17 @@ Instructing agents to "mirror AE2-original" has a side effect: features the fork
 **Restored.** `MEInventoryHandler.isSticky()/setSticky()`, `BasicCellInventory.isSticky()` computed from the cell's upgrades at construction, propagated by `DriveWatcher`. In `NetworkStorage.insert()` a dedicated sticky pass runs first: if any sticky mount claims the key, the regular preferred/fallback passes are skipped entirely for that call, so there is no spillover into non-sticky storage even when the sticky mount cannot hold everything. `extract()` drains non-sticky mounts first. This is a deliberate divergence from upstream.
 
 **Crafting CPU push notifications.** `addListener`/`removeListener`/`postChange` were removed from `CraftingCPUCluster` along with the `IMEMonitorHandlerReceiver` model, and polling was proposed instead. The owner rejected polling. **Restored** as `ICraftingCPUListener` (`onCraftingCPUChange(AEKey, IActionSource)`), with `postChange` calls back in every place the old code had them: `injectItems`, both extraction branches and both output loops in `executeCrafting`, `cancel()`, `submitJob()`, `storeItems()`.
+
+### Third case: terminal live updates — decide before wave 4
+
+`ContainerMEMonitorable` is the base container of **every** ME terminal (regular, crafting, pattern, wireless, portable cell). Before the migration (`git show 1e855f729:src/main/java/appeng/container/implementations/ContainerMEMonitorable.java`) it did `this.monitor.addListener(this, null)` at line 116 and received live deltas in `postChange(IBaseMonitor<IAEItemStack>, Iterable<IAEItemStack>, IActionSource)` at line 369. That is how a terminal updates in real time.
+
+Wave 2 removed `addListener`/`removeListener` from `WirelessTerminalGuiObject` on the grounds that watchers do not apply to a portable GUI object. Two distinct cases hide behind that, and only one of them has a replacement:
+
+1. **Network-backed terminals** — the replacement exists and is correct: register an `IStorageWatcherNode` and call `IStackWatcher.setWatchAll(true)`, then handle `onStackChange(AEKey what, long amount)`. This is exactly what `setWatchAll` was added for.
+2. **Portable cell / view-only cell terminals** — these view a `StorageCell` directly, with no grid node and therefore no watcher. **There is no replacement yet.** Per rule 6, polling is not an acceptable answer. Wave 4 needs a small push interface on this path, in the same spirit as `ICraftingCPUListener` (§9).
+
+Wave 4 must not begin `ContainerMEMonitorable` until case 2 has an agreed design.
 
 ### Inventory of at-risk features
 

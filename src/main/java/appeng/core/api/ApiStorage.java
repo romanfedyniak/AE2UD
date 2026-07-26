@@ -19,77 +19,32 @@
 package appeng.core.api;
 
 
+import javax.annotation.Nonnull;
+
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+
+import com.google.common.base.Preconditions;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IStorageChannel;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
 import appeng.api.storage.IStorageHelper;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.MEStorage;
 import appeng.crafting.CraftingLink;
-import appeng.fluids.items.FluidDummyItem;
-import appeng.fluids.util.AEFluidStack;
-import appeng.fluids.util.FluidList;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
-import appeng.util.item.ItemList;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.MutableClassToInstanceMap;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 
 
+/**
+ * Replaces the old channel-registry role ({@code registerStorageChannel}/{@code getStorageChannel}/
+ * {@code storageChannels()}) with a thin adapter over {@link Platform}'s static implementations - key types are
+ * now a Forge registry ({@link appeng.api.stacks.AEKeyTypes}), not something {@link IStorageHelper} hands out.
+ */
 public class ApiStorage implements IStorageHelper {
-
-    private final ClassToInstanceMap<IStorageChannel<?>> channels;
-
-    public ApiStorage() {
-        this.channels = MutableClassToInstanceMap.create();
-        this.registerStorageChannel(IItemStorageChannel.class, new ItemStorageChannel());
-        this.registerStorageChannel(IFluidStorageChannel.class, new FluidStorageChannel());
-    }
-
-    @Override
-    public <T extends IAEStack<T>, C extends IStorageChannel<T>> void registerStorageChannel(Class<C> channel, C factory) {
-        Preconditions.checkNotNull(channel);
-        Preconditions.checkNotNull(factory);
-        Preconditions.checkArgument(channel.isInstance(factory));
-        Preconditions.checkArgument(!this.channels.containsKey(channel));
-
-        this.channels.putInstance(channel, factory);
-    }
-
-    @Override
-    public <T extends IAEStack<T>, C extends IStorageChannel<T>> C getStorageChannel(Class<C> channel) {
-        Preconditions.checkNotNull(channel);
-
-        final C type = this.channels.getInstance(channel);
-
-        Preconditions.checkNotNull(type);
-
-        return type;
-    }
-
-    @Override
-    public Collection<IStorageChannel<? extends IAEStack<?>>> storageChannels() {
-        return Collections.unmodifiableCollection(this.channels.values());
-    }
 
     @Override
     public ICraftingLink loadCraftingLink(final NBTTagCompound data, final ICraftingRequester req) {
@@ -100,105 +55,38 @@ public class ApiStorage implements IStorageHelper {
     }
 
     @Override
-    public <T extends IAEStack<T>> T poweredInsert(IEnergySource energy, IMEInventory<T> inv, T input, IActionSource src, Actionable mode) {
-        return Platform.poweredInsert(energy, inv, input, src, mode);
+    public long poweredExtraction(@Nonnull final IEnergySource energy, @Nonnull final MEStorage inv, @Nonnull final AEKey request,
+            final long amount, @Nonnull final IActionSource src, @Nonnull final Actionable mode) {
+        Preconditions.checkNotNull(energy);
+        Preconditions.checkNotNull(inv);
+        Preconditions.checkNotNull(request);
+        Preconditions.checkNotNull(src);
+        Preconditions.checkNotNull(mode);
+
+        return Platform.poweredExtraction(energy, inv, request, amount, src, mode);
     }
 
     @Override
-    public <T extends IAEStack<T>> T poweredExtraction(IEnergySource energy, IMEInventory<T> inv, T request, IActionSource src, Actionable mode) {
-        return Platform.poweredExtraction(energy, inv, request, src, mode);
+    public long poweredInsert(@Nonnull final IEnergySource energy, @Nonnull final MEStorage inv, @Nonnull final AEKey input,
+            final long amount, @Nonnull final IActionSource src, @Nonnull final Actionable mode) {
+        Preconditions.checkNotNull(energy);
+        Preconditions.checkNotNull(inv);
+        Preconditions.checkNotNull(input);
+        Preconditions.checkNotNull(src);
+        Preconditions.checkNotNull(mode);
+
+        return Platform.poweredInsert(energy, inv, input, amount, src, mode);
     }
 
     @Override
-    public void postChanges(IStorageGrid gs, ItemStack removedCell, ItemStack addedCell, IActionSource src) {
+    public void postChanges(@Nonnull final IStorageService gs, @Nonnull final ItemStack removedCell, @Nonnull final ItemStack addedCell,
+            @Nonnull final IActionSource src) {
         Preconditions.checkNotNull(gs);
         Preconditions.checkNotNull(removedCell);
         Preconditions.checkNotNull(addedCell);
         Preconditions.checkNotNull(src);
 
         Platform.postChanges(gs, removedCell, addedCell, src);
-    }
-
-    private static final class ItemStorageChannel implements IItemStorageChannel {
-
-        @Override
-        public IItemList<IAEItemStack> createList() {
-            return new ItemList();
-        }
-
-        @Override
-        public IAEItemStack createStack(Object input) {
-            Preconditions.checkNotNull(input);
-
-            if (input instanceof ItemStack) {
-                return AEItemStack.fromItemStack((ItemStack) input);
-            }
-
-            return null;
-        }
-
-        @Override
-        public IAEItemStack createFromNBT(NBTTagCompound nbt) {
-            Preconditions.checkNotNull(nbt);
-            return AEItemStack.fromNBT(nbt);
-        }
-
-        @Override
-        public IAEItemStack readFromPacket(ByteBuf input) throws IOException {
-            Preconditions.checkNotNull(input);
-
-            return AEItemStack.fromPacket(input);
-        }
-    }
-
-    private static final class FluidStorageChannel implements IFluidStorageChannel {
-
-        @Override
-        public int transferFactor() {
-            return 1000;
-        }
-
-        @Override
-        public int getUnitsPerByte() {
-            return 8000;
-        }
-
-        @Override
-        public IItemList<IAEFluidStack> createList() {
-            return new FluidList();
-        }
-
-        @Override
-        public IAEFluidStack createStack(Object input) {
-            Preconditions.checkNotNull(input);
-
-            if (input instanceof FluidStack) {
-                return AEFluidStack.fromFluidStack((FluidStack) input);
-            }
-            if (input instanceof ItemStack) {
-                final ItemStack is = (ItemStack) input;
-                if (is.getItem() instanceof FluidDummyItem) {
-                    return AEFluidStack.fromFluidStack(((FluidDummyItem) is.getItem()).getFluidStack(is));
-                } else {
-                    return AEFluidStack.fromFluidStack(FluidUtil.getFluidContained(is));
-                }
-            }
-
-            return null;
-        }
-
-        @Override
-        public IAEFluidStack readFromPacket(ByteBuf input) throws IOException {
-            Preconditions.checkNotNull(input);
-
-            return AEFluidStack.fromPacket(input);
-        }
-
-        @Override
-        public IAEFluidStack createFromNBT(NBTTagCompound nbt) {
-            Preconditions.checkNotNull(nbt);
-            return AEFluidStack.fromNBT(nbt);
-        }
     }
 
 }

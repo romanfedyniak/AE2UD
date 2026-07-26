@@ -25,14 +25,9 @@ import appeng.api.config.Settings;
 import appeng.api.definitions.IMaterials;
 import appeng.api.implementations.items.IStorageComponent;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.IStorageMonitorable;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.IStorageMonitorableAccessor;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.capabilities.Capabilities;
@@ -183,7 +178,6 @@ public class TileCondenser extends AEBaseInvTile implements IConfigManagerHost, 
                     removed.shrink(output.getCount());
                 }
             }
-            this.meHandler.outputChanged(added, removed);
         }
     }
 
@@ -280,8 +274,7 @@ public class TileCondenser extends AEBaseInvTile implements IConfigManagerHost, 
         @Override
         public int fill(FluidStack resource, boolean doFill) {
             if (doFill) {
-                final IStorageChannel<IAEFluidStack> chan = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
-                TileCondenser.this.addPower((resource == null ? 0.0 : (double) resource.amount) / chan.transferFactor());
+                TileCondenser.this.addPower((resource == null ? 0.0 : (double) resource.amount) / AEKeyType.fluids().getAmountPerOperation());
             }
 
             return resource == null ? 0 : resource.amount;
@@ -301,32 +294,16 @@ public class TileCondenser extends AEBaseInvTile implements IConfigManagerHost, 
     }
 
     /**
-     * This is used to expose a fake ME subnetwork that is only composed of this condenser tile. The purpose of this is
-     * to enable the condenser to
-     * override the {@link appeng.api.storage.IMEInventoryHandler#validForPass(int)} method to make sure a condenser is
-     * only ever used if an item
-     * can't go anywhere else.
+     * This is used to expose a fake ME subnetwork that is only composed of this condenser tile, so that a storage
+     * bus mounting it can fall back to voiding/producing power for whatever it cannot otherwise store.
      */
-    private class MEHandler implements IStorageMonitorableAccessor, IStorageMonitorable {
+    private class MEHandler implements IStorageMonitorableAccessor {
         private final CondenserItemInventory itemInventory = new CondenserItemInventory(TileCondenser.this);
-
-        void outputChanged(ItemStack added, ItemStack removed) {
-            this.itemInventory.updateOutput(added, removed);
-        }
 
         @Nullable
         @Override
-        public IStorageMonitorable getInventory(IActionSource src) {
-            return this;
-        }
-
-        @Override
-        public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-            if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-                return (IMEMonitor<T>) this.itemInventory;
-            } else {
-                return new CondenserVoidInventory<>(TileCondenser.this, channel);
-            }
+        public MEStorage getInventory(IActionSource src) {
+            return this.itemInventory;
         }
     }
 }

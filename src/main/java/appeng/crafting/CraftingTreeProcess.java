@@ -23,8 +23,10 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.core.AEConfig;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import com.google.common.collect.ImmutableCollection;
@@ -46,7 +48,7 @@ public class CraftingTreeProcess {
     boolean possible = true;
     private long crafts = 0;
     private long bytes = 0;
-    private ArrayList<IAEItemStack> containers;
+    private ArrayList<GenericStack> containers;
 
     public CraftingTreeProcess(final ICraftingGrid cc, final CraftingJob job, final ICraftingPatternDetails details, final CraftingTreeNode craftingTreeNode, final int depth) {
         this.parent = craftingTreeNode;
@@ -62,38 +64,38 @@ public class CraftingTreeProcess {
             return;
         }
 
-        final IAEItemStack[] list = details.getInputs();
+        final GenericStack[] list = details.getInputs();
 
         // this is minor different then below, this slot uses the pattern, but kinda fudges it.
-        for (IAEItemStack part : details.getCondensedInputs()) {
+        for (GenericStack part : details.getCondensedInputs()) {
             if (part == null) {
                 continue;
             }
             for (int x = 0; x < list.length; x++) {
-                final IAEItemStack comparePart = list[x];
-                if (part.equals(comparePart)) {
+                final GenericStack comparePart = list[x];
+                // NOTE: compare by identity only (this.what()), not GenericStack.equals() - the
+                // condensed part carries the *total* amount across every slot using this item, while
+                // list[x] carries just that one slot's amount, so the two amounts routinely differ
+                // even when it's "the same input".
+                if (comparePart != null && part.what().equals(comparePart.what())) {
                     boolean isPartContainer = false;
-                    if (part.getItem().hasContainerItem(part.getDefinition())) {
+                    AEKey partKey = part.what();
+
+                    if (partKey instanceof AEItemKey partItemKey && partItemKey.getItem().hasContainerItem(partItemKey.getReadOnlyStack())) {
                         part = list[x];
+                        partKey = part.what();
                         isPartContainer = true;
                     }
 
-                    long wantedSize = part.getStackSize();
+                    long wantedSize = part.amount();
 
                     if (AEConfig.instance().getEnableCraftingSubstitutes()) {
-                        IAEItemStack found;
                         long remaining;
                         long requestAmount;
 
                         if (details.canSubstitute()) {
-                            for (IAEItemStack subs : details.getSubstituteInputs(x)) {
-                                found = job.checkAvailable(subs);
-
-                                if (found != null) {
-                                    remaining = found.getStackSize();
-                                } else {
-                                    remaining = 0;
-                                }
+                            for (final GenericStack subs : details.getSubstituteInputs(x)) {
+                                remaining = job.checkAvailable(subs.what(), subs.amount());
 
                                 if (remaining > 0) {
                                     if (remaining >= wantedSize) {
@@ -104,8 +106,7 @@ public class CraftingTreeProcess {
                                         requestAmount = remaining;
                                         wantedSize -= remaining;
                                     }
-                                    subs = subs.copy().setStackSize(requestAmount);
-                                    CraftingTreeNode node = new CraftingTreeNode(cc, job, subs, this, x, depth + 1);
+                                    final CraftingTreeNode node = new CraftingTreeNode(cc, job, subs.what(), this, x, depth + 1);
                                     this.nodes.put(node, requestAmount);
                                     if (wantedSize == 0) {
                                         break;
@@ -113,13 +114,7 @@ public class CraftingTreeProcess {
                                 }
                             }
                         } else {
-                            found = job.checkAvailable(part);
-
-                            if (found != null) {
-                                remaining = found.getStackSize();
-                            } else {
-                                remaining = 0;
-                            }
+                            remaining = job.checkAvailable(partKey, wantedSize);
 
                             if (remaining > 0) {
                                 if (remaining >= wantedSize) {
@@ -130,31 +125,29 @@ public class CraftingTreeProcess {
                                     requestAmount = remaining;
                                     wantedSize -= remaining;
                                 }
-                                part = part.copy().setStackSize(requestAmount);
-                                this.nodes.put(new CraftingTreeNode(cc, job, part, this, x, depth + 1), requestAmount);
+                                this.nodes.put(new CraftingTreeNode(cc, job, partKey, this, x, depth + 1), requestAmount);
                             }
                         }
                         if (wantedSize > 0) {
-                            if (details.canSubstitute() && cc.getCraftingFor(part, details, x, world).isEmpty()) {
+                            if (details.canSubstitute() && cc.getCraftingFor(partKey, details, x, world).isEmpty()) {
                                 //try to order the crafting of a substitute
                                 ICraftingPatternDetails prioritizedPattern = null;
-                                IAEItemStack prioritizedIAE = null;
-                                for (IAEItemStack subs : details.getSubstituteInputs(x)) {
-                                    ImmutableCollection<ICraftingPatternDetails> detailCollection = cc.getCraftingFor(subs, details, x, world);
+                                AEKey prioritizedKey = null;
+                                for (final GenericStack subs : details.getSubstituteInputs(x)) {
+                                    final ImmutableCollection<ICraftingPatternDetails> detailCollection = cc.getCraftingFor(subs.what(), details, x, world);
 
-                                    for (ICraftingPatternDetails sp : detailCollection) {
+                                    for (final ICraftingPatternDetails sp : detailCollection) {
                                         if (prioritizedPattern == null) {
                                             prioritizedPattern = sp;
-                                            prioritizedIAE = subs;
+                                            prioritizedKey = subs.what();
                                         } else {
                                             if (sp.getPriority() > prioritizedPattern.getPriority()) {
                                                 prioritizedPattern = sp;
                                             }
                                         }
                                     }
-                                    if (prioritizedIAE != null) {
-                                        subs = subs.copy().setStackSize(wantedSize);
-                                        CraftingTreeNode node = new CraftingTreeNode(cc, job, subs, this, x, depth + 1);
+                                    if (prioritizedKey != null) {
+                                        final CraftingTreeNode node = new CraftingTreeNode(cc, job, subs.what(), this, x, depth + 1);
                                         this.nodes.put(node, wantedSize);
                                         wantedSize = 0;
                                         break;
@@ -164,9 +157,8 @@ public class CraftingTreeProcess {
                         }
                     }
                     if (wantedSize > 0) {
-                        part = part.copy().setStackSize(wantedSize);
                         // use the first slot...
-                        this.nodes.put(new CraftingTreeNode(cc, job, part, this, x, depth + 1), wantedSize);
+                        this.nodes.put(new CraftingTreeNode(cc, job, partKey, this, x, depth + 1), wantedSize);
                         wantedSize = 0;
                     }
                     if (!isPartContainer && wantedSize == 0) {
@@ -182,9 +174,10 @@ public class CraftingTreeProcess {
     }
 
     long getTimes(final long remaining, final long stackSize) {
-        for (final IAEItemStack part : details.getCondensedOutputs()) {
-            for (final IAEItemStack o : details.getCondensedInputs()) {
-                if (part.equals(o) || o.getItem().hasContainerItem(part.getDefinition())) {
+        for (final GenericStack part : details.getCondensedOutputs()) {
+            for (final GenericStack o : details.getCondensedInputs()) {
+                if (part.what().equals(o.what())
+                        || (o.what() instanceof AEItemKey oItemKey && oItemKey.getItem().hasContainerItem(oItemKey.getReadOnlyStack()))) {
                     return 1;
                 }
             }
@@ -198,27 +191,28 @@ public class CraftingTreeProcess {
 
         // request and remove inputs...
         for (final Entry<CraftingTreeNode, Long> entry : this.nodes.object2LongEntrySet()) {
-            final IAEItemStack stack = entry.getKey().request(inv, entry.getValue() * amountOfTimes, src);
+            entry.getKey().request(inv, entry.getValue() * amountOfTimes, src);
         }
 
         if (this.containers != null) {
-            for (IAEItemStack iae : containers) {
-                inv.injectItems(iae, Actionable.MODULATE, src);
+            for (final GenericStack container : this.containers) {
+                inv.insert(container.what(), container.amount(), Actionable.MODULATE, src);
             }
             containers = null;
         }
         // assume its possible.
 
         // add crafting results..
-        for (final IAEItemStack out : this.details.getCondensedOutputs()) {
-            final IAEItemStack o = out.copy();
-            o.setStackSize(o.getStackSize() * amountOfTimes);
-            inv.injectItems(o, Actionable.MODULATE, src);
+        for (final GenericStack out : this.details.getCondensedOutputs()) {
+            if (out == null) {
+                continue;
+            }
+            inv.insert(out.what(), out.amount() * amountOfTimes, Actionable.MODULATE, src);
         }
         this.crafts += amountOfTimes;
     }
 
-    public void addContainers(IAEItemStack container) {
+    public void addContainers(GenericStack container) {
         if (this.containers == null) {
             this.containers = new ArrayList<>();
         }
@@ -226,7 +220,9 @@ public class CraftingTreeProcess {
     }
 
     void dive(final CraftingJob job) {
-        job.addTask(this.getAmountCrafted(this.parent.getStack(1)), this.crafts, this.details, this.depth);
+        final GenericStack amountCrafted = this.getAmountCrafted(this.parent.what);
+        job.addTask(amountCrafted.what(), amountCrafted.amount() * this.crafts, this.details, this.depth);
+
         for (final Entry<CraftingTreeNode, Long> entry : this.nodes.object2LongEntrySet()) {
             entry.getKey().dive(job);
         }
@@ -234,21 +230,27 @@ public class CraftingTreeProcess {
         job.addBytes(this.crafts * 8 + this.bytes);
     }
 
-    IAEItemStack getAmountCrafted(IAEItemStack what2) {
-        for (final IAEItemStack is : this.details.getCondensedOutputs()) {
-            if (is.isSameType(what2)) {
-                what2 = what2.copy();
-                what2.setStackSize(is.getStackSize());
-                return what2;
+    /**
+     * Was {@code IAEItemStack getAmountCrafted(IAEItemStack)}. Finds which of this pattern's
+     * condensed outputs matches {@code what2} (exact identity first, then item+damageable fuzzy), and
+     * returns that output's key paired with its per-craft amount. Note the exact-match branch keeps
+     * {@code what2}'s own identity (matching old behaviour: {@code what2.copy()}), while the fuzzy
+     * branch takes the matched output's identity instead (old: {@code is.copy()}) - the two branches
+     * are intentionally asymmetric.
+     */
+    GenericStack getAmountCrafted(AEKey what2) {
+        for (final GenericStack is : this.details.getCondensedOutputs()) {
+            if (is != null && is.what().equals(what2)) {
+                return new GenericStack(what2, is.amount());
             }
         }
 
         // more fuzzy!
-        for (final IAEItemStack is : this.details.getCondensedOutputs()) {
-            if (is.getItem() == what2.getItem() && (is.getItem().isDamageable() || is.getItemDamage() == what2.getItemDamage())) {
-                what2 = is.copy();
-                what2.setStackSize(is.getStackSize());
-                return what2;
+        for (final GenericStack is : this.details.getCondensedOutputs()) {
+            if (is != null && is.what() instanceof AEItemKey isItemKey && what2 instanceof AEItemKey what2Key
+                    && isItemKey.getItem() == what2Key.getItem()
+                    && (isItemKey.getItem().isDamageable() || isItemKey.getDamage() == what2Key.getDamage())) {
+                return new GenericStack(is.what(), is.amount());
             }
         }
 
@@ -272,15 +274,16 @@ public class CraftingTreeProcess {
         }
     }
 
-    void getPlan(final IItemList<IAEItemStack> plan) {
-        for (IAEItemStack i : this.details.getOutputs()) {
-            i = i.copy();
-            i.setCountRequestable(i.getStackSize() * this.crafts);
-            plan.addRequestable(i);
+    void getPlan(final KeyCounter used, final KeyCounter requestable) {
+        for (final GenericStack i : this.details.getOutputs()) {
+            if (i == null) {
+                continue;
+            }
+            requestable.add(i.what(), i.amount() * this.crafts);
         }
 
         for (final Entry<CraftingTreeNode, Long> entry : this.nodes.object2LongEntrySet()) {
-            entry.getKey().getPlan(plan);
+            entry.getKey().getPlan(used, requestable);
         }
     }
 }

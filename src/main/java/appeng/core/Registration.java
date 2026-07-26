@@ -36,16 +36,22 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.pathing.IPathingGrid;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.networking.spatial.ISpatialCache;
-import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.ITickManager;
 import appeng.bootstrap.ICriterionTriggerRegistry;
 import appeng.bootstrap.IModelRegistry;
 import appeng.bootstrap.components.*;
 import appeng.capabilities.Capabilities;
 import appeng.core.features.AEFeature;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
+import appeng.api.storage.StorageCells;
+import appeng.core.api.AEFluidKeyType;
+import appeng.core.api.AEItemKeyType;
 import appeng.core.features.registries.P2PTunnelRegistry;
 import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.BasicItemCellGuiHandler;
+import appeng.core.features.registries.cell.CellRegistry;
 import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
@@ -102,6 +108,7 @@ import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.registries.IForgeRegistry;
+import net.minecraftforge.registries.RegistryBuilder;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -202,16 +209,20 @@ final class Registration {
         gcr.registerGridCache(ITickManager.class, TickManagerCache.class);
         gcr.registerGridCache(IEnergyGrid.class, EnergyGridCache.class);
         gcr.registerGridCache(IPathingGrid.class, PathGridCache.class);
-        gcr.registerGridCache(IStorageGrid.class, GridStorageCache.class);
+        gcr.registerGridCache(IStorageService.class, GridStorageCache.class);
         gcr.registerGridCache(P2PCache.class, P2PCache.class);
         gcr.registerGridCache(ISpatialCache.class, SpatialPylonCache.class);
         gcr.registerGridCache(ISecurityGrid.class, SecurityCache.class);
         gcr.registerGridCache(ICraftingGrid.class, CraftingGridCache.class);
 
-        registries.cell().addCellHandler(new BasicCellHandler());
-        registries.cell().addCellHandler(new CreativeCellHandler());
-        registries.cell().addCellGuiHandler(new BasicItemCellGuiHandler());
-        registries.cell().addCellGuiHandler(new BasicFluidCellGuiHandler());
+        StorageCells.addCellHandler(new BasicCellHandler());
+        StorageCells.addCellHandler(new CreativeCellHandler());
+        CellRegistry.addCellGuiHandler(new BasicItemCellGuiHandler());
+        CellRegistry.addCellGuiHandler(new BasicFluidCellGuiHandler());
+
+        // TODO wave 3: once the GenericStack.Wrapper item (CONTRACT.md §8 item 3, §8.1 item 2) exists, call
+        // appeng.api.stacks.GenericStack.setWrapper(...) with it here, before anything can query non-item keys'
+        // wrapForDisplayOrFilter(). It does not exist anywhere in src/main yet.
 
         api.definitions().materials().matterBall().maybeStack(1).ifPresent(ammoStack ->
         {
@@ -223,6 +234,24 @@ final class Registration {
         PartItemPredicate.register();
         Stats.register();
         this.advancementTriggers = new AdvancementTriggers(new CriterionTrigggerRegistry());
+    }
+
+    /**
+     * Creates the {@link AEKeyType} Forge registry and registers the two built-in types under it, before any item
+     * registration happens (CONTRACT.md §1.3). {@link RegistryEvent.NewRegistry} fires once, before every
+     * {@code RegistryEvent.Register<T>} (including {@link Item}'s), so both the registry's existence and its
+     * built-in entries are guaranteed to be in place in time.
+     */
+    @SubscribeEvent
+    public void newRegistry(RegistryEvent.NewRegistry event) {
+        final IForgeRegistry<AEKeyType> registry = new RegistryBuilder<AEKeyType>()
+                .setName(AEKeyTypes.REGISTRY_NAME)
+                .setIDRange(0, Integer.MAX_VALUE - 1)
+                .setType(AEKeyType.class)
+                .create();
+
+        registry.register(new AEItemKeyType());
+        registry.register(new AEFluidKeyType());
     }
 
     @SubscribeEvent

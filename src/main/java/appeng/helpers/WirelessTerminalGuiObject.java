@@ -20,7 +20,6 @@ package appeng.helpers;
 
 
 import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.features.ILocatable;
@@ -34,14 +33,10 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.IMachineSet;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.DimensionalCoord;
 import appeng.api.util.IConfigManager;
 import appeng.container.interfaces.IInventorySlotAware;
@@ -69,8 +64,8 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     private final EntityPlayer myPlayer;
     private final boolean isBaubleSlot;
     private IGrid targetGrid;
-    private IStorageGrid sg;
-    private IMEMonitor<IAEItemStack> itemStorage;
+    private IStorageService sg;
+    private MEStorage networkStorage;
     private IWirelessAccessPoint myWap;
     private double sqRange = Double.MAX_VALUE;
     private double myRange = Double.MAX_VALUE;
@@ -103,9 +98,9 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             if (n != null) {
                 this.targetGrid = n.getGrid();
                 if (this.targetGrid != null) {
-                    this.sg = this.targetGrid.getCache(IStorageGrid.class);
+                    this.sg = this.targetGrid.getCache(IStorageService.class);
                     if (this.sg != null) {
-                        this.itemStorage = this.sg.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+                        this.networkStorage = this.sg.getInventory();
                     }
                 }
             }
@@ -121,107 +116,31 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     }
 
     @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        return this.sg.getInventory(channel);
+    public MEStorage getInventory() {
+        return this;
     }
 
     @Override
-    public void addListener(final IMEMonitorHandlerReceiver<IAEItemStack> l, final Object verificationToken) {
-        if (this.itemStorage != null) {
-            this.itemStorage.addListener(l, verificationToken);
-        }
-    }
-
-    @Override
-    public void removeListener(final IMEMonitorHandlerReceiver<IAEItemStack> l) {
-        if (this.itemStorage != null) {
-            this.itemStorage.removeListener(l);
-        }
-    }
-
-    @Override
-    public IItemList<IAEItemStack> getAvailableItems(final IItemList<IAEItemStack> out) {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getAvailableItems(out);
-        }
-        return out;
-    }
-
-    @Override
-    public IItemList<IAEItemStack> getStorageList() {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getStorageList();
-        }
-        return null;
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getAccess();
-        }
-        return AccessRestriction.NO_ACCESS;
-    }
-
-    @Override
-    public boolean isPrioritized(final IAEItemStack input) {
-        if (this.itemStorage != null) {
-            return this.itemStorage.isPrioritized(input);
-        }
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final IAEItemStack input) {
-        if (this.itemStorage != null) {
-            return this.itemStorage.canAccept(input);
-        }
-        return false;
-    }
-
-    @Override
-    public int getPriority() {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getPriority();
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (this.networkStorage != null) {
+            return this.networkStorage.insert(what, amount, mode, source);
         }
         return 0;
     }
 
     @Override
-    public int getSlot() {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getSlot();
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (this.networkStorage != null) {
+            return this.networkStorage.extract(what, amount, mode, source);
         }
         return 0;
     }
 
     @Override
-    public boolean validForPass(final int i) {
-        return this.itemStorage.validForPass(i);
-    }
-
-    @Override
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable type, final IActionSource src) {
-        if (this.itemStorage != null) {
-            return this.itemStorage.injectItems(input, type, src);
+    public void getAvailableStacks(final KeyCounter out) {
+        if (this.networkStorage != null) {
+            this.networkStorage.getAvailableStacks(out);
         }
-        return input;
-    }
-
-    @Override
-    public IAEItemStack extractItems(final IAEItemStack request, final Actionable mode, final IActionSource src) {
-        if (this.itemStorage != null) {
-            return this.itemStorage.extractItems(request, mode, src);
-        }
-        return null;
-    }
-
-    @Override
-    public IStorageChannel getChannel() {
-        if (this.itemStorage != null) {
-            return this.itemStorage.getChannel();
-        }
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
     }
 
     @Override
@@ -259,7 +178,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     public boolean rangeCheck() {
         this.sqRange = this.myRange = Double.MAX_VALUE;
 
-        if (this.targetGrid != null && this.itemStorage != null) {
+        if (this.targetGrid != null && this.networkStorage != null) {
             if (this.myWap != null) {
                 if (this.myWap.getGrid() == this.targetGrid) {
                     return this.testWap(this.myWap);

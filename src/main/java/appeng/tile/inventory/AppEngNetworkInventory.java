@@ -1,15 +1,12 @@
 package appeng.tile.inventory;
 
-import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.storage.MEStorage;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
-import appeng.util.item.AEItemStack;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.wrapper.RangedWrapper;
 
@@ -18,10 +15,10 @@ import java.util.function.Supplier;
 
 public class AppEngNetworkInventory extends AppEngInternalOversizedInventory {
 
-    private final Supplier<IStorageGrid> supplier;
+    private final Supplier<IStorageService> supplier;
     private final IActionSource source;
 
-    public AppEngNetworkInventory(Supplier<IStorageGrid> networkSupplier, IActionSource source, IAEAppEngInventory inventory, int size, int maxStack) {
+    public AppEngNetworkInventory(Supplier<IStorageService> networkSupplier, IActionSource source, IAEAppEngInventory inventory, int size, int maxStack) {
         super(inventory, size, maxStack);
         this.supplier = networkSupplier;
         this.source = source;
@@ -30,20 +27,22 @@ public class AppEngNetworkInventory extends AppEngInternalOversizedInventory {
     @Override
     @Nonnull
     public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
-        IStorageGrid storage = supplier.get();
-        if (storage != null) {
-            int originAmt = stack.getCount();
-            IMEInventory<IAEItemStack> dest = storage.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-            IAEItemStack overflow = dest.injectItems(AEItemStack.fromItemStack(stack), simulate ? Actionable.SIMULATE : Actionable.MODULATE, this.source);
-            if (overflow != null && overflow.getStackSize() == originAmt) {
+        IStorageService storage = supplier.get();
+        AEItemKey what = AEItemKey.of(stack);
+        if (storage != null && what != null) {
+            long originAmt = stack.getCount();
+            MEStorage dest = storage.getInventory();
+            long inserted = dest.insert(what, originAmt, simulate ? Actionable.SIMULATE : Actionable.MODULATE, this.source);
+
+            if (inserted <= 0) {
                 return super.insertItem(slot, stack, simulate);
-            } else if (overflow != null) {
+            } else if (inserted < originAmt) {
                 if (!simulate) {
                     ItemStack added = stack.copy();
-                    added.setCount((int) (stack.getCount() - overflow.getStackSize()));
+                    added.setCount((int) inserted);
                     this.getTileEntity().onChangeInventory(this, slot, InvOperation.INSERT, ItemStack.EMPTY, added);
                 }
-                return overflow.createItemStack();
+                return what.toStack((int) (originAmt - inserted));
             } else {
                 if (!simulate) {
                     this.getTileEntity().onChangeInventory(this, slot, InvOperation.INSERT, ItemStack.EMPTY, stack);

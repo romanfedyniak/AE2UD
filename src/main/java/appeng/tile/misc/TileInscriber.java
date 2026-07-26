@@ -35,6 +35,8 @@ import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
@@ -51,7 +53,6 @@ import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperChainedItemHandler;
 import appeng.util.inv.WrapperFilteredItemHandler;
 import appeng.util.inv.filter.IAEItemFilter;
-import appeng.util.item.AEItemStack;
 import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
@@ -154,7 +155,11 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
 
         for (int num = 0; num < this.inv.getSlots(); num++) {
             if ((slot & (1 << num)) > 0) {
-                this.inv.setStackInSlot(num, AEItemStack.fromPacket(data).createItemStack());
+                final GenericStack stack = GenericStack.readBuffer(data);
+                final ItemStack is = stack != null && stack.what() instanceof AEItemKey itemKey
+                        ? itemKey.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()))
+                        : ItemStack.EMPTY;
+                this.inv.setStackInSlot(num, is);
             } else {
                 this.inv.setStackInSlot(num, ItemStack.EMPTY);
             }
@@ -178,8 +183,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         data.writeByte(slot);
         for (int num = 0; num < this.inv.getSlots(); num++) {
             if ((slot & (1 << num)) > 0) {
-                final AEItemStack st = AEItemStack.fromItemStack(this.inv.getStackInSlot(num));
-                st.writeToPacket(data);
+                GenericStack.writeBuffer(GenericStack.fromItemStack(this.inv.getStackInSlot(num)), data);
             }
         }
     }

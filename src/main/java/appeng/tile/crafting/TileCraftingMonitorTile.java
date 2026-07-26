@@ -21,9 +21,8 @@ package appeng.tile.crafting;
 
 import appeng.api.AEApi;
 import appeng.api.implementations.tiles.IColorableTile;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AEColor;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -44,7 +43,7 @@ public class TileCraftingMonitorTile extends TileCraftingTile implements IColora
     @SideOnly(Side.CLIENT)
     private boolean updateList;
 
-    private IAEItemStack dspPlay;
+    private GenericStack dspPlay;
     private AEColor paintedColor = AEColor.TRANSPARENT;
 
     @Override
@@ -53,13 +52,7 @@ public class TileCraftingMonitorTile extends TileCraftingTile implements IColora
         final AEColor oldPaintedColor = this.paintedColor;
         this.paintedColor = AEColor.values()[data.readByte()];
 
-        final boolean hasItem = data.readBoolean();
-
-        if (hasItem) {
-            this.dspPlay = AEItemStack.fromPacket(data);
-        } else {
-            this.dspPlay = null;
-        }
+        this.dspPlay = GenericStack.readBuffer(data);
 
         this.setUpdateList(true);
         return oldPaintedColor != this.paintedColor || c; // tesr!
@@ -70,12 +63,7 @@ public class TileCraftingMonitorTile extends TileCraftingTile implements IColora
         super.writeToStream(data);
         data.writeByte(this.paintedColor.ordinal());
 
-        if (this.dspPlay == null) {
-            data.writeBoolean(false);
-        } else {
-            data.writeBoolean(true);
-            this.dspPlay.writeToPacket(data);
-        }
+        GenericStack.writeBuffer(this.dspPlay, data);
     }
 
     @Override
@@ -103,20 +91,15 @@ public class TileCraftingMonitorTile extends TileCraftingTile implements IColora
         return true;
     }
 
-    public void setJob(final IAEItemStack is) {
-        if ((is == null) != (this.dspPlay == null)) {
-            this.dspPlay = is == null ? null : is.copy();
+    public void setJob(final GenericStack is) {
+        if (!java.util.Objects.equals(is, this.dspPlay)) {
+            this.dspPlay = is;
             this.markForUpdate();
-        } else if (is != null && this.dspPlay != null) {
-            if (is.getStackSize() != this.dspPlay.getStackSize()) {
-                this.dspPlay = is.copy();
-                this.markForUpdate();
-            }
         }
     }
 
-    public IAEItemStack getJobProgress() {
-        return this.dspPlay; // AEItemStack.create( new ItemStack( Items.DIAMOND, 64 ) );
+    public GenericStack getJobProgress() {
+        return this.dspPlay;
     }
 
     @Override

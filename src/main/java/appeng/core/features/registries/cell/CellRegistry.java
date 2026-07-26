@@ -19,96 +19,77 @@
 package appeng.core.features.registries.cell;
 
 
-import appeng.api.storage.*;
-import appeng.api.storage.data.IAEStack;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
-import net.minecraft.item.ItemStack;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+
+import javax.annotation.Nullable;
+
+import net.minecraft.item.ItemStack;
+
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.ICellGuiHandler;
 
 
-public class CellRegistry implements ICellRegistry {
+/**
+ * Registry of {@link ICellGuiHandler}s: picks which GUI to open when a cell is placed in an ME Chest
+ * ({@code TileChest}).
+ * <p/>
+ * The old {@code ICellRegistry} carried both {@code ICellHandler}s and {@code ICellGuiHandler}s. Cell handlers moved
+ * to the new frozen {@code appeng.api.storage.StorageCells} (CONTRACT.md §4.3), but that replacement only exposes
+ * cell-handler methods - it has no counterpart for GUI handlers, and {@code IRegistryContainer.cell()} (which used to
+ * expose this registry) was removed outright in wave 0. Nothing in {@code src/api} holds {@link ICellGuiHandler}
+ * instances any more.
+ * <p/>
+ * Per CONTRACT.md rule 6 (do not cut a mechanic) this class keeps the routing mechanism alive as a plain
+ * {@code src/main}-only registry - it does not add anything to the frozen API, it only mirrors
+ * {@code StorageCells}' shape for the one registry that API dropped. The old {@code isSpecializedFor(ItemStack)}
+ * tie-breaker has no equivalent on the new {@link ICellGuiHandler} (its only match method is
+ * {@link ICellGuiHandler#isHandlerFor(AEKeyType)}), so resolution is simply "first handler that claims the type".
+ * This is flagged for owner review, the same way the wave 1a {@code ICraftingGrid.getCraftables} gap was
+ * (CONTRACT.md §8.3).
+ */
+public final class CellRegistry {
 
-    private final List<ICellHandler> handlers;
-    private final List<ICellGuiHandler> guiHandlers;
+    private static final List<ICellGuiHandler> guiHandlers = new ArrayList<>();
 
-    public CellRegistry() {
-        this.handlers = new ArrayList<>();
-        this.guiHandlers = new ArrayList<>();
+    private CellRegistry() {
     }
 
-    @Override
-    public void addCellHandler(final ICellHandler handler) {
-        Preconditions.checkNotNull(handler, "Called before FMLInitializationEvent.");
-        Preconditions.checkArgument(!this.handlers.contains(handler), "Tried to register the same handler instance twice.");
-
-        this.handlers.add(handler);
-
-        // Verify that the first entry is always our own handler.
-        Verify.verify(this.handlers.get(0) instanceof BasicCellHandler);
+    public static synchronized void addCellGuiHandler(final ICellGuiHandler handler) {
+        Objects.requireNonNull(handler, "handler");
+        guiHandlers.add(handler);
     }
 
-    @Override
-    public boolean isCellHandled(final ItemStack is) {
-        if (is.isEmpty()) {
-            return false;
-        }
-        for (final ICellHandler ch : this.handlers) {
-            if (ch.isCell(is)) {
-                return true;
+    @Nullable
+    public static synchronized ICellGuiHandler getGuiHandler(final AEKeyType keyType) {
+        return getGuiHandler(keyType, ItemStack.EMPTY);
+    }
+
+    /**
+     * Looks up the screen for a specific cell item.
+     *
+     * A handler that claims this exact item through {@link ICellGuiHandler#isSpecializedFor(ItemStack)} wins over the
+     * generic handler for the same key type. This is what lets an addon ship a cell with its own screen, and it is why
+     * the lookup takes the stack and not only the type.
+     */
+    @Nullable
+    public static synchronized ICellGuiHandler getGuiHandler(final AEKeyType keyType, final ItemStack cell) {
+        Objects.requireNonNull(keyType, "keyType");
+
+        ICellGuiHandler generic = null;
+        for (final ICellGuiHandler handler : guiHandlers) {
+            if (!handler.isHandlerFor(keyType)) {
+                continue;
+            }
+            if (!cell.isEmpty() && handler.isSpecializedFor(cell)) {
+                return handler;
+            }
+            if (generic == null) {
+                generic = handler;
             }
         }
-        return false;
+        return generic;
     }
 
-    @Override
-    public ICellHandler getHandler(final ItemStack is) {
-        if (is.isEmpty()) {
-            return null;
-        }
-        for (final ICellHandler ch : this.handlers) {
-            if (ch.isCell(is)) {
-                return ch;
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public <T extends IAEStack<T>> ICellInventoryHandler<T> getCellInventory(final ItemStack is, final ISaveProvider container, final IStorageChannel<T> chan) {
-        if (is.isEmpty()) {
-            return null;
-        }
-        for (final ICellHandler ch : this.handlers) {
-            if (ch.isCell(is)) {
-                return ch.getCellInventory(is, container, chan);
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public void addCellGuiHandler(ICellGuiHandler handler) {
-        this.guiHandlers.add(handler);
-    }
-
-    @Override
-    public <T extends IAEStack<T>> ICellGuiHandler getGuiHandler(final IStorageChannel<T> channel, final ItemStack is) {
-        ICellGuiHandler fallBack = null;
-
-        for (final ICellGuiHandler ch : this.guiHandlers) {
-            if (ch.isHandlerFor(channel)) {
-                if (ch.isSpecializedFor(is)) {
-                    return ch;
-                }
-
-                if (fallBack == null) {
-                    fallBack = ch;
-                }
-            }
-        }
-        return fallBack;
-    }
 }

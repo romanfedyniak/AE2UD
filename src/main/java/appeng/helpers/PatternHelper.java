@@ -19,13 +19,12 @@
 package appeng.helpers;
 
 
-import appeng.api.AEApi;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.container.ContainerNull;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -58,16 +57,16 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final InventoryCrafting testFrame;
     private final ItemStack correctOutput;
     private final IRecipe standardRecipe;
-    private final IAEItemStack[] condensedInputs;
-    private final IAEItemStack[] condensedOutputs;
-    private final IAEItemStack[] inputs;
-    private final IAEItemStack[] outputs;
-    private final Map<Integer, List<IAEItemStack>> substituteInputs;
+    private final GenericStack[] condensedInputs;
+    private final GenericStack[] condensedOutputs;
+    private final GenericStack[] inputs;
+    private final GenericStack[] outputs;
+    private final Map<Integer, List<GenericStack>> substituteInputs;
     private final boolean isCrafting;
     private final boolean canSubstitute;
     private final Set<TestLookup> failCache = new HashSet<>();
     private final Set<TestLookup> passCache = new HashSet<>();
-    private final IAEItemStack pattern;
+    private final AEItemKey pattern;
     private int priority = 0;
 
     public PatternHelper(final ItemStack is, final World w) {
@@ -86,10 +85,10 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
         this.canSubstitute = this.isCrafting && encodedValue.getBoolean("substitute");
         this.patternItem = is;
-        this.pattern = AEItemStack.fromItemStack(is);
+        this.pattern = AEItemKey.of(is);
 
-        final List<IAEItemStack> in = new ArrayList<>();
-        final List<IAEItemStack> out = new ArrayList<>();
+        final List<GenericStack> in = new ArrayList<>();
+        final List<GenericStack> out = new ArrayList<>();
 
         for (int x = 0; x < inTag.tagCount(); x++) {
             NBTTagCompound ingredient = inTag.getCompoundTagAt(x);
@@ -105,7 +104,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 this.markItemAs(x, gs, TestStatus.ACCEPT);
             }
 
-            in.add(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(gs));
+            in.add(GenericStack.fromItemStack(gs));
             this.testFrame.setInventorySlotContents(x, gs);
         }
 
@@ -114,7 +113,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
             if (this.standardRecipe != null) {
                 this.correctOutput = this.standardRecipe.getCraftingResult(this.crafting);
-                out.add(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(this.correctOutput));
+                out.add(GenericStack.fromItemStack(this.correctOutput));
             } else {
                 throw new IllegalStateException("No pattern here!");
             }
@@ -131,64 +130,52 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 }
 
                 if (!gs.isEmpty()) {
-                    out.add(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(gs));
+                    out.add(GenericStack.fromItemStack(gs));
                 }
             }
         }
         final int outputLength = out.size();
 
-        this.inputs = in.toArray(new IAEItemStack[isCrafting ? CRAFTING_INPUT_LIMIT : PROCESSING_INPUT_LIMIT]);
-        this.outputs = out.toArray(new IAEItemStack[outputLength]);
+        this.inputs = in.toArray(new GenericStack[isCrafting ? CRAFTING_INPUT_LIMIT : PROCESSING_INPUT_LIMIT]);
+        this.outputs = out.toArray(new GenericStack[outputLength]);
         this.substituteInputs = new HashMap<>(CRAFTING_INPUT_LIMIT);
 
-        final Map<IAEItemStack, IAEItemStack> tmpOutputs = new HashMap<>();
+        final Map<AEKey, GenericStack> tmpOutputs = new LinkedHashMap<>();
 
-        for (final IAEItemStack io : this.outputs) {
+        for (final GenericStack io : this.outputs) {
             if (io == null) {
                 continue;
             }
 
-            final IAEItemStack g = tmpOutputs.get(io);
-
-            if (g == null) {
-                tmpOutputs.put(io, io.copy());
-            } else {
-                g.add(io);
-            }
+            tmpOutputs.merge(io.what(), io, GenericStack::sum);
         }
 
-        final Map<IAEItemStack, IAEItemStack> tmpInputs = new HashMap<>();
+        final Map<AEKey, GenericStack> tmpInputs = new LinkedHashMap<>();
 
-        for (final IAEItemStack io : this.inputs) {
+        for (final GenericStack io : this.inputs) {
             if (io == null) {
                 continue;
             }
 
-            final IAEItemStack g = tmpInputs.get(io);
-
-            if (g == null) {
-                tmpInputs.put(io, io.copy());
-            } else {
-                g.add(io);
-            }
+            tmpInputs.merge(io.what(), io, GenericStack::sum);
         }
 
         if (tmpOutputs.isEmpty() || tmpInputs.isEmpty()) {
             throw new IllegalStateException("No pattern here!");
         }
 
-        this.condensedInputs = new IAEItemStack[tmpInputs.size()];
+        this.condensedInputs = new GenericStack[tmpInputs.size()];
         int offset = 0;
 
-        for (final IAEItemStack io : tmpInputs.values()) {
+        for (final GenericStack io : tmpInputs.values()) {
             this.condensedInputs[offset] = io;
             offset++;
         }
 
         offset = 0;
-        this.condensedOutputs = new IAEItemStack[tmpOutputs.size()];
+        this.condensedOutputs = new GenericStack[tmpOutputs.size()];
 
-        for (final IAEItemStack io : tmpOutputs.values()) {
+        for (final GenericStack io : tmpOutputs.values()) {
             this.condensedOutputs[offset] = io;
             offset++;
         }
@@ -233,7 +220,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
         // If we cannot substitute, the items must match exactly
         if ((!(i.getItem().isDamageable() || Platform.isGTDamageableItem(i.getItem())) && !canSubstitute) && slotIndex < inputs.length) {
-            if (!inputs[slotIndex].isSameType(i)) {
+            if (!(inputs[slotIndex].what() instanceof AEItemKey key) || !key.matches(i)) {
                 this.markItemAs(slotIndex, i, TestStatus.DECLINE);
                 return false;
             }
@@ -259,22 +246,22 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     @Override
-    public IAEItemStack[] getInputs() {
+    public GenericStack[] getInputs() {
         return this.inputs;
     }
 
     @Override
-    public IAEItemStack[] getCondensedInputs() {
+    public GenericStack[] getCondensedInputs() {
         return this.condensedInputs;
     }
 
     @Override
-    public IAEItemStack[] getCondensedOutputs() {
+    public GenericStack[] getCondensedOutputs() {
         return this.condensedOutputs;
     }
 
     @Override
-    public IAEItemStack[] getOutputs() {
+    public GenericStack[] getOutputs() {
         return this.outputs;
     }
 
@@ -284,16 +271,16 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     @Override
-    public List<IAEItemStack> getSubstituteInputs(int slot) {
+    public List<GenericStack> getSubstituteInputs(int slot) {
         if (this.inputs[slot] == null) {
             return Collections.emptyList();
         }
 
         return this.substituteInputs.computeIfAbsent(slot, value -> {
             ItemStack[] matchingStacks = getRecipeIngredient(slot).getMatchingStacks();
-            List<IAEItemStack> itemList = new ArrayList<>(matchingStacks.length + 1);
+            List<GenericStack> itemList = new ArrayList<>(matchingStacks.length + 1);
             for (ItemStack matchingStack : matchingStacks) {
-                itemList.add(AEItemStack.fromItemStack(matchingStack));
+                itemList.add(GenericStack.fromItemStack(matchingStack));
             }
 
             // Ensure that the specific item put in by the user is at the beginning,
@@ -387,7 +374,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         }
 
         if (this.outputs != null && this.outputs.length > 0) {
-            return this.outputs[0].createItemStack();
+            return GenericStack.wrapInItemStack(this.outputs[0]);
         }
 
         return ItemStack.EMPTY;

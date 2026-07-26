@@ -19,7 +19,6 @@
 package appeng.helpers;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.IUpgradeableHost;
@@ -35,18 +34,18 @@ import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.events.MENetworkCraftingPatternChange;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
-import appeng.api.storage.*;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageMonitorableAccessor;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -59,7 +58,6 @@ import appeng.me.helpers.AENetworkProxy;
 import appeng.me.helpers.IGridProxyable;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.MEMonitorIInventory;
-import appeng.me.storage.MEMonitorPassThrough;
 import appeng.me.storage.NullInventory;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
@@ -73,7 +71,6 @@ import appeng.util.IConfigManagerHost;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.inv.*;
-import appeng.util.item.AEItemStack;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import de.ellpeck.actuallyadditions.api.tile.IPhantomTile;
@@ -93,6 +90,7 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.items.CapabilityItemHandler;
@@ -107,13 +105,13 @@ import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 
-public class DualityInterface implements IGridTickable, IStorageMonitorable, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost {
+public class DualityInterface implements IGridTickable, MEStorage, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost {
     public static final int NUMBER_OF_STORAGE_SLOTS = 9;
     public static final int NUMBER_OF_CONFIG_SLOTS = 9;
     public static final int NUMBER_OF_PATTERN_SLOTS = 36;
 
     private static final Collection<Block> BAD_BLOCKS = new HashSet<>(100);
-    private final IAEItemStack[] requireWork = {null, null, null, null, null, null, null, null, null};
+    private final GenericStack[] requireWork = {null, null, null, null, null, null, null, null, null};
     private final MultiCraftingTracker craftingTracker;
     private final AENetworkProxy gridProxy;
     private final IInterfaceHost iHost;
@@ -123,27 +121,27 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
     private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, NUMBER_OF_CONFIG_SLOTS, 512);
     private final AppEngInternalInventory storage;
     private final AppEngInternalInventory patterns = new AppEngInternalInventory(this, NUMBER_OF_PATTERN_SLOTS, 1);
-    private final MEMonitorPassThrough<IAEItemStack> items = new MEMonitorPassThrough<>(new NullInventory<IAEItemStack>(), AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-    private final MEMonitorPassThrough<IAEFluidStack> fluids = new MEMonitorPassThrough<>(new NullInventory<IAEFluidStack>(), AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
+    /** The network's storage, covering every registered key type. Swapped out as the grid connects/disconnects. */
+    private MEStorage networkStorage = NullInventory.of();
     private final UpgradeInventory upgrades;
     private final Accessor accessor = new Accessor();
     private boolean hasConfig = false;
     private int priority;
     private Set<ICraftingPatternDetails> craftingList = null;
     private List<ItemStack> waitingToSend = null;
-    private IMEInventory<IAEItemStack> destination;
+    private MEStorage destination;
     private int isWorking = -1;
     private EnumSet<EnumFacing> visitedFaces = EnumSet.noneOf(EnumFacing.class);
     private EnumMap<EnumFacing, List<ItemStack>> waitingToSendFacing = new EnumMap<>(EnumFacing.class);
     private boolean resetConfigCache = true;
-    private IMEMonitor<IAEItemStack> configCachedHandler;
+    private MEStorage configCachedHandler;
 
     private YesNo redstoneState = YesNo.UNDECIDED;
 
     @Nullable
     private UnlockCraftingEvent unlockEvent;
     @Nullable
-    private IAEItemStack unlockStack;
+    private GenericStack unlockStack;
 
     public DualityInterface(final AENetworkProxy networkProxy, final IInterfaceHost ih) {
         this.gridProxy = networkProxy;
@@ -160,14 +158,12 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         final MachineSource actionSource = new MachineSource(this.iHost);
         this.mySource = actionSource;
         this.storage = new AppEngNetworkInventory(this::getStorageGrid, this.mySource, this, NUMBER_OF_STORAGE_SLOTS, 512);
-        this.fluids.setChangeSource(actionSource);
-        this.items.setChangeSource(actionSource);
 
         this.interfaceRequestSource = new InterfaceRequestSource(this.iHost);
     }
 
     @Nullable
-    private IStorageGrid getStorageGrid() {
+    private IStorageService getStorageGrid() {
         try {
             return this.gridProxy.getStorage();
         } catch (GridAccessException e) {
@@ -201,7 +197,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             this.updateCraftingList();
         } else if (inv == this.storage && slot >= 0) {
             if (added != ItemStack.EMPTY){
-                iHost.onStackReturnNetwork(AEItemStack.fromItemStack(added));
+                iHost.onStackReturnNetwork(GenericStack.fromItemStack(added));
             }
             final boolean had = this.hasWorkToDo();
 
@@ -238,7 +234,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             if (unlockStack != null) {
                 data.setByte("unlockEvent", (byte) 2);
                 NBTTagCompound unlockStackTag = new NBTTagCompound();
-                unlockStack.writeToNBT(unlockStackTag);
+                GenericStack.writeTag(unlockStackTag, unlockStack);
                 data.setTag("unlockStack", unlockStackTag);
             } else {
                 AELog.error("Saving MEInterface {}, locked waiting for stack, but stack is null!", iHost);
@@ -337,7 +333,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         };
 
         if (this.unlockEvent == UnlockCraftingEvent.RESULT) {
-            this.unlockStack = AEItemStack.fromNBT(data.getCompoundTag("unlockStack"));
+            this.unlockStack = GenericStack.readTag(data.getCompoundTag("unlockStack"));
             if (this.unlockStack == null) {
                 AELog.error("Could not load unlock stack for MEInterface from NBT: {}", data);
             }
@@ -473,7 +469,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             return true;
         }
 
-        for (final IAEItemStack requiredWork : this.requireWork) {
+        for (final GenericStack requiredWork : this.requireWork) {
             if (requiredWork != null) {
                 return true;
             }
@@ -482,8 +478,8 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
     }
 
     private void updatePlan(final int slot) {
-        IAEItemStack req = this.config.getAEStackInSlot(slot);
-        if (req != null && req.getStackSize() <= 0) {
+        GenericStack req = this.config.getAEStackInSlot(slot);
+        if (req != null && req.amount() <= 0) {
             this.config.setStackInSlot(slot, ItemStack.EMPTY);
             req = null;
         }
@@ -491,29 +487,28 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         final ItemStack stored = this.storage.getStackInSlot(slot);
 
         if (req == null && !stored.isEmpty()) {
-            final IAEItemStack work = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(stored);
-            this.requireWork[slot] = work.setStackSize(-work.getStackSize());
+            final AEItemKey storedKey = AEItemKey.of(stored);
+            this.requireWork[slot] = new GenericStack(storedKey, -stored.getCount());
             return;
         } else if (req != null) {
             if (stored.isEmpty()) // need to add stuff!
             {
-                this.requireWork[slot] = req.copy();
+                this.requireWork[slot] = req;
                 return;
-            } else if (req.isSameType(stored)) // same type and quantity  )!
+            } else if (req.what() instanceof AEItemKey reqKey && reqKey.matches(stored)) // same type and quantity  )!
             {
-                if (req.getStackSize() == stored.getCount()) {
+                if (req.amount() == stored.getCount()) {
                     this.requireWork[slot] = null;
                 } else                                // same type ( qty different? )!
                 {
-                    this.requireWork[slot] = req.copy();
-                    this.requireWork[slot].setStackSize(req.getStackSize() - stored.getCount());
+                    this.requireWork[slot] = new GenericStack(req.what(), req.amount() - stored.getCount());
                 }
                 return;
             } else
             // Stored != null; dispose!
             {
-                final IAEItemStack work = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(stored);
-                this.requireWork[slot] = work.setStackSize(-work.getStackSize());
+                final AEItemKey storedKey = AEItemKey.of(stored);
+                this.requireWork[slot] = new GenericStack(storedKey, -stored.getCount());
                 return;
             }
         }
@@ -596,11 +591,9 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
 
     @Override
     public boolean canInsert(final ItemStack stack) {
-        final IAEItemStack out = this.destination.injectItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(stack), Actionable.SIMULATE, null);
-        if (out == null) {
-            return true;
-        }
-        return out.getStackSize() != stack.getCount();
+        final AEItemKey what = AEItemKey.of(stack);
+        final long inserted = this.destination.insert(what, stack.getCount(), Actionable.SIMULATE, null);
+        return inserted != 0;
     }
 
     public IItemHandler getConfig() {
@@ -613,11 +606,9 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
 
     public void gridChanged() {
         try {
-            this.items.setInternal(this.gridProxy.getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
-            this.fluids.setInternal(this.gridProxy.getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class)));
+            this.networkStorage = this.gridProxy.getStorage().getInventory();
         } catch (final GridAccessException gae) {
-            this.items.setInternal(new NullInventory<IAEItemStack>());
-            this.fluids.setInternal(new NullInventory<IAEFluidStack>());
+            this.networkStorage = NullInventory.of();
         }
 
         this.notifyNeighbors();
@@ -732,24 +723,21 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
                 if (!targetTE.getInterfaceDuality().sameGrid(this.gridProxy.getGrid())) {
                     IStorageMonitorableAccessor mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
                     if (mon != null) {
-                        IStorageMonitorable sm = mon.getInventory(this.mySource);
-                        if (sm != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
-                            IMEMonitor<IAEItemStack> inv = sm.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-                            if (inv != null) {
-                                final Iterator<ItemStack> i = this.waitingToSendFacing.get(s).iterator();
-                                while (i.hasNext()) {
-                                    ItemStack whatToSend = i.next();
-                                    final IAEItemStack result = inv.injectItems(AEItemStack.fromItemStack(whatToSend), Actionable.MODULATE, this.mySource);
-                                    if (result != null) {
-                                        whatToSend.setCount((int) result.getStackSize());
-                                        whatToSend.setTagCompound(result.getDefinition().getTagCompound());
-                                    } else {
-                                        i.remove();
-                                    }
+                        MEStorage inv = mon.getInventory(this.mySource);
+                        if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
+                            final Iterator<ItemStack> i = this.waitingToSendFacing.get(s).iterator();
+                            while (i.hasNext()) {
+                                ItemStack whatToSend = i.next();
+                                final AEItemKey what = AEItemKey.of(whatToSend);
+                                final long inserted = inv.insert(what, whatToSend.getCount(), Actionable.MODULATE, this.mySource);
+                                if (inserted >= whatToSend.getCount()) {
+                                    i.remove();
+                                } else {
+                                    whatToSend.setCount((int) (whatToSend.getCount() - inserted));
                                 }
-                                if (this.waitingToSendFacing.get(s).isEmpty()) {
-                                    this.waitingToSendFacing.remove(s);
-                                }
+                            }
+                            if (this.waitingToSendFacing.get(s).isEmpty()) {
+                                this.waitingToSendFacing.remove(s);
                             }
                         }
                     }
@@ -795,39 +783,33 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         return didSomething;
     }
 
-    private boolean usePlan(final int x, final IAEItemStack itemStack) {
+    private boolean usePlan(final int x, final GenericStack itemStack) {
         final InventoryAdaptor adaptor = this.getAdaptor(x);
         this.isWorking = x;
 
         boolean changed = false;
         try {
-            this.destination = this.gridProxy.getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+            this.destination = this.gridProxy.getStorage().getInventory();
             final IEnergySource src = this.gridProxy.getEnergy();
 
-            if (itemStack.getStackSize() < 0) {
-                IAEItemStack toStore = itemStack.copy();
-                toStore.setStackSize(-toStore.getStackSize());
-
-                long diff = toStore.getStackSize();
+            if (itemStack.amount() < 0) {
+                final GenericStack toStore = new GenericStack(itemStack.what(), -itemStack.amount());
+                long diff = toStore.amount();
 
                 // make sure strange things didn't happen...
                 // TODO: check if OK
-                final ItemStack canExtract = adaptor.simulateRemove((int) diff, toStore.getDefinition(), null);
+                final ItemStack canExtract = adaptor.simulateRemove((int) diff, ((AEItemKey) toStore.what()).toStack(), null);
                 if (canExtract.isEmpty()) {
                     changed = true;
                     throw new GridAccessException();
                 }
 
-                toStore = Platform.poweredInsert(src, this.destination, toStore, this.interfaceRequestSource);
+                final long insertedAmt = Platform.poweredInsert(src, this.destination, toStore.what(), toStore.amount(), this.interfaceRequestSource);
 
-                if (toStore != null) {
-                    diff -= toStore.getStackSize();
-                }
-
-                if (diff != 0) {
+                if (insertedAmt != 0) {
                     // extract items!
                     changed = true;
-                    final ItemStack removed = adaptor.removeItems((int) diff, ItemStack.EMPTY, null);
+                    final ItemStack removed = adaptor.removeItems((int) insertedAmt, ItemStack.EMPTY, null);
                     if (removed.isEmpty()) {
                         throw new IllegalStateException("bad attempt at managing inventory. ( removeItems )");
                     }
@@ -836,36 +818,28 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
 
             if (this.craftingTracker.isBusy(x)) {
                 changed = this.handleCrafting(x, adaptor, itemStack) || changed;
-            } else if (itemStack.getStackSize() > 0) {
+            } else if (itemStack.amount() > 0 && itemStack.what() instanceof AEItemKey itemKey) {
                 // make sure strange things didn't happen...
 
-                ItemStack inputStack = itemStack.getCachedItemStack(itemStack.getStackSize());
+                ItemStack inputStack = itemKey.toStack((int) Math.min(itemStack.amount(), Integer.MAX_VALUE));
 
                 ItemStack remaining = adaptor.simulateAdd(inputStack);
 
                 if (!remaining.isEmpty()) {
-                    itemStack.setCachedItemStack(remaining);
                     changed = true;
                     throw new GridAccessException();
                 }
 
-                IAEItemStack storedStack = this.gridProxy.getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).getStorageList().findPrecise(itemStack);
-                if (storedStack != null) {
-                    final IAEItemStack acquired = Platform.poweredExtraction(src, this.destination, itemStack, this.interfaceRequestSource);
-                    if (acquired != null) {
-                        changed = true;
-                        inputStack.setCount(Ints.saturatedCast(acquired.getStackSize()));
-                        final ItemStack issue = adaptor.addItems(inputStack);
-                        if (!issue.isEmpty()) {
-                            throw new IllegalStateException("bad attempt at managing inventory. ( addItems )");
-                        }
-                    } else if (storedStack.isCraftable()) {
-                        itemStack.setCachedItemStack(inputStack);
-                        changed = this.handleCrafting(x, adaptor, itemStack) || changed;
+                final long acquired = Platform.poweredExtraction(src, this.destination, itemKey, itemStack.amount(), this.interfaceRequestSource);
+                if (acquired > 0) {
+                    changed = true;
+                    inputStack.setCount(Ints.saturatedCast(acquired));
+                    final ItemStack issue = adaptor.addItems(inputStack);
+                    if (!issue.isEmpty()) {
+                        throw new IllegalStateException("bad attempt at managing inventory. ( addItems )");
                     }
-                    if (acquired == null) {
-                        itemStack.setCachedItemStack(inputStack);
-                    }
+                } else if (this.gridProxy.getCrafting().isCraftable(itemKey)) {
+                    changed = this.handleCrafting(x, adaptor, itemStack) || changed;
                 }
             }
             // else wtf?
@@ -885,10 +859,10 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         return new AdaptorItemHandler(((AppEngNetworkInventory) this.storage).getBufferWrapper(slot));
     }
 
-    private boolean handleCrafting(final int x, final InventoryAdaptor d, final IAEItemStack itemStack) {
+    private boolean handleCrafting(final int x, final InventoryAdaptor d, final GenericStack itemStack) {
         try {
             if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0 && itemStack != null) {
-                return this.craftingTracker.handleCrafting(x, itemStack.getStackSize(), itemStack, d, this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
+                return this.craftingTracker.handleCrafting(x, itemStack.amount(), itemStack.what(), d, this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
             }
         } catch (final GridAccessException e) {
             // :P
@@ -910,27 +884,40 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         return (TileEntity) (this.iHost instanceof TileEntity ? this.iHost : null);
     }
 
-    @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-            if (this.hasConfig()) {
-                if (resetConfigCache) {
-                    resetConfigCache = false;
-                    configCachedHandler = new InterfaceInventory(this);
-                }
-                return (IMEMonitor<T>) configCachedHandler;
+    /**
+     * The MEStorage view of this interface: the interface's own storage slots while it has a config
+     * (whitelist mode), or the whole network otherwise.
+     */
+    public MEStorage getInventory() {
+        if (this.hasConfig()) {
+            if (resetConfigCache) {
+                resetConfigCache = false;
+                configCachedHandler = new InterfaceInventory(this);
             }
-
-            return (IMEMonitor<T>) this.items;
-        } else if (channel == AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class)) {
-            if (this.hasConfig()) {
-                return null;
-            }
-
-            return (IMEMonitor<T>) this.fluids;
+            return configCachedHandler;
         }
 
-        return null;
+        return this.networkStorage;
+    }
+
+    @Override
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        return this.getInventory().insert(what, amount, mode, source);
+    }
+
+    @Override
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        return this.getInventory().extract(what, amount, mode, source);
+    }
+
+    @Override
+    public void getAvailableStacks(final KeyCounter out) {
+        this.getInventory().getAvailableStacks(out);
+    }
+
+    @Override
+    public ITextComponent getDescription() {
+        return this.getInventory().getDescription();
     }
 
     private boolean hasConfig() {
@@ -984,23 +971,12 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         this.craftingTracker.cancel();
     }
 
-    public IStorageMonitorable getMonitorable(final IActionSource src, final IStorageMonitorable myInterface) {
+    public MEStorage getMonitorable(final IActionSource src, final MEStorage myInterface) {
         if (Platform.canAccess(this.gridProxy, src)) {
             return myInterface;
         }
 
-        final DualityInterface di = this;
-
-        return new IStorageMonitorable() {
-
-            @Override
-            public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-                if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-                    return (IMEMonitor<T>) new InterfaceInventory(di);
-                }
-                return null;
-            }
-        };
+        return new InterfaceInventory(this);
     }
 
     private boolean invIsBlocked(InventoryAdaptor inv) {
@@ -1049,21 +1025,20 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
                         continue;
                     }
 
-                    IStorageMonitorable sm = mon.getInventory(this.mySource);
-                    if (sm != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
-                        if (this.isBlocking() && !sm.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).getStorageList().isEmpty()) {
+                    MEStorage inv = mon.getInventory(this.mySource);
+                    if (inv != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
+                        if (this.isBlocking() && !inv.getAvailableStacks().isEmpty()) {
                             continue;
                         } else {
-                            IMEMonitor<IAEItemStack> inv = sm.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-
                             var allItemsCanBeInserted = true;
                             for (int x = 0; x < table.getSizeInventory(); x++) {
                                 final ItemStack is = table.getStackInSlot(x);
                                 if (is.isEmpty()) {
                                     continue;
                                 }
-                                IAEItemStack result = inv.injectItems(AEItemStack.fromItemStack(is), Actionable.SIMULATE, this.mySource);
-                                if (result != null) {
+                                final AEItemKey what = AEItemKey.of(is);
+                                final long inserted = inv.insert(what, is.getCount(), Actionable.SIMULATE, this.mySource);
+                                if (inserted != is.getCount()) {
                                     allItemsCanBeInserted = false;
                                     break;
                                 }
@@ -1166,7 +1141,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             }
             case LOCK_UNTIL_RESULT -> {
                 unlockEvent = UnlockCraftingEvent.RESULT;
-                unlockStack = pattern.getPrimaryOutput().copy();
+                unlockStack = pattern.getPrimaryOutput();
                 saveChanges();
             }
         }
@@ -1230,9 +1205,9 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
                         } else {
                             IStorageMonitorableAccessor mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
                             if (mon != null) {
-                                IStorageMonitorable sm = mon.getInventory(this.mySource);
-                                if (sm != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
-                                    if (sm.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).getStorageList().isEmpty()) {
+                                MEStorage inv = mon.getInventory(this.mySource);
+                                if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
+                                    if (inv.getAvailableStacks().isEmpty()) {
                                         allAreBusy = false;
                                         break;
                                     }
@@ -1376,22 +1351,23 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         return this.craftingTracker.getRequestedJobs();
     }
 
-    public IAEItemStack injectCraftedItems(final ICraftingLink link, final IAEItemStack acquired, final Actionable mode) {
+    public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
         final int slot = this.craftingTracker.getSlot(link);
 
-        if (acquired != null && slot >= 0 && slot <= this.requireWork.length) {
+        if (items != null && slot >= 0 && slot <= this.requireWork.length && items.what() instanceof AEItemKey itemKey) {
             final InventoryAdaptor adaptor = this.getAdaptor(slot);
+            final ItemStack toInsert = itemKey.toStack((int) Math.min(items.amount(), Integer.MAX_VALUE));
 
             if (mode == Actionable.SIMULATE) {
-                return AEItemStack.fromItemStack(adaptor.simulateAdd(acquired.createItemStack()));
+                return GenericStack.fromItemStack(adaptor.simulateAdd(toInsert));
             } else {
-                final IAEItemStack is = AEItemStack.fromItemStack(adaptor.addItems(acquired.createItemStack()));
+                final GenericStack remainder = GenericStack.fromItemStack(adaptor.addItems(toInsert));
                 this.updatePlan(slot);
-                return is;
+                return remainder;
             }
         }
 
-        return acquired;
+        return items;
     }
 
     public void jobStateChange(final ICraftingLink link) {
@@ -1460,7 +1436,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
                 }
 
                 if (what.getItem() != Items.AIR) {
-                    /* getTranslationKey() and getUnlocalizedNameInefficiently() have different return values in some mod 
+                    /* getTranslationKey() and getUnlocalizedNameInefficiently() have different return values in some mod
                      * For the Thermal Expansion
                      * getTranslationKey() returns complete key ending with ".name".
                      * getUnlocalizedNameInefficiently() returns localized name
@@ -1532,11 +1508,11 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
      * @return Null if {@linkplain #getCraftingLockedReason()} is not {@link LockCraftingMode#LOCK_UNTIL_RESULT}.
      */
     @Nullable
-    public IAEItemStack getUnlockStack() {
+    public GenericStack getUnlockStack() {
         return unlockStack;
     }
 
-    public void onStackReturnedToNetwork(IAEItemStack stack) {
+    public void onStackReturnedToNetwork(GenericStack stack) {
         if (unlockEvent != UnlockCraftingEvent.RESULT) {
             return; // If we're not waiting for the result, we don't care
         }
@@ -1545,13 +1521,13 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
             // Actually an error state...
             AELog.error("MEInterface was waiting for RESULT, but no result was set");
             unlockEvent = null;
-        } else if (unlockStack.isSameType(stack)) {
-            var remainingAmount = unlockStack.getStackSize() - stack.getStackSize();
+        } else if (stack != null && unlockStack.what().equals(stack.what())) {
+            var remainingAmount = unlockStack.amount() - stack.amount();
             if (remainingAmount <= 0) {
                 unlockEvent = null;
                 unlockStack = null;
             } else {
-                unlockStack.setStackSize(remainingAmount);
+                unlockStack = new GenericStack(unlockStack.what(), remainingAmount);
             }
         }
     }
@@ -1602,27 +1578,27 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
         }
 
         @Override
-        public IAEItemStack injectItems(final IAEItemStack input, final Actionable type, final IActionSource src) {
+        public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
             final Optional<InterfaceRequestContext> context = src.context(InterfaceRequestContext.class);
             final boolean isInterface = context.isPresent();
 
             if (isInterface) {
-                return input;
+                return 0;
             }
 
-            return super.injectItems(input, type, src);
+            return super.insert(what, amount, mode, src);
         }
 
         @Override
-        public IAEItemStack extractItems(final IAEItemStack request, final Actionable type, final IActionSource src) {
+        public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
             final Optional<InterfaceRequestContext> context = src.context(InterfaceRequestContext.class);
             final boolean hasLowerOrEqualPriority = context.map(c -> c.compareTo(DualityInterface.this.priority) <= 0).orElse(false);
 
             if (hasLowerOrEqualPriority) {
-                return null;
+                return 0;
             }
 
-            return super.extractItems(request, type, src);
+            return super.extract(what, amount, mode, src);
         }
     }
 
@@ -1631,7 +1607,7 @@ public class DualityInterface implements IGridTickable, IStorageMonitorable, IIn
 
         @Nullable
         @Override
-        public IStorageMonitorable getInventory(IActionSource src) {
+        public MEStorage getInventory(IActionSource src) {
             return DualityInterface.this.getMonitorable(src, DualityInterface.this);
         }
 

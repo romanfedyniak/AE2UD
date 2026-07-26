@@ -27,9 +27,7 @@ import appeng.api.networking.IGridHost;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.WorldCoord;
 import appeng.block.crafting.BlockCraftingUnit;
@@ -233,7 +231,7 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     public void breakCluster() {
         if (this.cluster != null) {
             this.cluster.cancel();
-            final IMEInventory<IAEItemStack> inv = this.cluster.getInventory();
+            final MEStorage inv = this.cluster.getInventory();
 
             final LinkedList<WorldCoord> places = new LinkedList<>();
 
@@ -261,20 +259,19 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
                 throw new IllegalStateException(this.cluster + " does not contain any kind of blocks, which were destroyed.");
             }
 
-            for (IAEItemStack ais : inv.getAvailableItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList())) {
-                ais = ais.copy();
-                ais.setStackSize(ais.getDefinition().getMaxStackSize());
-                while (true) {
-                    final IAEItemStack g = inv.extractItems(ais.copy(), Actionable.MODULATE, this.cluster.getActionSource());
-                    if (g == null) {
-                        break;
-                    }
-
-                    final WorldCoord wc = places.poll();
-                    places.add(wc);
-
-                    Platform.spawnDrops(this.world, wc.getPos(), Collections.singletonList(g.createItemStack()));
+            for (final var entry : inv.getAvailableStacks()) {
+                final var what = entry.getKey();
+                final long extracted = inv.extract(what, entry.getLongValue(), Actionable.MODULATE, this.cluster.getActionSource());
+                if (extracted <= 0) {
+                    continue;
                 }
+
+                final WorldCoord wc = places.poll();
+                places.add(wc);
+
+                final List<ItemStack> drops = new ArrayList<>();
+                what.addDrops(extracted, drops, this.world, wc.getPos());
+                Platform.spawnDrops(this.world, wc.getPos(), drops);
             }
 
             this.cluster.destroy();
