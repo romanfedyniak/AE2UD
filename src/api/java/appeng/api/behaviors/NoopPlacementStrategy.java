@@ -21,19 +21,27 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * Placement strategy that never places anything, returned by {@link PlacementStrategy#noop()}.
+ */
+final class NoopPlacementStrategy implements PlacementStrategy {
 
+    static final NoopPlacementStrategy INSTANCE = new NoopPlacementStrategy();
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    private NoopPlacementStrategy() {
+    }
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    @Override
+    public void clearBlocked() {
+    }
 
+    @Override
+    public long placeInWorld(AEKey what, long amount, Actionable type, boolean placeAsEntity) {
+        return 0;
+    }
 }

@@ -21,19 +21,31 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-import appeng.api.util.IConfigurableObject;
+import appeng.api.stacks.AEKeyType;
 
+/**
+ * Moves content of one {@link AEKeyType} from an adjacent block into the network. Used by the
+ * import bus.
+ */
+public interface StackImportStrategy {
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    /**
+     * @return true if anything was moved.
+     */
+    boolean transfer(StackTransferContext context);
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    @FunctionalInterface
+    interface Factory {
+        StackImportStrategy create(World world, BlockPos fromPos, EnumFacing fromSide);
+    }
 
+    static void register(AEKeyType type, Factory factory) {
+        StackWorldBehaviors.registerImportStrategy(type, factory);
+    }
 }

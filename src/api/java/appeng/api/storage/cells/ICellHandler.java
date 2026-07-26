@@ -21,19 +21,27 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
+import javax.annotation.Nullable;
 
-import appeng.api.util.IConfigurableObject;
+import net.minecraft.item.ItemStack;
 
+/**
+ * Turns an item into a {@link StorageCell}. Register with
+ * {@link appeng.api.storage.StorageCells#addCellHandler(ICellHandler)}.
+ */
+public interface ICellHandler {
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    /**
+     * @return true if this handler can turn the given item into a cell.
+     */
+    boolean isCell(ItemStack is);
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * @param host may be null when the cell is inspected outside of a machine, for a tooltip.
+     * @return null if {@link #isCell(ItemStack)} is false for this stack.
+     */
+    @Nullable
+    StorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host);
 }

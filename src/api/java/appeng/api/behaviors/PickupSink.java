@@ -21,19 +21,19 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * Where a {@link PickupStrategy} puts what it picked up.
+ */
+@FunctionalInterface
+public interface PickupSink {
 
-
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * @return how much was (or would have been) accepted.
+     */
+    long insert(AEKey what, long amount, Actionable mode);
 }

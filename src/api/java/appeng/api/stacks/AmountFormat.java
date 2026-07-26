@@ -21,19 +21,30 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.stacks;
 
+/**
+ * How an amount of a given {@link AEKey} should be rendered as text.
+ */
+public enum AmountFormat {
+    /**
+     * The full amount, with digit group separators. Used in tooltips.
+     */
+    FULL,
 
-import appeng.api.util.IConfigurableObject;
+    /**
+     * Abbreviated form (1.2K), used where horizontal space is limited but still readable,
+     * such as terminal rows.
+     */
+    PREVIEW_REGULAR,
 
+    /**
+     * Like {@link #PREVIEW_REGULAR}, but keeps more significant digits.
+     */
+    PREVIEW_LARGE,
 
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * Shortest possible form, meant to be drawn on top of a 16x16 slot icon.
+     */
+    SLOT
 }

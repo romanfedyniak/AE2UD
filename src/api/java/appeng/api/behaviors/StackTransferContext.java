@@ -21,19 +21,40 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
+import appeng.api.networking.security.IActionSource;
+import appeng.api.storage.AEKeyFilter;
+import appeng.api.storage.MEStorage;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * State shared by all strategies participating in one import or export bus tick: how many
+ * operations are left in the budget, who is acting, and what the bus is configured to move.
+ */
+public interface StackTransferContext {
 
+    /**
+     * The network side of the transfer.
+     */
+    MEStorage getInternalStorage();
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    IActionSource getActionSource();
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    /**
+     * The bus' configured filter. Strategies must not move anything this rejects.
+     */
+    AEKeyFilter getFilter();
 
+    int getOperationsRemaining();
+
+    void setOperationsRemaining(int operationsRemaining);
+
+    void reduceOperationsRemaining(long amount);
+
+    boolean hasOperationsLeft();
+
+    /**
+     * Whether a full (non-partial) operation can still be performed this tick.
+     */
+    boolean hasRegularOperationsLeft();
 }

@@ -24,8 +24,9 @@
 package appeng.api.networking.crafting;
 
 
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 
 
 public interface ICraftingJob
@@ -48,10 +49,10 @@ public interface ICraftingJob
 	 *
 	 * @param plan plan
 	 */
-	void populatePlan( IItemList<IAEItemStack> plan );
+	void populatePlan( KeyCounter plan );
 
 	/**
 	 * @return the final output of the job.
 	 */
-	IAEItemStack getOutput();
+	GenericStack getOutput();
 }

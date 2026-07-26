@@ -21,29 +21,47 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
+import java.util.UUID;
 
-import appeng.api.implementations.tiles.IChestOrDrive;
+import javax.annotation.Nullable;
+
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.storage.cells.ICellHandler;
-import appeng.api.storage.cells.StorageCell;
 
 /**
- * Opens the right GUI for a cell placed in an ME chest.
+ * Knows how to put content of one {@link AEKeyType} into the world: placing a block, an entity, or a
+ * fluid source. Used by the formation plane.
  */
-public interface ICellGuiHandler {
+public interface PlacementStrategy {
+
+    static PlacementStrategy noop() {
+        return NoopPlacementStrategy.INSTANCE;
+    }
 
     /**
-     * @return true if this handler knows how to display cells of the given key type.
+     * Forgets which adjacent positions were found to be blocked, so they are retried.
      */
-    boolean isHandlerFor(AEKeyType keyType);
+    void clearBlocked();
 
     /**
-     * Opens the chest GUI for the given cell.
+     * @return how much was (or would have been) placed.
      */
-    void openChestGui(EntityPlayer player, IChestOrDrive chest, ICellHandler cellHandler, StorageCell inv, ItemStack is,
-            AEKeyType keyType);
+    long placeInWorld(AEKey what, long amount, Actionable type, boolean placeAsEntity);
+
+    interface Factory {
+        PlacementStrategy create(World world, BlockPos fromPos, EnumFacing fromSide, TileEntity host,
+                @Nullable UUID owningPlayerId);
+    }
+
+    static void register(AEKeyType type, Factory factory) {
+        StackWorldBehaviors.registerPlacementStrategy(type, factory);
+    }
 }

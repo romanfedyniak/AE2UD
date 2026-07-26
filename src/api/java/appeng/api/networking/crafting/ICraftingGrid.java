@@ -34,7 +34,8 @@ import net.minecraft.world.World;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridCache;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 
 
 public interface ICraftingGrid extends IGridCache
@@ -48,7 +49,7 @@ public interface ICraftingGrid extends IGridCache
 	 *
 	 * @return a collection of crafting patterns for the item in question.
 	 */
-	ImmutableCollection<ICraftingPatternDetails> getCraftingFor( IAEItemStack whatToCraft, ICraftingPatternDetails details, int slot, World world );
+	ImmutableCollection<ICraftingPatternDetails> getCraftingFor( AEKey whatToCraft, ICraftingPatternDetails details, int slot, World world );
 
 	/**
 	 * Begin calculating a crafting job.
@@ -63,7 +64,7 @@ public interface ICraftingGrid extends IGridCache
 	 * @return a future which will at an undetermined point in the future get you the {@link ICraftingJob} do not wait
 	 * on this, your be waiting forever.
 	 */
-	Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, IAEItemStack craftWhat, ICraftingCallback callback );
+	Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, ICraftingCallback callback );
 
 	/**
 	 * Submit the job to the Crafting system for processing.
@@ -94,7 +95,7 @@ public interface ICraftingGrid extends IGridCache
 	 *
 	 * @return true if the item can be requested via a crafting emitter.
 	 */
-	boolean canEmitFor( IAEItemStack what );
+	boolean canEmitFor( AEKey what );
 
 	/**
 	 * is this item being crafted?
@@ -103,7 +104,7 @@ public interface ICraftingGrid extends IGridCache
 	 *
 	 * @return true if it is being crafting
 	 */
-	boolean isRequesting( IAEItemStack what );
+	boolean isRequesting( AEKey what );
 
 	/**
 	 * The total amount being requested across all crafting cpus of a grid.
@@ -112,5 +113,5 @@ public interface ICraftingGrid extends IGridCache
 	 *
 	 * @return The total amount being requested.
 	 */
-	long requesting( IAEItemStack what );
+	long requesting( AEKey what );
 }

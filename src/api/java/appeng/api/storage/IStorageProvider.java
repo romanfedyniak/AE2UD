@@ -23,17 +23,34 @@
 
 package appeng.api.storage;
 
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.storage.IStorageService;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * Something that contributes storage to the network: a drive, a chest, a storage bus.
+ * <p>
+ * Replaces {@code ICellProvider} and {@code ICellContainer}. Where those returned a list of handlers
+ * per storage channel, this one mounts any number of {@link MEStorage} instances, each of which may
+ * itself serve several key types.
+ */
+public interface IStorageProvider {
 
+    /**
+     * Called when the network (re)builds its storage. Mount every inventory this provider offers.
+     */
+    void mountInventories(IStorageMounts storageMounts);
 
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * Asks the network to call {@link #mountInventories(IStorageMounts)} again, after the provider's
+     * contents changed in a way that adds or removes inventories.
+     */
+    static void requestUpdate(IGridNode node) {
+        if (node == null || node.getGrid() == null) {
+            return;
+        }
+        IStorageService storage = node.getGrid().getCache(IStorageService.class);
+        if (storage != null) {
+            storage.refreshNodeStorageProvider(node);
+        }
+    }
 }

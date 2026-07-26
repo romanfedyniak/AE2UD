@@ -25,13 +25,12 @@ package appeng.api.networking.crafting;
 
 
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 
 import javax.annotation.Nullable;
 
 
-public interface ICraftingCPU extends IBaseMonitor<IAEItemStack>
+public interface ICraftingCPU
 {
 
 	/**
@@ -64,7 +63,7 @@ public interface ICraftingCPU extends IBaseMonitor<IAEItemStack>
 	 * @return final output of the current crafting operation, or null if not crafting
 	 */
 	@Nullable
-	default IAEItemStack getFinalOutput()
+	default GenericStack getFinalOutput()
 	{
 		return null;
 	}

@@ -21,19 +21,24 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.networking.storage;
 
+import appeng.api.stacks.AEKey;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * Implemented by machines that want to be told when the amount of a key in the network changes.
+ * Replaces {@code IStackWatcherHost}.
+ */
+public interface IStorageWatcherNode {
 
+    /**
+     * Called when the network hands out (or replaces) this node's watcher. Re-register the keys of
+     * interest here.
+     */
+    void updateWatcher(IStackWatcher newWatcher);
 
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * @param amount the new total amount in the network.
+     */
+    void onStackChange(AEKey what, long amount);
 }

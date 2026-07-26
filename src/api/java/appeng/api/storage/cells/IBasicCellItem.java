@@ -21,29 +21,50 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
-import net.minecraft.entity.player.EntityPlayer;
+import javax.annotation.Nonnull;
+
 import net.minecraft.item.ItemStack;
 
-import appeng.api.implementations.tiles.IChestOrDrive;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.storage.cells.ICellHandler;
-import appeng.api.storage.cells.StorageCell;
 
 /**
- * Opens the right GUI for a cell placed in an ME chest.
+ * A standard storage cell item: bytes, types, and one {@link AEKeyType} it stores.
+ * <p>
+ * Replaces {@code IStorageCell<T>}. {@link #getKeyType()} is what makes "a cell for gas" possible
+ * without touching the core: an addon registers its key type, ships an item returning that type
+ * here, and drives, chests, the workbench and the terminal keep working unchanged.
  */
-public interface ICellGuiHandler {
+public interface IBasicCellItem extends ICellWorkbenchItem {
 
     /**
-     * @return true if this handler knows how to display cells of the given key type.
+     * The kind of content this cell stores.
      */
-    boolean isHandlerFor(AEKeyType keyType);
+    @Nonnull
+    AEKeyType getKeyType();
+
+    int getBytes(@Nonnull ItemStack cellItem);
+
+    int getBytesPerType(@Nonnull ItemStack cellItem);
+
+    int getTotalTypes(@Nonnull ItemStack cellItem);
+
+    double getIdleDrain();
+
+    default boolean isBlackListed(@Nonnull ItemStack cellItem, @Nonnull AEKey requestedAddition) {
+        return false;
+    }
 
     /**
-     * Opens the chest GUI for the given cell.
+     * Whether this cell may be stored inside another storage cell.
      */
-    void openChestGui(EntityPlayer player, IChestOrDrive chest, ICellHandler cellHandler, StorageCell inv, ItemStack is,
-            AEKeyType keyType);
+    default boolean storableInStorageCell() {
+        return false;
+    }
+
+    default boolean isStorageCell(@Nonnull ItemStack i) {
+        return true;
+    }
 }

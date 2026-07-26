@@ -23,17 +23,19 @@
 
 package appeng.api.storage;
 
+/**
+ * Handed to an {@link IStorageProvider} so it can contribute its inventories to the network.
+ */
+public interface IStorageMounts {
 
-import appeng.api.util.IConfigurableObject;
+    int DEFAULT_PRIORITY = 0;
 
+    default void mount(MEStorage inventory) {
+        this.mount(inventory, DEFAULT_PRIORITY);
+    }
 
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    /**
+     * @param priority higher priority storage is filled first.
+     */
+    void mount(MEStorage inventory, int priority);
 }

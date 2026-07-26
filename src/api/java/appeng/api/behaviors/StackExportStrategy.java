@@ -21,29 +21,43 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.behaviors;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-import appeng.api.implementations.tiles.IChestOrDrive;
+import appeng.api.config.Actionable;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.storage.cells.ICellHandler;
-import appeng.api.storage.cells.StorageCell;
 
 /**
- * Opens the right GUI for a cell placed in an ME chest.
+ * Moves content of one {@link AEKeyType} from the network into an adjacent block. Used by the export
+ * bus, and by anything else that has to push a known key outwards.
  */
-public interface ICellGuiHandler {
+public interface StackExportStrategy {
 
     /**
-     * @return true if this handler knows how to display cells of the given key type.
+     * Pulls the key out of the network and pushes it into the adjacent block, spending operations
+     * from the context's budget.
+     *
+     * @return how much was moved.
      */
-    boolean isHandlerFor(AEKeyType keyType);
+    long transfer(StackTransferContext context, AEKey what, long maxAmount);
 
     /**
-     * Opens the chest GUI for the given cell.
+     * Pushes into the adjacent block without touching the network or an operation budget.
+     *
+     * @return how much was (or would have been) accepted.
      */
-    void openChestGui(EntityPlayer player, IChestOrDrive chest, ICellHandler cellHandler, StorageCell inv, ItemStack is,
-            AEKeyType keyType);
+    long push(AEKey what, long maxAmount, Actionable mode);
+
+    @FunctionalInterface
+    interface Factory {
+        StackExportStrategy create(World world, BlockPos fromPos, EnumFacing fromSide);
+    }
+
+    static void register(AEKeyType type, Factory factory) {
+        StackWorldBehaviors.registerExportStrategy(type, factory);
+    }
 }

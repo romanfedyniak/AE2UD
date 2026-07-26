@@ -21,19 +21,12 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
+/**
+ * Something that has to be told when a cell's contents changed, so it can persist them.
+ */
+public interface ISaveProvider {
 
-import appeng.api.util.IConfigurableObject;
-
-
-public interface ITerminalHost extends IConfigurableObject
-{
-
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    void saveChanges();
 }

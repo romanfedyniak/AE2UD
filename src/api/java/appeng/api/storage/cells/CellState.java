@@ -21,19 +21,26 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
+/**
+ * How full a storage cell is, used for the status light on drives and chests.
+ */
+public enum CellState {
 
-import appeng.api.util.IConfigurableObject;
+    ABSENT(0),
+    EMPTY(0x00FF00),
+    NOT_EMPTY(0x00AAFF),
+    TYPES_FULL(0xFFAA00),
+    FULL(0xFF0000);
 
+    private final int stateColor;
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    CellState(int stateColor) {
+        this.stateColor = stateColor;
+    }
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
-
+    public int getStateColor() {
+        return this.stateColor;
+    }
 }

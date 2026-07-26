@@ -23,17 +23,29 @@
 
 package appeng.api.storage;
 
+import appeng.api.stacks.AEKey;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * A predicate over {@link AEKey}. Replaces the various per-channel filter interfaces.
+ */
+@FunctionalInterface
+public interface AEKeyFilter {
 
+    boolean matches(AEKey what);
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    static AEKeyFilter none() {
+        return what -> false;
+    }
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    static AEKeyFilter all() {
+        return what -> true;
+    }
 
+    default AEKeyFilter and(AEKeyFilter other) {
+        return what -> this.matches(what) && other.matches(what);
+    }
+
+    default AEKeyFilter or(AEKeyFilter other) {
+        return what -> this.matches(what) || other.matches(what);
+    }
 }

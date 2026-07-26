@@ -21,19 +21,25 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
-import appeng.api.util.IConfigurableObject;
+import appeng.api.config.FuzzyMode;
 
+/**
+ * An item that can be configured in the cell workbench.
+ */
+public interface ICellWorkbenchItem {
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    boolean isEditable(ItemStack is);
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    IItemHandler getUpgradesInventory(ItemStack is);
 
+    IItemHandler getConfigInventory(ItemStack is);
+
+    FuzzyMode getFuzzyMode(ItemStack is);
+
+    void setFuzzyMode(ItemStack is, FuzzyMode fzMode);
 }

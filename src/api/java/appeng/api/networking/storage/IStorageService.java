@@ -23,24 +23,43 @@
 
 package appeng.api.networking.storage;
 
-import appeng.api.stacks.AEKey;
+import appeng.api.networking.IGridCache;
+import appeng.api.networking.IGridNode;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 
 /**
- * DO NOT IMPLEMENT.
+ * The network's storage. Replaces {@code IStorageGrid}.
  * <p>
- * Handle for subscribing to changes of specific keys in the network. Injected when adding an
- * {@link IStorageWatcherNode} to a grid.
+ * Note there is no longer one of these per storage channel: a single {@link MEStorage} covers every
+ * registered key type.
  */
-public interface IStackWatcher {
+public interface IStorageService extends IGridCache {
 
     /**
-     * Subscribe to every change instead of a list of keys. Expensive; used by terminals.
+     * The network inventory, through which everything should be inserted and extracted.
      */
-    void setWatchAll(boolean watchAll);
+    MEStorage getInventory();
 
-    void add(AEKey key);
+    /**
+     * A cached snapshot of the network contents, refreshed as changes come in. Do not mutate.
+     */
+    KeyCounter getCachedInventory();
 
-    void remove(AEKey key);
+    /**
+     * Adds a provider that is not attached to a grid node, such as a wireless terminal's cell.
+     */
+    void addGlobalStorageProvider(IStorageProvider provider);
 
-    void reset();
+    void removeGlobalStorageProvider(IStorageProvider provider);
+
+    /**
+     * Re-mounts the inventories of the provider attached to this node.
+     */
+    void refreshNodeStorageProvider(IGridNode node);
+
+    void refreshGlobalStorageProvider(IStorageProvider provider);
+
+    void invalidateCache();
 }

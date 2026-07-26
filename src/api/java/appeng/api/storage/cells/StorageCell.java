@@ -21,19 +21,33 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package appeng.api.storage;
+package appeng.api.storage.cells;
 
+import appeng.api.storage.MEStorage;
 
-import appeng.api.util.IConfigurableObject;
+/**
+ * The contents of a storage cell. Replaces {@code ICellInventory} and
+ * {@code ICellInventoryHandler}, both of which were generic over a single storage channel; this one
+ * is an {@link MEStorage} and therefore not tied to a type.
+ */
+public interface StorageCell extends MEStorage {
 
+    CellState getStatus();
 
-public interface ITerminalHost extends IConfigurableObject
-{
+    /**
+     * Power drawn per tick while this cell sits in a drive.
+     */
+    double getIdleDrain();
 
-	/**
-	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
-	 * display items, fluids and anything an addon registers.
-	 */
-	MEStorage getInventory();
+    /**
+     * Whether this cell may be stored inside another storage cell.
+     */
+    default boolean canFitInsideCell() {
+        return true;
+    }
 
+    /**
+     * Writes pending changes back to the cell's item stack.
+     */
+    void persist();
 }

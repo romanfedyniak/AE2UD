@@ -24,8 +24,7 @@
 package appeng.api.networking.events;
 
 
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
+import appeng.api.storage.MEStorage;
 
 
 /**
@@ -35,16 +34,16 @@ import appeng.api.storage.IStorageChannel;
  * this is the least useful method of getting info about changes in the network.
  *
  * Do not modify the list or its contents in anyway.
+ *
+ * There is no longer a channel here: a single {@link MEStorage} covers every registered key type.
  */
 public class MENetworkStorageEvent extends MENetworkEvent
 {
 
-	public final IMEMonitor monitor;
-	public final IStorageChannel channel;
+	public final MEStorage storage;
 
-	public MENetworkStorageEvent( final IMEMonitor o, final IStorageChannel chan )
+	public MENetworkStorageEvent( final MEStorage storage )
 	{
-		this.monitor = o;
-		this.channel = chan;
+		this.storage = storage;
 	}
 }
