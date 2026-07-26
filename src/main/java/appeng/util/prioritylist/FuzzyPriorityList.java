@@ -20,26 +20,23 @@ package appeng.util.prioritylist;
 
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
-
-import java.util.Collection;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 
 
-public class FuzzyPriorityList<T extends IAEStack<T>> implements IPartitionList<T> {
+public class FuzzyPriorityList implements IPartitionList {
 
-    private final IItemList<T> list;
+    private final KeyCounter list;
     private final FuzzyMode mode;
 
-    public FuzzyPriorityList(final IItemList<T> in, final FuzzyMode mode) {
+    public FuzzyPriorityList(final KeyCounter in, final FuzzyMode mode) {
         this.list = in;
         this.mode = mode;
     }
 
     @Override
-    public boolean isListed(final T input) {
-        final Collection<T> out = this.list.findFuzzy(input, this.mode);
-        return out != null && !out.isEmpty();
+    public boolean isListed(final AEKey input) {
+        return !this.list.findFuzzy(input, this.mode).isEmpty();
     }
 
     @Override
@@ -48,7 +45,7 @@ public class FuzzyPriorityList<T extends IAEStack<T>> implements IPartitionList<
     }
 
     @Override
-    public Iterable<T> getItems() {
-        return this.list;
+    public Iterable<AEKey> getItems() {
+        return this.list.keySet();
     }
 }

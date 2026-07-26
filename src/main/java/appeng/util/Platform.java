@@ -33,15 +33,11 @@ import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -54,7 +50,6 @@ import appeng.core.stats.Stats;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.GuiHostType;
 import appeng.core.sync.GuiWrapper;
-import appeng.fluids.util.AEFluidStack;
 import appeng.hooks.TickHandler;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
@@ -64,7 +59,7 @@ import appeng.me.GridNode;
 import appeng.me.helpers.AENetworkProxy;
 import appeng.util.helpers.ItemComparisonHelper;
 import appeng.util.helpers.P2PHelper;
-import appeng.util.item.AEItemStack;
+import appeng.util.item.OreHelper;
 import appeng.util.prioritylist.IPartitionList;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -75,6 +70,7 @@ import gregtech.api.util.GTUtility;
 import ic2.api.item.ICustomDamageItem;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -104,7 +100,6 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
@@ -555,9 +550,9 @@ public class Platform {
             return new ArrayList<>();
         }
 
-        ItemStack itemStack = ItemStack.EMPTY;
-        if (o instanceof AEItemStack ais) {
-            return ais.getToolTip();
+        ItemStack itemStack;
+        if (o instanceof AEKey key) {
+            itemStack = key.wrapForDisplayOrFilter();
         } else if (o instanceof ItemStack) {
             itemStack = (ItemStack) o;
         } else {
@@ -572,21 +567,16 @@ public class Platform {
         }
     }
 
-    public static String getModId(final IAEItemStack is) {
-        if (is == null) {
+    /**
+     * Replaces the old per-channel {@code getModId(IAEItemStack)}/{@code getModId(IAEFluidStack)}
+     * overloads: {@link AEKey} now covers both, so there is only one overload left.
+     */
+    public static String getModId(final AEKey key) {
+        if (key == null) {
             return "** Null";
         }
 
-        final String n = ((AEItemStack) is).getModID();
-        return n == null ? "** Null" : n;
-    }
-
-    public static String getModId(final IAEFluidStack fs) {
-        if (fs == null || fs.getFluidStack() == null) {
-            return "** Null";
-        }
-
-        final String n = FluidRegistry.getModId(fs.getFluidStack());
+        final String n = key.getModId();
         return n == null ? "** Null" : n;
     }
 
@@ -595,9 +585,9 @@ public class Platform {
             return "** Null";
         }
 
-        ItemStack itemStack = ItemStack.EMPTY;
-        if (o instanceof AEItemStack) {
-            final String n = ((AEItemStack) o).getDisplayName();
+        ItemStack itemStack;
+        if (o instanceof AEKey key) {
+            final String n = key.getDisplayName().getFormattedText();
             return n == null ? "** Null" : n;
         } else if (o instanceof ItemStack) {
             itemStack = (ItemStack) o;
@@ -625,10 +615,12 @@ public class Platform {
         if (o == null) {
             return "** Null";
         }
-        FluidStack fluidStack = null;
-        if (o instanceof AEFluidStack) {
-            fluidStack = ((AEFluidStack) o).getFluidStack();
-        } else if (o instanceof FluidStack) {
+        if (o instanceof AEKey key) {
+            final String n = key.getDisplayName().getFormattedText();
+            return n == null ? "** Null" : n;
+        }
+        FluidStack fluidStack;
+        if (o instanceof FluidStack) {
             fluidStack = (FluidStack) o;
         } else {
             return "**Invalid Object";
@@ -1051,152 +1043,108 @@ public class Platform {
         return pos;
     }
 
-    public static <T extends IAEStack<T>> T poweredExtraction(final IEnergySource energy, final IMEInventory<T> cell, final T request, final IActionSource src) {
-        return poweredExtraction(energy, cell, request, src, Actionable.MODULATE);
+    /**
+     * Extracts, charging the network for the work. Mirrors {@code IStorageHelper.poweredExtraction}
+     * (see {@code appeng.api.storage.IStorageHelper}) -- this is the implementation the future
+     * {@code IStorageHelper} implementation in {@code appeng.core.api} is expected to delegate to,
+     * same as it did for the old generic version of this method.
+     */
+    public static long poweredExtraction(final IEnergySource energy, final MEStorage cell, final AEKey request, final long amount, final IActionSource src) {
+        return poweredExtraction(energy, cell, request, amount, src, Actionable.MODULATE);
     }
 
-    public static <T extends IAEStack<T>> T poweredExtraction(final IEnergySource energy, final IMEInventory<T> cell, final T request, final IActionSource src, final Actionable mode) {
+    public static long poweredExtraction(final IEnergySource energy, final MEStorage cell, final AEKey request, final long amount, final IActionSource src, final Actionable mode) {
         Preconditions.checkNotNull(energy);
         Preconditions.checkNotNull(cell);
         Preconditions.checkNotNull(request);
         Preconditions.checkNotNull(src);
         Preconditions.checkNotNull(mode);
 
-        final T possible = cell.extractItems(request.copy(), Actionable.SIMULATE, src);
+        final long retrieved = cell.extract(request, amount, Actionable.SIMULATE, src);
 
-        long retrieved = 0;
-        if (possible != null) {
-            retrieved = possible.getStackSize();
-        }
-
-        final double energyFactor = Math.max(1.0, cell.getChannel().transferFactor());
+        final double energyFactor = Math.max(1.0, request.getAmountPerOperation());
         final double availablePower = energy.extractAEPower(retrieved / energyFactor, Actionable.SIMULATE, PowerMultiplier.CONFIG);
         final long itemToExtract = Math.min((long) ((availablePower * energyFactor) + 0.9), retrieved);
 
         if (itemToExtract > 0) {
             if (mode == Actionable.MODULATE) {
                 energy.extractAEPower(retrieved / energyFactor, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                possible.setStackSize(itemToExtract);
-                final T ret = cell.extractItems(possible, Actionable.MODULATE, src);
+                final long ret = cell.extract(request, itemToExtract, Actionable.MODULATE, src);
 
-                if (ret != null) {
-                    src.player().ifPresent(player -> Stats.ItemsExtracted.addToPlayer(player, (int) ret.getStackSize()));
+                if (ret > 0 && request instanceof AEItemKey) {
+                    src.player().ifPresent(player -> Stats.ItemsExtracted.addToPlayer(player, (int) ret));
                 }
                 return ret;
             } else {
-                return possible.setStackSize(itemToExtract);
+                return itemToExtract;
             }
         }
 
-        return null;
+        return 0;
     }
 
-    public static <T extends IAEStack<T>> T poweredInsert(final IEnergySource energy, final IMEInventory<T> cell, final T input, final IActionSource src) {
-        return poweredInsert(energy, cell, input, src, Actionable.MODULATE);
+    /**
+     * Inserts, charging the network for the work. Mirrors {@code IStorageHelper.poweredInsert}.
+     */
+    public static long poweredInsert(final IEnergySource energy, final MEStorage cell, final AEKey input, final long amount, final IActionSource src) {
+        return poweredInsert(energy, cell, input, amount, src, Actionable.MODULATE);
     }
 
-    public static <T extends IAEStack<T>> T poweredInsert(final IEnergySource energy, final IMEInventory<T> cell, final T input, final IActionSource src, final Actionable mode) {
+    public static long poweredInsert(final IEnergySource energy, final MEStorage cell, final AEKey input, final long amount, final IActionSource src, final Actionable mode) {
         Preconditions.checkNotNull(energy);
         Preconditions.checkNotNull(cell);
         Preconditions.checkNotNull(input);
         Preconditions.checkNotNull(src);
         Preconditions.checkNotNull(mode);
 
-        final T possible = cell.injectItems(input, Actionable.SIMULATE, src);
-
-        long stored = input.getStackSize();
-        if (possible != null) {
-            stored -= possible.getStackSize();
+        long toInsert = cell.insert(input, amount, Actionable.SIMULATE, src);
+        if (toInsert <= 0) {
+            return 0;
         }
 
-        final double energyFactor = Math.max(1.0, cell.getChannel().transferFactor());
-        final double availablePower = energy.extractAEPower(stored / energyFactor, Actionable.SIMULATE, PowerMultiplier.CONFIG);
-        final long itemToAdd = Math.min((long) ((availablePower * energyFactor) + 0.9), stored);
+        final double energyFactor = Math.max(1.0, input.getAmountPerOperation());
+        final double availablePower = energy.extractAEPower(toInsert / energyFactor, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+        toInsert = Math.min((long) ((availablePower * energyFactor) + 0.9), toInsert);
 
-        if (itemToAdd > 0) {
-            if (mode == Actionable.MODULATE) {
-                energy.extractAEPower(stored / energyFactor, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                if (itemToAdd < input.getStackSize()) {
-                    final long original = input.getStackSize();
-                    final T leftover = input.copy();
-                    final T split = input.copy();
-
-                    leftover.decStackSize(itemToAdd);
-                    split.setStackSize(itemToAdd);
-                    leftover.add(cell.injectItems(split, Actionable.MODULATE, src));
-
-                    src.player().ifPresent(player ->
-                    {
-                        final long diff = original - leftover.getStackSize();
-                        Stats.ItemsInserted.addToPlayer(player, (int) diff);
-                    });
-
-                    return leftover;
-                }
-
-                final T ret = cell.injectItems(input, Actionable.MODULATE, src);
-
-                src.player().ifPresent(player ->
-                {
-                    final long diff = ret == null ? input.getStackSize() : input.getStackSize() - ret.getStackSize();
-                    Stats.ItemsInserted.addToPlayer(player, (int) diff);
-                });
-
-                return ret;
-            } else {
-                final T ret = input.copy().setStackSize(input.getStackSize() - itemToAdd);
-                return (ret != null && ret.getStackSize() > 0) ? ret : null;
-            }
+        if (toInsert <= 0) {
+            return 0;
         }
 
-        return input;
-    }
+        if (mode == Actionable.MODULATE) {
+            energy.extractAEPower(toInsert / energyFactor, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            final long inserted = cell.insert(input, toInsert, Actionable.MODULATE, src);
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public static void postChanges(final IStorageGrid gs, final ItemStack removed, final ItemStack added, final IActionSource src) {
-        for (final IStorageChannel<?> chan : AEApi.instance().storage().storageChannels()) {
-            final IItemList<?> myChanges = chan.createList();
-
-            if (!removed.isEmpty()) {
-                final IMEInventory myInv = AEApi.instance().registries().cell().getCellInventory(removed, null, chan);
-                if (myInv != null) {
-                    myInv.getAvailableItems(myChanges);
-                    for (final IAEStack is : myChanges) {
-                        is.setStackSize(-is.getStackSize());
-                    }
-                }
+            if (inserted > 0 && input instanceof AEItemKey) {
+                src.player().ifPresent(player -> Stats.ItemsInserted.addToPlayer(player, (int) inserted));
             }
-            if (!added.isEmpty()) {
-                final IMEInventory myInv = AEApi.instance().registries().cell().getCellInventory(added, null, chan);
-                if (myInv != null) {
-                    myInv.getAvailableItems(myChanges);
-                }
 
-            }
-            gs.postAlterationOfStoredItems(chan, myChanges, src);
+            return inserted;
+        } else {
+            return toInsert;
         }
     }
 
-    public static <T extends IAEStack<T>> void postListChanges(final IItemList<T> before, final IItemList<T> after, final IMEMonitorHandlerReceiver<T> meMonitorPassthrough, final IActionSource source) {
-        final List<T> changes = new ArrayList<>();
+    /**
+     * Posts the difference between a removed and an added cell to the network's listeners.
+     * <p>
+     * NOTE: the old implementation diffed the two cells' item lists and pushed the delta through
+     * {@code IStorageGrid.postAlterationOfStoredItems(channel, changes, src)}. That method does not
+     * exist on the new {@link IStorageService} -- there is no per-channel change list to push
+     * anymore, and no direct "notify listeners of this delta" entry point at all, only
+     * {@link IStorageService#invalidateCache()} and the cached snapshot
+     * {@link IStorageService#getCachedInventory()}. This is flagged in the migration report as a gap
+     * for whoever implements {@code IStorageService} (wave 1, {@code appeng.me}) to resolve: either
+     * {@code invalidateCache()} is genuinely sufficient (a full recount, diffed against the previous
+     * {@code getCachedInventory()} snapshot, to notify watchers), or a finer-grained push path needs
+     * to be added to the storage service.
+     */
+    public static void postChanges(final IStorageService gs, final ItemStack removed, final ItemStack added, final IActionSource src) {
+        Preconditions.checkNotNull(gs);
+        Preconditions.checkNotNull(removed);
+        Preconditions.checkNotNull(added);
+        Preconditions.checkNotNull(src);
 
-        for (final T is : before) {
-            is.setStackSize(-is.getStackSize());
-        }
-
-        for (final T is : after) {
-            before.add(is);
-        }
-
-        for (final T is : before) {
-            if (is.getStackSize() != 0) {
-                changes.add(is);
-            }
-        }
-
-        if (!changes.isEmpty()) {
-            meMonitorPassthrough.postChange(null, changes, source);
-        }
+        gs.invalidateCache();
     }
 
     public static boolean securityCheck(final GridNode a, final GridNode b) {
@@ -1317,43 +1265,44 @@ public class Platform {
         }
     }
 
-    public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final IMEMonitor<IAEItemStack> src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final IItemList<IAEItemStack> items, final Actionable realForFake, final IPartitionList<IAEItemStack> filter) {
+    public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final MEStorage src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final KeyCounter items, final Actionable realForFake, final IPartitionList filter) {
         if (energySrc.extractAEPower(1, Actionable.SIMULATE, PowerMultiplier.CONFIG) > 0.9) {
             if (providedTemplate == null) {
                 return ItemStack.EMPTY;
             }
 
-            final AEItemStack ae_req = AEItemStack.fromItemStack(providedTemplate);
-            ae_req.setStackSize(1);
+            final AEItemKey ae_req = AEItemKey.of(providedTemplate);
+            if (ae_req == null) {
+                return ItemStack.EMPTY;
+            }
 
             if (filter == null || filter.isListed(ae_req)) {
-                final IAEItemStack ae_ext = src.extractItems(ae_req, realForFake, mySrc);
-                if (ae_ext != null) {
-                    final ItemStack extracted = ae_ext.createItemStack();
-                    if (!extracted.isEmpty()) {
-                        energySrc.extractAEPower(1, realForFake, PowerMultiplier.CONFIG);
-                        return extracted;
-                    }
+                final long ae_ext = src.extract(ae_req, 1, realForFake, mySrc);
+                if (ae_ext > 0) {
+                    energySrc.extractAEPower(1, realForFake, PowerMultiplier.CONFIG);
+                    return ae_req.toStack((int) ae_ext);
                 }
             }
 
-            final boolean checkFuzzy = ae_req.getOre().isPresent() || providedTemplate.getItemDamage() == OreDictionary.WILDCARD_VALUE || providedTemplate.hasTagCompound() || providedTemplate.isItemStackDamageable();
+            final boolean checkFuzzy = OreHelper.INSTANCE.getOre(providedTemplate).isPresent() || providedTemplate.getItemDamage() == OreDictionary.WILDCARD_VALUE || providedTemplate.hasTagCompound() || providedTemplate.isItemStackDamageable();
 
             if (items != null && checkFuzzy) {
-                for (final IAEItemStack x : items) {
-                    final ItemStack sh = x.getDefinition();
-                    if ((Platform.itemComparisons().isEqualItemType(providedTemplate, sh) || ae_req.sameOre(x)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
+                for (final Object2LongMap.Entry<AEKey> entry : items) {
+                    if (!(entry.getKey() instanceof AEItemKey x)) {
+                        continue;
+                    }
+
+                    final ItemStack sh = x.getReadOnlyStack();
+                    if ((Platform.itemComparisons().isEqualItemType(providedTemplate, sh) || OreHelper.INSTANCE.sameOre(ae_req, x)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
                         final ItemStack cp = sh.copy();
                         cp.setCount(1);
                         ci.setInventorySlotContents(slot, cp);
                         if (r.matches(ci, w) && ItemStack.areItemsEqual(r.getCraftingResult(ci), output)) {
-                            final IAEItemStack ax = x.copy();
-                            ax.setStackSize(1);
-                            if (filter == null || filter.isListed(ax)) {
-                                final IAEItemStack ex = src.extractItems(ax, realForFake, mySrc);
-                                if (ex != null) {
+                            if (filter == null || filter.isListed(x)) {
+                                final long ex = src.extract(x, 1, realForFake, mySrc);
+                                if (ex > 0) {
                                     energySrc.extractAEPower(1, realForFake, PowerMultiplier.CONFIG);
-                                    return ex.createItemStack();
+                                    return x.toStack((int) ex);
                                 }
                             }
                         }

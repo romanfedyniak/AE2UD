@@ -19,21 +19,21 @@
 package appeng.util.prioritylist;
 
 
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 
 
-public class PrecisePriorityList<T extends IAEStack<T>> implements IPartitionList<T> {
+public class PrecisePriorityList implements IPartitionList {
 
-    private final IItemList<T> list;
+    private final KeyCounter list;
 
-    public PrecisePriorityList(final IItemList<T> in) {
+    public PrecisePriorityList(final KeyCounter in) {
         this.list = in;
     }
 
     @Override
-    public boolean isListed(final T input) {
-        return this.list.findPrecise(input) != null;
+    public boolean isListed(final AEKey input) {
+        return this.list.get(input) > 0;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class PrecisePriorityList<T extends IAEStack<T>> implements IPartitionLis
     }
 
     @Override
-    public Iterable<T> getItems() {
-        return this.list;
+    public Iterable<AEKey> getItems() {
+        return this.list.keySet();
     }
 }

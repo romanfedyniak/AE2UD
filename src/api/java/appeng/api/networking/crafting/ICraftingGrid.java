@@ -24,6 +24,7 @@
 package appeng.api.networking.crafting;
 
 
+import java.util.Set;
 import java.util.concurrent.Future;
 
 import com.google.common.collect.ImmutableCollection;
@@ -35,6 +36,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridCache;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.storage.AEKeyFilter;
 import appeng.api.stacks.GenericStack;
 
 
@@ -96,6 +98,25 @@ public interface ICraftingGrid extends IGridCache
 	 * @return true if the item can be requested via a crafting emitter.
 	 */
 	boolean canEmitFor( AEKey what );
+
+	/**
+	 * Everything the network currently knows how to craft.
+	 *
+	 * In the old model craftability was a boolean flag carried by the stack itself. Keys carry no
+	 * such flag, so the crafting grid answers the question instead. This is what terminals use to
+	 * list craftable-but-not-stored entries.
+	 *
+	 * @param filter restricts the result, for instance to one key type.
+	 */
+	Set<AEKey> getCraftables( AEKeyFilter filter );
+
+	/**
+	 * @return true if the network has a pattern producing this key.
+	 */
+	default boolean isCraftable( AEKey what )
+	{
+		return getCraftables( key -> key.equals( what ) ).contains( what );
+	}
 
 	/**
 	 * is this item being crafted?

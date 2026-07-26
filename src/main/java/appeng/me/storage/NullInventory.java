@@ -19,66 +19,32 @@
 package appeng.me.storage;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
-import appeng.api.config.Actionable;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 
 
-public class NullInventory<T extends IAEStack<T>> implements IMEInventoryHandler<T> {
+/**
+ * An immutable inventory that is always empty and never accepts anything.
+ */
+public class NullInventory implements MEStorage {
+    private static final NullInventory NULL_INVENTORY = new NullInventory();
 
-    @Override
-    public T injectItems(final T input, final Actionable mode, final IActionSource src) {
-        return input;
+    private NullInventory() {
+    }
+
+    public static MEStorage of() {
+        return NULL_INVENTORY;
     }
 
     @Override
-    public T extractItems(final T request, final Actionable mode, final IActionSource src) {
-        return null;
+    public void getAvailableStacks(final KeyCounter out) {
     }
 
     @Override
-    public IItemList<T> getAvailableItems(final IItemList out) {
-        return out;
-    }
-
-    @Override
-    public IStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return AccessRestriction.READ;
-    }
-
-    @Override
-    public boolean isPrioritized(final T input) {
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final T input) {
-        return false;
-    }
-
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-
-    @Override
-    public int getSlot() {
-        return 0;
-    }
-
-    @Override
-    public boolean validForPass(final int i) {
-        return i == 2;
+    public ITextComponent getDescription() {
+        return new TextComponentString("");
     }
 }

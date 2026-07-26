@@ -20,17 +20,16 @@ package appeng.util.inv;
 
 
 import appeng.api.config.Actionable;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.util.item.AEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.storage.MEStorage;
 import net.minecraft.item.ItemStack;
 
 
 public class IMEInventoryDestination implements IInventoryDestination {
 
-    private final IMEInventory<IAEItemStack> me;
+    private final MEStorage me;
 
-    public IMEInventoryDestination(final IMEInventory<IAEItemStack> o) {
+    public IMEInventoryDestination(final MEStorage o) {
         this.me = o;
     }
 
@@ -41,11 +40,13 @@ public class IMEInventoryDestination implements IInventoryDestination {
             return false;
         }
 
-        final IAEItemStack failed = this.me.injectItems(AEItemStack.fromItemStack(stack), Actionable.SIMULATE, null);
-
-        if (failed == null) {
-            return true;
+        final AEItemKey what = AEItemKey.of(stack);
+        if (what == null) {
+            return false;
         }
-        return failed.getStackSize() != stack.getCount();
+
+        final long inserted = this.me.insert(what, stack.getCount(), Actionable.SIMULATE, null);
+
+        return inserted > 0;
     }
 }

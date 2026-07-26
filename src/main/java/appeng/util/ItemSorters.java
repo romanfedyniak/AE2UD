@@ -20,52 +20,56 @@ package appeng.util;
 
 
 import appeng.api.config.SortDir;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
 import appeng.integration.Integrations;
 import appeng.integration.abstraction.IInvTweaks;
-import appeng.util.item.AEItemStack;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.Comparator;
 
 
+/**
+ * Sorts entries of a {@code KeyCounter}, i.e. {@code Object2LongMap.Entry<AEKey>} pairs of a key and
+ * the amount currently stored under it. This replaces the old comparators over {@code IAEItemStack}:
+ * the key half of the entry plays the role identity used to play, the {@code long} value plays the
+ * role the stack size used to play.
+ */
 public class ItemSorters {
 
     private static SortDir Direction = SortDir.ASCENDING;
 
-    public static final Comparator<IAEItemStack> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
     {
-        final int cmp = Platform.getItemDisplayName(o1).compareToIgnoreCase(Platform.getItemDisplayName(o2));
+        final int cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
         return applyDirection(cmp);
     };
 
-    public static final Comparator<IAEItemStack> CONFIG_BASED_SORT_BY_MOD = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_MOD = (o1, o2) ->
     {
-        final AEItemStack op1 = (AEItemStack) o1;
-        final AEItemStack op2 = (AEItemStack) o2;
-        int cmp = op1.getModID().compareToIgnoreCase(op2.getModID());
+        int cmp = o1.getKey().getModId().compareToIgnoreCase(o2.getKey().getModId());
 
         if (cmp == 0) {
-            cmp = Platform.getItemDisplayName(o1).compareToIgnoreCase(Platform.getItemDisplayName(o2));
+            cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
         }
 
         return applyDirection(cmp);
     };
 
-    public static final Comparator<IAEItemStack> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
     {
-        final int cmp = Long.compare(o2.getStackSize(), o1.getStackSize());
+        final int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
         return applyDirection(cmp);
     };
 
     private static IInvTweaks api;
 
-    public static final Comparator<IAEItemStack> CONFIG_BASED_SORT_BY_INV_TWEAKS = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_INV_TWEAKS = (o1, o2) ->
     {
         if (api == null) {
             return CONFIG_BASED_SORT_BY_NAME.compare(o1, o2);
         }
 
-        final int cmp = api.compareItems(o1.createItemStack(), o2.createItemStack());
+        final int cmp = api.compareItems(o1.getKey().wrapForDisplayOrFilter(), o2.getKey().wrapForDisplayOrFilter());
         return applyDirection(cmp);
     };
 

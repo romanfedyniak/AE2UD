@@ -19,32 +19,34 @@
 package appeng.me.storage;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
-import appeng.api.config.Actionable;
-import appeng.api.config.StorageFilter;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IItemList;
-import appeng.fluids.util.AEFluidStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
-import java.util.*;
-import java.util.Map.Entry;
+import appeng.api.config.Actionable;
+import appeng.api.config.StorageFilter;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 
 
-public class MEMonitorIFluidHandler implements IMEMonitor<IAEFluidStack>, ITickingMonitor {
+/**
+ * Adapts an adjacent {@link IFluidHandler} (a tank) so it behaves like an {@link MEStorage}. Used by fluid storage
+ * buses.
+ * <p/>
+ * See {@link MEMonitorIInventory} for why this keeps the pre-migration tank-property scanning approach instead of
+ * AE2-original's {@code ExternalStorageFacade}: 1.12.2 has no equivalent to NeoForge's unified transfer API. Only
+ * {@code IAEFluidStack}/{@code IItemList} are replaced, by {@link AEFluidKey}/{@link KeyCounter}.
+ */
+public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor {
+
     private final IFluidHandler handler;
-    private IItemList<IAEFluidStack> cache = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
-    private final HashMap<IMEMonitorHandlerReceiver<IAEFluidStack>, Object> listeners = new HashMap<>();
-    private IActionSource mySource;
+    private KeyCounter cache = new KeyCounter();
     private StorageFilter mode = StorageFilter.EXTRACTABLE_ONLY;
 
     public MEMonitorIFluidHandler(final IFluidHandler handler) {
@@ -52,180 +54,89 @@ public class MEMonitorIFluidHandler implements IMEMonitor<IAEFluidStack>, ITicki
     }
 
     @Override
-    public void addListener(final IMEMonitorHandlerReceiver<IAEFluidStack> l, final Object verificationToken) {
-        this.listeners.put(l, verificationToken);
+    public long insert(final AEKey what, final long amount, final Actionable type, final IActionSource source) {
+        if (!(what instanceof AEFluidKey fluidKey) || amount <= 0) {
+            return 0;
+        }
+
+        final int requested = (int) Math.min(amount, Integer.MAX_VALUE);
+        final int filled = this.handler.fill(fluidKey.toStack(requested), type == Actionable.MODULATE);
+
+        if (filled > 0 && type == Actionable.MODULATE) {
+            this.cache.add(fluidKey, filled);
+        }
+
+        return filled;
     }
 
     @Override
-    public void removeListener(final IMEMonitorHandlerReceiver<IAEFluidStack> l) {
-        this.listeners.remove(l);
-    }
-
-    @Override
-    public IAEFluidStack injectItems(final IAEFluidStack input, final Actionable type, final IActionSource src) {
-        final int filled = this.handler.fill(input.getFluidStack(), type == Actionable.MODULATE);
-
-        if (filled == 0) {
-            return input.copy();
+    public long extract(final AEKey what, final long amount, final Actionable type, final IActionSource source) {
+        if (!(what instanceof AEFluidKey fluidKey) || amount <= 0) {
+            return 0;
         }
 
-        if (filled == input.getStackSize()) {
-            return null;
-        }
+        final int requested = (int) Math.min(amount, Integer.MAX_VALUE);
+        final FluidStack removed = this.handler.drain(fluidKey.toStack(requested), type == Actionable.MODULATE);
 
-        final IAEFluidStack o = input.copy();
-        o.setStackSize(input.getStackSize() - filled);
+        if (removed == null || removed.amount <= 0) {
+            return 0;
+        }
 
         if (type == Actionable.MODULATE) {
-            IAEFluidStack added = o.copy();
-            this.cache.add(added);
-            this.postDifference(Collections.singletonList(added));
-            this.onTick();
+            this.cache.remove(fluidKey, removed.amount);
         }
 
-        return o;
+        return removed.amount;
     }
 
     @Override
-    public IAEFluidStack extractItems(final IAEFluidStack request, final Actionable type, final IActionSource src) {
-        final FluidStack removed = this.handler.drain(request.getFluidStack(), type == Actionable.MODULATE);
-
-        if (removed == null || removed.amount == 0) {
-            return null;
-        }
-
-        final IAEFluidStack o = request.copy();
-        o.setStackSize(removed.amount);
-
-        if (type == Actionable.MODULATE) {
-            IAEFluidStack cachedStack = this.cache.findPrecise(request);
-            if (cachedStack != null) {
-                cachedStack.decStackSize(o.getStackSize());
-                this.postDifference(Collections.singletonList(o.copy().setStackSize(-o.getStackSize())));
-            }
-        }
-        return o;
-    }
-
-    @Override
-    public IStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
+    public void getAvailableStacks(final KeyCounter out) {
+        out.addAll(this.cache);
     }
 
     @Override
     public TickRateModulation onTick() {
-        boolean changed = false;
+        final KeyCounter next = new KeyCounter();
+        final IFluidTankProperties[] tanks = this.handler.getTankProperties();
 
-        final List<IAEFluidStack> changes = new ArrayList<>();
-        final IFluidTankProperties[] tankProperties = this.handler.getTankProperties();
-
-        IItemList<IAEFluidStack> currentlyOnStorage = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
-
-        for (IFluidTankProperties tankProperty : tankProperties) {
+        for (final IFluidTankProperties tank : tanks) {
             if (this.mode == StorageFilter.EXTRACTABLE_ONLY && this.handler.drain(1, false) == null) {
                 continue;
             }
-            currentlyOnStorage.add(AEFluidStack.fromFluidStack(tankProperty.getContents()));
-        }
 
-        for (final IAEFluidStack is : cache) {
-            is.setStackSize(-is.getStackSize());
-        }
-
-        for (final IAEFluidStack is : currentlyOnStorage) {
-            cache.add(is);
-        }
-
-        for (final IAEFluidStack is : cache) {
-            if (is.getStackSize() != 0) {
-                changes.add(is);
+            final FluidStack contents = tank.getContents();
+            final AEFluidKey key = AEFluidKey.of(contents);
+            if (key != null) {
+                next.add(key, contents.amount);
             }
         }
 
-        cache = currentlyOnStorage;
-
-        if (!changes.isEmpty()) {
-            this.postDifference(changes);
-            changed = true;
-        }
+        final boolean changed = this.hasChanged(next);
+        this.cache = next;
 
         return changed ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
     }
 
-    private void postDifference(final Iterable<IAEFluidStack> a) {
-        if (a != null) {
-            final Iterator<Entry<IMEMonitorHandlerReceiver<IAEFluidStack>, Object>> i = this.listeners.entrySet().iterator();
-            while (i.hasNext()) {
-                final Entry<IMEMonitorHandlerReceiver<IAEFluidStack>, Object> l = i.next();
-                final IMEMonitorHandlerReceiver<IAEFluidStack> key = l.getKey();
-                if (key.isValid(l.getValue())) {
-                    key.postChange(this, a, this.getActionSource());
-                } else {
-                    i.remove();
-                }
+    private boolean hasChanged(final KeyCounter next) {
+        for (final var entry : next) {
+            if (this.cache.get(entry.getKey()) != entry.getLongValue()) {
+                return true;
             }
         }
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return AccessRestriction.READ_WRITE;
-    }
-
-    @Override
-    public boolean isPrioritized(final IAEFluidStack input) {
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final IAEFluidStack input) {
-        return true;
-    }
-
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-
-    @Override
-    public int getSlot() {
-        return 0;
-    }
-
-    @Override
-    public boolean validForPass(final int i) {
-        return true;
-    }
-
-    @Override
-    public IItemList<IAEFluidStack> getAvailableItems(final IItemList out) {
-        for (final IAEFluidStack fs : cache) {
-            out.addStorage(fs);
+        for (final var entry : this.cache) {
+            if (next.get(entry.getKey()) != entry.getLongValue()) {
+                return true;
+            }
         }
-
-        return out;
-    }
-
-    @Override
-    public IItemList<IAEFluidStack> getStorageList() {
-        return this.cache;
-    }
-
-    private StorageFilter getMode() {
-        return this.mode;
+        return false;
     }
 
     public void setMode(final StorageFilter mode) {
         this.mode = mode;
     }
 
-    private IActionSource getActionSource() {
-        return this.mySource;
-    }
-
     @Override
-    public void setActionSource(final IActionSource mySource) {
-        this.mySource = mySource;
+    public ITextComponent getDescription() {
+        return new TextComponentString("Fluid Tank");
     }
-
 }

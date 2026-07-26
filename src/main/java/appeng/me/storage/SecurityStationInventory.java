@@ -19,57 +19,102 @@
 package appeng.me.storage;
 
 
+import com.mojang.authlib.GameProfile;
+
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+
 import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.implementations.items.IBiometricCard;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.me.GridAccessException;
-import appeng.me.helpers.MEMonitorHandler;
-import appeng.me.helpers.MachineSource;
 import appeng.tile.misc.TileSecurityStation;
-import com.mojang.authlib.GameProfile;
-
-import java.util.Collections;
 
 
-public class SecurityStationInventory implements IMEInventoryHandler<IAEItemStack> {
+/**
+ * Holds the biometric cards registered with a security station.
+ * <p/>
+ * Replaces the old {@code IMEInventoryHandler<IAEItemStack>} implementation. It no longer posts changes to
+ * listeners itself: that bookkeeping belonged to {@code IMEMonitor}, which is gone. The network's storage service
+ * now periodically diffs its own cached amounts, so a plain {@link MEStorage} mounted through
+ * {@code IStorageProvider} is all that's needed.
+ * <p/>
+ * There is no reference implementation for this class: AE2-original dropped the security station entirely, so
+ * this is a straight port of the pre-migration logic onto the new key/storage types.
+ */
+public class SecurityStationInventory implements MEStorage {
 
-    private final IItemList<IAEItemStack> storedItems = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    private final KeyCounter storedItems = new KeyCounter();
     private final TileSecurityStation securityTile;
-    private final MachineSource src;
 
     public SecurityStationInventory(final TileSecurityStation ts) {
         this.securityTile = ts;
-        this.src = new MachineSource(securityTile);
     }
 
     @Override
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable type, final IActionSource src) {
-        if (this.hasPermission(src)) {
-            if (AEApi.instance().definitions().items().biometricCard().isSameAs(input.createItemStack())) {
-                if (this.canAccept(input)) {
-                    if (type == Actionable.SIMULATE) {
-                        return null;
-                    }
-
-                    if (securityTile.getProxy().isActive()) {
-                        ((MEMonitorHandler<IAEItemStack>) securityTile.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class))).postChangesToListeners(Collections.singletonList(input.copy()), this.src);
-                    }
-
-                    this.getStoredItems().add(input);
-                    this.securityTile.inventoryChanged();
-                    return null;
-                }
-            }
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
+        if (!(what instanceof AEItemKey itemKey) || amount <= 0) {
+            return 0;
         }
-        return input;
+
+        if (!this.hasPermission(src)) {
+            return 0;
+        }
+
+        if (!AEApi.instance().definitions().items().biometricCard().isSameAs(itemKey.toStack())) {
+            return 0;
+        }
+
+        if (!this.canAccept(itemKey)) {
+            return 0;
+        }
+
+        if (mode == Actionable.MODULATE) {
+            this.storedItems.add(itemKey, 1);
+            this.securityTile.inventoryChanged();
+        }
+
+        return 1;
+    }
+
+    @Override
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
+        if (!(what instanceof AEItemKey) || amount <= 0 || !this.hasPermission(src)) {
+            return 0;
+        }
+
+        if (this.storedItems.get(what) <= 0) {
+            return 0;
+        }
+
+        if (mode == Actionable.MODULATE) {
+            this.storedItems.remove(what);
+            this.securityTile.inventoryChanged();
+        }
+
+        return 1;
+    }
+
+    @Override
+    public void getAvailableStacks(final KeyCounter out) {
+        out.addAll(this.storedItems);
+    }
+
+    @Override
+    public ITextComponent getDescription() {
+        return new TextComponentString("Security Station");
+    }
+
+    public KeyCounter getStoredItems() {
+        return this.storedItems;
     }
 
     private boolean hasPermission(final IActionSource src) {
@@ -83,98 +128,31 @@ public class SecurityStationInventory implements IMEInventoryHandler<IAEItemStac
         return false;
     }
 
-    @Override
-    public IAEItemStack extractItems(final IAEItemStack request, final Actionable mode, final IActionSource src) {
-        if (this.hasPermission(src)) {
-            final IAEItemStack target = this.getStoredItems().findPrecise(request);
-            if (target != null) {
-                final IAEItemStack output = target.copy();
+    private boolean canAccept(final AEItemKey input) {
+        if (!(input.getItem() instanceof IBiometricCard tbc)) {
+            return false;
+        }
 
-                if (mode == Actionable.SIMULATE) {
-                    return output;
-                }
+        final GameProfile newUser = tbc.getProfile(input.toStack());
+        final int playerId = AEApi.instance().registries().players().getID(newUser);
+        if (this.securityTile.getOwner() == playerId) {
+            return false;
+        }
 
-                if (securityTile.getProxy().isActive()) {
-                    ((MEMonitorHandler<IAEItemStack>) securityTile.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class))).postChangesToListeners(Collections.singletonList(target.copy().setStackSize(-target.getStackSize())), this.src);
-                }
-
-                target.setStackSize(0);
-                this.securityTile.inventoryChanged();
-                return output;
+        for (final Object2LongMap.Entry<AEKey> entry : this.storedItems) {
+            if (!(entry.getKey() instanceof AEItemKey existing)) {
+                continue;
             }
-        }
-        return null;
-    }
+            if (!(existing.getItem() instanceof IBiometricCard existingCard)) {
+                continue;
+            }
 
-    @Override
-    public IItemList<IAEItemStack> getAvailableItems(final IItemList out) {
-        for (final IAEItemStack ais : this.getStoredItems()) {
-            out.add(ais);
-        }
-
-        return out;
-    }
-
-    @Override
-    public IStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return AccessRestriction.READ_WRITE;
-    }
-
-    @Override
-    public boolean isPrioritized(final IAEItemStack input) {
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final IAEItemStack input) {
-        if (input.getItem() instanceof IBiometricCard) {
-            final IBiometricCard tbc = (IBiometricCard) input.getItem();
-            final GameProfile newUser = tbc.getProfile(input.createItemStack());
-
-            final int PlayerID = AEApi.instance().registries().players().getID(newUser);
-            if (this.securityTile.getOwner() == PlayerID) {
+            final GameProfile thisUser = existingCard.getProfile(existing.toStack());
+            if (thisUser != null && thisUser.equals(newUser)) {
                 return false;
             }
-
-            for (final IAEItemStack ais : this.getStoredItems()) {
-                if (ais.isMeaningful()) {
-                    final GameProfile thisUser = tbc.getProfile(ais.createItemStack());
-                    if (thisUser == newUser) {
-                        return false;
-                    }
-
-                    if (thisUser != null && thisUser.equals(newUser)) {
-                        return false;
-                    }
-                }
-            }
-
-            return true;
         }
-        return false;
-    }
 
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-
-    @Override
-    public int getSlot() {
-        return 0;
-    }
-
-    @Override
-    public boolean validForPass(final int i) {
         return true;
-    }
-
-    public IItemList<IAEItemStack> getStoredItems() {
-        return this.storedItems;
     }
 }

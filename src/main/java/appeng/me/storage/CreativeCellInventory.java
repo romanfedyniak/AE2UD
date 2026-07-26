@@ -19,100 +19,100 @@
 package appeng.me.storage;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
+import java.util.HashSet;
+import java.util.Set;
+
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.cells.CellState;
+import appeng.api.storage.cells.StorageCell;
 import appeng.items.contents.CellConfig;
-import appeng.util.item.AEItemStack;
-import net.minecraft.item.ItemStack;
 
 
-public class CreativeCellInventory implements IMEInventoryHandler<IAEItemStack> {
+/**
+ * A creative storage cell: reports an effectively infinite amount of whatever is configured in it and never
+ * actually stores or loses anything.
+ * <p/>
+ * Replaces the old {@code IMEInventoryHandler}-based implementation, which wrapped itself in a
+ * {@code BasicCellInventoryHandler} on construction; since {@link StorageCell} is itself an
+ * {@link appeng.api.storage.MEStorage}, that wrapping is no longer needed here - whoever mounts the cell (the
+ * drive, out of this package's scope) applies priority/whitelisting the same way it does for
+ * {@link BasicCellInventory}.
+ */
+public class CreativeCellInventory implements StorageCell {
 
-    private final IItemList<IAEItemStack> itemListCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    private final Set<AEKey> configured = new HashSet<>();
+    private final ItemStack stack;
 
-    protected CreativeCellInventory(final ItemStack o) {
+    private CreativeCellInventory(final ItemStack o) {
+        this.stack = o;
+
         final CellConfig cc = new CellConfig(o);
         for (final ItemStack is : cc) {
             if (!is.isEmpty()) {
-                final IAEItemStack i = AEItemStack.fromItemStack(is);
-                i.setStackSize(Integer.MAX_VALUE);
-                this.itemListCache.add(i);
+                final AEItemKey key = AEItemKey.of(is);
+                if (key != null) {
+                    this.configured.add(key);
+                }
             }
         }
     }
 
-    public static ICellInventoryHandler getCell(final ItemStack o) {
-        return new BasicCellInventoryHandler(new CreativeCellInventory(o), AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+    public static StorageCell createInventory(final ItemStack o) {
+        return new CreativeCellInventory(o);
     }
 
     @Override
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable mode, final IActionSource src) {
-        final IAEItemStack local = this.itemListCache.findPrecise(input);
-        if (local == null) {
-            return input;
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        return this.configured.contains(what) ? amount : 0;
+    }
+
+    @Override
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        return this.configured.contains(what) ? amount : 0;
+    }
+
+    @Override
+    public void getAvailableStacks(final KeyCounter out) {
+        for (final AEKey key : this.configured) {
+            out.add(key, Integer.MAX_VALUE);
         }
-
-        return null;
     }
 
     @Override
-    public IAEItemStack extractItems(final IAEItemStack request, final Actionable mode, final IActionSource src) {
-        final IAEItemStack local = this.itemListCache.findPrecise(request);
-        if (local == null) {
-            return null;
-        }
-
-        return request.copy();
+    public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
+        return this.configured.contains(input);
     }
 
     @Override
-    public IItemList<IAEItemStack> getAvailableItems(final IItemList out) {
-        for (final IAEItemStack ais : this.itemListCache) {
-            out.add(ais);
-        }
-        return out;
+    public CellState getStatus() {
+        return CellState.TYPES_FULL;
     }
 
     @Override
-    public IStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return AccessRestriction.READ_WRITE;
-    }
-
-    @Override
-    public boolean isPrioritized(final IAEItemStack input) {
-        return this.itemListCache.findPrecise(input) != null;
-    }
-
-    @Override
-    public boolean canAccept(final IAEItemStack input) {
-        return this.itemListCache.findPrecise(input) != null;
-    }
-
-    @Override
-    public int getPriority() {
+    public double getIdleDrain() {
         return 0;
     }
 
     @Override
-    public int getSlot() {
-        return 0;
+    public boolean canFitInsideCell() {
+        return this.configured.isEmpty();
     }
 
     @Override
-    public boolean validForPass(final int i) {
-        return true;
+    public void persist() {
+        // Nothing to persist: a creative cell's contents are just its configuration.
+    }
+
+    @Override
+    public ITextComponent getDescription() {
+        return new TextComponentString(this.stack.getDisplayName());
     }
 }

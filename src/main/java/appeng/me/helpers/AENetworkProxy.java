@@ -26,7 +26,7 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.events.MENetworkPowerIdleChange;
 import appeng.api.networking.pathing.IPathingGrid;
 import appeng.api.networking.security.ISecurityGrid;
-import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.ITickManager;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalCoord;
@@ -186,13 +186,13 @@ public class AENetworkProxy implements IGridBlock {
         return pg;
     }
 
-    public IStorageGrid getStorage() throws GridAccessException {
+    public IStorageService getStorage() throws GridAccessException {
         final IGrid grid = this.getGrid();
         if (grid == null) {
             throw new GridAccessException();
         }
 
-        final IStorageGrid pg = grid.getCache(IStorageGrid.class);
+        final IStorageService pg = grid.getCache(IStorageService.class);
 
         if (pg == null) {
             throw new GridAccessException();

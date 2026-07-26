@@ -19,214 +19,160 @@
 package appeng.me.storage;
 
 
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
-import appeng.api.config.StorageFilter;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.util.prioritylist.DefaultPriorityList;
 import appeng.util.prioritylist.IPartitionList;
 
 
-public class MEInventoryHandler<T extends IAEStack<T>> implements IMEInventoryHandler<T> {
+/**
+ * Wraps a {@link MEStorage} with a priority, an insertion/extraction whitelist or blacklist and a few other
+ * per-mount options (storage buses, drive cells).
+ * <p/>
+ * Replaces the generic {@code IMEInventoryHandler<T>}/{@code MEInventoryHandler<T>} pair. Priority itself is no
+ * longer tracked here - {@link NetworkStorage#mount(int, MEStorage)} takes it directly.
+ * <p/>
+ * <b>Sticky Card (AE2UD-specific, not in AE2-original — see CONTRACT.md §10):</b> {@link #isSticky()}/
+ * {@link #setSticky(boolean)} restore the flag that used to live on the old generic {@code MEInventoryHandler<T>}.
+ * It has no equivalent on the {@link MEStorage} interface itself (deliberately - it is not part of the frozen
+ * {@code src/api} contract), so callers that need to special-case sticky mounts do an
+ * {@code instanceof MEInventoryHandler} check; see {@link NetworkStorage#insert} for the one place that matters.
+ */
+public class MEInventoryHandler extends DelegatingMEInventory {
 
-    private final IMEInventoryHandler<T> internal;
-    private int myPriority;
-    private IncludeExclude myWhitelist;
-    private AccessRestriction myAccess;
-    private StorageFilter storageFilter;
-    private IPartitionList<T> myPartitionList;
+    private IPartitionList partitionList = DefaultPriorityList.INSTANCE;
+    private IncludeExclude partitionListMode = IncludeExclude.WHITELIST;
+    private boolean filterOnExtraction;
+    private boolean filterAvailableContents;
+    private boolean allowExtraction = true;
+    private boolean allowInsertion = true;
+    private boolean voidOverflow;
+    private boolean sticky;
 
-    private AccessRestriction cachedAccessRestriction;
+    private boolean gettingAvailableContent = false;
 
-    protected final boolean hasReadAccess() {
-        return hasReadAccess;
+    public MEInventoryHandler(final MEStorage inventory) {
+        super(inventory);
     }
 
-    protected final boolean hasWriteAccess() {
-        return hasWriteAccess;
+    public void setAllowExtraction(final boolean allowExtraction) {
+        this.allowExtraction = allowExtraction;
     }
 
-    private boolean hasReadAccess;
-    private boolean hasWriteAccess;
-    private boolean isSticky;
-    private boolean gettingAvailableContent;
-
-    public MEInventoryHandler(final IMEInventory<T> i, final IStorageChannel<T> channel) {
-        if (i instanceof IMEInventoryHandler) {
-            this.internal = (IMEInventoryHandler<T>) i;
-        } else {
-            this.internal = new MEPassThrough<>(i, channel);
-        }
-
-        this.myPriority = 0;
-        this.myWhitelist = IncludeExclude.WHITELIST;
-        this.setBaseAccess(AccessRestriction.READ_WRITE);
-        this.myPartitionList = new DefaultPriorityList<>();
+    public void setAllowInsertion(final boolean allowInsertion) {
+        this.allowInsertion = allowInsertion;
     }
 
-    IncludeExclude getWhitelist() {
-        return this.myWhitelist;
+    protected IncludeExclude getWhitelist() {
+        return this.partitionListMode;
     }
 
     public void setWhitelist(final IncludeExclude myWhitelist) {
-        this.myWhitelist = myWhitelist;
+        this.partitionListMode = myWhitelist;
     }
 
-    public AccessRestriction getBaseAccess() {
-        return this.myAccess;
+    protected IPartitionList getPartitionList() {
+        return this.partitionList;
     }
 
-    public void setBaseAccess(final AccessRestriction myAccess) {
-        this.myAccess = myAccess;
-        this.cachedAccessRestriction = this.myAccess.restrictPermissions(this.internal.getAccess());
-        this.hasReadAccess = this.cachedAccessRestriction.hasPermission(AccessRestriction.READ);
-        this.hasWriteAccess = this.cachedAccessRestriction.hasPermission(AccessRestriction.WRITE);
+    public void setPartitionList(final IPartitionList myPartitionList) {
+        this.partitionList = myPartitionList;
     }
 
-    public IPartitionList<T> getPartitionList() {
-        return this.myPartitionList;
+    public void setExtractFiltering(final boolean filterOnExtraction, final boolean filterAvailableContents) {
+        this.filterOnExtraction = filterOnExtraction;
+        this.filterAvailableContents = filterAvailableContents;
     }
 
-    public void setPartitionList(final IPartitionList<T> myPartitionList) {
-        this.myPartitionList = myPartitionList;
+    public void setVoidOverflow(final boolean voidOverflow) {
+        this.voidOverflow = voidOverflow;
+    }
+
+    /**
+     * @return true if this mount has the Sticky Card installed (or otherwise opted into sticky semantics). See
+     *         {@link NetworkStorage#insert} for what this actually changes.
+     */
+    public boolean isSticky() {
+        return this.sticky;
+    }
+
+    public void setSticky(final boolean sticky) {
+        this.sticky = sticky;
     }
 
     @Override
-    public T injectItems(final T input, final Actionable type, final IActionSource src) {
-        if (!this.canAccept(input)) {
-            return input;
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (!this.allowInsertion || !this.passesBlackOrWhitelist(what)) {
+            return 0;
         }
 
-        return this.internal.injectItems(input, type, src);
+        final long inserted = super.insert(what, amount, mode, source);
+        return this.voidOverflow ? amount : inserted;
     }
 
     @Override
-    public T extractItems(final T request, final Actionable type, final IActionSource src) {
-        if (!this.canExtract(request)) {
-            return null;
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (this.filterOnExtraction && !this.canExtract(what)) {
+            return 0;
         }
 
-        return this.internal.extractItems(request, type, src);
+        return super.extract(what, amount, mode, source);
     }
 
     @Override
-    public IItemList<T> getAvailableItems(final IItemList<T> out) {
-        if (this.gettingAvailableContent || !this.hasReadAccess) {
-            return out;
+    public void getAvailableStacks(final KeyCounter out) {
+        if (this.gettingAvailableContent) {
+            // Prevent recursion in case the internal inventory somehow calls this when the available items are
+            // queried. This is normally handled by NetworkStorage when the initial query comes from the network,
+            // but this method might also be called directly (e.g. by storage bus code), so guard here as well.
+            return;
         }
 
         this.gettingAvailableContent = true;
         try {
-            if (this.storageFilter == StorageFilter.EXTRACTABLE_ONLY) {
-                var stackList = this.internal.getAvailableItems(this.getChannel().createList());
-                for (final T t : stackList) {
-                    if (this.shouldItemBeAvailable(t)) {
-                        out.add(t);
+            if (!this.filterAvailableContents) {
+                super.getAvailableStacks(out);
+            } else {
+                if (!this.allowExtraction) {
+                    return;
+                }
+
+                for (final var entry : this.getDelegate().getAvailableStacks()) {
+                    if (this.canExtract(entry.getKey())) {
+                        out.add(entry.getKey(), entry.getLongValue());
                     }
                 }
-            } else {
-                return this.internal.getAvailableItems(out);
             }
         } finally {
             this.gettingAvailableContent = false;
         }
-
-        return out;
     }
 
     @Override
-    public IStorageChannel<T> getChannel() {
-        return this.internal.getChannel();
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return this.cachedAccessRestriction;
-    }
-
-    @Override
-    public boolean isPrioritized(final T input) {
-        if (this.myWhitelist == IncludeExclude.WHITELIST) {
-            return this.myPartitionList.isListed(input) || this.internal.isPrioritized(input);
-        }
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final T input) {
-        if (!this.hasWriteAccess) {
-            return false;
-        }
-
-        if (!this.passesBlackOrWhitelist(input)) {
-            return false;
-        }
-
-        return this.internal.canAccept(input);
-    }
-
-    @Override
-    public int getPriority() {
-        return this.myPriority;
-    }
-
-    public void setPriority(final int myPriority) {
-        this.myPriority = myPriority;
-    }
-
-    @Override
-    public int getSlot() {
-        return this.internal.getSlot();
-    }
-
-    @Override
-    public boolean validForPass(final int i) {
-        return true;
-    }
-
-    public IMEInventory<T> getInternal() {
-        return this.internal;
-    }
-
-    @Override
-    public boolean isSticky() {
-        return isSticky;
-    }
-
-    public void setSticky(boolean isSticky) {
-        this.isSticky = isSticky;
-    }
-
-    protected boolean canExtract(T request) {
-        return this.hasReadAccess && this.passesBlackOrWhitelist(request);
-    }
-
-    protected boolean shouldItemBeAvailable(T request) {
-        return this.hasReadAccess && this.passesBlackOrWhitelist(request);
-    }
-
-    public boolean passesBlackOrWhitelist(T input) {
-        if (this.myPartitionList.isEmpty()) {
+    public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
+        if (this.partitionListMode == IncludeExclude.WHITELIST && this.partitionList.isListed(input)) {
             return true;
         }
 
-        return switch (this.myWhitelist) {
-            case WHITELIST -> this.myPartitionList.isListed(input);
-            case BLACKLIST -> !this.myPartitionList.isListed(input);
-        };
+        // Inventories that already contain some equal stack are also preferred; a simulated extraction of size 1
+        // is enough to check, and avoids forcing sub-inventories to compute a larger simulated extraction.
+        if (super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
+            return true;
+        }
+
+        return super.isPreferredStorageFor(input, source);
     }
 
-    public StorageFilter getStorageFilter() {
-        return storageFilter;
+    protected boolean canExtract(final AEKey request) {
+        return this.allowExtraction && this.passesBlackOrWhitelist(request);
     }
 
-    public void setStorageFilter(StorageFilter storageFilter) {
-        this.storageFilter = storageFilter;
+    // Applies the black/whitelist, but only if any item is listed at all.
+    private boolean passesBlackOrWhitelist(final AEKey input) {
+        return this.partitionList.matchesFilter(input, this.partitionListMode);
     }
 }
