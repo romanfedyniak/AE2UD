@@ -42,7 +42,7 @@ Remaining broken files, by package:
 |---|---|---:|
 | 4 | `container/implementations` 12, `client/gui` 11, `core/sync` 9, `client/me` 6, `client/render` 4, `container/slot` 2, `container/AEBaseContainer` 1 | ~45 |
 | 5 | `fluids/*` (parts 9, util 8, container 8, client 6, helper 3, registries 1, items 1) | 36 |
-| 6 | `integration/modules` 7, plus the HEI dependency swap and the NAE2 addon | 7+ |
+| 6 | `integration/modules` 7, plus the HEI dependency swap | 7 |
 
 The scattered single hits in `me/*`, `crafting/*`, `util/*`, `tile/*`, `parts/*`, `items/*` are comments
 and one class that is merely *named* `IMEInventoryDestination`. They are not work.
@@ -66,8 +66,7 @@ grep -rn "IAEStack\|IAEItemStack\|IAEFluidStack\|IStorageChannel\|IMEInventory<\
 
 ## Wave 4 — file list and a suggested split
 
-45 files. The split below keeps the packet layer with the containers that send them, and isolates the
-blocked container.
+45 files. The split below keeps the packet layer with the containers that send them.
 
 **4-1 `core/sync/packets` (9)** — `PacketMEInventoryUpdate` (needs a `GenericStack` overload),
 `PacketMEFluidInventoryUpdate`, `PacketInventoryAction`, `PacketPatternSlot`, `PacketJEIRecipe`,
@@ -78,8 +77,9 @@ blocked container.
 `ContainerWirelessPatternTerminal`, `ContainerNetworkStatus`. Must hold the concrete `CraftingJob` type
 to call `populatePlan(KeyCounter, KeyCounter)` (§9.2).
 
-**4-3 `container` — storage side (8)** — `AEBaseContainer`, `ContainerMEMonitorable` (**blocked, see
-below**), `ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`,
+**4-3 `container` — storage side (8)** — `AEBaseContainer`, `ContainerMEMonitorable` (the base container
+of *every* ME terminal — read the live-updates section below before touching it),
+`ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`,
 `ContainerFluidInterfaceConfigurationTerminal`, `container/slot/SlotCraftingTerm`,
 `container/slot/SlotPatternTerm`. `PATTERN_EXPANSION` lives in `ContainerInterface` /
 `ContainerInterfaceTerminal` — protect it.
@@ -105,38 +105,35 @@ fluids. Do not add fluid branches to the wave-3 parts.
 `waila/part/StorageMonitorWailaDataProvider`, `waila/tile/CraftingMonitorWailaDataProvider`.
 
 Then: swap the JEI dependency for HEI in `build.gradle:583` (see `CONTRACT.md` §8.2 — HEI is a drop-in
-CleanroomMC fork of JEI, sources at `Z:\harmony\sources\HadEnoughItems`), migrate the owner's NAE2 addon
-at **`Z:\harmony\NAE2`** (~27 files, plus mixins into AE2 internals that break regardless — note there is
-a second checkout at `Z:\harmony\McSkill\NAE2`; confirm with the owner which is canonical), and get
-`gradlew build` green.
+CleanroomMC fork of JEI), and get `gradlew build` green.
 
 ## Before starting wave 4 — read this
 
-### Blocked: the portable-cell push design
+### Terminal live updates — decided, no longer blocking
 
-**Do not start `ContainerMEMonitorable` until this is decided.** See `CONTRACT.md` §10, "Third case".
+The old model pushed live inventory updates to open terminal screens: `ContainerMEMonitorable` did
+`monitor.addListener(this, null)` and accumulated deltas in `postChange(...)`. Listeners do not exist in
+the new model, and two places forward without notifying, deliberately and not by accident:
+`appeng.helpers.WirelessTerminalGuiObject` (wave 2) and `appeng.items.contents.PortableCellViewer`
+(wave 3, whose old `notifyListenersOfChange` on insert/extract has no direct replacement).
 
-The old model pushed live inventory updates to open terminal screens. Two places have already lost that
-and are waiting on the same decision:
+There are two cases and they get different answers:
 
-- `appeng.helpers.WirelessTerminalGuiObject` (wave 2) — plain forwarding, no notification.
-- `appeng.items.contents.PortableCellViewer` (wave 3) — same; its old `notifyListenersOfChange` on
-  insert/extract has no replacement yet.
+1. **Network-backed terminals — real push.** Register an `IStorageWatcherNode`, call
+   `IStackWatcher.setWatchAll(true)`, handle `onStackChange(AEKey what, long amount)`. Everything needed
+   is already in api from wave 0. This is *better* than upstream, which has no such path.
+2. **Portable cell and view-only cell terminals — server-side per-tick diff.** These view a `StorageCell`
+   directly, with no grid node and therefore no watcher. Do what upstream's `MEStorageMenu` does for
+   *every* terminal: in `detectAndSendChanges()`, take `getAvailableStacks()`, subtract the previous
+   snapshot, and send only the difference.
 
-Both were left as plain forwarding *deliberately*, not dropped by accident.
+**Why case 2 is not the polling that rule 6 forbids.** What was rejected for crafting CPUs was making the
+*GUI* re-ask for state, which makes updates visibly lazy. Here the diff runs server-side once per tick and
+the client receives the same delta packets it always did — the player sees no difference. It is also cheap
+in this specific case: the snapshot covers one cell's contents, not a whole network, which is why upstream
+can afford the same approach for everything.
 
-`CONTRACT.md` §10 splits this into two cases and only one is solved:
-
-1. **Network-backed terminals** — solved. Register an `IStorageWatcherNode`, call
-   `IStackWatcher.setWatchAll(true)`, handle `onStackChange(AEKey, long)`. No decision needed.
-2. **Portable cell / view-only cell terminals** — they view a `StorageCell` directly, with no grid node
-   and therefore no watcher. **No replacement exists.** Rule 6 rules out polling (the owner already
-   rejected it once, for crafting CPUs).
-
-The standing recommendation is a small push interface on this path, in the same spirit as the
-`ICraftingCPUListener` that was added when the crafting-CPU regression was repaired. It needs owner
-sign-off before wave 4 touches `ContainerMEMonitorable`, because that class is the base container of
-*every* ME terminal — regular, crafting, pattern, wireless and portable.
+Neither case needs an addition to the frozen API.
 
 ### Debt handed to wave 4 by earlier waves
 
@@ -231,8 +228,6 @@ wave 3 one agent adapted `PartIdentityAnnihilationPlane`, which was not in its l
 literally, the Identity Annihilation Plane would have broken silently. Review each report against rule 6
 rather than against the file list.
 
-Reference sources: `Z:\harmony\sources\AE2-original` (modern upstream, the reference implementation),
-`Z:\harmony\sources\ae-gtnh` and `Z:\harmony\sources\AE2FluidCraft-Rework-Unofficial` (older ancestors of
-this fork), `Z:\harmony\sources\HadEnoughItems` (HEI — this fork targets HEI, not JEI).
-
-The Ukrainian-language research wiki that preceded this port is at `Z:\harmony\wiki\AE2UD` (outside git).
+Reference sources to keep checked out locally: modern upstream Applied Energistics 2 (the reference
+implementation for every ported class), the AE2 GTNH fork and AE2FluidCraft-Rework-Unofficial (older
+ancestors of this fork, for 1.12.2-era API shapes), and HadEnoughItems (this fork targets HEI, not JEI).

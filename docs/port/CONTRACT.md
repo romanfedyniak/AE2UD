@@ -1,6 +1,6 @@
 # Storage API contract (generic storage port)
 
-This is the **frozen specification** of the `src/api` surface for the generic storage port. The research that led to these decisions lives in the wiki (`Z:\harmony\wiki\AE2UD`); this file carries only the *what*, not the *why*.
+This is the **frozen specification** of the `src/api` surface for the generic storage port. It carries only the *what*, not the *why*.
 
 ## Rules for agents (not up for discussion)
 
@@ -479,7 +479,7 @@ storage\IMEMonitor.java             storage\IStorageMonitorable.java
 | `ISaveProvider`                            | `ISaveProvider`                         | `api.storage.cells`         |
 | `IMEMonitorHandlerReceiver`                | — (deleted)                             | —                           |
 
-The ones marked "name unchanged" still move into the new package along with the rest, so the package layout matches AE2-original and backports do not have to fix imports by hand.
+The ones marked "name unchanged" still move into the new package along with the rest, so the package layout matches AE2-original and code written against upstream does not have to fix imports by hand.
 
 ### 4.3 Signatures
 
@@ -604,7 +604,7 @@ Must pass **before** wave 1 starts. It is the only automatic check in the whole 
 | 3    | `appeng.parts`, `appeng.items`, `appeng.recipes`                                                                |   ~25 | §9 extended                        |
 | 4    | `appeng.core.sync`, `appeng.container`, `appeng.client` — including the **multi-type filter GUI**                |   ~49 | §9 extended                        |
 | 5    | `appeng.fluids` — the whole package                                                                             |    35 | §9 extended                        |
-| 6    | `appeng.integration` (plus the switch to HEI, §8.2), NAE2 migration                                             |   ~34 | **green build** + manual in-game test |
+| 6    | `appeng.integration` (plus the switch to HEI, §8.2)                                                             |   ~34 | **green build** + manual in-game test |
 
 The order is not arbitrary. `crafting`/`tile`/`helpers` (wave 2) are what the parts depend on. `fluids` is deliberately pushed to the **end**: by wave 5 both the generic-part pattern and the multi-type GUI pattern will exist for it to mirror, and under the v1 plan that package is only mechanically translated anyway (decomposing `appeng.fluids.*` into the generic model is a post-v1 phase).
 
@@ -645,7 +645,7 @@ Three contentious points were reviewed by the owner and approved as they stand:
 
 ## 8.2 HEI instead of JEI
 
-The modpack uses **HadEnoughItems** (`Z:\harmony\sources\HadEnoughItems`, CleanroomMC, `51d34dba` @ 2026-07-10, version 4.32.0) — a 1.12.2 fork of JEI, not upstream JEI.
+The target environment uses **HadEnoughItems** (CleanroomMC, `51d34dba` @ 2026-07-10, version 4.32.0) — a 1.12.2 fork of JEI, not upstream JEI.
 
 This is almost transparent for the port: HEI's `gradle.properties` sets `mod_id = jei` and `root_package = mezz`, and the API lives in the same `mezz.jei.api` in a separate source set, so integration code is source-compatible.
 
@@ -1374,16 +1374,18 @@ Instructing agents to "mirror AE2-original" has a side effect: features the fork
 
 **Crafting CPU push notifications.** `addListener`/`removeListener`/`postChange` were removed from `CraftingCPUCluster` along with the `IMEMonitorHandlerReceiver` model, and polling was proposed instead. The owner rejected polling. **Restored** as `ICraftingCPUListener` (`onCraftingCPUChange(AEKey, IActionSource)`), with `postChange` calls back in every place the old code had them: `injectItems`, both extraction branches and both output loops in `executeCrafting`, `cancel()`, `submitJob()`, `storeItems()`.
 
-### Third case: terminal live updates — decide before wave 4
+### Third case: terminal live updates — resolved 2026-07-28
 
 `ContainerMEMonitorable` is the base container of **every** ME terminal (regular, crafting, pattern, wireless, portable cell). Before the migration (`git show 1e855f729:src/main/java/appeng/container/implementations/ContainerMEMonitorable.java`) it did `this.monitor.addListener(this, null)` at line 116 and received live deltas in `postChange(IBaseMonitor<IAEItemStack>, Iterable<IAEItemStack>, IActionSource)` at line 369. That is how a terminal updates in real time.
 
-Wave 2 removed `addListener`/`removeListener` from `WirelessTerminalGuiObject` on the grounds that watchers do not apply to a portable GUI object. Two distinct cases hide behind that, and only one of them has a replacement:
+Wave 2 removed `addListener`/`removeListener` from `WirelessTerminalGuiObject` on the grounds that watchers do not apply to a portable GUI object; wave 3's `PortableCellViewer` did the same. Two distinct cases hide behind that, and they get different answers:
 
-1. **Network-backed terminals** — the replacement exists and is correct: register an `IStorageWatcherNode` and call `IStackWatcher.setWatchAll(true)`, then handle `onStackChange(AEKey what, long amount)`. This is exactly what `setWatchAll` was added for.
-2. **Portable cell / view-only cell terminals** — these view a `StorageCell` directly, with no grid node and therefore no watcher. **There is no replacement yet.** Per rule 6, polling is not an acceptable answer. Wave 4 needs a small push interface on this path, in the same spirit as `ICraftingCPUListener` (§9).
+1. **Network-backed terminals — real push.** Register an `IStorageWatcherNode` and call `IStackWatcher.setWatchAll(true)`, then handle `onStackChange(AEKey what, long amount)`. This is exactly what `setWatchAll` was added for, and upstream has no equivalent path.
+2. **Portable cell / view-only cell terminals — server-side per-tick diff.** These view a `StorageCell` directly, with no grid node and therefore no watcher. Do what upstream's `MEStorageMenu.broadcastChanges()` does for *every* terminal: snapshot `getAvailableStacks()`, subtract the previous snapshot, send only the difference.
 
-Wave 4 must not begin `ContainerMEMonitorable` until case 2 has an agreed design.
+**Case 2 is not the polling rule 6 forbids.** What was rejected for crafting CPUs was making the *GUI* re-ask for state, which makes updates visibly lazy. Here the diff runs server-side once per tick and the client receives the same delta packets as before, so the player sees no difference. It is also cheap here specifically: the snapshot covers one cell's contents, not a whole network — which is why upstream can afford this approach for everything.
+
+Neither case requires an addition to the frozen API.
 
 ### Inventory of at-risk features
 
