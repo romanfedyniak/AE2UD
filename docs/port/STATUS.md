@@ -190,7 +190,7 @@ the same split, and a fluid terminal part that extends `AbstractPartTerminal` ge
 - `BasicFluidCellGuiHandler` registers through `StorageCells.addCellGuiHandler` now, not the deleted
   `CellRegistry`.
 
-## Standing rules that have already been violated once each
+## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
 the removal of old ones. "Mirror upstream" governs the shape of types and API and is never a licence to
