@@ -524,6 +524,11 @@ public final class StorageCells {
     public static synchronized boolean isCellHandled(ItemStack is);
     public static synchronized ICellHandler getHandler(ItemStack is);   // null if none
     public static synchronized StorageCell getCellInventory(ItemStack is, @Nullable ISaveProvider host);
+
+    // AE2UD-specific: upstream has no GUI-handler concept. See §9 note.
+    public static synchronized void addCellGuiHandler(ICellGuiHandler handler);
+    public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType);
+    public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType, ItemStack cell);
 }
 
 // api.storage.cells
@@ -870,7 +875,7 @@ public boolean isCell(ItemStack);
 public StorageCell getCellInventory(ItemStack, @Nullable ISaveProvider host);
 // getStatusForCell/cellIdleDrain removed — that information lives on the returned StorageCell
 
-// appeng.core.features.registries.cell.CellRegistry   (main-only registry, see the open question below)
+// appeng.api.storage.StorageCells — GUI-handler half, added after wave 2 (see §4.3)
 public static synchronized void addCellGuiHandler(ICellGuiHandler);
 public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType);
 public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType, ItemStack cell);  // prefers isSpecializedFor
@@ -950,9 +955,8 @@ Notes from wave 2 that later waves depend on:
 - **A cell's key type** is read as `is.getItem() instanceof IBasicCellItem c ? c.getKeyType() : AEKeyType.items()`. The creative cell item does not implement `IBasicCellItem` yet — wave 3 owns it.
 - **`TileChest` security gating** is preserved by an in-file `SecurityAwareCellStorage` wrapper around `DriveWatcher`, because `MEStorage` has no permission hook. Machine-sourced access still bypasses it, as before.
 - **Cell status lights** map `DriveWatcher.getStatus()` → `CellState` → the old 0–4 `DriveSlotState` scale, duplicated in `TileDrive` and `TileChest` because the rendering side (`appeng.block`) is untouched.
-- **`ICellGuiHandler.isSpecializedFor(ItemStack)` was restored** after wave 2 dropped it. It is a `default false` addon extension point — an addon shipping a cell with its own screen overrides it. `CellRegistry.getGuiHandler(AEKeyType, ItemStack)` honours it; `TileChest.openGui()` calls that overload.
-
-**Open question for the owner:** `ICellGuiHandler` lives in `src/api`, but its registry (`CellRegistry`) is in `src/main` under an internal package, because the frozen `StorageCells` only covers `ICellHandler` and upstream has no GUI-handler concept at all. An addon can therefore implement the interface but must import an internal class to register it. The alternative is adding `addCellGuiHandler`/`getGuiHandler` to `StorageCells` in api — symmetric, and keeps addons out of internal packages.
+- **`ICellGuiHandler.isSpecializedFor(ItemStack)` was restored** after wave 2 dropped it. It is a `default false` addon extension point — an addon shipping a cell with its own screen overrides it. `StorageCells.getGuiHandler(AEKeyType, ItemStack)` honours it; `TileChest.openGui()` calls that overload.
+- **The GUI-handler registry lives in `StorageCells`** (api), not in `appeng.core.features.registries.cell`. Wave 2 landed it as a `src/main`-only class because the frozen `StorageCells` covered only `ICellHandler` and upstream AE2 has no GUI-handler concept at all; that left an addon able to implement the api interface but forced to import an internal class to register it. Resolved by the owner after wave 2 — `addCellGuiHandler`/`getGuiHandler` moved onto `StorageCells` and `CellRegistry` was deleted. **This is a deliberate divergence from upstream** and one of the few additions to the otherwise frozen §4 surface.
 
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 

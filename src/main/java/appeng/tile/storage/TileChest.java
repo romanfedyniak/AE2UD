@@ -52,7 +52,6 @@ import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEColor;
 import appeng.api.util.IConfigManager;
 import appeng.capabilities.Capabilities;
-import appeng.core.features.registries.cell.CellRegistry;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.IPriorityHost;
 import appeng.me.GridAccessException;
@@ -527,12 +526,8 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     }
 
     /**
-     * Opens the GUI for the currently inserted cell. {@code IRegistryContainer.cell()}, which used to expose the
-     * old {@code ICellRegistry.getGuiHandler(channel, item)} lookup, was removed outright in wave 0 and the frozen
-     * {@code StorageCells} replacing it does not carry GUI handlers at all - see {@code CellRegistry}
-     * (appeng.core.features.registries.cell, out of this agent's scope) for the {@code src/main}-only registry
-     * that keeps this mechanism alive, flagged there for owner review the same way the wave 1a
-     * {@code ICraftingGrid.getCraftables} gap was (CONTRACT.md §8.3).
+     * Opens the GUI for the currently inserted cell. The lookup is keyed on the cell's key type rather than on the
+     * old storage channel, and a handler may claim one specific cell item ahead of the generic handler for its type.
      */
     public boolean openGui(final EntityPlayer p) {
         this.updateHandler();
@@ -541,7 +536,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             final ICellHandler ch = StorageCells.getHandler(cellStack);
 
             if (ch != null) {
-                final ICellGuiHandler chg = CellRegistry.getGuiHandler(this.cellKeyType, cellStack);
+                final ICellGuiHandler chg = StorageCells.getGuiHandler(this.cellKeyType, cellStack);
                 if (chg != null) {
                     chg.openChestGui(p, this, ch, this.driveWatcher.getCell(), cellStack, this.cellKeyType);
                     return true;

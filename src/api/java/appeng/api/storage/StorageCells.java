@@ -31,16 +31,19 @@ import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
 
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 
 /**
- * Registry of {@link ICellHandler}. Replaces {@code ICellRegistry}.
+ * Registry of {@link ICellHandler} and {@link ICellGuiHandler}. Replaces {@code ICellRegistry}.
  */
 public final class StorageCells {
 
     private static final List<ICellHandler> handlers = new ArrayList<>();
+
+    private static final List<ICellGuiHandler> guiHandlers = new ArrayList<>();
 
     private StorageCells() {
     }
@@ -92,5 +95,44 @@ public final class StorageCells {
             }
         }
         return null;
+    }
+
+    /**
+     * Registers the screen that an ME Chest opens for cells of a given key type.
+     */
+    public static synchronized void addCellGuiHandler(ICellGuiHandler handler) {
+        Objects.requireNonNull(handler, "handler");
+        guiHandlers.add(handler);
+    }
+
+    @Nullable
+    public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType) {
+        return getGuiHandler(keyType, ItemStack.EMPTY);
+    }
+
+    /**
+     * Looks up the screen for one specific cell item.
+     * <p>
+     * A handler claiming this exact item through {@link ICellGuiHandler#isSpecializedFor(ItemStack)} wins over the
+     * generic handler for the same key type. This is what lets an addon ship a cell with its own screen, and it is
+     * why the lookup takes the stack and not only the type.
+     */
+    @Nullable
+    public static synchronized ICellGuiHandler getGuiHandler(AEKeyType keyType, ItemStack cell) {
+        Objects.requireNonNull(keyType, "keyType");
+
+        ICellGuiHandler generic = null;
+        for (ICellGuiHandler handler : guiHandlers) {
+            if (!handler.isHandlerFor(keyType)) {
+                continue;
+            }
+            if (!cell.isEmpty() && handler.isSpecializedFor(cell)) {
+                return handler;
+            }
+            if (generic == null) {
+                generic = handler;
+            }
+        }
+        return generic;
     }
 }

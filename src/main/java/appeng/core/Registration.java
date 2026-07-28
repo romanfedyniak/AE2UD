@@ -51,7 +51,6 @@ import appeng.core.api.AEItemKeyType;
 import appeng.core.features.registries.P2PTunnelRegistry;
 import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.BasicItemCellGuiHandler;
-import appeng.core.features.registries.cell.CellRegistry;
 import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
@@ -217,8 +216,8 @@ final class Registration {
 
         StorageCells.addCellHandler(new BasicCellHandler());
         StorageCells.addCellHandler(new CreativeCellHandler());
-        CellRegistry.addCellGuiHandler(new BasicItemCellGuiHandler());
-        CellRegistry.addCellGuiHandler(new BasicFluidCellGuiHandler());
+        StorageCells.addCellGuiHandler(new BasicItemCellGuiHandler());
+        StorageCells.addCellGuiHandler(new BasicFluidCellGuiHandler());
 
         // TODO wave 3: once the GenericStack.Wrapper item (CONTRACT.md §8 item 3, §8.1 item 2) exists, call
         // appeng.api.stacks.GenericStack.setWrapper(...) with it here, before anything can query non-item keys'
