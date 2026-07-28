@@ -47,6 +47,69 @@ Remaining broken files, by package:
 The scattered single hits in `me/*`, `crafting/*`, `util/*`, `tile/*`, `parts/*`, `items/*` are comments
 and one class that is merely *named* `IMEInventoryDestination`. They are not work.
 
+## How to check where you are
+
+Two commands. Nothing else in this repo tells you the truth during the migration.
+
+```sh
+# The only gate that works until wave 6. Must be green at every commit.
+./gradlew compileApiJava
+
+# What is left. Any hit outside the current wave's packages is either a comment or a mistake.
+grep -rl "IAEStack\|IAEItemStack\|IAEFluidStack\|IStorageChannel\|IMEInventory<\|IItemList\|IMEMonitor\|IItemStorageChannel\|IFluidStorageChannel" \
+  src/main/java --include=*.java | sed 's|src/main/java/appeng/||' | cut -d/ -f1,2 | sort | uniq -c | sort -rn
+
+# A wave is finished when this prints nothing for its packages (drop the comment lines).
+grep -rn "IAEStack\|IAEItemStack\|IAEFluidStack\|IStorageChannel\|IMEInventory<\|IItemList\|IMEMonitor" \
+  src/main/java/appeng/<package> --include=*.java | grep -vE ":\s*(\*|//|/\*)"
+```
+
+## Wave 4 — file list and a suggested split
+
+45 files. The split below keeps the packet layer with the containers that send them, and isolates the
+blocked container.
+
+**4-1 `core/sync/packets` (9)** — `PacketMEInventoryUpdate` (needs a `GenericStack` overload),
+`PacketMEFluidInventoryUpdate`, `PacketInventoryAction`, `PacketPatternSlot`, `PacketJEIRecipe`,
+`PacketFluidSlot`, `PacketAssemblerAnimation`, `PacketCraftingToast`, `PacketInformPlayer`.
+
+**4-2 `container/implementations` — crafting side (7)** — `ContainerCraftAmount`,
+`ContainerCraftConfirm`, `ContainerCraftingCPU`, `CraftingCPUStatus`, `ContainerPatternEncoder`,
+`ContainerWirelessPatternTerminal`, `ContainerNetworkStatus`. Must hold the concrete `CraftingJob` type
+to call `populatePlan(KeyCounter, KeyCounter)` (§9.2).
+
+**4-3 `container` — storage side (8)** — `AEBaseContainer`, `ContainerMEMonitorable` (**blocked, see
+below**), `ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`,
+`ContainerFluidInterfaceConfigurationTerminal`, `container/slot/SlotCraftingTerm`,
+`container/slot/SlotPatternTerm`. `PATTERN_EXPANSION` lives in `ContainerInterface` /
+`ContainerInterfaceTerminal` — protect it.
+
+**4-4 `client` (21)** — `AEBaseGui`, `AEBaseMEGui`, `AEGuiHandler`, the seven `gui/implementations`
+screens, `client/me/{ItemRepo,FluidRepo,SlotME,SlotFluidME,InternalSlotME,InternalFluidSlotME}`,
+`client/render/{TesrRenderHelper,StackSizeRenderer,CraftingMonitorTESR,effects/AssemblerFX}`. This agent
+owns the multi-type filter GUI and must replace the placeholder `AEKeyType` button textures.
+
+## Wave 5 — file list
+
+36 files, all under `appeng.fluids`: `parts` 9, `util` 8, `container` 8, `client` 6, `helper` 3,
+`registries` 1, `items` 1. A natural split is parts+registries / util / container+client+helper.
+
+Wave 5 is where the strategy layer pays off: registering the fluid import, export, placement, pickup and
+external-storage strategies is what makes the *already migrated* generic buses and storage bus handle
+fluids. Do not add fluid branches to the wave-3 parts.
+
+## Wave 6 — file list
+
+`integration/modules`: `jei/CraftableCallBack`, `jei/JEIMissingItem`, `bogosorter/InventoryBogoSortModule`,
+`theoneprobe/part/StorageMonitorInfoProvider`, `theoneprobe/tile/CraftingMonitorInfoProvider`,
+`waila/part/StorageMonitorWailaDataProvider`, `waila/tile/CraftingMonitorWailaDataProvider`.
+
+Then: swap the JEI dependency for HEI in `build.gradle:583` (see `CONTRACT.md` §8.2 — HEI is a drop-in
+CleanroomMC fork of JEI, sources at `Z:\harmony\sources\HadEnoughItems`), migrate the owner's NAE2 addon
+at **`Z:\harmony\NAE2`** (~27 files, plus mixins into AE2 internals that break regardless — note there is
+a second checkout at `Z:\harmony\McSkill\NAE2`; confirm with the owner which is canonical), and get
+`gradlew build` green.
+
 ## Before starting wave 4 — read this
 
 ### Blocked: the portable-cell push design
@@ -60,9 +123,20 @@ and are waiting on the same decision:
 - `appeng.items.contents.PortableCellViewer` (wave 3) — same; its old `notifyListenersOfChange` on
   insert/extract has no replacement yet.
 
-Both were left as plain forwarding *deliberately*, not dropped by accident. Wave 4 must either restore a
-push mechanism or agree that the terminal polls. This is an owner decision because it is a behaviour
-change either way.
+Both were left as plain forwarding *deliberately*, not dropped by accident.
+
+`CONTRACT.md` §10 splits this into two cases and only one is solved:
+
+1. **Network-backed terminals** — solved. Register an `IStorageWatcherNode`, call
+   `IStackWatcher.setWatchAll(true)`, handle `onStackChange(AEKey, long)`. No decision needed.
+2. **Portable cell / view-only cell terminals** — they view a `StorageCell` directly, with no grid node
+   and therefore no watcher. **No replacement exists.** Rule 6 rules out polling (the owner already
+   rejected it once, for crafting CPUs).
+
+The standing recommendation is a small push interface on this path, in the same spirit as the
+`ICraftingCPUListener` that was added when the crafting-CPU regression was repaired. It needs owner
+sign-off before wave 4 touches `ContainerMEMonitorable`, because that class is the base container of
+*every* ME terminal — regular, crafting, pattern, wireless and portable.
 
 ### Debt handed to wave 4 by earlier waves
 
@@ -125,14 +199,37 @@ Post-freeze edits to §1-§4 are the owner's call (§7). Three have been made an
 ## How the waves are executed
 
 Parallel Sonnet subagents on disjoint packages, with `CONTRACT.md` as the only inter-agent channel. Each
-agent gets: the contract, rule 6 in full, the §9.1 hazard, its exact file list, upstream reference paths,
-and a named list of the fork-specific mechanics in its files that must survive. Each appends its own
-subsection to §9 when it finishes.
+appends its own subsection to §9 when it finishes.
+
+**Every brief must contain all of the following.** Waves 1-3 showed that dropping any one of them
+produces a specific, repeatable failure:
+
+1. *Read `CONTRACT.md` in full first.* §4 is the api surface, §9 is what earlier waves actually built.
+2. *`src/main` does not compile; that is expected.* Without this an agent burns its budget trying to make
+   the build pass and then "fixes" unrelated packages.
+3. *Reference sources*, with paths — `AE2-original` for the reference implementation, `ae-gtnh` and
+   `AE2FluidCraft-Rework-Unofficial` for 1.12.2-era API shapes.
+4. *Rule 6 in full, quoted, with the count of past violations.* Summarising it does not work; agents read
+   "mirror upstream" as permission to delete.
+5. *The §9.1 `equals` hazard*, spelled out. Two real instances have been caught by agents that were told;
+   it is invisible to one that is not.
+6. *`src/api` is frozen — report, do not edit.* Plus: run `compileApiJava` if you touch it by accident.
+7. *An explicit list of the fork-specific mechanics in that agent's files*, by name (`Upgrades.STICKY`,
+   `Settings.SCHEDULING_MODE`, the ore-dict bus, …). "Preserve everything" is not actionable; a named
+   list is.
+8. *The names of the other agents' packages*, so it knows what not to touch.
+9. *Instruction to enumerate each file's current behaviour before rewriting it*, and to report anything it
+   could not express rather than silently dropping it.
 
 Two conflict rules that mattered in wave 3 and should be kept: exactly one agent may own
 `appeng.core.Registration` and the item-definition classes, and when two agents need to meet at a new
 class, fix its fully-qualified name and signature in *both* briefs up front rather than letting one agent
 name the other's class.
+
+**Expect agents to step outside their file list occasionally, and check whether they were right to.** In
+wave 3 one agent adapted `PartIdentityAnnihilationPlane`, which was not in its list; had it obeyed
+literally, the Identity Annihilation Plane would have broken silently. Review each report against rule 6
+rather than against the file list.
 
 Reference sources: `Z:\harmony\sources\AE2-original` (modern upstream, the reference implementation),
 `Z:\harmony\sources\ae-gtnh` and `Z:\harmony\sources\AE2FluidCraft-Rework-Unofficial` (older ancestors of

@@ -1392,9 +1392,9 @@ Wave 4 must not begin `ContainerMEMonitorable` until case 2 has an agreed design
 | Card | Where the logic lives | Status |
 | --- | --- | --- |
 | `STICKY` | `NetworkStorage` | restored |
-| `PATTERN_EXPANSION` | `ContainerInterface:89,142`, `ContainerInterfaceTerminal:439`, `DualityInterface` | at risk, waves 2–4 |
-| `MAGNET` | `UpgradeInventory:151`, `ItemMaterial:166` | at risk, wave 3 |
-| `QUANTUM_LINK` | `UpgradeInventory:152`, `ItemMaterial:168` | at risk, wave 3 |
+| `PATTERN_EXPANSION` | `ContainerInterface:89,142`, `ContainerInterfaceTerminal:439`, `DualityInterface` | intact through wave 3 (`DualityInterface`, `PartInterface`, `TileInterface`); remaining risk is the two containers, **wave 4** |
+| `MAGNET` | `UpgradeInventory:151`, `ItemMaterial:166` | intact, verified after wave 3 |
+| `QUANTUM_LINK` | `UpgradeInventory:152`, `ItemMaterial:168`, `Registration:471` | intact, verified after wave 3 |
 
 `CAPACITY`, `REDSTONE`, `CRAFTING`, `FUZZY`, `SPEED` and `INVERTER` exist upstream too — no mirroring risk.
 
