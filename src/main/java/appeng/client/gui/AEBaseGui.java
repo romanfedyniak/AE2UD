@@ -19,8 +19,8 @@
 package appeng.client.gui;
 
 
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.ITooltip;
@@ -29,6 +29,7 @@ import appeng.client.me.SlotDisconnected;
 import appeng.client.me.SlotME;
 import appeng.client.render.StackSizeRenderer;
 import appeng.container.AEBaseContainer;
+import appeng.container.me.GridInventoryEntry;
 import appeng.container.slot.*;
 import appeng.container.slot.AppEngSlot.hasCalculatedValidness;
 import appeng.core.AELog;
@@ -41,7 +42,6 @@ import appeng.fluids.container.slots.IMEFluidSlot;
 import appeng.helpers.InventoryAction;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
@@ -506,9 +506,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         if (Keyboard.isKeyDown(Keyboard.KEY_SPACE)) {
             if (this.enableSpaceClicking()) {
-                IAEItemStack stack = null;
+                GridInventoryEntry entry = null;
                 if (slot instanceof SlotME) {
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
                 }
 
                 int slotNum = this.getInventorySlots().size();
@@ -517,7 +517,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     slotNum = slot.slotNumber;
                 }
 
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(stack);
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry == null ? null : entry.getWhat());
                 final PacketInventoryAction p = new PacketInventoryAction(InventoryAction.MOVE_REGION, slotNum, 0);
                 NetworkHandler.instance().sendToServer(p);
                 return;
@@ -565,16 +565,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         if (slot instanceof SlotME) {
             InventoryAction action = null;
-            IAEItemStack stack = null;
+            GridInventoryEntry entry = null;
 
             switch (clickType) {
                 case PICKUP: // pickup / set-down.
                     action = (mouseButton == 1) ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
 
-                    if (stack != null
+                    if (entry != null
                             && action == InventoryAction.PICKUP_OR_SET_DOWN
-                            && (stack.getStackSize() == 0 || GuiScreen.isAltKeyDown())
+                            && (entry.getStoredAmount() == 0 || GuiScreen.isAltKeyDown())
                             && player.inventory.getItemStack().isEmpty()) {
                         action = InventoryAction.AUTO_CRAFT;
                     }
@@ -582,16 +582,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     break;
                 case QUICK_MOVE:
                     action = (mouseButton == 1) ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
                     break;
 
                 case CLONE: // creative dupe:
 
-                    stack = ((SlotME) slot).getAEStack();
-                    if (stack != null && stack.isCraftable()) {
+                    entry = ((SlotME) slot).getEntry();
+                    if (entry != null && entry.isCraftable()) {
                         action = InventoryAction.AUTO_CRAFT;
                     } else if (player.capabilities.isCreativeMode) {
-                        final IAEItemStack slotItem = ((SlotME) slot).getAEStack();
+                        final GridInventoryEntry slotItem = ((SlotME) slot).getEntry();
                         if (slotItem != null) {
                             action = InventoryAction.CREATIVE_DUPLICATE;
                         }
@@ -603,7 +603,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
 
             if (action != null) {
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(stack);
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry == null ? null : entry.getWhat());
                 final PacketInventoryAction p = new PacketInventoryAction(action, this.getInventorySlots().size(), 0);
                 NetworkHandler.instance().sendToServer(p);
             }
@@ -716,9 +716,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected void mouseWheelEvent(final int x, final int y, final int wheel) {
         final Slot slot = this.getSlot(x, y);
         if (slot instanceof SlotME) {
-            final IAEItemStack item = ((SlotME) slot).getAEStack();
-            if (item != null) {
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(item);
+            final GridInventoryEntry entry = ((SlotME) slot).getEntry();
+            if (entry != null) {
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry.getWhat());
                 final InventoryAction direction = wheel > 0 ? InventoryAction.ROLL_DOWN : InventoryAction.ROLL_UP;
                 final int times = Math.abs(wheel);
                 final int inventorySize = this.getInventorySlots().size();
@@ -802,7 +802,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 // Annoying but easier than trying to splice into render item
                 super.drawSlot(new Size1Slot((SlotME) s));
 
-                this.stackSizeRenderer.renderStackSize(this.fontRenderer, ((SlotME) s).getAEStack(), s.xPos, s.yPos);
+                this.stackSizeRenderer.renderStackSize(this.fontRenderer, ((SlotME) s).getEntry(), s.xPos, s.yPos);
 
             } catch (final Exception err) {
                 AELog.warn("[AppEng] AE prevented crash while drawing slot: " + err);
@@ -811,12 +811,15 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             return;
         } else if (s instanceof IMEFluidSlot && ((IMEFluidSlot) s).shouldRenderAsFluid()) {
             final IMEFluidSlot slot = (IMEFluidSlot) s;
-            final IAEFluidStack fs = slot.getAEFluidStack();
+            // NOTE for wave 5: IMEFluidSlot.getGenericStack() - see SlotFluidME's header comment for why
+            // this is written against the not-yet-renamed interface.
+            final GenericStack stack = slot.getGenericStack();
+            final AEFluidKey fluidKey = stack != null && stack.what() instanceof AEFluidKey fk ? fk : null;
 
-            if (fs != null && this.isPowered()) {
+            if (fluidKey != null && this.isPowered()) {
                 GlStateManager.disableLighting();
                 GlStateManager.disableBlend();
-                final Fluid fluid = fs.getFluid();
+                final Fluid fluid = fluidKey.getFluid();
                 Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
                 final TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks().getAtlasSprite(fluid.getStill().toString());
 
@@ -831,7 +834,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 GlStateManager.enableLighting();
                 GlStateManager.enableBlend();
 
-                this.fluidStackSizeRenderer.renderStackSize(this.fontRenderer, fs, s.xPos, s.yPos);
+                this.fluidStackSizeRenderer.renderStackSize(this.fontRenderer, stack, s.xPos, s.yPos);
             } else if (!this.isPowered()) {
                 drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
             }
@@ -927,7 +930,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                             super.drawSlot(s);
 
                             if (isShiftKeyDown()) {
-                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, AEItemStack.fromItemStack(out), s.xPos, s.yPos);
+                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.fromItemStack(out), s.xPos, s.yPos);
                             } else {
                                 super.drawSlot(s);
                             }
@@ -989,7 +992,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     }
 
                     this.dragSplitting = wasDragSplitting;
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, AEItemStack.fromItemStack(stackInSlot), s.xPos, s.yPos);
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.fromItemStack(stackInSlot), s.xPos, s.yPos);
 
                     return;
                 } else {

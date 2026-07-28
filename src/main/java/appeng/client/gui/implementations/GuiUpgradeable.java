@@ -21,6 +21,8 @@ package appeng.client.gui.implementations;
 
 import appeng.api.config.*;
 import appeng.api.implementations.IUpgradeableHost;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -33,11 +35,9 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.fluids.client.gui.widgets.GuiFluidSlot;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.InventoryAction;
 import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartImportBus;
-import appeng.util.item.AEItemStack;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -254,15 +254,17 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                     try {
                         if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
                             if (finalItemStack.isEmpty() && finalFluidStack != null) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(FluidUtil.getFilledBucket(finalFluidStack)));
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(FluidUtil.getFilledBucket(finalFluidStack)));
                             } else if (!finalItemStack.isEmpty()) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(finalItemStack));
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(finalItemStack));
                             }
                         } else {
                             if (finalFluidStack == null) {
                                 return;
                             }
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(AEFluidStack.fromFluidStack(finalFluidStack).asItemStackRepresentation()));
+                            // The fluid key travels directly in the packet now - no more smuggling it
+                            // through a dummy item's NBT (AEFluidStack.fromFluidStack(...).asItemStackRepresentation()).
+                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                         }
                         NetworkHandler.instance().sendToServer(p);
 

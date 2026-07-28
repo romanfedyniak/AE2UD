@@ -19,17 +19,13 @@
 package appeng.container.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.CopyMode;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Settings;
-import appeng.api.implementations.items.IStorageCell;
-import appeng.api.storage.ICellWorkbenchItem;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.ICellWorkbenchItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.OptionalSlotRestrictedInput;
 import appeng.container.slot.SlotFakeTypeOnly;
@@ -195,22 +191,19 @@ public class ContainerCellWorkbench extends ContainerUpgradeable {
         final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
 
         final ItemStack is = this.getUpgradeable().getInventoryByName("cell").getStackInSlot(0);
-        final IStorageChannel channel = is.getItem() instanceof IStorageCell ? ((IStorageCell) is.getItem()).getChannel() : AEApi.instance()
-                .storage()
-                .getStorageChannel(IItemStorageChannel.class);
 
-        final IMEInventory cellInv = AEApi.instance().registries().cell().getCellInventory(is, null, channel);
+        // StorageCells no longer needs to be told the key type up front (CONTRACT.md §4.3): the cell handler
+        // that recognises `is` determines it. Was AEApi.instance().registries().cell().getCellInventory(is, null, channel).
+        final StorageCell cellInv = StorageCells.getCellInventory(is, null);
 
-        Iterator<IAEStack> i = new NullIterator<>();
+        Iterator<AEKey> i = new NullIterator<>();
         if (cellInv != null) {
-            final IItemList list = cellInv.getAvailableItems(channel.createList());
-            i = list.iterator();
+            i = cellInv.getAvailableStacks().keySet().iterator();
         }
 
         for (int x = 0; x < inv.getSlots(); x++) {
             if (i.hasNext()) {
-                // TODO: check if ok
-                final ItemStack g = i.next().asItemStackRepresentation();
+                final ItemStack g = i.next().wrapForDisplayOrFilter();
                 ItemHandlerUtil.setStackInSlot(inv, x, g);
             } else {
                 ItemHandlerUtil.setStackInSlot(inv, x, ItemStack.EMPTY);

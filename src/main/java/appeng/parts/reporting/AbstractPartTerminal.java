@@ -24,6 +24,9 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.implementations.tiles.IViewCellStorage;
+import appeng.api.networking.storage.IStackWatcher;
+import appeng.api.networking.storage.IStorageWatcherNode;
+import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.IConfigManager;
@@ -43,6 +46,7 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.items.IItemHandler;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -57,10 +61,26 @@ import java.util.List;
  * @version rv3
  * @since rv3
  */
-public abstract class AbstractPartTerminal extends AbstractPartDisplay implements ITerminalHost, IConfigManagerHost, IViewCellStorage, IAEAppEngInventory {
+public abstract class AbstractPartTerminal extends AbstractPartDisplay implements ITerminalHost, IConfigManagerHost, IViewCellStorage, IAEAppEngInventory, IStorageWatcherNode {
 
     private final IConfigManager cm = new ConfigManager(this);
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
+
+    /**
+     * Wave 4 addition (CONTRACT.md §10, "Third case: terminal live updates", case 1 - "network-backed
+     * terminals, real push"). {@link IStorageWatcherNode}/{@link IStackWatcher} are registered per grid
+     * *node*: {@code GridStorageCache.addNode} only ever calls {@link #updateWatcher(IStackWatcher)} on the
+     * node's machine, which is this part, never on whichever {@code ContainerMEMonitorable} happens to have
+     * it open (a container isn't a grid machine and has no node of its own). So this part is the one thing
+     * that can hold a live {@link IStackWatcher}, and it relays {@link #onStackChange(AEKey, long)} to every
+     * currently-open terminal container on this part. Without this, every terminal built on
+     * {@code AbstractPartTerminal} (the plain ME terminal, crafting terminal, pattern terminal and expanded
+     * processing pattern terminal) would have no live update mechanism at all - a real mechanic loss, not
+     * merely a missed optimisation, which is why this file was touched outside wave 4's assigned list; see
+     * the wave 4c contract entry for the full rationale.
+     */
+    private final List<IStorageWatcherNode> terminalListeners = new ArrayList<>();
+    private IStackWatcher myWatcher;
 
     public AbstractPartTerminal(final ItemStack is) {
         super(is);
@@ -137,5 +157,48 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
         this.getHost().markForSave();
+    }
+
+    /**
+     * Called once when the node (re)joins the grid. Kept for as long as the node stays in the grid, then
+     * reused across however many terminal GUIs open and close on it in the meantime - {@code setWatchAll}
+     * is toggled by {@link #addTerminalListener}/{@link #removeTerminalListener}, not by this method.
+     */
+    @Override
+    public void updateWatcher(final IStackWatcher newWatcher) {
+        this.myWatcher = newWatcher;
+        if (this.myWatcher != null) {
+            this.myWatcher.setWatchAll(!this.terminalListeners.isEmpty());
+        }
+    }
+
+    @Override
+    public void onStackChange(final AEKey what, final long amount) {
+        for (final IStorageWatcherNode listener : this.terminalListeners) {
+            listener.onStackChange(what, amount);
+        }
+    }
+
+    /**
+     * Attaches an open terminal container so it starts receiving {@link #onStackChange(AEKey, long)} calls.
+     * Safe to call more than once for the same listener has no effect beyond the first.
+     */
+    public void addTerminalListener(final IStorageWatcherNode listener) {
+        if (!this.terminalListeners.contains(listener)) {
+            this.terminalListeners.add(listener);
+            if (this.myWatcher != null) {
+                this.myWatcher.setWatchAll(true);
+            }
+        }
+    }
+
+    /**
+     * Detaches a closed terminal container. Once the last one is gone, the watcher is told to stop watching
+     * everything, so an unopened terminal does not force a full-network cache rebuild every tick.
+     */
+    public void removeTerminalListener(final IStorageWatcherNode listener) {
+        if (this.terminalListeners.remove(listener) && this.myWatcher != null) {
+            this.myWatcher.setWatchAll(!this.terminalListeners.isEmpty());
+        }
     }
 }

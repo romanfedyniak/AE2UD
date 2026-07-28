@@ -19,24 +19,23 @@
 package appeng.container.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.implementations.guiobjects.INetworkTool;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridBlock;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.util.AEPartLocation;
 import appeng.client.gui.implementations.GuiNetworkStatus;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -103,20 +102,26 @@ public class ContainerNetworkStatus extends AEBaseContainer {
                 final PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
 
                 for (final Class<? extends IGridHost> machineClass : this.network.getMachinesClasses()) {
-                    final IItemList<IAEItemStack> list = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+                    // Reuses the ME-update packet for machines, not items: a machine count goes into
+                    // storedAmount and that machine's idle power drain (x100) into requestableAmount - see
+                    // CONTRACT.md §10/§9's wave 4 prerequisites. Matching representations are merged the
+                    // same way the old IItemList.add() merge did: counts and power both summed per key.
+                    final KeyCounter counts = new KeyCounter();
+                    final KeyCounter power = new KeyCounter();
                     for (final IGridNode machine : this.network.getMachines(machineClass)) {
                         final IGridBlock blk = machine.getGridBlock();
                         final ItemStack is = blk.getMachineRepresentation();
                         if (!is.isEmpty()) {
-                            final IAEItemStack ais = AEItemStack.fromItemStack(is);
-                            ais.setStackSize(1);
-                            ais.setCountRequestable((long) (blk.getIdlePowerUsage() * 100.0));
-                            list.add(ais);
+                            final AEItemKey key = AEItemKey.of(is);
+                            if (key != null) {
+                                counts.add(key, 1);
+                                power.add(key, (long) (blk.getIdlePowerUsage() * 100.0));
+                            }
                         }
                     }
 
-                    for (final IAEItemStack ais : list) {
-                        piu.appendItem(ais);
+                    for (final AEKey what : counts.keySet()) {
+                        piu.appendItem(new GridInventoryEntry(what, counts.get(what), power.get(what), false));
                     }
                 }
 
@@ -164,7 +169,7 @@ public class ContainerNetworkStatus extends AEBaseContainer {
         this.powerUsage = powerUsage;
     }
 
-    public void postUpdate(final List<IAEItemStack> list) {
+    public void postUpdate(final List<GridInventoryEntry> list) {
         this.guiNetworkStatus.postUpdate(list);
     }
 

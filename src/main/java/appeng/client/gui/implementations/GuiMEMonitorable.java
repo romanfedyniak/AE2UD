@@ -26,7 +26,7 @@ import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.implementations.tiles.IMEChest;
 import appeng.api.implementations.tiles.IViewCellStorage;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.ActionKey;
@@ -139,9 +139,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
     }
 
-    public void postUpdate(final List<IAEItemStack> list) {
-        for (final IAEItemStack is : list) {
-            this.repo.postUpdate(is);
+    public void postUpdate(final List<GridInventoryEntry> list) {
+        for (final GridInventoryEntry entry : list) {
+            this.repo.postUpdate(entry);
         }
 
         if (isShiftKeyDown()) {

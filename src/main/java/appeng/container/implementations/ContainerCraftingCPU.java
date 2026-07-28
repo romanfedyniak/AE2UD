@@ -19,21 +19,18 @@
 package appeng.container.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CraftingItemList;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
-import appeng.client.gui.implementations.GuiCraftConfirm;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.client.gui.implementations.GuiCraftingCPU;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
@@ -41,6 +38,7 @@ import appeng.core.sync.packets.PacketValueConfig;
 import appeng.helpers.ICustomNameObject;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
+import appeng.me.cluster.implementations.ICraftingCPUListener;
 import appeng.tile.crafting.TileCraftingTile;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
@@ -49,12 +47,31 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IContainerListener;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 
-public class ContainerCraftingCPU extends AEBaseContainer implements IMEMonitorHandlerReceiver<IAEItemStack>, ICustomNameObject {
+/**
+ * Push-based, not polled: see {@link ICraftingCPUListener} and CONTRACT.md §10 ("Crafting CPU push
+ * notifications" - the owner rejected replacing this mechanism with polling). This container subscribes to
+ * a {@link CraftingCPUCluster} via {@link CraftingCPUCluster#addListener(ICraftingCPUListener, Object)} the
+ * same way the pre-migration code subscribed an {@code IMEMonitorHandlerReceiver}, and unsubscribes via
+ * {@link CraftingCPUCluster#removeListener(ICraftingCPUListener)}.
+ * <p/>
+ * {@link #onCraftingCPUChange(AEKey, IActionSource)} only marks {@code what} dirty - the actual
+ * stored/active/pending amounts are re-read authoritatively from the cluster in
+ * {@link #detectAndSendChanges()} via {@link CraftingCPUCluster#getItemStack(AEKey, CraftingItemList)},
+ * exactly as {@link ICraftingCPUListener}'s javadoc describes.
+ */
+public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCPUListener, ICustomNameObject {
 
-    private final IItemList<IAEItemStack> list = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    /**
+     * Every key this container has ever reported to its GUI. Replaces the old {@code IItemList<IAEItemStack>}
+     * that {@code postChange} fed with size-1 markers: since only key identity mattered there (the amounts
+     * were always re-read fresh via {@code getItemStack}), a plain key set carries the same information.
+     */
+    private final Set<AEKey> trackedKeys = new LinkedHashSet<>();
     private IGrid network;
     private CraftingCPUCluster monitor = null;
     private String cpuName = null;
@@ -102,8 +119,14 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IMEMonitorH
         if (c instanceof CraftingCPUCluster) {
             this.cpuName = c.getName();
             this.setMonitor((CraftingCPUCluster) c);
-            this.list.resetStatus();
-            this.getMonitor().getListOfItem(this.list, CraftingItemList.ALL);
+            this.trackedKeys.clear();
+
+            final KeyCounter all = new KeyCounter();
+            this.getMonitor().getListOfItem(all, CraftingItemList.ALL);
+            for (final var entry : all) {
+                this.trackedKeys.add(entry.getKey());
+            }
+
             this.getMonitor().addListener(this, null);
             this.setEstimatedTime(0);
         } else {
@@ -147,19 +170,21 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IMEMonitorH
                 final long eta = (long) (elapsedTime / Math.max(1d, (startItems - remainingItems)) * remainingItems);
                 this.setEstimatedTime(eta);
             }
-            if (!this.list.isEmpty()) {
+            if (!this.trackedKeys.isEmpty()) {
                 try {
                     final PacketMEInventoryUpdate a = new PacketMEInventoryUpdate((byte) 0);
                     final PacketMEInventoryUpdate b = new PacketMEInventoryUpdate((byte) 1);
                     final PacketMEInventoryUpdate c = new PacketMEInventoryUpdate((byte) 2);
 
-                    for (final IAEItemStack out : this.list) {
-                        a.appendItem(this.getMonitor().getItemStack(out, CraftingItemList.STORAGE));
-                        b.appendItem(this.getMonitor().getItemStack(out, CraftingItemList.ACTIVE));
-                        c.appendItem(this.getMonitor().getItemStack(out, CraftingItemList.PENDING));
-                    }
+                    for (final AEKey what : this.trackedKeys) {
+                        final GenericStack stored = this.getMonitor().getItemStack(what, CraftingItemList.STORAGE);
+                        final GenericStack active = this.getMonitor().getItemStack(what, CraftingItemList.ACTIVE);
+                        final GenericStack pending = this.getMonitor().getItemStack(what, CraftingItemList.PENDING);
 
-                    this.list.resetStatus();
+                        a.appendItem(new GridInventoryEntry(what, stored.amount(), 0, false));
+                        b.appendItem(new GridInventoryEntry(what, active.amount(), 0, false));
+                        c.appendItem(new GridInventoryEntry(what, pending.amount(), 0, false));
+                    }
 
                     for (final Object g : this.listeners) {
                         if (g instanceof EntityPlayer) {
@@ -190,17 +215,8 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IMEMonitorH
     }
 
     @Override
-    public void postChange(final IBaseMonitor<IAEItemStack> monitor, final Iterable<IAEItemStack> change, final IActionSource actionSource) {
-        for (IAEItemStack is : change) {
-            is = is.copy();
-            is.setStackSize(1);
-            this.list.add(is);
-        }
-    }
-
-    @Override
-    public void onListUpdate() {
-
+    public void onCraftingCPUChange(final AEKey what, final IActionSource source) {
+        this.trackedKeys.add(what);
     }
 
     @Override
@@ -237,7 +253,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IMEMonitorH
         this.network = network;
     }
 
-    public void postUpdate(final List<IAEItemStack> list, final byte ref) {
+    public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {
         this.guiCraftingCPU.postUpdate(list, ref);
     }
 

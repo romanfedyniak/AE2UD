@@ -19,16 +19,13 @@
 package appeng.container.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.OptionalSlotFakeTypeOnly;
 import appeng.container.slot.SlotFakeTypeOnly;
 import appeng.container.slot.SlotRestrictedInput;
+import appeng.me.storage.MEInventoryHandler;
 import appeng.parts.misc.PartStorageBus;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
@@ -135,19 +132,16 @@ public class ContainerStorageBus extends ContainerUpgradeable {
     public void partition() {
         final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
 
-        final IMEInventory<IAEItemStack> cellInv = this.storageBus.getInternalHandler();
+        final MEInventoryHandler cellInv = this.storageBus.getInternalHandler();
 
-        Iterator<IAEItemStack> i = new NullIterator<>();
+        Iterator<AEKey> i = new NullIterator<>();
         if (cellInv != null) {
-            final IItemList<IAEItemStack> list = cellInv
-                    .getAvailableItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
-            i = list.iterator();
+            i = cellInv.getAvailableStacks().keySet().iterator();
         }
 
         for (int x = 0; x < inv.getSlots(); x++) {
             if (i.hasNext() && this.isSlotEnabled((x / 9) - 2)) {
-                // TODO: check if ok
-                final ItemStack g = i.next().asItemStackRepresentation();
+                final ItemStack g = i.next().wrapForDisplayOrFilter();
                 ItemHandlerUtil.setStackInSlot(inv, x, g);
             } else {
                 ItemHandlerUtil.setStackInSlot(inv, x, ItemStack.EMPTY);

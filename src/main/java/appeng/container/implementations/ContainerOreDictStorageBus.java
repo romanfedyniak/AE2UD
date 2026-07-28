@@ -1,18 +1,15 @@
 package appeng.container.implementations;
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.me.storage.MEInventoryHandler;
 import appeng.parts.misc.PartOreDicStorageBus;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
-import appeng.util.item.OreReference;
+import appeng.util.item.OreHelper;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.items.IItemHandler;
@@ -60,7 +57,7 @@ public class ContainerOreDictStorageBus extends ContainerUpgradeable {
     }
 
     public void partition() {
-        final IMEInventory<IAEItemStack> cellInv = this.part.getInternalHandler();
+        final MEInventoryHandler cellInv = this.part.getInternalHandler();
 
         if (cellInv == null) {
             return;
@@ -68,10 +65,9 @@ public class ContainerOreDictStorageBus extends ContainerUpgradeable {
 
         Set<Integer> oreIDs = new HashSet<>();
 
-        for (IAEItemStack itemStack : cellInv.getAvailableItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList())) {
-            OreReference ref = ((AEItemStack) itemStack).getOre().orElse(null);
-            if (ref != null) {
-                oreIDs.addAll(ref.getOres());
+        for (final var entry : cellInv.getAvailableStacks()) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                OreHelper.INSTANCE.getOre(itemKey.getReadOnlyStack()).ifPresent(ref -> oreIDs.addAll(ref.getOres()));
             }
         }
 

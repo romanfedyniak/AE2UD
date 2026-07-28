@@ -19,7 +19,9 @@
 package appeng.client.render.crafting;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.render.TesrRenderHelper;
 import appeng.tile.crafting.TileCraftingMonitorTile;
 import net.minecraft.client.renderer.GlStateManager;
@@ -43,14 +45,22 @@ public class CraftingMonitorTESR extends TileEntitySpecialRenderer<TileCraftingM
 
         EnumFacing facing = te.getForward();
 
-        IAEItemStack jobProgress = te.getJobProgress();
+        // GenericStack (wave 2) - was IAEItemStack. The old renderer only ever saw item jobs because the
+        // channel-per-type model kept item and fluid monitors apart; a GenericStack can carry either, so
+        // both are rendered here rather than silently dropping a fluid crafting job's progress display.
+        GenericStack jobProgress = te.getJobProgress();
         if (jobProgress != null) {
             GlStateManager.pushMatrix();
             GlStateManager.translate(x + 0.5, y + 0.5, z + 0.5);
 
             TesrRenderHelper.moveToFace(facing);
             TesrRenderHelper.rotateToFace(facing, (byte) 0);
-            TesrRenderHelper.renderItem2dWithAmount(jobProgress, 0.7f, 0.1f);
+
+            if (jobProgress.what() instanceof AEItemKey itemKey) {
+                TesrRenderHelper.renderItem2dWithAmount(itemKey, jobProgress.amount(), 0.7f, 0.1f);
+            } else if (jobProgress.what() instanceof AEFluidKey fluidKey) {
+                TesrRenderHelper.renderFluid2dWithAmount(fluidKey, jobProgress.amount(), 0.7f, 0.1f);
+            }
 
             GlStateManager.popMatrix();
         }

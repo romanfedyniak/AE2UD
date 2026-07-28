@@ -19,6 +19,7 @@
 package appeng.core.sync.packets;
 
 
+import appeng.api.stacks.AEKey;
 import appeng.container.implementations.ContainerFluidInterfaceConfigurationTerminal;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
@@ -26,28 +27,32 @@ import appeng.core.sync.network.INetworkInfo;
 import appeng.fluids.container.ContainerFluidInterface;
 import appeng.fluids.container.ContainerFluidTerminal;
 import appeng.fluids.container.ContainerWirelessFluidTerminal;
-import appeng.fluids.util.AEFluidStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
+
+import javax.annotation.Nullable;
 
 
 /**
  * @author BrockWS
  * @version rv6 - 23/05/2018
- * @since rv6 23/05/2018
+ * <p/>
+ * Tells a fluid-backed container which fluid the player targeted. Pinned signature:
+ * {@code PacketTargetFluidStack(@Nullable AEKey what)} -- kept as a distinct class from
+ * {@link PacketTargetItemStack} per CONTRACT.md's wave 4 prerequisites ("do not merge them"), even though
+ * both now carry a bare {@link AEKey}. Dispatch targets are unchanged: {@code ContainerFluidTerminal},
+ * {@code ContainerWirelessFluidTerminal}, {@code ContainerFluidInterface} (all wave 5,
+ * {@code appeng.fluids.container} -- must implement {@code void setTargetStack(AEKey stack)}) and
+ * {@code ContainerFluidInterfaceConfigurationTerminal} (wave 4-3, same signature).
  */
 public class PacketTargetFluidStack extends AppEngPacket {
-    private AEFluidStack stack;
+    private AEKey stack;
 
     // automatic.
     public PacketTargetFluidStack(final ByteBuf stream) {
         try {
-            if (stream.readableBytes() > 0) {
-                this.stack = (AEFluidStack) AEFluidStack.fromPacket(stream);
-            } else {
-                this.stack = null;
-            }
+            this.stack = AEKey.readOptionalKey(stream);
         } catch (Exception ex) {
             AELog.debug(ex);
             this.stack = null;
@@ -55,18 +60,16 @@ public class PacketTargetFluidStack extends AppEngPacket {
     }
 
     // api
-    public PacketTargetFluidStack(AEFluidStack stack) {
+    public PacketTargetFluidStack(@Nullable AEKey stack) {
 
         this.stack = stack;
 
         final ByteBuf data = Unpooled.buffer();
         data.writeInt(this.getPacketID());
-        if (stack != null) {
-            try {
-                stack.writeToPacket(data);
-            } catch (Exception ex) {
-                AELog.debug(ex);
-            }
+        try {
+            AEKey.writeOptionalKey(data, stack);
+        } catch (Exception ex) {
+            AELog.debug(ex);
         }
         this.configureWrite(data);
     }

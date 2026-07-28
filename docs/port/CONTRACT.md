@@ -1354,7 +1354,7 @@ Like the `IAEItemStack` it replaces, it doubles as the generic payload of `Packe
 
 Consequently `PacketMEInventoryUpdate`'s shape is fixed as: `List<GridInventoryEntry> list` on the receiving side, `appendItem(GridInventoryEntry)` on the sending side, the `byte ref` constructor argument unchanged, and the gzip framing/`OPERATION_BYTE_LIMIT`/`BufferOverflowException` behaviour unchanged. `postUpdate` on the four receiving containers takes `List<GridInventoryEntry>` (plus the `byte ref` where it already did).
 
-**2. `appeng.util.Platform.extractItemsByRecipe`'s last parameter is now `AEKeyFilter`**, not `IPartitionList` (`filter == null || filter.matches(key)`). Its three call sites — `SlotCraftingTerm`, `ContainerPatternEncoder`, `PacketJEIRecipe` — pass `ItemViewCell.createFilter(...)` straight in. Nothing else to adapt.
+**2. `appeng.util.Platform.extractItemsByRecipe`'s last parameter is now `AEKeyFilter`**, not `IPartitionList` (`filter == null || filter.matches(key)`). Its two call sites — `SlotCraftingTerm` and `ContainerPatternEncoder` — pass `ItemViewCell.createFilter(...)` straight in. Nothing else to adapt. (An earlier note in `ItemViewCell`'s javadoc listed `PacketJEIRecipe` as a third call site; it is not one — it has its own fill algorithm and never called this method.)
 
 **3. Signatures fixed up front because more than one wave-4 agent meets at them.** These are decided; implement them exactly, and call them exactly. Not a suggestion, and not renegotiable mid-wave — if one looks wrong, stop and report rather than choosing your own.
 
@@ -1384,6 +1384,682 @@ void setItemToCraft(@Nonnull AEKey itemToCreate);
 
 The old `PLACE_JEI_GHOST_ITEM` path in `PacketInventoryAction` detected a fluid by unwrapping `slotItem.getDefinition().getTagCompound()` through `AEFluidStack.fromNBT` — i.e. the fluid was smuggled inside a dummy item. With a `GenericStack` payload the fluid arrives as an `AEFluidKey` directly; test `slotItem.what() instanceof AEFluidKey` instead. The ghost-item-into-fluid-slot mechanic must survive that change, including the 1000 mB default it applied.
 
+### Wave 4a — appeng.core.sync.packets (done)
+
+Eleven files: `PacketMEInventoryUpdate`, `PacketMEFluidInventoryUpdate`, `PacketInventoryAction`, `PacketPatternSlot`, `PacketJEIRecipe`, `PacketFluidSlot`, `PacketAssemblerAnimation`, `PacketCraftingToast`, `PacketInformPlayer`, `PacketTargetItemStack`, `PacketTargetFluidStack`. None of these files had been touched since before the migration started (`git diff 1e855f729` was empty for the whole package going in), so every one of them was still on the fully old model — there was no partial-migration state to reconcile, only a straight port.
+
+```java
+// appeng.core.sync.packets.PacketMEInventoryUpdate — the shape fixed by the §9 prerequisites, verbatim
+private final List<GridInventoryEntry> list;              // was List<IAEItemStack>
+public void appendItem(GridInventoryEntry is);             // was appendItem(IAEItemStack)
+// byte ref constructor arg, gzip framing, OPERATION_BYTE_LIMIT/UNCOMPRESSED_PACKET_BYTE_LIMIT,
+// BufferOverflowException re-chunking: untouched. clientPacketData's four dispatch targets
+// (ContainerCraftConfirm/ContainerCraftingCPU/ContainerMEMonitorable/ContainerNetworkStatus) and the
+// byte ref forwarded to the first two: untouched, now typed List<GridInventoryEntry>.
+
+// appeng.core.sync.packets.PacketMEFluidInventoryUpdate — kept, not merged into PacketMEInventoryUpdate
+private final List<GridInventoryEntry> list;               // was List<IAEFluidStack>
+public void appendFluid(GridInventoryEntry fs);             // was appendFluid(IAEFluidStack)
+// Same gzip/limit machinery as PacketMEInventoryUpdate, untouched. Dispatch is unchanged and unusual for
+// this packet family: it goes straight to the CLIENT SCREEN, not the container —
+// clientPacketData reads Minecraft.getMinecraft().currentScreen and calls postUpdate(List<GridInventoryEntry>)
+// on it if it is a GuiFluidTerminal or GuiWirelessFluidTerminal (both appeng.fluids.client.gui, wave 5).
+// Requirement for wave 5: both classes' postUpdate must become postUpdate(List<GridInventoryEntry>).
+
+// appeng.core.sync.packets.PacketFluidSlot
+private final Map<Integer, GenericStack> list;              // was Map<Integer, IAEFluidStack>
+public PacketFluidSlot(Map<Integer, GenericStack> list);
+// NBT (de)serialisation per entry goes through GenericStack.readTag/writeTag instead of
+// AEFluidStack.fromNBT/writeToNBT; an empty slot is still a missing/null map entry, same as before.
+// Dispatch unchanged: both clientPacketData and serverPacketData forward to IFluidSyncContainer.
+// Requirement for wave 5: IFluidSyncContainer.receiveFluidSlots must become
+// receiveFluidSlots(Map<Integer, GenericStack> fluids), and FluidSyncHelper (which builds/reads these
+// maps on ContainerFluidConfigurable's side) must be updated to match this map's value type.
+
+// appeng.core.sync.packets.PacketInventoryAction — the two constructors pinned by the §9 prerequisites
+public PacketInventoryAction(InventoryAction action, int slot, @Nullable GenericStack slotItem);
+public PacketInventoryAction(InventoryAction action, IJEITargetSlot slot, @Nullable GenericStack slotItem);
+public PacketInventoryAction(InventoryAction action, int slot, long id);   // unchanged, no stack carried
+// AUTO_CRAFT: baseContainer.getTargetStack() (AEKey) -> cca.getCraftingItem().putStack(target.wrapForDisplayOrFilter())
+// for display, cca.setItemToCraft(target) for the real craft target — same split as before (display stack
+// vs. "the *actual* item that matters"), just AEKey instead of IAEItemStack.
+// PLACE_JEI_GHOST_ITEM, all three destinations preserved:
+//  - ContainerFluidConfigurable: fires only when slotItem.what() instanceof AEFluidKey; builds
+//    new GenericStack(fluidKey, AEFluidKey.AMOUNT_BUCKET) (the 1000 mB default, unconditional, exactly
+//    like the old aefs.setStackSize(1000)) and calls getFluidConfigInventory().setFluidInSlot(slot, ...).
+//    Requirement for wave 5: IAEFluidTank.setFluidInSlot must accept a GenericStack (or the equivalent)
+//    in its second parameter for this call to resolve.
+//  - ContainerInterfaceConfigurationTerminal: unchanged ConfigTracker/getSlotByID/WrapperRangeItemHandler
+//    plumbing; the placed stack is now GenericStack.wrapInItemStack(slotItem) instead of
+//    slotItem.createItemStack() (incidentally null-safe now, where the old call would NPE on a null stack).
+//  - plain SlotFake: senderSlot.putStack(GenericStack.wrapInItemStack(slotItem)); the old fallback that
+//    re-derived a fluid stack from NBT when the first putStack left the slot empty is kept in shape
+//    (guarded by slotItem.what() instanceof AEFluidKey) but is now provably unreachable — wrapInItemStack
+//    cannot return an empty stack for a non-null GenericStack, unlike the old createItemStack() path it
+//    replaces. Kept rather than deleted per rule 6; flagged here rather than silently dropped.
+// UPDATE_HAND echo: unchanged, now built from a (GenericStack) null / GenericStack.wrapInItemStack(slotItem).
+
+// appeng.core.sync.packets.PacketPatternSlot
+@Nullable public final GenericStack slotItem;               // was IAEItemStack
+public final GenericStack[] pattern = new GenericStack[9];  // was IAEItemStack[9]
+public PacketPatternSlot(IItemHandler pat, @Nullable GenericStack slotItem, boolean shift);
+// pattern[] is built from pat's slots via GenericStack.fromItemStack(pat.getStackInSlot(x)), replacing
+// AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(...). Dispatch
+// (ContainerPatternEncoder.craftOrGetItem(this)) unchanged.
+
+// appeng.core.sync.packets.PacketJEIRecipe
+// NOT a call site of Platform.extractItemsByRecipe, despite the §9 prerequisite note listing it as a
+// third one alongside SlotCraftingTerm/ContainerPatternEncoder — verified by reading the file (untouched
+// since before the migration, confirmed via `git diff 1e855f729`) and by grepping the whole tree for
+// extractItemsByRecipe( call sites: only SlotCraftingTerm and ContainerPatternEncoder call it, now and
+// before this port. PacketJEIRecipe has always had its own hand-rolled per-slot fill algorithm (it fills
+// a crafting grid from an arbitrary HEI/JEI ingredient list, not from a matched vanilla IRecipe, so
+// extractItemsByRecipe's "re-run the recipe to verify a substitute" trick does not apply). What *is*
+// preserved from the prerequisite note is the actual intent: ItemViewCell.createFilter(cct.getViewCells())
+// is fed straight into this file's own filter.matches(request) check, same role, same call. Reported here
+// per rule 2/7 rather than silently forcing a call that was never there.
+// Per-slot algorithm unchanged: exact-match check -> put mismatched item away (now via
+// Platform.poweredInsert(..., AEKey, long, ...), which returns the amount actually inserted rather than a
+// leftover stack, so "leftover = requested - inserted; EMPTY unless useRealItems() and leftover > 0"
+// replaces the old "out == null means fully absorbed" check) -> extract by identity
+// (Platform.poweredExtraction, same long-returns-amount translation) -> fuzzy-damage fallback (now
+// IStorageService.getCachedInventory().findFuzzy(request, FuzzyMode.IGNORE_ALL), replacing
+// IMEMonitor.getStorageList().findFuzzy(...) — this is exactly the fuzzy-search entry point the §4.3/§9
+// pointer described; no api gap) -> player-inventory fallback (AdaptorItemHandler, untouched, never part
+// of the storage model) -> preview-only placeholder. crafting.getCraftingFor(AEKey, ...) unchanged shape.
+// grid.getCache(IStorageGrid.class) -> grid.getCache(IStorageService.class); inv.getInventory(channel) ->
+// inv.getInventory() (no channel argument, MEStorage is not per-channel).
+
+// appeng.core.sync.packets.PacketAssemblerAnimation — pinned by TileMolecularAssembler (wave 2)
+public PacketAssemblerAnimation(BlockPos pos, byte rate, GenericStack is);
+// is field now GenericStack, (de)serialised via GenericStack.readBuffer/writeBuffer. Client-side consumer
+// (AELog/ClientHelper -> AssemblerFX, both appeng.client, wave 4-4) reads the public `is`/`rate` fields;
+// AssemblerFX's constructor parameter must become GenericStack to match.
+
+// appeng.core.sync.packets.PacketCraftingToast — pinned by CraftingCPUCluster (wave 2)
+public PacketCraftingToast(GenericStack stack, boolean cancelled);
+// stack (de)serialised via GenericStack.readBuffer/writeBuffer. doCraftingToast() now builds the toast's
+// ItemStack via GenericStack.wrapInItemStack(stack) instead of stack.asItemStackRepresentation() —
+// CraftingStatusToast's own (ItemStack, boolean) constructor (appeng.client.gui.toasts, untouched) is
+// unaffected.
+
+// appeng.core.sync.packets.PacketInformPlayer — pinned by CraftingTreeNode/MECraftingInventory (wave 2)
+public PacketInformPlayer(GenericStack expected, @Nullable GenericStack actual, InfoType type);
+// reportedItem/actualItem now GenericStack, (de)serialised via GenericStack.readBuffer/writeBuffer. The
+// two chat messages read reportedItem.amount()/reportedItem.what().getDisplayName().getFormattedText()
+// (the established pattern already used by Platform.java/ApiClientHelper/WrappedGenericStack) and
+// GenericStack.getStackSizeOrZero(actualItem) in place of the old getStackSize()/getItem().
+// getItemStackDisplayName(getDefinition()) pair. InfoType.PARTIAL_ITEM_EXTRACTION/NO_ITEMS_EXTRACTED
+// unchanged.
+
+// appeng.core.sync.packets.PacketTargetItemStack / PacketTargetFluidStack — both kept, not merged
+public PacketTargetItemStack(@Nullable AEKey what);
+public PacketTargetFluidStack(@Nullable AEKey what);
+// Both fields are now a bare AEKey, (de)serialised via AEKey.writeOptionalKey/readOptionalKey (which
+// already writes/reads the presence boolean, so the old stream.readableBytes()>0 probe on the read side
+// is no longer needed — both sides always write/read the boolean). Dispatch unchanged:
+// PacketTargetItemStack -> AEBaseContainer.setTargetStack(AEKey) (wave 4-3); PacketTargetFluidStack ->
+// ContainerFluidTerminal/ContainerWirelessFluidTerminal/ContainerFluidInterface (all wave 5,
+// appeng.fluids.container — must implement void setTargetStack(AEKey stack)) and
+// ContainerFluidInterfaceConfigurationTerminal (wave 4-3, same signature).
+```
+
+**§9.1 `.equals(` audit, all eleven files:** grepped every file for `.equals(`. `PacketJEIRecipe.canUseInSlot` uses `ItemStack.areItemStacksEqual(is, option)` (vanilla `ItemStack` comparison, pre-existing, never touched an `AEKey`/`GenericStack`). No other file calls `.equals(` on a stack at all — every identity check in this wave's files compares `AEKey`s directly (`instanceof AEItemKey`/`AEFluidKey`, `AEItemKey.of(...)` identity, `KeyCounter`/`Object2LongMap.Entry<AEKey>` lookups) or compares vanilla `ItemStack`/reference identity that was never `IAEItemStack`-shaped to begin with (`newItem != currentItem` in `PacketJEIRecipe`, `senderSlot.getStack().isEmpty()` in `PacketInventoryAction`). No whole-`GenericStack` comparison exists anywhere in this wave's files. Clean across all eleven.
+
+**API gaps hit: none.** Every method this wave needed — `AEKey.writeKey`/`readKey`/`writeOptionalKey`/`readOptionalKey`, `GenericStack.readBuffer`/`writeBuffer`/`wrapInItemStack`/`fromItemStack`, `Platform.poweredInsert`/`poweredExtraction`/`extractItemsByRecipe`/`isGTDamageableItem`, `IStorageService.getInventory`/`getCachedInventory`, `KeyCounter.findFuzzy`, `AEKey.wrapForDisplayOrFilter`, `ICraftingGrid.getCraftingFor` — was already in `src/api` or `appeng.util.Platform` from earlier waves, exactly as specified. `src/api` was not touched.
+
+**Mechanics named in the brief, verified preserved:** the `AUTO_CRAFT` GUI hop and target-stack forwarding (`PacketInventoryAction`); `PLACE_JEI_GHOST_ITEM` into all three destinations, 1000 mB default included (`PacketInventoryAction`); the `UPDATE_HAND` echo (`PacketInventoryAction`); the pattern-terminal craft-from-pattern shift-click carrying a 9-slot pattern (`PacketPatternSlot`); the molecular assembler's client animation and `rate` byte (`PacketAssemblerAnimation`); the crafting-completion/cancellation toast (`PacketCraftingToast`); the "could not extract what it needed" player notification with both `InfoType` variants (`PacketInformPlayer`); recipe transfer into both the crafting terminal and the expanded processing pattern terminal, the `useRealItems()` distinction, the fuzzy fallback, and view-cell filtering (`PacketJEIRecipe`); the fluid terminal's live update channel, kept as a distinct class (`PacketMEFluidInventoryUpdate`); both target-stack packets kept distinct (`PacketTargetItemStack`/`PacketTargetFluidStack`).
+
+**Changed outside the assigned file list: none.** Every edit in this wave lives inside the eleven files above; nothing in `container/implementations`, `client/*`, `fluids/*` or `src/api` was touched. Where this wave's files call into another wave's classes (`GridInventoryEntry` — already existed, used as-is per the "do not modify it" instruction; `ContainerFluidConfigurable`, `IFluidSyncContainer`, `GuiFluidTerminal`/`GuiWirelessFluidTerminal`, `ContainerFluidTerminal`/`ContainerWirelessFluidTerminal`/`ContainerFluidInterface` — all wave 5; `AEBaseContainer`, `ContainerCraftAmount`, `ContainerInterfaceConfigurationTerminal`, `ContainerFluidInterfaceConfigurationTerminal` — waves 4-2/4-3), the call sites were written against the pinned/expected signatures and left for those agents/waves to satisfy, exactly as CONTRACT.md's cross-agent process describes.
+
+**Could not be verified in-game / left for later waves:** `GuiFluidTerminal`/`GuiWirelessFluidTerminal`.postUpdate, `IFluidSyncContainer.receiveFluidSlots`, `FluidSyncHelper`, `IAEFluidTank.setFluidInSlot`, and the three `ContainerFluid*` classes' `setTargetStack` — all wave 5, all listed above with the exact signature this wave's packets now call. `AssemblerFX`'s constructor parameter (wave 4-4, `appeng.client.render.effects`) must become `GenericStack` to match `PacketAssemblerAnimation.is`; `CraftingStatusToast` needed no change (already `(ItemStack, boolean)`, fed via `GenericStack.wrapInItemStack`).
+
+### Wave 4b — appeng.container.implementations, crafting side (done)
+
+Seven files: `ContainerCraftAmount`, `ContainerCraftConfirm`, `ContainerCraftingCPU`, `CraftingCPUStatus`, `ContainerPatternEncoder`, `ContainerWirelessPatternTerminal`, `ContainerNetworkStatus`.
+
+```java
+// appeng.container.implementations.ContainerCraftAmount — matches the §9 prerequisite exactly
+@Nullable AEKey getItemToCraft();
+void setItemToCraft(@Nonnull AEKey itemToCreate);
+// The old code's split between the display ItemStack (the SlotInaccessible `craftingItem`) and "the
+// *actual* item that matters" (`itemToCreate`, now an AEKey) is untouched — this class never built the
+// display stack itself (PacketInventoryAction, agent 4-1's file, does that via
+// AEKey.wrapForDisplayOrFilter()/GenericStack.wrapInItemStack), it only ever held the two fields apart.
+
+// appeng.container.implementations.CraftingCPUStatus — no public shape change except the field type
+GenericStack getCrafting();   // was IAEItemStack; ICraftingCPU.getFinalOutput() already returned GenericStack
+// NBT (de)serialisation of `crafting` goes through GenericStack.readTag/writeTag instead of
+// AEItemStack.fromNBT/writeToNBT. writeToPacket/the ByteBuf constructor are untouched (they still go
+// through an embedded NBTTagCompound via CompressedStreamTools, unaffected by the field's type).
+// NOT touched: appeng.container.implementations.ContainerCraftingStatus and CraftingCPURecord, both of
+// which reference this class but never call getCrafting() themselves (only the client-side
+// GuiCraftingStatus does) and reference no other deleted type — confirmed clean, no edit needed.
+
+// appeng.container.implementations.ContainerCraftingCPU implements ICraftingCPUListener (was
+//         IMEMonitorHandlerReceiver<IAEItemStack>), ICustomNameObject
+// Push, not polling (CONTRACT.md rule 6 / §10): setCPU() registers via
+// CraftingCPUCluster#addListener(this, null) and detach paths (removeListener(IContainerListener),
+// onContainerClosed, CPU swap) all call CraftingCPUCluster#removeListener(this), exactly mirroring the old
+// IBaseMonitor#addListener/#removeListener pair. onCraftingCPUChange(AEKey, IActionSource) only adds the
+// key to a tracked-keys set (a plain LinkedHashSet<AEKey>, replacing the old IItemList<IAEItemStack> that
+// postChange fed with size-1 markers — only identity ever mattered there, never the number); the seed set
+// on CPU attach comes from CraftingCPUCluster#getListOfItem(KeyCounter, CraftingItemList.ALL). Every server
+// tick, for every tracked key, detectAndSendChanges() re-reads the authoritative current amounts via
+// CraftingCPUCluster#getItemStack(AEKey, CraftingItemList) for STORAGE/ACTIVE/PENDING and ships them as
+// three GridInventoryEntry-based PacketMEInventoryUpdate packets (ref 0/1/2), same as before. getMonitor(),
+// getNetwork(), setCPU(ICraftingCPU) keep their exact old signatures — appeng.container.implementations.
+// ContainerCraftingStatus (not in this wave's file list) extends this class and calls all three; confirmed
+// unaffected since it references no other deleted type either.
+public void postUpdate(List<GridInventoryEntry> list, byte ref);   // was List<IAEItemStack>
+
+// appeng.container.implementations.ContainerNetworkStatus
+// Reuses the ME-update packet for machines, not items (CONTRACT.md §10) - preserved exactly: for each
+// machine class, a machine's representation ItemStack (as an AEItemKey) accumulates a count into one
+// KeyCounter and that machine's idle power drain x100 into a second KeyCounter, mirroring the old
+// IItemList.add() merge-by-identity behaviour (which summed both stackSize and countRequestable for
+// matching stacks). Sent as GridInventoryEntry(what, count, power, false) — machine count in
+// storedAmount, idle-power-x100 in requestableAmount, exactly as the prerequisite note describes.
+public void postUpdate(List<GridInventoryEntry> list);   // was List<IAEItemStack>; no ref byte, unchanged
+
+// appeng.container.implementations.ContainerCraftConfirm — §9.2 applies, see below
+// appeng.container.implementations.ContainerPatternEncoder / ContainerWirelessPatternTerminal — see below
+```
+
+**§9.2 resolved: held the concrete `CraftingJob` type — worked without friction.** `ContainerCraftConfirm.result` is now declared as `appeng.crafting.CraftingJob` (public class, public two-argument `populatePlan(KeyCounter used, KeyCounter requestable)`) instead of the frozen `ICraftingJob`. The only place that needed a cast is where the field is populated — `this.result = (CraftingJob) this.getJob().get();` — since `Future<ICraftingJob>` is what the frozen `ICraftingGrid.beginCraftingJob`/the `job` field must stay typed as. Every other use of `this.result` (`isSimulation()`, `getByteTotal()`, `getOutput()`, passing it to `ICraftingGrid.submitJob(ICraftingJob, ...)`) already upcasts implicitly, so nothing else needed touching. No amendment to `ICraftingJob` was needed; the alternative (amending the frozen interface) was not required.
+
+The used/missing vs to-craft split itself: `populatePlan(used, requestable)` fills two `KeyCounter`s (mirroring `CraftingTreeNode.getPlan`, which adds a key to only one of the two counters depending on whether it came from storage or from crafting-emission, never necessarily both) — so the loop iterates the **union** of `used.keySet()` and `requestable.keySet()`, not just one of them, otherwise a key present in only one counter would silently vanish from that column. For each key: `a` (ref 0) carries the used/available amount (after a `MEStorage.extract(..., Actionable.SIMULATE, ...)` probe when `result.isSimulation()`, mirroring the old `IMEMonitor.extractItems(..., SIMULATE, ...)` call exactly — `extract()`'s `long` return already *is* "the amount actually available", so the old null-check/copy dance collapses to a subtraction), `b` (ref 1) carries the to-craft amount unconditionally, `c` (ref 2, simulation-only) carries the missing amount (requested-minus-available) — the same three-packet split, the same conditions for sending each, as the pre-migration code.
+
+**`ContainerPatternEncoder`/`ContainerWirelessPatternTerminal` fork mechanics, checked and preserved:**
+
+- **Expanded processing pattern terminal / substitution / crafting-vs-processing mode.** None of `craftingMode`, `substitute`, `isCraftingMode()`/`setCraftingMode()`, `isSubstitute()`/`setSubstitute()`, or the output-slot-ordering swap between the two modes touch a storage type at all (they read/write NBT flags and vanilla `ItemStack`s exclusively) — untouched, confirmed by reading the whole file; only `craftOrGetItem` and the pattern-detail-to-slot copy in `ContainerWirelessPatternTerminal.onChangeInventory` needed changes.
+- **`craftOrGetItem(PacketPatternSlot)`** — rewritten around `GenericStack`/`AEKey`/`MEStorage` per the §9 prerequisites (`PacketPatternSlot`'s `slotItem` is now a `GenericStack`, `Platform.poweredExtraction` takes `(IEnergySource, MEStorage, AEKey, long, IActionSource)` and returns the extracted `long` instead of a leftover stack, `Platform.extractItemsByRecipe`'s last parameter is `AEKeyFilter` fed directly from `ItemViewCell.createFilter(...)`, and `getCellInventory().injectItems(...)` became `getCellInventory().insert(AEKey, long, Actionable, IActionSource)`). The 3x3 crafting-preview grid is inherently vanilla-`ItemStack`-only, so `slotItem.what()` is required to be an `AEItemKey` (bails out otherwise) — this is not a new restriction, the pre-migration code made the same assumption implicitly by always treating the payload as an item.
+- **`getPart().getInventory()` / `((ITerminalHost) iGuiItemObject).getInventory()`** — both now the no-arg `MEStorage`-returning form (`ITerminalHost`/`AbstractPartTerminal`, wave 2/3b), replacing the old per-channel `getInventory(IStorageChannel<T>)` lookup.
+- **`ICraftingPatternDetails.getInputs()`/`getOutputs()` → `GenericStack[]`.** `ContainerWirelessPatternTerminal.onChangeInventory`'s copy from a scanned pattern into the crafting/output preview slots now uses `GenericStack.wrapInItemStack(item)` in place of `item == null ? ItemStack.EMPTY : item.createItemStack()` — `wrapInItemStack` already returns `ItemStack.EMPTY` for a `null` argument, so the null check collapsed into the one call.
+- **View-cell filtering (`ItemViewCell.createFilter`) feeding `Platform.extractItemsByRecipe`.** Both of this wave's remaining call sites (`ContainerPatternEncoder.craftOrGetItem`; the third, `SlotCraftingTerm`, belongs to agent 4-3) pass `ItemViewCell.createFilter(this.getViewCells())` straight into the now-`AEKeyFilter`-typed last parameter, per the §9 prerequisite — no adapter needed, `Platform.extractItemsByRecipe` in `appeng.util` already has the new signature (confirmed by reading it; it was updated ahead of the wave along with the other prerequisites).
+
+**§9.1 `.equals(` audit, all seven files:** grepped every file for `.equals(` — the only hits are `String.equals(...)` (`ContainerPatternEncoder.getInventoryByName`/`onChangeInventory`'s field-name checks, `ContainerWirelessPatternTerminal.getInventoryByName`'s name checks) and vanilla-`ItemStack` comparisons via `Platform.itemComparisons().isSameItem(...)`/`ItemStack.areItemsEqual(...)` (both files, unrelated to `AEKey`/`GenericStack`). No file compares a whole `GenericStack` for identity and no file carries over an old `IAEItemStack.equals(...)`-style comparison; every place that used to compare stack identity now compares `AEKey`s directly (`KeyCounter.get(AEKey)`/`.keySet()` lookups keyed by `AEItemKey`/`AEKey` identity, `outKey instanceof AEItemKey`) or vanilla `ItemStack`s where the comparison always was about the physical item, not an `AEKey`. Clean across all seven files.
+
+**API gaps hit: none.** No method was missing from `src/api`; every signature named in the §9 "Wave 4 prerequisites" section (`GridInventoryEntry`, `Platform.extractItemsByRecipe`'s `AEKeyFilter` parameter, `AEBaseContainer.getTargetStack()`/`getCellInventory()`, `ContainerCraftAmount.getItemToCraft()`/`setItemToCraft()`) was already in place or implemented exactly as specified.
+
+**Mechanics that could not be verified in-game:** none outstanding beyond the standing cross-agent debt already on record — `PacketMEInventoryUpdate.appendItem(GridInventoryEntry)` (agent 4-1), the client-side `GuiCraftingCPU`/`GuiCraftConfirm`/`GuiNetworkStatus`/`GuiCraftingStatus` screens that read the packets this wave now sends (agent 4-4, all of which still reference `IAEItemStack`/`IItemList` as of this writing and must be updated to `GridInventoryEntry`/`GenericStack` to compile) — none of this wave's files depend on those changes to be internally consistent, only on the rest of the wave landing for the whole package to compile.
+
+**Changed outside the assigned file list: none.** `appeng.container.implementations.ContainerCraftingStatus` and `CraftingCPURecord` were read (they touch `ContainerCraftingCPU`/`CraftingCPUStatus`, both mine) and confirmed to reference no deleted type and call no method whose signature this wave changed — left untouched.
+
+### Wave 4c — appeng.container, storage side (done)
+
+Eight files: `AEBaseContainer`, `ContainerMEMonitorable`, `ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`, `ContainerFluidInterfaceConfigurationTerminal`, `container/slot/SlotCraftingTerm`, `container/slot/SlotPatternTerm`. One file touched outside the assigned list: `appeng.parts.reporting.AbstractPartTerminal` (see "Third case, case 1" below — a Rule 6 call, not an accident).
+
+```java
+// appeng.container.AEBaseContainer — the accessors pinned by the §9 prerequisites, implemented verbatim
+@Nullable AEKey getTargetStack();
+void setTargetStack(@Nullable AEKey stack);       // sends PacketTargetItemStack(AEKey); equals() is safe
+                                                    // here because AEKey (unlike GenericStack) never carries
+                                                    // an amount - see the §9.1 audit below
+MEStorage getCellInventory();
+void setCellInventory(MEStorage cellInv);
+// The ME-slot InventoryAction switch (SHIFT_CLICK, ROLL_DOWN, ROLL_UP/PICKUP_SINGLE, PICKUP_OR_SET_DOWN,
+// SPLIT_OR_PLACE_SINGLE, CREATIVE_DUPLICATE, MOVE_REGION, ~200 lines) is rewritten around AEKey/AEItemKey
+// and Platform.poweredInsert/poweredExtraction's new `long` (amount actually moved) return value in place
+// of the old "returns the leftover IAEItemStack" contract. The whole switch guards on
+// `slotItem instanceof AEItemKey` and no-ops otherwise - this is not a new restriction, every branch was
+// already item-only before this port (it moves stacks into/out of the player's vanilla inventory, which
+// cannot hold anything else); mirrors upstream MEStorageMenu#handleNetworkInteraction's identical
+// `if (!(clickedKey instanceof AEItemKey clickedItem)) return;` guard for the same action set. Every
+// branch's arithmetic was traced against the pre-migration file line by line before rewriting (per rule 7):
+// SHIFT_CLICK/MOVE_REGION's "how much fits in the player's inventory, then extract exactly that much"
+// two-step; ROLL_DOWN's insert-then-decrement-cursor-then-roll-back-on-failure sequence (the old `fail`
+// variable holds what *was* removed, not a failure - `fail.isEmpty()` means the cursor decrement itself
+// failed, triggering the rollback extract, not the common case); ROLL_UP/PICKUP_SINGLE's lift-eligibility
+// check and its own "couldn't fit on cursor, put it back" rollback; PICKUP_OR_SET_DOWN's
+// extract-full-stack-or-insert-full-stack pair; SPLIT_OR_PLACE_SINGLE's SIMULATE-then-halve-then-charge
+// sequence. All preserved with identical control flow, only the stack-vs-long return type translated.
+// updateHeld/transferStackToContainer/shiftStoreItem: PacketInventoryAction(UPDATE_HAND, 0, GenericStack)
+// (was AEItemStack.fromItemStack); shiftStoreItem returns the AEItemKey leftover as `what.toStack(remaining)`
+// instead of the old leftover-stack contract, same shape.
+
+// appeng.container.implementations.ContainerMEMonitorable implements IStorageWatcherNode (was
+//         IMEMonitorHandlerReceiver<IAEItemStack>)
+// Both live-update cases from CONTRACT.md §10 "Third case", see the dedicated write-up below. Constructor
+// structure (IPortableCell / IMEChest / IGridHost-or-IActionHost branching, power source wiring, view-cell
+// slots, jeiOffset) is untouched. `monitor` is now a bare MEStorage (was IMEMonitor<IAEItemStack>); the old
+// per-container `IItemList<IAEItemStack> items` field is gone (nothing outside this file ever read it,
+// confirmed by grep) and its bookkeeping role is split across `pendingPushChanges` (case 1),
+// `previousAvailableStacks` (case 2) and `previousCraftables` (both cases, §8.3).
+public void postUpdate(List<GridInventoryEntry> list);   // was List<IAEItemStack>; forwards to GuiMEMonitorable
+// onListUpdate/postChange/isValid (IMEMonitorHandlerReceiver's methods) are gone - there is no interface
+// left to implement them for. The craftable flag (§8.3) is computed fresh every tick from
+// ICraftingGrid.getCraftables(AEKeyFilter.all()) and diffed against the previous tick's set, independently
+// of which live-update case is active, because neither model has a craftable watcher.
+
+// appeng.container.implementations.ContainerStorageBus / ContainerOreDictStorageBus
+// partition()/ore-scan rewritten around PartStorageBus/PartOreDicStorageBus#getInternalHandler()'s new
+// return type (a plain appeng.me.storage.MEInventoryHandler, a MEStorage): getAvailableStacks().keySet()
+// walks the keys, AEKey.wrapForDisplayOrFilter() replaces the old asItemStackRepresentation() for the
+// config slots. The ore-dictionary scan replaces the deleted ((AEItemStack) x).getOre() cast with
+// appeng.util.item.OreHelper.INSTANCE.getOre(itemKey.getReadOnlyStack()), filtering to AEItemKey first
+// (ore references are inherently item-only). Settings.STICKY_MODE/STORAGE_FILTER/ACCESS,
+// FuzzyMode/Upgrades.CAPACITY, and the upgrade slots are untouched GuiSync'd fields/enums, never part of
+// the storage model.
+
+// appeng.container.implementations.ContainerCellWorkbench
+// partition() rewritten: AEApi.instance().registries().cell().getCellInventory(is, null, channel) (which
+// needed an IStorageChannel derived from IStorageCell.getChannel()) collapses to
+// appeng.api.storage.StorageCells.getCellInventory(is, null) - a cell no longer needs to be told its key
+// type up front, so the whole channel-lookup dance is gone. Result iterated the same way as the two bus
+// containers above (getAvailableStacks().keySet(), wrapForDisplayOrFilter()). ICellWorkbenchItem moved
+// package (api.storage.cells, name unchanged per §4.2) but its setFuzzyMode/getFuzzyMode calls, the
+// copy-settings button (nextWorkBenchCopyMode/CopyMode), and the partition-from-cell button are otherwise
+// untouched.
+
+// appeng.container.implementations.ContainerFluidInterfaceConfigurationTerminal
+// Boundary fix only, per the brief: setTargetStack(IAEFluidStack) -> setTargetStack(AEKey), field
+// clientRequestedTargetFluid retyped to AEKey, identity check now stack.equals(...) (AEKey carries no
+// amount, so this is already the size-insensitive check the old FluidStack#isFluidEqual was), and the
+// PacketTargetFluidStack(AEKey) constructor called directly (no more smuggling a fluid through a dummy
+// item's NBT). Settings.INTERFACE_TERMINAL and the FLUID_INTERFACE_CONFIGURATION_TERMINAL part mechanic are
+// untouched and still present in the file (regenList/addFluids/FluidConfigTracker/doAction) - they still
+// reference appeng.fluids.util.{IAEFluidTank,AEFluidInventory,AEFluidStack}, which are wave 5's `appeng.fluids`
+// package and still internally reference the deleted IAEFluidStack today. This file will not fully compile
+// until wave 5 lands, exactly as CONTRACT.md's big-bang rule expects - the boundary this wave owns
+// (AEBaseContainer-shaped setTargetStack) is the only part fixed here, deliberately.
+
+// appeng.container.slot.SlotCraftingTerm / SlotPatternTerm
+// `IStorageMonitorable storage` -> `ITerminalHost storage` (the interface these constructors actually
+// receive at every call site - ContainerCraftingTerm/ContainerWirelessCraftingTerminal/ContainerPatternTerm/
+// ContainerWirelessPatternTerminal, none of which needed edits since they already passed an ITerminalHost).
+// this.storage.getInventory(channel) -> this.storage.getInventory() (MEStorage, no channel argument).
+// craftItem/preCraft/postCraft's IMEMonitor<IAEItemStack>/IItemList params became MEStorage/KeyCounter.
+// postCraft's "put back what didn't fit onto the crafting grid" step now reads
+// inv.insert(AEItemKey, amount, MODULATE, src)'s returned `long inserted` and drops
+// `what.toStack(set[x].getCount() - inserted)` when that is positive, replacing the old
+// "inject returns the leftover IAEItemStack or null" contract. Platform.extractItemsByRecipe's last
+// parameter is now AEKeyFilter (already true of appeng.util.Platform per the §9 prerequisites) and
+// ItemViewCell.createFilter(...) (already AEKeyFilter-typed since wave 3c) feeds it directly - no adapter
+// needed. SlotPatternTerm.getRequest's PacketPatternSlot payload is now
+// GenericStack.fromItemStack(this.getStack()) instead of the old per-channel createStack(...); the
+// shift-click packet dispatch itself (PacketPatternSlot(pattern, GenericStack, shift)) is untouched.
+```
+
+**"Third case: terminal live updates" (CONTRACT.md §10), both cases implemented:**
+
+1. **Network-backed terminals (plain ME terminal, crafting terminal, pattern terminal, expanded processing
+   pattern terminal - anything built on `AbstractPartTerminal`) — real push.** `GridStorageCache.addNode`
+   only ever calls `IStorageWatcherNode.updateWatcher` on a node's *machine*, never on whatever container
+   happens to have that machine's GUI open right now (a container is not itself a grid node/machine, and
+   nothing re-triggers `addNode` when a GUI opens). That means the **part itself**, not the container, has
+   to be the one holding the live `IStackWatcher` - so `appeng.parts.reporting.AbstractPartTerminal` (a file
+   *outside* this wave's assigned list) was given a small, additive `IStorageWatcherNode` implementation:
+   it stores the `IStackWatcher` handed to it by the grid, keeps a list of currently-open terminal
+   containers (`addTerminalListener`/`removeTerminalListener`, both new `public` methods, called from
+   `ContainerMEMonitorable`'s constructor/`removeListener`/`onContainerClosed`), calls
+   `myWatcher.setWatchAll(true)` only while at least one container is attached (so an unopened terminal does
+   not force a full-network cache rebuild every tick, per `IStackWatcher.setWatchAll`'s own javadoc -
+   "Expensive; used by terminals"), and relays every `onStackChange(AEKey, long)` call to all of them.
+   `ContainerMEMonitorable` itself implements `IStorageWatcherNode` too (its `onStackChange` buffers
+   `(key, amount)` pairs into `pendingPushChanges`, drained into a `GridInventoryEntry` list every tick in
+   `detectAndSendChanges`; its `updateWatcher` is a documented no-op, since the grid never calls it directly).
+   This is a **rule 6 case, not an accident**: leaving `AbstractPartTerminal` untouched would have meant
+   every terminal built on it had *no* live-update mechanism at all under the new model - not a missed
+   optimisation, a full regression of the terminal's core "watch the network live" behaviour. Flagged loudly
+   here per the brief's instruction on stepping outside the file list.
+2. **Portable cell / view-only cell terminals (`WirelessTerminalGuiObject`, wave 2; `PortableCellViewer`,
+   wave 3) and anything else that isn't an `AbstractPartTerminal` (ME chest via `IMEChest`, the security
+   station, ...) — server-side per-tick diff.** `ContainerMEMonitorable.collectChanges()` snapshots
+   `monitor.getAvailableStacks()`, diffs it against `previousAvailableStacks` (seeded at construction so the
+   tick right after a GUI opens does not immediately re-broadcast the same listing `queueInventory` already
+   sent), and only ships the delta - exactly upstream's `MEStorageMenu.broadcastChanges()` pattern. The
+   craftable-flag diff (`ICraftingGrid.getCraftables(AEKeyFilter.all())` vs. `previousCraftables`) runs
+   identically for both cases, since neither model has a craftable watcher.
+
+Case selection is structural, not a guess: `ContainerMEMonitorable`'s constructor already branches on
+`instanceof IPortableCell` / `instanceof IMEChest` / `instanceof IGridHost || instanceof IActionHost` (kept
+verbatim from the pre-migration file); `networkTerminalPart` is set (enabling case 1) only when
+`monitorable instanceof AbstractPartTerminal`, which is true for exactly the parts that fall in the third
+branch and false for every portable/chest/security-station host. `TileSecurityStation` (used by
+`ContainerSecurityStation`, not mine) *does* reach the `IGridHost`-or-`IActionHost` branch and so gets a
+`networkNode`, but is not an `AbstractPartTerminal`, so it uses case 2 - correct, since its `getInventory()`
+returns its own small `SecurityStationInventory`, not the whole network, so a per-tick diff of it is cheap.
+
+**Fork-specific mechanics from point 10, verified preserved:**
+
+- **Sticky Card (`Settings.STICKY_MODE`)** — `ContainerStorageBus`/`ContainerOreDictStorageBus`'s
+  `@GuiSync(7) public YesNo stickyMode` field and `getStickyMode()`/`setStickyMode()` are untouched; neither
+  file's edits touched anything on the settings/GuiSync side, only `partition()`'s cell-scanning internals.
+- **Ore-dictionary storage bus** — `ContainerOreDictStorageBus.partition()`'s ore-ID scan, regex-match
+  building and `PartOreDicStorageBus#saveOreMatch`/`getOreExp()` plumbing are all intact; only the
+  `IAEItemStack`-cast ore lookup was rewritten (see above).
+- **`Settings.STORAGE_FILTER`/`Settings.ACCESS`, fuzzy mode, the upgrade slots** — all untouched GuiSync
+  fields/config-manager reads in both bus containers.
+- **`ICellGuiHandler.isSpecializedFor`** — not called anywhere in `ContainerCellWorkbench` before or after
+  this wave (it is a `TileChest.openGui()`/`StorageCells.getGuiHandler(AEKeyType, ItemStack)` concern,
+  neither of which is in this file); nothing to preserve or restore here specifically, noted so the next
+  reader does not go looking for it in this file.
+- **`Settings.INTERFACE_TERMINAL` / the fluid interface configuration terminal** — both still present and
+  unedited in `ContainerFluidInterfaceConfigurationTerminal` (see the file's write-up above); only the
+  `setTargetStack` boundary was touched.
+- **`SlotPatternTerm`'s `PacketPatternSlot` shift-click** — `getRequest(boolean shift)` unchanged in
+  behaviour, only the payload's type.
+- **`Platform.extractItemsByRecipe`'s view-cell filter / "return leftovers to the network, drop what will
+  not fit" path** — `SlotCraftingTerm.craftItem`/`postCraft` preserve both: the recipe re-verification
+  against the crafting-terminal's held recipe (`findRecipe`/`handleRecipe`, including the `recipestages`
+  compat check), and the "put back what didn't fit, drop what the network also rejects" step in `postCraft`.
+
+**§9.1 `.equals(` audit, all nine files (eight assigned plus `AbstractPartTerminal`):**
+
+- `AEBaseContainer.setTargetStack`: `stack.equals(this.clientRequestedTargetItem)` — safe. This compares two
+  bare `AEKey`s, not `GenericStack`s; `AEKey` never carries an amount (only `GenericStack` does), so its
+  `equals()` is already the size-insensitive identity check the old `IAEItemStack.isSameType()` was. Not an
+  instance of the §9.1 hazard.
+- `ContainerFluidInterfaceConfigurationTerminal.setTargetStack`: same reasoning, same conclusion
+  (`stack.equals(this.clientRequestedTargetFluid)`, both bare `AEKey`s).
+- `ROLL_UP`/`PICKUP_SINGLE` in `AEBaseContainer.doAction`: `slotItemKey.matches(item)` — correctly uses
+  `AEItemKey.matches(ItemStack)` (size-insensitive), not `.equals(...)`, translating the old
+  `Platform.itemComparisons().isSameItem(slotItem.getDefinition(), item)` call.
+- No other file in this wave's list calls `.equals(` on anything stack-shaped. `transferStackInSlot`'s
+  existing `Platform.itemComparisons().isSameItem(...)` calls are vanilla-`ItemStack` comparisons that
+  predate this port and were never `IAEItemStack`-shaped.
+- **No whole-`GenericStack` comparison exists anywhere in this wave's nine files.**
+
+**API gaps hit: none.** Every method needed — `AEKey.wrapForDisplayOrFilter`, `AEItemKey.of`/`.matches`/
+`.getReadOnlyStack`/`.toStack`/`.getMaxStackSize`, `GenericStack.fromItemStack`, `MEStorage.insert`/
+`.extract`/`.getAvailableStacks`, `KeyCounter.keySet`/`.get`, `StorageCells.getCellInventory`,
+`ICraftingGrid.getCraftables`, `IStorageService.getCachedInventory`, `IStackWatcher.setWatchAll` — was
+already in `src/api` from earlier waves. `src/api` was not touched.
+
+**Mechanics that could not be preserved: none.** Every branch enumerated in the pre-migration
+`AEBaseContainer.doAction` switch, `ContainerMEMonitorable`'s listener/queueInventory/view-cell logic, and
+both bus/cell-workbench partition methods has a direct translation in the new model; nothing was dropped
+silently or reported as inexpressible.
+
+**Changed outside the assigned file list:** `appeng.parts.reporting.AbstractPartTerminal` — see "Third case,
+case 1" above. Purely additive (one new interface implementation, four new methods, two new fields); no
+existing method on that class changed signature or behaviour.
+
+**Could not be verified in-game** (no compiler feedback per the big-bang rule, and several dependencies are
+still other waves' responsibility): the whole terminal live-update path end-to-end, since it depends on
+agent 4-1's `PacketMEInventoryUpdate`/`GridInventoryEntry` (already landed, read and confirmed compatible)
+and agent 4-4's client-side `GuiMEMonitorable.postUpdate(List<GridInventoryEntry>)`/`ItemRepo` (not yet
+confirmed landed at the time of this writing - `postUpdate`'s call site here is written against the shape
+CONTRACT.md pins, not against a file this wave has read). `ContainerFluidInterfaceConfigurationTerminal`
+will not compile until wave 5 replaces `appeng.fluids.util`'s internals, as noted above - expected, not a
+gap in this wave's own work.
+
+### Wave 4d — appeng.client (done)
+
+24 files: `AEBaseGui`, `AEBaseMEGui`, `AEGuiHandler` (`client/gui`); `GuiCraftConfirm`, `GuiCraftingCPU`,
+`GuiCraftingStatus`, `GuiExpandedProcessingPatternTerm`, `GuiFluidInterfaceConfigurationTerminal`,
+`GuiInterfaceConfigurationTerminal`, `GuiInterfaceTerminal`, `GuiMEMonitorable`, `GuiNetworkStatus`,
+`GuiPatternTerm`, `GuiUpgradeable` (`client/gui/implementations`); `ItemRepo`, `FluidRepo`, `SlotME`,
+`SlotFluidME`, `InternalSlotME`, `InternalFluidSlotME` (`client/me`); `TesrRenderHelper`,
+`StackSizeRenderer`, `CraftingMonitorTESR`, `AssemblerFX` (`client/render`). Read against the actual (not
+guessed) shapes agents 4-1/4-2/4-3 had already landed by the time this wave started - `GridInventoryEntry`,
+`PacketInventoryAction`'s two pinned constructors, `CraftingCPUStatus.getCrafting(): GenericStack`,
+`ContainerNetworkStatus`/`ContainerCraftConfirm`/`ContainerCraftingCPU`'s `postUpdate(List<GridInventoryEntry>, ...)`
+- all confirmed by reading those files, not assumed.
+
+```java
+// appeng.client.me.ItemRepo — the terminal's client-side model
+// Map<AEKey, GridInventoryEntry> entries (was IItemList<IAEItemStack>) keyed by AEKey.equals(), which is
+// already size-insensitive identity - the old list.findPrecise(is)-then-reset-then-add dance collapses to
+// a plain put()/remove() (see postUpdate). All eight SearchBoxMode values, the "@" mod-name prefix, "-"/"!"
+// term negation, Settings.SEARCH_TOOLTIPS, ViewItems.ALL/CRAFTABLE/STORED (the CRAFTABLE "zero copy" trick
+// is now entry.withStoredAmount(0)), SortOrder.MOD/AMOUNT/INVTWEAKS/NAME, the bogosort integration with
+// ItemSorters.CONFIG_BASED_SORT_BY_INV_TWEAKS fallback, and the JEI/HEI search-text bridge
+// (Integrations.jei().setSearchText) are all preserved verbatim - only the element type changed.
+// clear() keeps its old IItemList.resetStatus() semantics (zero every row's amounts/craftable flag, keep
+// the keys) for GuiNetworkStatus's full-repopulate case; this is deliberately NOT the same as postUpdate's
+// per-key put/remove, which is instructed by GridInventoryEntry.isMeaningful() to actually drop dead rows.
+public GridInventoryEntry getReferenceItem(int idx);          // was IAEItemStack
+public void postUpdate(GridInventoryEntry entry);              // was postUpdate(IAEItemStack)
+public long getItemCount(AEKey what);                          // was getItemCount(IAEItemStack)
+public void setViewCell(ItemStack[] list);                      // ItemViewCell.createFilter -> AEKeyFilter
+public void clear();                                            // zeroes rows, keeps keys (see above)
+// private static final class KeyAmountEntry implements Object2LongMap.Entry<AEKey> — a 3-method adapter
+// (getKey/getLongValue/setValue) so appeng.util.ItemSorters's Object2LongMap.Entry<AEKey>-shaped
+// comparators (built in wave 1a for iterating a KeyCounter) can also sort the GridInventoryEntry rows this
+// repo holds, without touching the wave 1 file that defines them.
+
+// appeng.client.me.FluidRepo — same design, the fluid terminal's simpler pre-port feature set preserved
+// exactly (mod-prefix + tooltip search, no term negation, no JEI bridge, no view-cell filter - none of
+// those existed here before this port either). NOTE for wave 5 (see the file's header comment):
+// appeng.fluids.util.FluidSorters still exposes Comparator<IAEFluidStack> (a deleted api type, because
+// appeng.fluids is wave 5's whole package); this file is written assuming FluidSorters gets the exact
+// CONFIG_BASED_SORT_BY_MOD/_BY_SIZE/_BY_NAME -> Comparator<Object2LongMap.Entry<AEKey>> retyping
+// appeng.util.ItemSorters already got in wave 1a, since the old FluidRepo used exactly those three names.
+
+// appeng.client.me.SlotME / InternalSlotME
+public GridInventoryEntry getEntry();           // was getAEStack(): IAEItemStack
+// InternalSlotME.getStack() now wraps via AEKey.wrapForDisplayOrFilter() (identity/count-1 display,
+// exactly what asItemStackRepresentation() gave) - the real amount is still drawn separately by
+// StackSizeRenderer, unchanged division of responsibility.
+
+// appeng.client.me.SlotFluidME / InternalFluidSlotME
+public GenericStack getGenericStack();          // was getAEFluidStack(): IAEFluidStack
+// NOTE for wave 5 (see the file's header comment): appeng.fluids.container.slots.IMEFluidSlot still
+// declares IAEFluidStack getAEFluidStack() (a deleted api type). Written assuming IMEFluidSlot gets
+// GenericStack getGenericStack(), mirroring the exact rename appeng.util.inv.ItemSlot already got in wave
+// 1a (getAEItemStack() -> getGenericStack()). ISpecialSlotIngredient.getIngredient() now builds a raw
+// FluidStack from the wrapped AEFluidKey (fluidKey.toStack(amount)) for HEI's ingredient-under-mouse hook.
+
+// appeng.client.gui.AEBaseGui — the ME-slot click/wheel/drag routing
+// Every SlotME branch (space-click MOVE_REGION, PICKUP_OR_SET_DOWN/AUTO_CRAFT, QUICK_MOVE/SHIFT_CLICK,
+// CLONE/AUTO_CRAFT/CREATIVE_DUPLICATE, mouse-wheel ROLL_UP/ROLL_DOWN) now reads a GridInventoryEntry and
+// calls AEBaseContainer.setTargetStack(entry.getWhat()) - was IAEItemStack throughout. The literal-`0`
+// PacketInventoryAction(...) call sites were NOT touched: they were already resolving to the untouched
+// (int slot, long id) overload (int 0 widens to long, it never matched the IAEItemStack/GenericStack
+// overload), confirmed by reading the pre-migration file - a real trap this wave checked for and did not
+// fall into. The IMEFluidSlot rendering branch reads GenericStack via getGenericStack() (see SlotFluidME's
+// note) and dispatches fluid.getColor()/getStill() off the unwrapped AEFluidKey. The two ad hoc
+// AEItemStack.fromItemStack(...) calls that existed purely to feed StackSizeRenderer a count (drag-split
+// preview, encoded-pattern output preview) became GenericStack.fromItemStack(...).
+// drawSlot's JEI/HEI hooks, IJEITargetSlot resolution, and the double-click/hotbar-swap logic are unchanged
+// - none of them ever touched a storage type. HEI is a drop-in JEI fork (§8.2); no `mezz.jei` import or
+// package name was renamed, per the brief.
+
+// appeng.client.gui.AEBaseMEGui — the "N stored / N requestable / craftable" tooltip
+// getCountRequestable() -> getRequestableAmount(), getStackSize() -> getStoredAmount(), otherwise identical.
+
+// appeng.client.gui.AEGuiHandler — the JEI/HEI IAdvancedGuiHandler/IGhostIngredientHandler adapter
+// The `List<IAEItemStack> visual` field this class read from GuiCraftConfirm/GuiCraftingCPU is now
+// `List<AEKey>`; `visual.get(idx).getDefinition()` (the ingredient handed to JEI/HEI under the mouse)
+// became `visual.get(idx).wrapForDisplayOrFilter()`. Ghost-slot target resolution (getTargets,
+// IJEIGhostIngredients/IJEITargetSlot dispatch for GuiUpgradeable/GuiPatternTerm/
+// GuiExpandedProcessingPatternTerm) is untouched - it was never storage-typed.
+
+// appeng.client.gui.implementations.GuiMEMonitorable — "the terminal"
+public void postUpdate(List<GridInventoryEntry> list);   // was List<IAEItemStack>; loops repo.postUpdate(entry)
+// Every other named mechanic (SEARCH_MODE-driven autofocus/JEI-memory-text, TerminalStyle SMALL/FULL row
+// math, the view-cell slots and craftingStatusBtn tab, the wireless/portable/chest/security-station name
+// branching) reads no storage type directly - it all goes through ItemRepo/SlotME, already covered above.
+
+// appeng.client.gui.implementations.GuiNetworkStatus — reuses ItemRepo for machines, not items (CONTRACT.md
+// §10): GridInventoryEntry.getStoredAmount() is a machine count, getRequestableAmount() is that machine's
+// idle power drain x100 (GuiText.EnergyDrain, Platform.formatPowerLong(..., true) - formatPowerLong already
+// divides by 100 internally, confirmed by reading it, so no extra scaling was added here). NOT "fixed" into
+// an item count, per the brief's explicit warning.
+public void postUpdate(List<GridInventoryEntry> list);   // was List<IAEItemStack>
+
+// appeng.client.gui.implementations.GuiCraftConfirm / GuiCraftingCPU — the used/missing/to-craft and the
+// stored/active/scheduled columns, three KeyCounters each (was three IItemList<IAEItemStack>s) plus a
+// List<AEKey> visual (was List<IAEItemStack>, mutated in place via a findPrecise/copy/setStackSize dance
+// that a KeyCounter's map semantics make unnecessary - a plain KeyCounter.set(key, amount) per ref channel,
+// and the per-key total read fresh off all three counters at draw time, replace it exactly). Both classes'
+// three-channel byte-ref switch (0/1/2, the third only for a simulated craft) is untouched.
+public void postUpdate(List<GridInventoryEntry> list, byte ref);   // was List<IAEItemStack>, byte ref
+public List<AEKey> getVisual();                                    // was List<IAEItemStack>
+
+// appeng.client.gui.implementations.GuiCraftingStatus — the named-CPU selector list and per-CPU progress
+// bars (a fork/GTNH feature, no upstream equivalent). CraftingCPUStatus.getCrafting() is now GenericStack
+// (confirmed against the already-landed wave 4b file); .getStackSize() -> .amount(),
+// .createItemStack() -> GenericStack.wrapInItemStack(...). CPU selector list, scrollbar, hover tooltip and
+// the coloured selection/hover states are otherwise untouched.
+
+// appeng.client.gui.implementations.GuiPatternTerm / GuiExpandedProcessingPatternTerm — JEI/HEI ghost-item
+// placement into pattern slots. getPhantomTargets' AEItemStack.fromItemStack(itemStack) -> GenericStack.
+// fromItemStack(itemStack); PacketInventoryAction(PLACE_JEI_GHOST_ITEM, (SlotFake) slot, GenericStack).
+// GuiExpandedProcessingPatternTerm (the expanded processing pattern terminal, no upstream equivalent) keeps
+// its own background/button layout untouched - only the same one-line ghost-item swap applied.
+
+// appeng.client.gui.implementations.GuiUpgradeable — the import/export bus JEI/HEI ghost-item placement,
+// including the fluid-into-item-slot smuggling case named in the brief. The SlotFake+item branch and the
+// SlotFake+GuiCellWorkbench+fluid-as-bucket branch both became GenericStack.fromItemStack(...) (the bucket
+// item itself is unaffected - FluidUtil.getFilledBucket(fluidStack) still builds a real bucket ItemStack,
+// only the packet payload wrapping changed). The true fluid-slot branch (GuiFluidSlot) no longer smuggles
+// AEFluidStack.fromFluidStack(...).asItemStackRepresentation() through a dummy item's NBT - it builds
+// `new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount)` and the packet carries the
+// fluid key directly, per the brief. Settings.SCHEDULING_MODE, redstone/fuzzy/craft-only mode buttons and
+// GuiCellWorkbench (a subclass not on this wave's file list, confirmed by grep to reference no storage type
+// at all - see "changed outside the file list" below) are untouched.
+
+// appeng.client.gui.implementations.GuiInterfaceTerminal / GuiInterfaceConfigurationTerminal — two of the
+// three terminal parts with no upstream equivalent (Settings.INTERFACE_TERMINAL-gated). Both had exactly
+// one old-API line each: Platform.getItemDisplayName(AEApi...getStorageChannel(IItemStorageChannel.class)
+// .createStack(parsedItemStack)) collapsed to Platform.getItemDisplayName(parsedItemStack) directly (per
+// wave 1a, Platform.getItemDisplayName now accepts a plain ItemStack or an AEKey). GuiInterfaceConfigurationTerminal
+// additionally had one JEI ghost-item line (AEItemStack.fromItemStack -> GenericStack.fromItemStack). Every
+// named/searched/highlighted-interface mechanic (byId/byName maps, broken-pattern detection, dimension
+// highlighting, the input/output/name search fields) reads no other storage type and is untouched.
+
+// appeng.client.gui.implementations.GuiFluidInterfaceConfigurationTerminal — the third terminal part with no
+// upstream equivalent. NOTE for wave 5 (see the file's header comment): appeng.fluids.util.IAEFluidTank
+// still declares IAEFluidStack getFluidInSlot(int)/setFluidInSlot(int, IAEFluidStack) (a deleted api type).
+// Written assuming GenericStack getFluidInSlot(int)/setFluidInSlot(int, GenericStack), mirroring the rename
+// appeng.tile.inventory.AppEngInternalAEInventory already got in wave 2 (getAEStackInSlot(int): GenericStack)
+// - independently confirmed as the right shape by wave 4c's ContainerFluidInterfaceConfigurationTerminal
+// entry, which names the identical requirement. The §9.1 hazard bit here for real: matchedStacks used to
+// hold whole fluid-stack objects and compare them with .contains(...); translated to holding bare AEKeys
+// (identity only) instead of GenericStack, because a tank's amount can change between when a slot's
+// contents were matched by search and when drawFG re-checks membership for highlighting - see the audit
+// below. postUpdate's NBT parse (AEFluidStack.fromNBT -> GenericStack.readTag) and the ghost-item line
+// (AEItemStack.fromItemStack -> GenericStack.fromItemStack) round out the file's changes; the tank-slot
+// layout, dimension highlighting and name search are untouched.
+
+// appeng.client.render.TesrRenderHelper — pinned by wave 3's AbstractPartMonitor.renderDynamic
+public static void renderItem2dWithAmount(AEItemKey what, long amount, float itemScale, float spacing);
+public static void renderFluid2dWithAmount(AEFluidKey what, long amount, float scale, float spacing);
+// what.toStack()/what.toStack(amount) replace asItemStackRepresentation()/getFluidStack() for the icon;
+// the amount is now a plain long parameter instead of read off the stack. renderItem2d/renderFluid2d
+// (the actual 2D-flattened GL drawing) and moveToFace/rotateToFace are untouched.
+
+// appeng.client.render.StackSizeRenderer — the abbreviated K/M/G stack-count overlay
+public void renderStackSize(FontRenderer fr, @Nullable GridInventoryEntry entry, int x, int y);  // ME slots
+public void renderStackSize(FontRenderer fr, @Nullable GenericStack stack, int x, int y);         // ad hoc
+// Two overloads instead of one IAEItemStack-typed method, because the old single method actually served two
+// different old callers: a live ME slot's IAEItemStack (which carried isCraftable(), driving the "Craft"
+// label in place of a zero count) and a throwaway AEItemStack.fromItemStack(...) built purely to carry a
+// count (drag-split preview, encoded-pattern output preview - never craftable). Both delegate to the same
+// private long/boolean core so the large-font/slim-font/craft-label logic is identical either way. The
+// config-driven font size, the Alt-key "always show Craft" behaviour, and the K/M abbreviation are untouched.
+
+// appeng.client.render.crafting.CraftingMonitorTESR — the crafting monitor's rendered job
+// TileCraftingMonitorTile.getJobProgress() is a GenericStack (confirmed by reading the file - already
+// GenericStack since wave 2). The renderer now dispatches on jobProgress.what() instanceof AEItemKey/
+// AEFluidKey and calls the matching TesrRenderHelper overload, rather than assuming an item - this is
+// completing wave 2's generalisation, not new scope: the old renderer could only ever depict an item job
+// because the channel-per-type model kept item/fluid crafting monitors apart, and nothing about the fork's
+// mechanic set is added or changed by letting a fluid crafting job's progress render too.
+
+// appeng.client.render.effects.AssemblerFX — the molecular assembler's crafting particle
+public AssemblerFX(World w, double x, double y, double z, double r, double g, double b, float speed, GenericStack is);
+// was IAEItemStack is - pinned by PacketAssemblerAnimation(BlockPos, byte, GenericStack) (wave 4-1).
+// GenericStack.wrapInItemStack(is) replaces is.asItemStackRepresentation() for the floating-item display
+// (EntityFloatingItem); ClientHelper.java (not on this wave's file list) needed no change at all, since it
+// only forwards PacketAssemblerAnimation's already-GenericStack-typed `is` field straight through.
+```
+
+**Fork-specific mechanics from point 10, verified preserved:** all eight `SearchBoxMode` values, the `@`
+mod-name prefix, `-`/`!` term negation, `Settings.SEARCH_TOOLTIPS`, `ViewItems.ALL/CRAFTABLE/STORED`,
+`SortOrder.MOD/AMOUNT/INVTWEAKS/NAME`, the bogosort integration (with `ItemSorters.CONFIG_BASED_SORT_BY_INV_TWEAKS`
+fallback) and the JEI/HEI search-text bridge (`ItemRepo`); the "N craftable/N requestable" tooltip lines
+(`AEBaseMEGui`); `GuiNetworkStatus` reusing `GridInventoryEntry` for a machine count and an idle-power-drain
+(not an item count); the used/missing/to-craft three-channel split (`GuiCraftConfirm`) and the
+stored/active/scheduled split (`GuiCraftingCPU`); the named-CPU selector and per-CPU progress bars
+(`GuiCraftingStatus`); the JEI/HEI ghost-item mechanic end to end, including the fluid-into-item-slot
+smuggling case now replaced by a direct fluid key (`GuiPatternTerm`/`GuiExpandedProcessingPatternTerm`/
+`GuiUpgradeable`/`GuiInterfaceConfigurationTerminal`); `Settings.SCHEDULING_MODE` and the
+`FluidUtil.getFilledBucket` branch (`GuiUpgradeable`); the three `Settings.INTERFACE_TERMINAL`-gated
+terminal parts with no upstream equivalent, including `PATTERN_EXPANSION` slot-count display, which lives
+entirely in the containers these GUIs open (agents 4-2/4-3's files) and was not touched here
+(`GuiInterfaceTerminal`/`GuiInterfaceConfigurationTerminal`/`GuiFluidInterfaceConfigurationTerminal`); the
+molecular assembler's crafting particle and rate (`AssemblerFX`); the crafting monitor's rendered job,
+extended (not cut) to cover a fluid job now that `GenericStack` makes that expressible
+(`CraftingMonitorTESR`). HEI is a drop-in JEI fork (§8.2) - no `mezz.jei` import, package name or class name
+was renamed anywhere in this wave's files, per the brief.
+
+**§9.1 `.equals(` audit, all 24 files:** grepped every file for `.equals(`. Real hits, all safe: `String.equals`
+(`entry.getUnlocalizedName().equals(MOLECULAR_ASSEMBLER)` in `GuiInterfaceTerminal`, `lastSearch.equals(searchString)`
+in `ItemRepo` - neither is a stack comparison). **One real §9.1 instance found and fixed:**
+`GuiFluidInterfaceConfigurationTerminal.matchedStacks` used to be populated with, and checked via
+`.contains(...)` against, whole fluid-stack objects; translated to holding bare `AEKey`s (`fs.what()`, not
+`fs`) precisely because a tank's amount can drift between the search pass (`refreshList`) and the
+highlight-membership check a frame later (`drawFG`), which would have made `GridInventoryEntry`/`GenericStack`'s
+amount-sensitive `equals()` intermittently miss a slot that plainly still holds the searched-for fluid.
+**No whole-`GenericStack` (or `GridInventoryEntry`) comparison exists anywhere in this wave's 24 files** -
+every remaining identity check is a map lookup/`.contains()` keyed by `AEKey` (whose `equals()` never
+carried an amount to begin with, per the §9.1 rule's own scope) or a plain `List<AEKey>`/`Map<AEKey, ...>`
+operation.
+
+**API gaps hit: none.** Every method this wave needed - `AEKey.wrapForDisplayOrFilter`, `GenericStack.fromItemStack`/
+`wrapInItemStack`/`readTag`, `AEItemKey.toStack`/`.of`, `AEFluidKey.of`/`.toStack`/`.getFluid`, `KeyCounter.get`/
+`.set`/`.clear`, `Platform.getItemDisplayName`/`getFluidDisplayName`/`getModId`/`getTooltip`,
+`ItemViewCell.createFilter` - was already in `src/api` or `appeng.util.Platform` from earlier waves, exactly as
+specified. `src/api` was not touched.
+
+**Mechanics that could not be preserved: none.** Every mechanic named in the brief (point 10) and every one
+found by reading each file's pre-migration behaviour before rewriting it (per the brief's method) has a
+direct translation in the new model.
+
+**Changed outside the assigned file list: none edited.** `appeng.client.gui.implementations.GuiCellWorkbench`
+(a `GuiUpgradeable` subclass, not on this wave's file list) was read because `GuiUpgradeable.getPhantomTargets`
+branches on `instanceof GuiCellWorkbench`; confirmed by grep to reference no deleted storage type at all
+(it only calls `ContainerCellWorkbench` accessors unrelated to `AEKey`/`GenericStack`), so it needed no
+change and none was made. `appeng.client.me.ClientDCInternalInv`/`SlotDisconnected`/`ClientDCInternalFluidInv`
+(used by the interface-terminal GUIs, not on this wave's file list) were read for the same reason and are
+similarly clean, except `ClientDCInternalFluidInv.getInventory(): IAEFluidTank`, which is wave 5's problem
+(see below). `appeng.client.ClientHelper` (constructs `AssemblerFX`) was read and needed no change - it
+only forwards `PacketAssemblerAnimation`'s already-`GenericStack`-typed field through.
+
+**Cross-wave dependencies this wave's files now assume (predicted, not guessed at random - each mirrors an
+already-landed rename elsewhere in the tree), left for wave 5 to satisfy:**
+
+- `appeng.fluids.container.slots.IMEFluidSlot.getAEFluidStack(): IAEFluidStack` must become
+  `getGenericStack(): GenericStack` - mirrors `appeng.util.inv.ItemSlot`'s wave 1a rename exactly.
+- `appeng.fluids.util.IAEFluidTank.getFluidInSlot(int): IAEFluidStack`/`setFluidInSlot(int, IAEFluidStack)`
+  must become `GenericStack`-typed - mirrors `AppEngInternalAEInventory.getAEStackInSlot(int): GenericStack`
+  (wave 2), and is independently required by wave 4c's `ContainerFluidInterfaceConfigurationTerminal` entry.
+- `appeng.fluids.util.FluidSorters`'s `Comparator<IAEFluidStack>` fields must become
+  `Comparator<Object2LongMap.Entry<AEKey>>` - mirrors `appeng.util.ItemSorters`'s wave 1a retyping exactly
+  (same three field names: `CONFIG_BASED_SORT_BY_MOD`/`_BY_SIZE`/`_BY_NAME`).
+- `appeng.fluids.client.render.FluidStackSizeRenderer.renderStackSize` must gain a
+  `(FontRenderer, GenericStack, int, int)` overload - mirrors this wave's own `StackSizeRenderer` exactly
+  (no craftable flag involved on the fluid side, confirmed by reading the pre-migration file).
+
+None of these four are guesses in the sense of "hoped for" - each already has a concrete precedent
+elsewhere in the already-landed tree (`ItemSlot`, `AppEngInternalAEInventory`, `ItemSorters`, this wave's own
+`StackSizeRenderer`) that the wave 5 agent can point at directly instead of inventing a shape.
+
+**The multi-type filter GUI and the `AEKeyType` button icons (STATUS.md debt list) - status, precisely:**
+this wave did **not** build a new screen or new textures, per the brief's explicit instruction. What it did
+do: every GUI-side slot/repo/render path that used to be hardcoded to `IAEItemStack` (`ItemRepo`/`SlotME`/
+`GridInventoryEntry`-consuming code, `AEBaseGui`'s slot-click routing, `StackSizeRenderer`,
+`TesrRenderHelper`, `CraftingMonitorTESR`, `AssemblerFX`) is now generic over `AEKey`/`GenericStack` and
+renders any key type through the existing `AEKey.wrapForDisplayOrFilter()`/`GenericStack.wrapInItemStack()`
+machinery (real item for `AEItemKey`, the `WrappedGenericStack` placeholder item for everything else, per
+wave 3d). Once wave 5 registers the fluid strategies, the same terminal (`GuiMEMonitorable`) will show fluid
+rows mixed in with no further change to this wave's files - that generic-display half of "the multi-type
+filter GUI" is what this wave delivers. What it does **not** deliver, and could not verify without a
+build/run (per the brief's own caution that "rendering in particular cannot be verified without a build"):
+(1) `WrappedGenericStack` still has no client-side model/texture registered (confirmed by grep - unchanged
+since wave 3d), so any slot that ends up wrapping a non-item key today will render with the item's
+default/missing texture rather than the wrapped content's own icon; the established precedent this wave
+did **not** implement is `appeng.fluids.items.FluidDummyItemRendering` (GUI code drawing the wrapped
+content's icon directly instead of a vanilla item model) - flagged here exactly as the brief asked, left for
+whoever designs the actual multi-type GUI. (2) No file in `appeng.client` calls `AEKeyType.getButtonTexture()`/
+`getButtonIcon()` at all (confirmed by grep across the whole package) - the placeholder icons set in wave 2's
+`AEItemKeyType`/`AEFluidKeyType` have no GUI consumer anywhere yet, so there was nothing in this wave's file
+list to wire up or replace; they remain exactly the placeholders STATUS.md already lists.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
@@ -1399,6 +2075,12 @@ Audited clean as of wave 3c: `appeng.items.storage`, `appeng.items.contents`, `a
 Audited clean as of wave 3d: `appeng.items.misc`, `appeng.items.tools.powered` (the four files rewritten in that entry) — one size-insensitive identity comparison found and translated to `AEItemKey.matches(ItemStack)` (`ToolColorApplicator.findNextColor`); no whole-`GenericStack` comparisons anywhere in this wave's files.
 
 Audited clean as of wave 3b: `appeng.parts.misc`, `appeng.parts.reporting` (the nine files in that entry) — several size-insensitive identity comparisons found (`PartConversionMonitor.onPartActivate`'s wrench/fluid/item matches, `insertItem`'s inventory scan), all translated to `AEItemKey.matches(ItemStack)`/`AEFluidKey.matches(FluidStack)`; no whole-`GenericStack` comparisons anywhere in this wave's files.
+
+Audited clean as of wave 4b: `ContainerCraftAmount`, `ContainerCraftConfirm`, `ContainerCraftingCPU`, `CraftingCPUStatus`, `ContainerPatternEncoder`, `ContainerWirelessPatternTerminal`, `ContainerNetworkStatus` (the seven files in that entry) — no whole-`GenericStack` comparisons and no carried-over `IAEItemStack.equals()`-style identity checks anywhere; the only `.equals(` calls found were `String.equals` and vanilla-`ItemStack` comparisons unrelated to the hazard.
+
+Audited clean as of wave 4c: `AEBaseContainer`, `ContainerMEMonitorable`, `ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`, `ContainerFluidInterfaceConfigurationTerminal`, `SlotCraftingTerm`, `SlotPatternTerm` (plus `AbstractPartTerminal`, touched outside the file list) — two `.equals(` calls on bare `AEKey`s found (`AEBaseContainer`/`ContainerFluidInterfaceConfigurationTerminal`'s `setTargetStack`), both confirmed safe because `AEKey` carries no amount (only `GenericStack` does, per the hazard's own definition); one size-insensitive identity check translated to `AEItemKey.matches(ItemStack)` (`AEBaseContainer.doAction`'s `ROLL_UP`/`PICKUP_SINGLE` branch); no whole-`GenericStack` comparisons anywhere in this wave's files.
+
+Audited clean as of wave 4d: all 24 `appeng.client` files in that entry — one real instance found and fixed (`GuiFluidInterfaceConfigurationTerminal.matchedStacks`, switched from holding whole fluid stacks to bare `AEKey`s so a tank's amount drifting between search and redraw cannot make a membership check spuriously miss); `String.equals`/`AEKey.equals` hits elsewhere confirmed unrelated or already size-insensitive by definition; no whole-`GenericStack`/`GridInventoryEntry` comparison anywhere in this wave's files.
 
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 

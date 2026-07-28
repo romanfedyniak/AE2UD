@@ -24,7 +24,7 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.implementations.guiobjects.INetworkTool;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -148,14 +148,14 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         int toolPosY = 0;
 
         for (int z = viewStart; z < Math.min(viewEnd, this.repo.size()); z++) {
-            final IAEItemStack refStack = this.repo.getReferenceItem(z);
+            final GridInventoryEntry refStack = this.repo.getReferenceItem(z);
             if (refStack != null) {
                 GlStateManager.pushMatrix();
                 GlStateManager.scale(0.5, 0.5, 0.5);
 
-                String str = Long.toString(refStack.getStackSize());
-                if (refStack.getStackSize() >= 10000) {
-                    str = Long.toString(refStack.getStackSize() / 1000) + 'k';
+                String str = Long.toString(refStack.getStoredAmount());
+                if (refStack.getStoredAmount() >= 10000) {
+                    str = Long.toString(refStack.getStoredAmount() / 1000) + 'k';
                 }
 
                 final int w = this.fontRenderer.getStringWidth(str);
@@ -167,18 +167,21 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
                 final int posY = y * 18 + yo;
 
                 if (this.tooltip == z - viewStart) {
-                    toolTip = Platform.getItemDisplayName(refStack);
+                    // NOTE: getRequestableAmount() here is a machine's idle power drain (x100), not an
+                    // item count - see AbstractPartMonitor / GridInventoryEntry javadoc and CONTRACT.md
+                    // §10 ("GuiNetworkStatus reuses the same data for machines, not items").
+                    toolTip = Platform.getItemDisplayName(refStack.getWhat());
 
-                    toolTip += ('\n' + GuiText.Installed.getLocal() + ": " + (refStack.getStackSize()));
-                    if (refStack.getCountRequestable() > 0) {
-                        toolTip += ('\n' + GuiText.EnergyDrain.getLocal() + ": " + Platform.formatPowerLong(refStack.getCountRequestable(), true));
+                    toolTip += ('\n' + GuiText.Installed.getLocal() + ": " + (refStack.getStoredAmount()));
+                    if (refStack.getRequestableAmount() > 0) {
+                        toolTip += ('\n' + GuiText.EnergyDrain.getLocal() + ": " + Platform.formatPowerLong(refStack.getRequestableAmount(), true));
                     }
 
                     toolPosX = x * sectionLength + xo + sectionLength - 8;
                     toolPosY = y * 18 + yo;
                 }
 
-                this.drawItem(posX, posY, refStack.asItemStackRepresentation());
+                this.drawItem(posX, posY, refStack.getWhat().wrapForDisplayOrFilter());
 
                 x++;
 
@@ -200,11 +203,11 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
     }
 
-    public void postUpdate(final List<IAEItemStack> list) {
+    public void postUpdate(final List<GridInventoryEntry> list) {
         this.repo.clear();
 
-        for (final IAEItemStack is : list) {
-            this.repo.postUpdate(is);
+        for (final GridInventoryEntry entry : list) {
+            this.repo.postUpdate(entry);
         }
 
         this.repo.updateView();
@@ -222,11 +225,11 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         final Slot s = this.getSlot(x, y);
 
         if (s instanceof SlotME && stack != null) {
-            IAEItemStack myStack = null;
+            GridInventoryEntry myStack = null;
 
             try {
                 final SlotME theSlotField = (SlotME) s;
-                myStack = theSlotField.getAEStack();
+                myStack = theSlotField.getEntry();
             } catch (final Throwable ignore) {
             }
 
@@ -238,8 +241,8 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
                     currentToolTip.remove(1);
                 }
 
-                currentToolTip.add(GuiText.Installed.getLocal() + ": " + (myStack.getStackSize()));
-                currentToolTip.add(GuiText.EnergyDrain.getLocal() + ": " + Platform.formatPowerLong(myStack.getCountRequestable(), true));
+                currentToolTip.add(GuiText.Installed.getLocal() + ": " + (myStack.getStoredAmount()));
+                currentToolTip.add(GuiText.EnergyDrain.getLocal() + ": " + Platform.formatPowerLong(myStack.getRequestableAmount(), true));
 
                 this.drawTooltip(x, y, currentToolTip);
             }

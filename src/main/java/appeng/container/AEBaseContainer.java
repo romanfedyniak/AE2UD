@@ -32,9 +32,10 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.MEStorage;
 import appeng.client.me.SlotME;
 import appeng.container.guisync.GuiSync;
 import appeng.container.guisync.SyncData;
@@ -53,7 +54,6 @@ import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.WrapperCursorItemHandler;
-import appeng.util.item.AEItemStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -64,6 +64,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -83,11 +84,11 @@ public abstract class AEBaseContainer extends Container {
     private boolean isContainerValid = true;
     private String customName;
     private ContainerOpenContext openContext;
-    private IMEInventoryHandler<IAEItemStack> cellInv;
+    private MEStorage cellInv;
     private IEnergySource powerSrc;
     private boolean sentCustomName;
     private int ticksSinceCheck = 900;
-    private IAEItemStack clientRequestedTargetItem = null;
+    private AEKey clientRequestedTargetItem = null;
 
     public AEBaseContainer(final InventoryPlayer ip, final TileEntity myTile, final IPart myPart) {
         this(ip, myTile, myPart, null);
@@ -146,24 +147,27 @@ public abstract class AEBaseContainer extends Container {
         this.prepareSync();
     }
 
-    public IAEItemStack getTargetStack() {
+    @Nullable
+    public AEKey getTargetStack() {
         return this.clientRequestedTargetItem;
     }
 
-    public void setTargetStack(final IAEItemStack stack) {
+    public void setTargetStack(@Nullable final AEKey stack) {
         // client doesn't need to re-send, makes for lower overhead rapid packets.
         if (Platform.isClient()) {
             if (stack == null && this.clientRequestedTargetItem == null) {
                 return;
             }
-            if (stack != null && stack.isSameType(this.clientRequestedTargetItem)) {
+            // AEKey carries no amount (unlike GenericStack, see CONTRACT.md §9.1), so a plain equals() is
+            // already the size-insensitive identity check the old isSameType() was.
+            if (stack != null && stack.equals(this.clientRequestedTargetItem)) {
                 return;
             }
 
-            NetworkHandler.instance().sendToServer(new PacketTargetItemStack((AEItemStack) stack));
+            NetworkHandler.instance().sendToServer(new PacketTargetItemStack(stack));
         }
 
-        this.clientRequestedTargetItem = stack == null ? null : stack.copy();
+        this.clientRequestedTargetItem = stack;
     }
 
     public IActionSource getActionSource() {
@@ -608,8 +612,14 @@ public abstract class AEBaseContainer extends Container {
             return;
         }
 
-        // get target item.
-        final IAEItemStack slotItem = this.clientRequestedTargetItem;
+        // Get the targeted key. AEKey carries no amount, so `slotItemKey` is identity only, exactly as the
+        // pinned AEBaseContainer#getTargetStack() javadoc says ("only identity + display were ever read").
+        // The whole switch below is inherently item-only (it moves stacks into/out of the player's vanilla
+        // inventory, which cannot hold anything else), matching what the pre-migration code already did for
+        // every one of these actions -- mirrors upstream MEStorageMenu#handleNetworkInteraction's own
+        // `if (!(clickedKey instanceof AEItemKey clickedItem)) return;` guard for the identical action set.
+        final AEKey slotItem = this.clientRequestedTargetItem;
+        final AEItemKey slotItemKey = slotItem instanceof AEItemKey ? (AEItemKey) slotItem : null;
 
         switch (action) {
             case SHIFT_CLICK:
@@ -617,23 +627,16 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
-                    IAEItemStack ais = slotItem.copy();
-                    ItemStack myItem = ais.createItemStack();
-
-                    ais.setStackSize(myItem.getMaxStackSize());
-
+                if (slotItemKey != null) {
                     final InventoryAdaptor adp = InventoryAdaptor.getAdaptor(player);
-                    myItem.setCount((int) ais.getStackSize());
+                    ItemStack myItem = slotItemKey.toStack(slotItemKey.getMaxStackSize());
                     myItem = adp.simulateAdd(myItem);
 
-                    if (!myItem.isEmpty()) {
-                        ais.setStackSize(ais.getStackSize() - myItem.getCount());
-                    }
+                    final long toExtract = slotItemKey.getMaxStackSize() - myItem.getCount();
 
-                    ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais != null) {
-                        adp.addItems(ais.createItemStack());
+                    final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
+                    if (extracted > 0) {
+                        adp.addItems(slotItemKey.toStack((int) extracted));
                     }
                 }
                 break;
@@ -642,21 +645,21 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                final int releaseQty = 1;
                 final ItemStack isg = player.inventory.getItemStack();
 
-                if (!isg.isEmpty() && releaseQty > 0) {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(isg);
-                    ais.setStackSize(1);
-                    final IAEItemStack extracted = ais.copy();
+                if (!isg.isEmpty()) {
+                    final AEItemKey what = AEItemKey.of(isg);
 
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais == null) {
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, 1, this.getActionSource());
+                    if (inserted > 0) {
                         final InventoryAdaptor ia = new AdaptorItemHandler(new WrapperCursorItemHandler(player.inventory));
 
-                        final ItemStack fail = ia.removeItems(1, extracted.getDefinition(), null);
-                        if (fail.isEmpty()) {
-                            this.getCellInventory().extractItems(extracted, Actionable.MODULATE, this.getActionSource());
+                        // Take the 1 unit we just committed to the network off the cursor. removeItems()
+                        // returns what it actually removed (not a "failure"): an empty result here means the
+                        // cursor could not actually give up 1 unit after all, so the insert is rolled back.
+                        final ItemStack removed = ia.removeItems(1, what.getReadOnlyStack(), null);
+                        if (removed.isEmpty()) {
+                            this.getCellInventory().extract(what, 1, Actionable.MODULATE, this.getActionSource());
                         }
 
                         this.updateHeld(player);
@@ -670,29 +673,27 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
-                    int liftQty = 1;
+                if (slotItemKey != null) {
+                    boolean canLift = true;
                     final ItemStack item = player.inventory.getItemStack();
 
                     if (!item.isEmpty()) {
                         if (item.getCount() >= item.getMaxStackSize()) {
-                            liftQty = 0;
+                            canLift = false;
                         }
-                        if (!Platform.itemComparisons().isSameItem(slotItem.getDefinition(), item)) {
-                            liftQty = 0;
+                        if (!slotItemKey.matches(item)) {
+                            canLift = false;
                         }
                     }
 
-                    if (liftQty > 0) {
-                        IAEItemStack ais = slotItem.copy();
-                        ais.setStackSize(1);
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
+                    if (canLift) {
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, 1, this.getActionSource());
+                        if (extracted > 0) {
                             final InventoryAdaptor ia = new AdaptorItemHandler(new WrapperCursorItemHandler(player.inventory));
 
-                            final ItemStack fail = ia.addItems(ais.createItemStack());
+                            final ItemStack fail = ia.addItems(slotItemKey.toStack((int) extracted));
                             if (!fail.isEmpty()) {
-                                this.getCellInventory().injectItems(ais, Actionable.MODULATE, this.getActionSource());
+                                this.getCellInventory().insert(slotItemKey, extracted, Actionable.MODULATE, this.getActionSource());
                             }
 
                             this.updateHeld(player);
@@ -706,22 +707,22 @@ public abstract class AEBaseContainer extends Container {
                 }
 
                 if (player.inventory.getItemStack().isEmpty()) {
-                    if (slotItem != null) {
-                        IAEItemStack ais = slotItem.copy();
-                        ais.setStackSize(ais.getDefinition().getMaxStackSize());
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
-                            player.inventory.setItemStack(ais.createItemStack());
+                    if (slotItemKey != null) {
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, slotItemKey.getMaxStackSize(), this.getActionSource());
+                        if (extracted > 0) {
+                            player.inventory.setItemStack(slotItemKey.toStack((int) extracted));
                         } else {
                             player.inventory.setItemStack(ItemStack.EMPTY);
                         }
                         this.updateHeld(player);
                     }
                 } else {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(player.inventory.getItemStack());
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais != null) {
-                        player.inventory.setItemStack(ais.createItemStack());
+                    final ItemStack held = player.inventory.getItemStack();
+                    final AEItemKey what = AEItemKey.of(held);
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, held.getCount(), this.getActionSource());
+                    final long remaining = held.getCount() - inserted;
+                    if (remaining > 0) {
+                        player.inventory.setItemStack(what.toStack((int) remaining));
                     } else {
                         player.inventory.setItemStack(ItemStack.EMPTY);
                     }
@@ -735,30 +736,27 @@ public abstract class AEBaseContainer extends Container {
                 }
 
                 if (player.inventory.getItemStack().isEmpty()) {
-                    if (slotItem != null) {
-                        IAEItemStack ais = slotItem.copy();
-                        final long maxSize = ais.getDefinition().getMaxStackSize();
-                        ais.setStackSize(maxSize);
-                        ais = this.getCellInventory().extractItems(ais, Actionable.SIMULATE, this.getActionSource());
+                    if (slotItemKey != null) {
+                        final long maxSize = slotItemKey.getMaxStackSize();
+                        final long simulated = this.getCellInventory().extract(slotItemKey, maxSize, Actionable.SIMULATE, this.getActionSource());
 
-                        if (ais != null) {
-                            final long stackSize = Math.min(maxSize, ais.getStackSize());
-                            ais.setStackSize((stackSize + 1) >> 1);
-                            ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
+                        long extracted = 0;
+                        if (simulated > 0) {
+                            final long half = (Math.min(maxSize, simulated) + 1) >> 1;
+                            extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, half, this.getActionSource());
                         }
 
-                        if (ais != null) {
-                            player.inventory.setItemStack(ais.createItemStack());
+                        if (extracted > 0) {
+                            player.inventory.setItemStack(slotItemKey.toStack((int) extracted));
                         } else {
                             player.inventory.setItemStack(ItemStack.EMPTY);
                         }
                         this.updateHeld(player);
                     }
                 } else {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(player.inventory.getItemStack());
-                    ais.setStackSize(1);
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais == null) {
+                    final AEItemKey what = AEItemKey.of(player.inventory.getItemStack());
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, 1, this.getActionSource());
+                    if (inserted > 0) {
                         final ItemStack is = player.inventory.getItemStack();
                         is.setCount(is.getCount() - 1);
                         if (is.getCount() <= 0) {
@@ -770,10 +768,8 @@ public abstract class AEBaseContainer extends Container {
 
                 break;
             case CREATIVE_DUPLICATE:
-                if (player.capabilities.isCreativeMode && slotItem != null) {
-                    final ItemStack is = slotItem.createItemStack();
-                    is.setCount(is.getMaxStackSize());
-                    player.inventory.setItemStack(is);
+                if (player.capabilities.isCreativeMode && slotItemKey != null) {
+                    player.inventory.setItemStack(slotItemKey.toStack(slotItemKey.getMaxStackSize()));
                     this.updateHeld(player);
                 }
                 break;
@@ -783,25 +779,18 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
+                if (slotItemKey != null) {
                     final int playerInv = 9 * 4;
                     for (int slotNum = 0; slotNum < playerInv; slotNum++) {
-                        IAEItemStack ais = slotItem.copy();
-                        ItemStack myItem = ais.createItemStack();
-
-                        ais.setStackSize(myItem.getMaxStackSize());
-
                         final InventoryAdaptor adp = InventoryAdaptor.getAdaptor(player);
-                        myItem.setCount((int) ais.getStackSize());
+                        ItemStack myItem = slotItemKey.toStack(slotItemKey.getMaxStackSize());
                         myItem = adp.simulateAdd(myItem);
 
-                        if (!myItem.isEmpty()) {
-                            ais.setStackSize(ais.getStackSize() - myItem.getCount());
-                        }
+                        final long toExtract = slotItemKey.getMaxStackSize() - myItem.getCount();
 
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
-                            adp.addItems(ais.createItemStack());
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
+                        if (extracted > 0) {
+                            adp.addItems(slotItemKey.toStack((int) extracted));
                         } else {
                             return;
                         }
@@ -819,7 +808,7 @@ public abstract class AEBaseContainer extends Container {
             try {
                 NetworkHandler.instance()
                         .sendTo(
-                                new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, AEItemStack.fromItemStack(p.inventory.getItemStack())),
+                                new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, GenericStack.fromItemStack(p.inventory.getItemStack())),
                                 p);
             } catch (final IOException e) {
                 AELog.debug(e);
@@ -835,13 +824,19 @@ public abstract class AEBaseContainer extends Container {
         if (this.getPowerSource() == null || this.getCellInventory() == null) {
             return input;
         }
-        final IAEItemStack ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(),
-                AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(input),
-                this.getActionSource());
-        if (ais == null) {
+
+        final AEItemKey what = AEItemKey.of(input);
+        if (what == null) {
+            return input;
+        }
+
+        final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, input.getCount(), this.getActionSource());
+        final long remaining = input.getCount() - inserted;
+
+        if (remaining <= 0) {
             return ItemStack.EMPTY;
         }
-        return ais.createItemStack();
+        return what.toStack((int) remaining);
     }
 
     private void updateSlot(final Slot clickSlot) {
@@ -1024,11 +1019,11 @@ public abstract class AEBaseContainer extends Container {
         return true;
     }
 
-    public IMEInventoryHandler<IAEItemStack> getCellInventory() {
+    public MEStorage getCellInventory() {
         return this.cellInv;
     }
 
-    public void setCellInventory(final IMEInventoryHandler<IAEItemStack> cellInv) {
+    public void setCellInventory(final MEStorage cellInv) {
         this.cellInv = cellInv;
     }
 

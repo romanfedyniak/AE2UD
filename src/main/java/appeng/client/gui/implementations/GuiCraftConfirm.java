@@ -21,10 +21,10 @@ package appeng.client.gui.implementations;
 
 import appeng.api.AEApi;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.container.implementations.ContainerCraftConfirm;
@@ -51,7 +51,6 @@ import org.lwjgl.input.Mouse;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 
@@ -61,11 +60,11 @@ public class GuiCraftConfirm extends AEBaseGui {
 
     private final int rows = 5;
 
-    private final IItemList<IAEItemStack> storage = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-    private final IItemList<IAEItemStack> pending = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-    private final IItemList<IAEItemStack> missing = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    private final KeyCounter storage = new KeyCounter();
+    private final KeyCounter pending = new KeyCounter();
+    private final KeyCounter missing = new KeyCounter();
 
-    private final List<IAEItemStack> visual = new ArrayList<>();
+    private final List<AEKey> visual = new ArrayList<>();
 
     private GuiBridge OriginalGui;
     private GuiButton cancel;
@@ -226,37 +225,37 @@ public class GuiCraftConfirm extends AEBaseGui {
         final int offY = 23;
 
         for (int z = viewStart; z < Math.min(viewEnd, this.visual.size()); z++) {
-            final IAEItemStack refStack = this.visual.get(z);// repo.getReferenceItem( z );
-            if (refStack != null) {
+            final AEKey refKey = this.visual.get(z);// repo.getReferenceItem( z );
+            if (refKey != null) {
                 GlStateManager.pushMatrix();
                 GlStateManager.scale(0.5, 0.5, 0.5);
 
-                final IAEItemStack stored = this.storage.findPrecise(refStack);
-                final IAEItemStack pendingStack = this.pending.findPrecise(refStack);
-                final IAEItemStack missingStack = this.missing.findPrecise(refStack);
+                final long stored = this.storage.get(refKey);
+                final long pendingAmount = this.pending.get(refKey);
+                final long missingAmount = this.missing.get(refKey);
 
                 int lines = 0;
 
-                if (stored != null && stored.getStackSize() > 0) {
+                if (stored > 0) {
                     lines++;
                 }
-                if (missingStack != null && missingStack.getStackSize() > 0) {
+                if (missingAmount > 0) {
                     lines++;
                 }
-                if (pendingStack != null && pendingStack.getStackSize() > 0) {
+                if (pendingAmount > 0) {
                     lines++;
                 }
 
                 final int negY = ((lines - 1) * 5) / 2;
                 int downY = 0;
 
-                if (stored != null && stored.getStackSize() > 0) {
-                    String str = Long.toString(stored.getStackSize());
-                    if (stored.getStackSize() >= 10000) {
-                        str = Long.toString(stored.getStackSize() / 1000) + 'k';
+                if (stored > 0) {
+                    String str = Long.toString(stored);
+                    if (stored >= 10000) {
+                        str = Long.toString(stored / 1000) + 'k';
                     }
-                    if (stored.getStackSize() >= 10000000) {
-                        str = Long.toString(stored.getStackSize() / 1000000) + 'm';
+                    if (stored >= 10000000) {
+                        str = Long.toString(stored / 1000000) + 'm';
                     }
 
                     str = GuiText.FromStorage.getLocal() + ": " + str;
@@ -265,20 +264,20 @@ public class GuiCraftConfirm extends AEBaseGui {
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.FromStorage.getLocal() + ": " + stored.getStackSize());
+                        lineList.add(GuiText.FromStorage.getLocal() + ": " + stored);
                     }
 
                     downY += 5;
                 }
 
                 boolean red = false;
-                if (missingStack != null && missingStack.getStackSize() > 0) {
-                    String str = Long.toString(missingStack.getStackSize());
-                    if (missingStack.getStackSize() >= 10000) {
-                        str = Long.toString(missingStack.getStackSize() / 1000) + 'k';
+                if (missingAmount > 0) {
+                    String str = Long.toString(missingAmount);
+                    if (missingAmount >= 10000) {
+                        str = Long.toString(missingAmount / 1000) + 'k';
                     }
-                    if (missingStack.getStackSize() >= 10000000) {
-                        str = Long.toString(missingStack.getStackSize() / 1000000) + 'm';
+                    if (missingAmount >= 10000000) {
+                        str = Long.toString(missingAmount / 1000000) + 'm';
                     }
 
                     str = GuiText.Missing.getLocal() + ": " + str;
@@ -287,20 +286,20 @@ public class GuiCraftConfirm extends AEBaseGui {
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Missing.getLocal() + ": " + missingStack.getStackSize());
+                        lineList.add(GuiText.Missing.getLocal() + ": " + missingAmount);
                     }
 
                     red = true;
                     downY += 5;
                 }
 
-                if (pendingStack != null && pendingStack.getStackSize() > 0) {
-                    String str = Long.toString(pendingStack.getStackSize());
-                    if (pendingStack.getStackSize() >= 10000) {
-                        str = Long.toString(pendingStack.getStackSize() / 1000) + 'k';
+                if (pendingAmount > 0) {
+                    String str = Long.toString(pendingAmount);
+                    if (pendingAmount >= 10000) {
+                        str = Long.toString(pendingAmount / 1000) + 'k';
                     }
-                    if (pendingStack.getStackSize() >= 10000000) {
-                        str = Long.toString(pendingStack.getStackSize() / 1000000) + 'm';
+                    if (pendingAmount >= 10000000) {
+                        str = Long.toString(pendingAmount / 1000000) + 'm';
                     }
 
                     str = GuiText.ToCraft.getLocal() + ": " + str;
@@ -309,7 +308,7 @@ public class GuiCraftConfirm extends AEBaseGui {
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.ToCraft.getLocal() + ": " + pendingStack.getStackSize());
+                        lineList.add(GuiText.ToCraft.getLocal() + ": " + pendingAmount);
                     }
                 }
 
@@ -317,10 +316,10 @@ public class GuiCraftConfirm extends AEBaseGui {
                 final int posX = x * (1 + sectionLength) + xo + sectionLength - 19;
                 final int posY = y * offY + yo;
 
-                final ItemStack is = refStack.asItemStackRepresentation();
+                final ItemStack is = refKey.wrapForDisplayOrFilter();
 
                 if (this.tooltip == z - viewStart) {
-                    dspToolTip = Platform.getItemDisplayName(refStack);
+                    dspToolTip = Platform.getItemDisplayName(refKey);
 
                     if (lineList.size() > 0) {
                         dspToolTip = dspToolTip + '\n' + Joiner.on("\n").join(lineList);
@@ -366,103 +365,48 @@ public class GuiCraftConfirm extends AEBaseGui {
         this.getScrollBar().setRange(0, (size + 2) / 3 - this.rows, 1);
     }
 
-    public void postUpdate(final List<IAEItemStack> list, final byte ref) {
+    public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {
         switch (ref) {
             case 0:
-                for (final IAEItemStack l : list) {
+                for (final GridInventoryEntry l : list) {
                     this.handleInput(this.storage, l);
                 }
                 break;
 
             case 1:
-                for (final IAEItemStack l : list) {
+                for (final GridInventoryEntry l : list) {
                     this.handleInput(this.pending, l);
                 }
                 break;
 
             case 2:
-                for (final IAEItemStack l : list) {
+                for (final GridInventoryEntry l : list) {
                     this.handleInput(this.missing, l);
                 }
                 break;
         }
 
-        for (final IAEItemStack l : list) {
-            final long amt = this.getTotal(l);
+        for (final GridInventoryEntry l : list) {
+            final long amt = this.getTotal(l.getWhat());
 
             if (amt <= 0) {
-                this.deleteVisualStack(l);
-            } else {
-                final IAEItemStack is = this.findVisualStack(l);
-                is.setStackSize(amt);
+                this.visual.remove(l.getWhat());
+            } else if (!this.visual.contains(l.getWhat())) {
+                this.visual.add(l.getWhat());
             }
         }
 
         this.setScrollBar();
     }
 
-    private void handleInput(final IItemList<IAEItemStack> s, final IAEItemStack l) {
-        IAEItemStack a = s.findPrecise(l);
-
-        if (l.getStackSize() <= 0) {
-            if (a != null) {
-                a.reset();
-            }
-        } else {
-            if (a == null) {
-                s.add(l.copy());
-                a = s.findPrecise(l);
-            }
-
-            if (a != null) {
-                a.setStackSize(l.getStackSize());
-            }
-        }
+    private void handleInput(final KeyCounter s, final GridInventoryEntry l) {
+        // Each of the three KeyCounters is keyed by AEKey, whose equals() is already the size-insensitive
+        // identity the old findPrecise(IAEItemStack) dance existed to provide - a plain set() replaces it.
+        s.set(l.getWhat(), l.getStoredAmount());
     }
 
-    private long getTotal(final IAEItemStack is) {
-        final IAEItemStack a = this.storage.findPrecise(is);
-        final IAEItemStack c = this.pending.findPrecise(is);
-        final IAEItemStack m = this.missing.findPrecise(is);
-
-        long total = 0;
-
-        if (a != null) {
-            total += a.getStackSize();
-        }
-
-        if (c != null) {
-            total += c.getStackSize();
-        }
-
-        if (m != null) {
-            total += m.getStackSize();
-        }
-
-        return total;
-    }
-
-    private void deleteVisualStack(final IAEItemStack l) {
-        final Iterator<IAEItemStack> i = this.visual.iterator();
-        while (i.hasNext()) {
-            final IAEItemStack o = i.next();
-            if (o.equals(l)) {
-                i.remove();
-                return;
-            }
-        }
-    }
-
-    private IAEItemStack findVisualStack(final IAEItemStack l) {
-        for (final IAEItemStack o : this.visual) {
-            if (o.equals(l)) {
-                return o;
-            }
-        }
-
-        final IAEItemStack stack = l.copy();
-        this.visual.add(stack);
-        return stack;
+    private long getTotal(final AEKey what) {
+        return this.storage.get(what) + this.pending.get(what) + this.missing.get(what);
     }
 
     @Override
@@ -502,7 +446,7 @@ public class GuiCraftConfirm extends AEBaseGui {
         }
     }
 
-    public List<IAEItemStack> getVisual() {
+    public List<AEKey> getVisual() {
         return visual;
     }
 

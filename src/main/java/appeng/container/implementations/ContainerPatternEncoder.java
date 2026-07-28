@@ -5,11 +5,11 @@ import appeng.api.config.Actionable;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.networking.security.IActionHost;
-import appeng.api.storage.IMEMonitor;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.MEStorage;
 import appeng.container.ContainerNull;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.AppEngSlot;
@@ -32,7 +32,6 @@ import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperCursorItemHandler;
-import appeng.util.item.AEItemStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -640,7 +639,14 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
     public void craftOrGetItem(final PacketPatternSlot packetPatternSlot) {
         if (packetPatternSlot.slotItem != null && this.getCellInventory() != null) {
-            final IAEItemStack out = packetPatternSlot.slotItem.copy();
+            final AEKey outKey = packetPatternSlot.slotItem.what();
+            final long outAmount = packetPatternSlot.slotItem.amount();
+
+            // The crafting-preview grid is a vanilla 3x3 matrix, so only ever holds real ItemStacks.
+            if (!(outKey instanceof AEItemKey)) {
+                return;
+            }
+
             InventoryAdaptor inv = new AdaptorItemHandler(new WrapperCursorItemHandler(this.getPlayerInv().player.inventory));
             final InventoryAdaptor playerInv = InventoryAdaptor.getAdaptor(this.getPlayerInv().player);
 
@@ -648,15 +654,15 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 inv = playerInv;
             }
 
-            if (!inv.simulateAdd(out.createItemStack()).isEmpty()) {
+            if (!inv.simulateAdd(GenericStack.wrapInItemStack(outKey, outAmount)).isEmpty()) {
                 return;
             }
 
-            final IAEItemStack extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), out, this.getActionSource());
+            final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), outKey, outAmount, this.getActionSource());
             final EntityPlayer p = this.getPlayerInv().player;
 
-            if (extracted != null) {
-                inv.addItems(extracted.createItemStack());
+            if (extracted > 0) {
+                inv.addItems(GenericStack.wrapInItemStack(outKey, extracted));
                 if (p instanceof EntityPlayerMP) {
                     this.updateHeld((EntityPlayerMP) p);
                 }
@@ -668,7 +674,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             final InventoryCrafting real = new InventoryCrafting(new ContainerNull(), 3, 3);
 
             for (int x = 0; x < 9; x++) {
-                ic.setInventorySlotContents(x, packetPatternSlot.pattern[x] == null ? ItemStack.EMPTY : packetPatternSlot.pattern[x].createItemStack());
+                ic.setInventorySlotContents(x, GenericStack.wrapInItemStack(packetPatternSlot.pattern[x]));
             }
 
             final IRecipe r = CraftingManager.findMatchingRecipe(ic, p.world);
@@ -677,15 +683,14 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 return;
             }
 
-            IMEMonitor<IAEItemStack> storage = null;
+            MEStorage storage = null;
             if (getPart() != null) {
-                storage = this.getPart()
-                        .getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+                storage = this.getPart().getInventory();
             } else if (iGuiItemObject != null) {
-                storage = ((ITerminalHost) iGuiItemObject).getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+                storage = ((ITerminalHost) iGuiItemObject).getInventory();
             }
 
-            final IItemList<IAEItemStack> all = storage.getStorageList();
+            final KeyCounter all = storage.getAvailableStacks();
 
             final ItemStack is = r.getCraftingResult(ic);
 
@@ -723,9 +728,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 for (int x = 0; x < real.getSizeInventory(); x++) {
                     final ItemStack failed = real.getStackInSlot(x);
                     if (!failed.isEmpty()) {
-                        this.getCellInventory()
-                                .injectItems(AEItemStack.fromItemStack(failed), Actionable.MODULATE,
-                                        new MachineSource(this.getPart() != null ? this.getPart() : (IActionHost) iGuiItemObject));
+                        final GenericStack failedStack = GenericStack.fromItemStack(failed);
+                        if (failedStack != null) {
+                            this.getCellInventory()
+                                    .insert(failedStack.what(), failedStack.amount(), Actionable.MODULATE,
+                                            new MachineSource(this.getPart() != null ? this.getPart() : (IActionHost) iGuiItemObject));
+                        }
                     }
                 }
             }

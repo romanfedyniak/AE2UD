@@ -19,8 +19,9 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.me.SlotDisconnected;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
@@ -37,12 +38,10 @@ import appeng.core.sync.network.INetworkInfo;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.fluids.client.gui.widgets.GuiFluidSlot;
 import appeng.fluids.container.ContainerFluidConfigurable;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.InventoryAction;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.WrapperRangeItemHandler;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
@@ -50,19 +49,40 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.items.IItemHandler;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Collections;
 
 
+/**
+ * A grab-bag of container inventory clicks, autocrafting requests and JEI/HEI ghost-item drops. Ported
+ * from {@code IAEItemStack} to {@code GenericStack} (the carried payload -- see CONTRACT.md's wave 4
+ * prerequisites for the two pinned constructors).
+ * <p/>
+ * Fork-specific mechanics preserved here (CONTRACT.md §10), none of which exist upstream:
+ * <ul>
+ *   <li>{@link InventoryAction#AUTO_CRAFT} -- opens the craft-amount GUI and forwards the container's
+ *       target stack into it.</li>
+ *   <li>{@link InventoryAction#PLACE_JEI_GHOST_ITEM} into three destinations: a
+ *       {@link ContainerFluidConfigurable} fluid config slot (with the 1000 mB/bucket default it applies),
+ *       {@link ContainerInterfaceConfigurationTerminal} (via {@code ConfigTracker}/{@code getSlotByID} and
+ *       {@link WrapperRangeItemHandler}), and a plain {@link SlotFake}.</li>
+ *   <li>The {@link InventoryAction#UPDATE_HAND} echo back to the sender after a ghost item is cleared.</li>
+ * </ul>
+ * The old code detected "this ghost item is really a fluid" by unwrapping
+ * {@code slotItem.getDefinition().getTagCompound()} through {@code AEFluidStack.fromNBT} -- i.e. the fluid
+ * was smuggled inside a dummy item's NBT. A {@link GenericStack} payload carries the fluid as an
+ * {@link AEFluidKey} directly, so that unwrap is replaced by a plain {@code instanceof AEFluidKey} test.
+ */
 public class PacketInventoryAction extends AppEngPacket {
 
     private final InventoryAction action;
     private final int slot;
     private final long id;
-    private final IAEItemStack slotItem;
+    @Nullable
+    private final GenericStack slotItem;
 
     // automatic.
     public PacketInventoryAction(final ByteBuf stream) throws IOException {
@@ -72,14 +92,14 @@ public class PacketInventoryAction extends AppEngPacket {
         final boolean hasItem = stream.readBoolean();
 
         if (hasItem) {
-            this.slotItem = AEItemStack.fromPacket(stream);
+            this.slotItem = GenericStack.readBuffer(stream);
         } else {
             this.slotItem = null;
         }
     }
 
     // api
-    public PacketInventoryAction(final InventoryAction action, final int slot, final IAEItemStack slotItem) throws IOException {
+    public PacketInventoryAction(final InventoryAction action, final int slot, @Nullable final GenericStack slotItem) throws IOException {
         if (Platform.isClient()) {
             throw new IllegalStateException("invalid packet, client cannot post inv actions with stacks.");
         }
@@ -100,13 +120,13 @@ public class PacketInventoryAction extends AppEngPacket {
             data.writeBoolean(false);
         } else {
             data.writeBoolean(true);
-            slotItem.writeToPacket(data);
+            GenericStack.writeBuffer(slotItem, data);
         }
 
         this.configureWrite(data);
     }
 
-    public PacketInventoryAction(final InventoryAction action, final IJEITargetSlot slot, final IAEItemStack slotItem) throws IOException {
+    public PacketInventoryAction(final InventoryAction action, final IJEITargetSlot slot, @Nullable final GenericStack slotItem) throws IOException {
 
         this.action = action;
         if (slot instanceof SlotFake) {
@@ -132,7 +152,7 @@ public class PacketInventoryAction extends AppEngPacket {
             data.writeBoolean(false);
         } else {
             data.writeBoolean(true);
-            slotItem.writeToPacket(data);
+            GenericStack.writeBuffer(slotItem, data);
         }
 
         this.configureWrite(data);
@@ -170,10 +190,11 @@ public class PacketInventoryAction extends AppEngPacket {
                     if (sender.openContainer instanceof ContainerCraftAmount) {
                         final ContainerCraftAmount cca = (ContainerCraftAmount) sender.openContainer;
 
-                        if (baseContainer.getTargetStack() != null) {
-                            cca.getCraftingItem().putStack(baseContainer.getTargetStack().asItemStackRepresentation());
+                        final AEKey target = baseContainer.getTargetStack();
+                        if (target != null) {
+                            cca.getCraftingItem().putStack(target.wrapForDisplayOrFilter());
                             // This is the *actual* item that matters, not the display item above
-                            cca.setItemToCraft(baseContainer.getTargetStack());
+                            cca.setItemToCraft(target);
                         }
 
                         cca.detectAndSendChanges();
@@ -181,37 +202,35 @@ public class PacketInventoryAction extends AppEngPacket {
                 }
             } else if (this.action == InventoryAction.PLACE_JEI_GHOST_ITEM) {
                 if (sender.openContainer instanceof ContainerFluidConfigurable) {
-                    if (this.slotItem != null) {
-                        IAEFluidStack aefs = AEFluidStack.fromNBT(this.slotItem.getDefinition().getTagCompound());
-                        if (aefs != null) {
-                            aefs.setStackSize(1000);
-                            ((ContainerFluidConfigurable) sender.openContainer).getFluidConfigInventory().setFluidInSlot(this.slot, aefs);
-                            NetworkHandler.instance().sendToServer(new PacketFluidSlot(Collections.singletonMap(this.slot, aefs)));
-                        }
+                    if (this.slotItem != null && this.slotItem.what() instanceof AEFluidKey fluidKey) {
+                        // Fluid config slots always default to a full bucket, regardless of the amount
+                        // JEI/HEI happened to be showing for the recipe being viewed.
+                        final GenericStack fluidStack = new GenericStack(fluidKey, AEFluidKey.AMOUNT_BUCKET);
+                        ((ContainerFluidConfigurable) sender.openContainer).getFluidConfigInventory().setFluidInSlot(this.slot, fluidStack);
+                        NetworkHandler.instance().sendToServer(new PacketFluidSlot(Collections.singletonMap(this.slot, fluidStack)));
                     }
                 } else if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
                     ConfigTracker inv = ((ContainerInterfaceConfigurationTerminal) sender.openContainer).getSlotByID(this.id);
                     final IItemHandler theSlot = new WrapperRangeItemHandler(inv.getServer(), 0, slot + 1);
 
-                    ItemHandlerUtil.setStackInSlot(theSlot, this.slot, this.slotItem.createItemStack());
+                    ItemHandlerUtil.setStackInSlot(theSlot, this.slot, GenericStack.wrapInItemStack(this.slotItem));
 
                 } else if (this.slot < sender.openContainer.inventorySlots.size()) {
                     Slot senderSlot = sender.openContainer.inventorySlots.get(this.slot);
                     if (senderSlot instanceof SlotFake) {
                         if (this.slotItem != null) {
-                            senderSlot.putStack(this.slotItem.createItemStack());
-                            if (senderSlot.getStack().isEmpty()) {
-                                IAEFluidStack aefs = AEFluidStack.fromNBT(this.slotItem.getDefinition().getTagCompound());
-                                if (aefs != null) {
-                                    FluidStack fluid = aefs.getFluidStack();
-                                    senderSlot.putStack(AEFluidStack.fromFluidStack(fluid).asItemStackRepresentation());
-                                }
+                            senderSlot.putStack(GenericStack.wrapInItemStack(this.slotItem));
+                            if (senderSlot.getStack().isEmpty() && this.slotItem.what() instanceof AEFluidKey) {
+                                // Kept for parity with the pre-port fallback; GenericStack.wrapInItemStack
+                                // cannot itself return an empty stack for a non-null input, so this retry is
+                                // unreachable today. See the migration report for why it is kept anyway.
+                                senderSlot.putStack(GenericStack.wrapInItemStack(this.slotItem));
                             }
                         } else {
                             senderSlot.putStack(ItemStack.EMPTY);
                         }
                         try {
-                            NetworkHandler.instance().sendTo(new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, AEItemStack.fromItemStack(ItemStack.EMPTY)), sender);
+                            NetworkHandler.instance().sendTo(new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, (GenericStack) null), sender);
                         } catch (final IOException e) {
                             AELog.debug(e);
                         }
@@ -229,7 +248,7 @@ public class PacketInventoryAction extends AppEngPacket {
             if (this.slotItem == null) {
                 AppEng.proxy.getPlayers().get(0).inventory.setItemStack(ItemStack.EMPTY);
             } else {
-                AppEng.proxy.getPlayers().get(0).inventory.setItemStack(this.slotItem.createItemStack());
+                AppEng.proxy.getPlayers().get(0).inventory.setItemStack(GenericStack.wrapInItemStack(this.slotItem));
             }
         }
     }

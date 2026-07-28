@@ -19,8 +19,10 @@
 package appeng.client.me;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.container.interfaces.ISpecialSlotIngredient;
+import appeng.container.me.GridInventoryEntry;
 import appeng.fluids.container.slots.IMEFluidSlot;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
@@ -35,6 +37,15 @@ import javax.annotation.Nonnull;
  * @author BrockWS
  * @version rv6 - 22/05/2018
  * @since rv6 22/05/2018
+ *
+ * NOTE for wave 5: {@code appeng.fluids.container.slots.IMEFluidSlot} still declares
+ * {@code IAEFluidStack getAEFluidStack()} - a deleted api type (CONTRACT.md §4.1) - because
+ * {@code appeng.fluids} is wave 5's whole package and untouched so far. This class is written against
+ * what that interface must become: {@code GenericStack getGenericStack()}, mirroring the exact rename
+ * {@code appeng.util.inv.ItemSlot} already got in wave 1a ({@code getAEItemStack()} -> {@code
+ * getGenericStack()}, CONTRACT.md §9 wave 1a). Wave 5 must apply the same rename to {@code IMEFluidSlot}
+ * and to every other implementor/caller in {@code appeng.fluids}; nothing else about the interface
+ * changes.
  */
 public class SlotFluidME extends SlotItemHandler implements IMEFluidSlot, ISpecialSlotIngredient {
 
@@ -46,9 +57,10 @@ public class SlotFluidME extends SlotItemHandler implements IMEFluidSlot, ISpeci
     }
 
     @Override
-    public IAEFluidStack getAEFluidStack() {
+    public GenericStack getGenericStack() {
         if (this.slot.hasPower()) {
-            return this.slot.getAEStack();
+            final GridInventoryEntry entry = this.slot.getEntry();
+            return entry == null ? null : new GenericStack(entry.getWhat(), entry.getStoredAmount());
         }
         return null;
     }
@@ -67,7 +79,7 @@ public class SlotFluidME extends SlotItemHandler implements IMEFluidSlot, ISpeci
     @Override
     public boolean getHasStack() {
         if (this.slot.hasPower()) {
-            return this.getAEFluidStack() != null;
+            return this.getGenericStack() != null;
         }
         return false;
     }
@@ -101,7 +113,11 @@ public class SlotFluidME extends SlotItemHandler implements IMEFluidSlot, ISpeci
     @Nullable
     @Override
     public Object getIngredient() {
-        return this.getAEFluidStack() == null ? null : this.getAEFluidStack().getFluidStack();
+        final GenericStack stack = this.getGenericStack();
+        if (stack == null || !(stack.what() instanceof AEFluidKey fluidKey)) {
+            return null;
+        }
+        return fluidKey.toStack((int) Math.min(stack.amount(), Integer.MAX_VALUE));
     }
 
 }

@@ -23,8 +23,8 @@ import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.SlotInaccessible;
 import appeng.me.helpers.PlayerSource;
@@ -34,12 +34,14 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class ContainerCraftAmount extends AEBaseContainer {
 
     private final Slot craftingItem;
-    private IAEItemStack itemToCreate;
+    @Nullable
+    private AEKey itemToCreate;
 
     public ContainerCraftAmount(final InventoryPlayer ip, final ITerminalHost te) {
         super(ip, te);
@@ -76,11 +78,12 @@ public class ContainerCraftAmount extends AEBaseContainer {
         return this.craftingItem;
     }
 
-    public IAEItemStack getItemToCraft() {
+    @Nullable
+    public AEKey getItemToCraft() {
         return this.itemToCreate;
     }
 
-    public void setItemToCraft(@Nonnull final IAEItemStack itemToCreate) {
+    public void setItemToCraft(@Nonnull final AEKey itemToCreate) {
         this.itemToCreate = itemToCreate;
     }
 }

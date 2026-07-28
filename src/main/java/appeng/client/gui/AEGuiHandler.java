@@ -1,6 +1,6 @@
 package appeng.client.gui;
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
 import appeng.client.gui.implementations.GuiCraftAmount;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
@@ -41,14 +41,14 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
     @Nullable
     @Override
     public Object getIngredientUnderMouse(@Nonnull AEBaseGui guiContainer, int mouseX, int mouseY) {
-        List<IAEItemStack> visual;
+        List<AEKey> visual;
         int guiSlotIdx;
         Object result = null;
         if (guiContainer instanceof GuiCraftConfirm) {
             guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftConfirm) guiContainer).getDisplayedRows());
             visual = ((GuiCraftConfirm) guiContainer).getVisual();
             if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = visual.get(guiSlotIdx).getDefinition();
+                result = visual.get(guiSlotIdx).wrapForDisplayOrFilter();
             } else {
                 return null;
             }
@@ -58,7 +58,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftingCPU) guiContainer).getDisplayedRows());
             visual = ((GuiCraftingCPU) guiContainer).getVisual();
             if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = visual.get(guiSlotIdx).getDefinition();
+                result = visual.get(guiSlotIdx).wrapForDisplayOrFilter();
             } else {
                 return null;
             }

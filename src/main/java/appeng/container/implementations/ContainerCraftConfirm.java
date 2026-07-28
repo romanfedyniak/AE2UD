@@ -30,20 +30,21 @@ import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEMonitor;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.MEStorage;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
+import appeng.crafting.CraftingJob;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.PlayerSource;
 import appeng.parts.reporting.PartCraftingTerminal;
@@ -65,7 +66,9 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 
@@ -73,7 +76,11 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
     private final ArrayList<CraftingCPURecord> cpus = new ArrayList<>();
     private Future<ICraftingJob> job;
-    private ICraftingJob result;
+    /**
+     * Held as the concrete type, not the frozen {@link ICraftingJob} interface, specifically so this
+     * container can call {@link CraftingJob#populatePlan(KeyCounter, KeyCounter)} - see CONTRACT.md §9.2.
+     */
+    private CraftingJob result;
     @GuiSync(0)
     public long bytesUsed;
     @GuiSync(1)
@@ -180,7 +187,7 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
         if (this.getJob() != null && this.getJob().isDone()) {
             try {
-                this.result = this.getJob().get();
+                this.result = (CraftingJob) this.getJob().get();
 
                 if (!this.result.isSimulation()) {
                     this.setSimulation(false);
@@ -197,47 +204,46 @@ public class ContainerCraftConfirm extends AEBaseContainer {
                     final PacketMEInventoryUpdate b = new PacketMEInventoryUpdate((byte) 1);
                     final PacketMEInventoryUpdate c = this.result.isSimulation() ? new PacketMEInventoryUpdate((byte) 2) : null;
 
-                    final IItemList<IAEItemStack> plan = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-                    this.result.populatePlan(plan);
+                    // CONTRACT.md §9.2: the frozen ICraftingJob.populatePlan(KeyCounter) would merge the
+                    // used/missing amount and the to-craft amount into one number per key, losing exactly
+                    // the used/to-craft column split this screen displays. this.result is held as the
+                    // concrete CraftingJob type so its additive populatePlan(KeyCounter, KeyCounter)
+                    // overload can be called instead, keeping the two apart.
+                    final KeyCounter used = new KeyCounter();
+                    final KeyCounter requestable = new KeyCounter();
+                    this.result.populatePlan(used, requestable);
 
                     this.setUsedBytes(this.result.getByteTotal());
 
-                    for (final IAEItemStack out : plan) {
+                    final MEStorage items = grid.getCache(IStorageService.class).getInventory();
 
-                        IAEItemStack o = out.copy();
-                        o.reset();
-                        o.setStackSize(out.getStackSize());
+                    // A key can appear in only one of the two counters (e.g. fully on-hand needs no
+                    // crafting, or fully missing-and-craftable has nothing "used" yet), so iterate the
+                    // union rather than just one counter's keys.
+                    final Set<AEKey> plannedKeys = new LinkedHashSet<>(used.keySet());
+                    plannedKeys.addAll(requestable.keySet());
 
-                        final IAEItemStack p = out.copy();
-                        p.reset();
-                        p.setStackSize(out.getCountRequestable());
+                    for (final AEKey what : plannedKeys) {
+                        long o = used.get(what);
+                        final long p = requestable.get(what);
 
-                        final IStorageGrid sg = grid.getCache(IStorageGrid.class);
-                        final IMEMonitor<IAEItemStack> items = sg.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-
-                        IAEItemStack m = null;
+                        long m = 0;
                         if (c != null && this.result.isSimulation()) {
-                            m = o.copy();
-                            o = items.extractItems(o, Actionable.SIMULATE, this.getActionSource());
-
-                            if (o == null) {
-                                o = m.copy();
-                                o.setStackSize(0);
-                            }
-
-                            m.setStackSize(m.getStackSize() - o.getStackSize());
+                            final long available = items.extract(what, o, Actionable.SIMULATE, this.getActionSource());
+                            m = o - available;
+                            o = available;
                         }
 
-                        if (o.getStackSize() > 0) {
-                            a.appendItem(o);
+                        if (o > 0) {
+                            a.appendItem(new GridInventoryEntry(what, o, 0, false));
                         }
 
-                        if (p.getStackSize() > 0) {
-                            b.appendItem(p);
+                        if (p > 0) {
+                            b.appendItem(new GridInventoryEntry(what, p, 0, false));
                         }
 
-                        if (c != null && m != null && m.getStackSize() > 0) {
-                            c.appendItem(m);
+                        if (c != null && m > 0) {
+                            c.appendItem(new GridInventoryEntry(what, m, 0, false));
                         }
                     }
 
@@ -436,7 +442,7 @@ public class ContainerCraftConfirm extends AEBaseContainer {
         this.job = job;
     }
 
-    public void postUpdate(final List<IAEItemStack> list, final byte ref) {
+    public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {
         this.guiCraftConfirm.postUpdate(list, ref);
     }
 

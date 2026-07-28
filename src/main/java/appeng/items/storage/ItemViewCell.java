@@ -62,8 +62,8 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
      * "no filtering" - which is the same behaviour the old null return produced at every call site
      * ({@code if (filter != null && !filter.isListed(x)) skip}), just without forcing callers to
      * null-check. {@code appeng.util.Platform.extractItemsByRecipe} now takes an {@code AEKeyFilter}
-     * parameter as well, so its three call sites ({@code SlotCraftingTerm},
-     * {@code ContainerPatternEncoder}, {@code PacketJEIRecipe}) pass this method's result straight in.
+     * parameter as well, so its two call sites ({@code SlotCraftingTerm} and
+     * {@code ContainerPatternEncoder}) pass this method's result straight in.
      */
     public static AEKeyFilter createFilter(final ItemStack[] list) {
         MergedPriorityList myMergedList = null;

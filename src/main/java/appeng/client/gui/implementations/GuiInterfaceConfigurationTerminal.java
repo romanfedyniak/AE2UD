@@ -19,10 +19,9 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
-import appeng.api.storage.channels.IItemStorageChannel;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -39,7 +38,6 @@ import appeng.helpers.InventoryAction;
 import appeng.parts.reporting.PartInterfaceConfigurationTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import com.google.common.collect.HashMultimap;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
@@ -397,9 +395,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         boolean foundMatchingItemStack = false;
 
-        final String displayName = Platform
-                .getItemDisplayName(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(itemStack))
-                .toLowerCase();
+        final String displayName = Platform.getItemDisplayName(itemStack).toLowerCase();
 
         for (String term : searchTerm.split(" ")) {
             if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
@@ -479,7 +475,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                     public void accept(Object ingredient) {
                         final PacketInventoryAction p;
                         try {
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, AEItemStack.fromItemStack(itemStack));
+                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, GenericStack.fromItemStack(itemStack));
                             NetworkHandler.instance().sendToServer(p);
 
                         } catch (IOException e) {

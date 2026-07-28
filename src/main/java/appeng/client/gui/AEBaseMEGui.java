@@ -19,7 +19,7 @@
 package appeng.client.gui;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.client.me.SlotME;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotPlayerHotBar;
@@ -51,26 +51,26 @@ public abstract class AEBaseMEGui extends AEBaseGui {
 
         if (s instanceof SlotME && !stack.isEmpty()) {
 
-            IAEItemStack myStack = null;
+            GridInventoryEntry myStack = null;
 
             try {
                 final SlotME theSlotField = (SlotME) s;
-                myStack = theSlotField.getAEStack();
+                myStack = theSlotField.getEntry();
             } catch (final Throwable ignore) {
             }
 
             if (myStack != null) {
-                if (myStack.getStackSize() > 1) {
+                if (myStack.getStoredAmount() > 1) {
                     final String local = ButtonToolTips.ItemsStored.getLocal();
-                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getStackSize());
+                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getStoredAmount());
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(TextFormatting.GRAY + format);
                 }
 
-                if (myStack.getCountRequestable() > 0) {
+                if (myStack.getRequestableAmount() > 0) {
                     final String local = ButtonToolTips.ItemsRequestable.getLocal();
-                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getCountRequestable());
+                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getRequestableAmount());
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(format);

@@ -24,7 +24,8 @@ import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionHost;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.container.AEBaseContainer;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompressedNBT;
@@ -34,7 +35,6 @@ import appeng.fluids.helper.IFluidInterfaceHost;
 import appeng.fluids.parts.PartFluidInterface;
 import appeng.fluids.tile.TileFluidInterface;
 import appeng.fluids.util.AEFluidInventory;
-import appeng.fluids.util.AEFluidStack;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.helpers.InventoryAction;
 import appeng.parts.misc.PartInterface;
@@ -72,7 +72,7 @@ public final class ContainerFluidInterfaceConfigurationTerminal extends AEBaseCo
     private final Map<Long, FluidConfigTracker> byId = new HashMap<>();
     private IGrid grid;
     private NBTTagCompound data = new NBTTagCompound();
-    private IAEFluidStack clientRequestedTargetFluid;
+    private AEKey clientRequestedTargetFluid;
 
     public ContainerFluidInterfaceConfigurationTerminal(final InventoryPlayer ip, final PartFluidInterfaceConfigurationTerminal anchor) {
         super(ip, anchor);
@@ -187,7 +187,7 @@ public final class ContainerFluidInterfaceConfigurationTerminal extends AEBaseCo
             if (c != null) {
                 FluidStack fs = c.drain(Integer.MAX_VALUE, false);
                 if (fs != null) {
-                    inv.server.setFluidInSlot(slot, AEFluidStack.fromFluidStack(fs));
+                    inv.server.setFluidInSlot(slot, GenericStack.fromFluidStack(fs));
                     return;
                 }
                 return;
@@ -198,18 +198,23 @@ public final class ContainerFluidInterfaceConfigurationTerminal extends AEBaseCo
         }
     }
 
-    public void setTargetStack(final IAEFluidStack stack) {
+    public void setTargetStack(final AEKey stack) {
+        // AEBaseContainer's frozen accessors (CONTRACT.md §9 "Wave 4 prerequisites") only cover the ME-slot
+        // target stack; this is the fluid interface configuration terminal's own, unrelated target-stack
+        // (which fluid tank slot the cursor is over), but it must line up with the same AEKey shape so
+        // PacketTargetFluidStack(@Nullable AEKey) can carry it. AEKey has no amount, so a straight identity
+        // comparison (not GenericStack.equals(), see CONTRACT.md §9.1) is exactly "same fluid or not".
         if (Platform.isClient()) {
             if (stack == null && this.clientRequestedTargetFluid == null) {
                 return;
             }
-            if (stack != null && this.clientRequestedTargetFluid != null && stack.getFluidStack().isFluidEqual(this.clientRequestedTargetFluid.getFluidStack())) {
+            if (stack != null && stack.equals(this.clientRequestedTargetFluid)) {
                 return;
             }
-            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack((AEFluidStack) stack));
+            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack(stack));
         }
 
-        this.clientRequestedTargetFluid = stack == null ? null : stack.copy();
+        this.clientRequestedTargetFluid = stack;
     }
 
     private void regenList(final NBTTagCompound data) {
@@ -261,14 +266,14 @@ public final class ContainerFluidInterfaceConfigurationTerminal extends AEBaseCo
         for (int x = 0; x < length; x++) {
             final NBTTagCompound fluidNBT = new NBTTagCompound();
 
-            final IAEFluidStack iaeFluidStack = inv.server.getFluidInSlot(x + offset);
+            final GenericStack fluidStack = inv.server.getFluidInSlot(x + offset);
 
-            // "update" client side.
-            inv.client.setFluidInSlot(x + offset, iaeFluidStack == null ? null : iaeFluidStack.copy());
+            // "update" client side. GenericStack is an immutable record, so the old defensive copy is gone.
+            inv.client.setFluidInSlot(x + offset, fluidStack);
 
-            if (iaeFluidStack != null) {
-                iaeFluidStack.writeToNBT(fluidNBT);
-            }
+            // Written with GenericStack.writeTag / read back by GuiFluidInterfaceConfigurationTerminal with
+            // GenericStack.readTag - the two halves must stay on the same format.
+            GenericStack.writeTag(fluidNBT, fluidStack);
 
             tag.setTag(Integer.toString(x + offset), fluidNBT);
         }

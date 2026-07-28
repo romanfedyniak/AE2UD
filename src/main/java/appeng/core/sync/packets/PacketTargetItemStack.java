@@ -19,27 +19,32 @@
 package appeng.core.sync.packets;
 
 
+import appeng.api.stacks.AEKey;
 import appeng.container.AEBaseContainer;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
 
+import javax.annotation.Nullable;
 
+
+/**
+ * Tells the open container which item the player targeted (JEI/HEI ghost hover, autocrafting request UI,
+ * ...). Pinned signature: {@code PacketTargetItemStack(@Nullable AEKey what)} -- still dispatches to the
+ * same container ({@link AEBaseContainer#setTargetStack(AEKey)}) as before. Kept separate from
+ * {@link PacketTargetFluidStack} per CONTRACT.md's wave 4 prerequisites ("do not merge them"), even though
+ * both now carry a bare {@link AEKey}.
+ */
 public class PacketTargetItemStack extends AppEngPacket {
-    private AEItemStack stack;
+    private AEKey stack;
 
     // automatic.
     public PacketTargetItemStack(final ByteBuf stream) {
         try {
-            if (stream.readableBytes() > 0) {
-                this.stack = AEItemStack.fromPacket(stream);
-            } else {
-                this.stack = null;
-            }
+            this.stack = AEKey.readOptionalKey(stream);
         } catch (Exception ex) {
             AELog.debug(ex);
             this.stack = null;
@@ -47,18 +52,16 @@ public class PacketTargetItemStack extends AppEngPacket {
     }
 
     // api
-    public PacketTargetItemStack(AEItemStack stack) {
+    public PacketTargetItemStack(@Nullable AEKey stack) {
 
         this.stack = stack;
 
         final ByteBuf data = Unpooled.buffer();
         data.writeInt(this.getPacketID());
-        if (stack != null) {
-            try {
-                stack.writeToPacket(data);
-            } catch (Exception ex) {
-                AELog.debug(ex);
-            }
+        try {
+            AEKey.writeOptionalKey(data, stack);
+        } catch (Exception ex) {
+            AELog.debug(ex);
         }
         this.configureWrite(data);
     }

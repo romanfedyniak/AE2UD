@@ -25,8 +25,9 @@ import appeng.api.stacks.AEKey;
 
 /**
  * Push-notification contract for {@link CraftingCPUCluster}, restoring the mechanism that used to be built on the
- * (now-deleted) generic {@code IBaseMonitor}/{@code IMEMonitorHandlerReceiver} model. See CONTRACT.md §10 ("Друга
- * регресія: push-оновлення крафтового CPU") — the owner explicitly rejected replacing this with polling.
+ * (now-deleted) generic {@code IBaseMonitor}/{@code IMEMonitorHandlerReceiver} model. See CONTRACT.md §10
+ * ("Restored regressions", "Crafting CPU push notifications") — the owner explicitly rejected replacing this
+ * with polling.
  * <p/>
  * Expressed against {@link AEKey} instead of {@code IAEItemStack}, matching every other storage-facing type in this
  * migration. Like the old contract, the notification only carries <em>which key changed</em>, not the delta or the

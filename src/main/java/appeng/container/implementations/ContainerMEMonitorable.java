@@ -28,24 +28,27 @@ import appeng.api.implementations.tiles.IViewCellStorage;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
+import appeng.api.networking.storage.IStackWatcher;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPart;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.container.me.GridInventoryEntry;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
 import appeng.container.slot.SlotRestrictedInput;
@@ -55,6 +58,7 @@ import appeng.core.sync.packets.PacketMEInventoryUpdate;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
@@ -70,14 +74,19 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 
-public class ContainerMEMonitorable extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject, IMEMonitorHandlerReceiver<IAEItemStack> {
+public class ContainerMEMonitorable extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject, IStorageWatcherNode {
 
     protected final SlotRestrictedInput[] cellView = new SlotRestrictedInput[5];
-    private final IMEMonitor<IAEItemStack> monitor;
-    public final IItemList<IAEItemStack> items = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    private final MEStorage monitor;
     private final IConfigManager clientCM;
     private final ITerminalHost host;
     @GuiSync(99)
@@ -88,6 +97,46 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private IConfigManager serverCM;
     private IGridNode networkNode;
     protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
+
+    /**
+     * Non-null only when {@code monitorable} is one of the standard network-backed terminal parts (plain ME
+     * terminal, crafting terminal, pattern terminal, expanded processing pattern terminal - anything built on
+     * {@link AbstractPartTerminal}). This is "case 1" of CONTRACT.md §10 ("Third case: terminal live updates"):
+     * real push. The grid only ever calls {@code IStorageWatcherNode.updateWatcher} on the node's *machine*,
+     * i.e. the part, never on this container (a container is not itself a grid machine/node), so the part
+     * relays {@link #onStackChange(AEKey, long)} calls to whichever containers are currently attached - see
+     * {@link AbstractPartTerminal#addTerminalListener(IStorageWatcherNode)}.
+     * <p/>
+     * Every other {@link ITerminalHost} (a portable cell, a view-only cell terminal, an ME chest, a security
+     * station, ...) has no grid node of its own to hang a watcher off, or shows a single cell's contents
+     * rather than the network's, and falls back to "case 2": a server-side per-tick diff in
+     * {@link #collectChanges()}, exactly like upstream's {@code MEStorageMenu.broadcastChanges()}.
+     */
+    private AbstractPartTerminal networkTerminalPart;
+
+    /**
+     * Case 1 buffer. Keys the grid told us changed since the last {@link #detectAndSendChanges()}, each
+     * already carrying the authoritative new amount supplied by {@link IStorageService}'s own per-tick cache
+     * diff (see {@code GridStorageCache.postWatcherUpdate}), so it is trusted as-is rather than re-read.
+     * Drained and cleared every tick.
+     */
+    private final Map<AEKey, Long> pendingPushChanges = new LinkedHashMap<>();
+
+    /**
+     * Case 2 snapshot: the amounts last broadcast to listeners, diffed against a fresh
+     * {@link MEStorage#getAvailableStacks()} once per tick. Also seeded at construction so the tick right
+     * after a GUI opens does not immediately re-broadcast the same full listing {@link #queueInventory} just
+     * sent to the new listener.
+     */
+    private KeyCounter previousAvailableStacks = new KeyCounter();
+
+    /**
+     * The last set of craftable keys sent to the client. A {@link AEKey} carries no craftable flag any more
+     * (CONTRACT.md §8.3) - the flag moved onto {@link ICraftingGrid#getCraftables(AEKeyFilter)}, which has no
+     * watcher of its own in either upstream or this fork, so it is always recomputed and diffed here every
+     * tick, independently of whether case 1 or case 2 is driving the amount half of the update.
+     */
+    private Set<AEKey> previousCraftables = Collections.emptySet();
 
 
     public ContainerMEMonitorable(final InventoryPlayer ip, final ITerminalHost monitorable) {
@@ -111,10 +160,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (Platform.isServer()) {
             this.serverCM = monitorable.getConfigManager();
 
-            this.monitor = monitorable.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+            this.monitor = monitorable.getInventory();
             if (this.monitor != null) {
-                this.monitor.addListener(this, null);
-
                 this.setCellInventory(this.monitor);
 
                 if (monitorable instanceof IPortableCell) {
@@ -142,6 +189,14 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                         }
                     }
                 }
+
+                if (monitorable instanceof AbstractPartTerminal) {
+                    this.networkTerminalPart = (AbstractPartTerminal) monitorable;
+                    this.networkTerminalPart.addTerminalListener(this);
+                }
+
+                this.previousAvailableStacks = this.monitor.getAvailableStacks();
+                this.previousCraftables = this.computeCraftables();
             } else {
                 this.setValidContainer(false);
             }
@@ -216,7 +271,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     @Override
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
-            if (this.monitor != this.host.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class))) {
+            if (this.monitor != this.host.getInventory()) {
                 this.setValidContainer(false);
             }
 
@@ -238,28 +293,22 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 }
             }
 
-            if (!this.items.isEmpty()) {
+            if (this.monitor != null) {
                 try {
-                    final IItemList<IAEItemStack> monitorCache = this.monitor.getStorageList();
+                    final List<GridInventoryEntry> changes = this.collectChanges();
 
-                    final PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
+                    if (!changes.isEmpty()) {
+                        final PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
 
-                    for (final IAEItemStack is : this.items) {
-                        final IAEItemStack send = monitorCache.findPrecise(is);
-                        if (send == null) {
-                            is.setStackSize(0);
-                            piu.appendItem(is);
-                        } else {
-                            piu.appendItem(send);
+                        for (final GridInventoryEntry entry : changes) {
+                            piu.appendItem(entry);
                         }
-                    }
 
-                    if (!piu.isEmpty()) {
-                        this.items.resetStatus();
-
-                        for (final Object c : this.listeners) {
-                            if (c instanceof EntityPlayer) {
-                                NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
+                        if (!piu.isEmpty()) {
+                            for (final Object c : this.listeners) {
+                                if (c instanceof EntityPlayer) {
+                                    NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
+                                }
                             }
                         }
                     }
@@ -283,6 +332,96 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             super.detectAndSendChanges();
         }
 
+    }
+
+    /**
+     * Builds this tick's delta, merging whichever of case 1 / case 2 (CONTRACT.md §10) applies to this
+     * terminal with the craftable-flag diff that applies to both (§8.3).
+     */
+    private List<GridInventoryEntry> collectChanges() {
+        final List<GridInventoryEntry> result = new ArrayList<>();
+
+        final Set<AEKey> craftables = this.computeCraftables();
+        final Set<AEKey> newlyCraftable = new HashSet<>(craftables);
+        newlyCraftable.removeAll(this.previousCraftables);
+        final Set<AEKey> noLongerCraftable = new HashSet<>(this.previousCraftables);
+        noLongerCraftable.removeAll(craftables);
+
+        if (this.networkTerminalPart != null) {
+            // Case 1: real push - only the keys the grid actually told us changed, via onStackChange.
+            for (final Map.Entry<AEKey, Long> e : this.pendingPushChanges.entrySet()) {
+                final AEKey what = e.getKey();
+                newlyCraftable.remove(what);
+                noLongerCraftable.remove(what);
+                result.add(new GridInventoryEntry(what, e.getValue(), 0, craftables.contains(what)));
+            }
+            this.pendingPushChanges.clear();
+        } else {
+            // Case 2: server-side per-tick diff of a directly-viewed cell (or remote network, for a
+            // wireless terminal) snapshot - exactly like upstream's MEStorageMenu.broadcastChanges().
+            final KeyCounter current = this.monitor.getAvailableStacks();
+
+            for (final var entry : current) {
+                final AEKey what = entry.getKey();
+                final long amount = entry.getLongValue();
+                if (amount != this.previousAvailableStacks.get(what)) {
+                    newlyCraftable.remove(what);
+                    noLongerCraftable.remove(what);
+                    result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what)));
+                }
+            }
+
+            for (final var entry : this.previousAvailableStacks) {
+                final AEKey what = entry.getKey();
+                if (entry.getLongValue() != 0 && current.get(what) == 0) {
+                    newlyCraftable.remove(what);
+                    noLongerCraftable.remove(what);
+                    result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what)));
+                }
+            }
+
+            this.previousAvailableStacks = current;
+        }
+
+        // Craftable-only changes: the amount for `what` did not change, but its craftable status did.
+        for (final AEKey what : newlyCraftable) {
+            result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true));
+        }
+        for (final AEKey what : noLongerCraftable) {
+            result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, false));
+        }
+
+        this.previousCraftables = craftables;
+
+        return result;
+    }
+
+    private Set<AEKey> computeCraftables() {
+        if (this.networkNode == null || !this.networkNode.isActive()) {
+            return Collections.emptySet();
+        }
+
+        final IGrid grid = this.networkNode.getGrid();
+        if (grid == null) {
+            return Collections.emptySet();
+        }
+
+        final ICraftingGrid cc = grid.getCache(ICraftingGrid.class);
+        return cc == null ? Collections.emptySet() : cc.getCraftables(AEKeyFilter.all());
+    }
+
+    private long getCachedAmount(final AEKey what) {
+        if (this.networkNode != null) {
+            final IGrid grid = this.networkNode.getGrid();
+            if (grid != null) {
+                final IStorageService ss = grid.getCache(IStorageService.class);
+                if (ss != null) {
+                    return ss.getCachedInventory().get(what);
+                }
+            }
+        }
+
+        return this.monitor == null ? 0 : this.monitor.getAvailableStacks().get(what);
     }
 
     protected void updatePowerStatus() {
@@ -323,9 +462,11 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (Platform.isServer() && c instanceof EntityPlayer && this.monitor != null) {
             try {
                 PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
-                final IItemList<IAEItemStack> monitorCache = this.monitor.getStorageList();
+                final Set<AEKey> craftables = this.computeCraftables();
 
-                for (final IAEItemStack send : monitorCache) {
+                for (final var entry : this.monitor.getAvailableStacks()) {
+                    final AEKey what = entry.getKey();
+                    final GridInventoryEntry send = new GridInventoryEntry(what, entry.getLongValue(), 0, craftables.contains(what));
                     try {
                         piu.appendItem(send);
                     } catch (final BufferOverflowException boe) {
@@ -347,36 +488,33 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     public void removeListener(final IContainerListener c) {
         super.removeListener(c);
 
-        if (this.listeners.isEmpty() && this.monitor != null) {
-            this.monitor.removeListener(this);
+        if (this.listeners.isEmpty() && this.networkTerminalPart != null) {
+            this.networkTerminalPart.removeTerminalListener(this);
         }
     }
 
     @Override
     public void onContainerClosed(final EntityPlayer player) {
         super.onContainerClosed(player);
-        if (this.monitor != null) {
-            this.monitor.removeListener(this);
+        if (this.networkTerminalPart != null) {
+            this.networkTerminalPart.removeTerminalListener(this);
         }
     }
 
+    /**
+     * Called on the server only, relayed from {@link AbstractPartTerminal#onStackChange(AEKey, long)} - see
+     * {@link #networkTerminalPart}. Not called directly by the grid: this container is not itself a grid
+     * machine, so {@link #updateWatcher(IStackWatcher)} below is never invoked in practice.
+     */
     @Override
-    public boolean isValid(final Object verificationToken) {
-        return true;
+    public void onStackChange(final AEKey what, final long amount) {
+        this.pendingPushChanges.put(what, amount);
     }
 
     @Override
-    public void postChange(final IBaseMonitor<IAEItemStack> monitor, final Iterable<IAEItemStack> change, final IActionSource source) {
-        for (final IAEItemStack is : change) {
-            this.items.add(is);
-        }
-    }
-
-    @Override
-    public void onListUpdate() {
-        for (final IContainerListener c : this.listeners) {
-            this.queueInventory(c);
-        }
+    public void updateWatcher(final IStackWatcher newWatcher) {
+        // Never called: the grid registers watchers against the terminal part (the node's machine), not
+        // against this container. See AbstractPartTerminal.updateWatcher/addTerminalListener.
     }
 
     @Override
@@ -424,14 +562,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         this.gui = gui;
     }
 
-    public IItemList<IAEItemStack> getItems() {
-        return items;
-    }
-
-    public void postUpdate(final List<IAEItemStack> list) {
-        for (final IAEItemStack is : list) {
-            this.items.add(is);
-        }
+    public void postUpdate(final List<GridInventoryEntry> list) {
         ((GuiMEMonitorable) this.gui).postUpdate(list);
     }
 }

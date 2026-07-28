@@ -21,7 +21,7 @@ package appeng.client.gui.implementations;
 
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -36,12 +36,10 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.fluids.client.gui.widgets.GuiFluidTank;
 import appeng.fluids.helper.DualityFluidInterface;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.InventoryAction;
 import appeng.parts.reporting.PartFluidInterfaceConfigurationTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import com.google.common.collect.HashMultimap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import mezz.jei.api.gui.IGhostIngredientHandler;
@@ -71,6 +69,16 @@ import java.util.WeakHashMap;
 import static appeng.client.render.BlockPosHighlighter.hilightBlock;
 
 
+/**
+ * NOTE for wave 5: {@code appeng.fluids.util.IAEFluidTank} still declares
+ * {@code IAEFluidStack getFluidInSlot(int)}/{@code setFluidInSlot(int, IAEFluidStack)} - a deleted api type
+ * (CONTRACT.md §4.1) - because {@code appeng.fluids} is wave 5's whole package and untouched so far. This
+ * class (and {@code ClientDCInternalFluidInv}, already clean of old-API imports) is written assuming
+ * {@code IAEFluidTank} gets {@code GenericStack getFluidInSlot(int)}/{@code setFluidInSlot(int,
+ * GenericStack)}, mirroring the rename {@code appeng.tile.inventory.AppEngInternalAEInventory} already got
+ * in wave 2 ({@code getAEStackInSlot(int): GenericStack}). Wave 5 must apply the same rename to
+ * {@code IAEFluidTank}/{@code AEFluidInventory} and every other caller in {@code appeng.fluids}.
+ */
 public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements IJEIGhostIngredients {
 
     private static final int LINES_ON_PAGE = 6;
@@ -158,7 +166,13 @@ public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements
                 for (int row = 0; row < 1 + extraLines && linesDraw < LINES_ON_PAGE; ++row) {
                     for (int z = 0; z < DualityFluidInterface.NUMBER_OF_TANKS; z++) {
                         GuiFluidTank tankSlot;
-                        if (!matchedInterfaces.contains(inv) && !this.matchedStacks.contains(inv.getInventory().getFluidInSlot(z + (row * 5)))) {
+                        // §9.1 hazard: this used to be matchedStacks.contains(GenericStack), which would
+                        // compare the amount too (GenericStack.equals() is a record equals) and could
+                        // spuriously miss a slot whose fluid matched the search but whose amount had since
+                        // changed. matchedStacks holds bare AEKeys (identity only) precisely to avoid that.
+                        final GenericStack tankStack = inv.getInventory().getFluidInSlot(z + (row * 5));
+                        final boolean matched = tankStack != null && this.matchedStacks.contains(tankStack.what());
+                        if (!matchedInterfaces.contains(inv) && !matched) {
                             tankSlot = new GuiFluidTank(inv.getInventory(), z + (row * 5), z + (row * 5), (z * 18 + 22), offset, 16, 16, true);
                         } else {
                             tankSlot = new GuiFluidTank(inv.getInventory(), z + (row * 5), z + (row * 5), (z * 18 + 22), offset, 16, 16);
@@ -298,7 +312,7 @@ public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements
                     for (int x = 0; x < current.getInventory().getSlots(); x++) {
                         final String which = Integer.toString(x);
                         if (invData.hasKey(which)) {
-                            current.getInventory().setFluidInSlot(x, AEFluidStack.fromNBT(invData.getCompoundTag(which)));
+                            current.getInventory().setFluidInSlot(x, GenericStack.readTag(invData.getCompoundTag(which)));
                         }
                     }
                 } catch (final NumberFormatException ignored) {
@@ -347,10 +361,11 @@ public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements
                     if (slot > 8 + numUpgradesMap.get(entry) * 9) {
                         break;
                     }
-                    IAEFluidStack fs = entry.getInventory().getFluidInSlot(i);
+                    GenericStack fs = entry.getInventory().getFluidInSlot(i);
                     if (this.fluidStackMatchesSearchTerm(fs, searchFieldInputs)) {
                         found = true;
-                        matchedStacks.add(fs);
+                        // Identity only (see the §9.1 note in drawFG) - not the whole GenericStack.
+                        matchedStacks.add(fs.what());
                     }
                     slot++;
                 }
@@ -389,14 +404,14 @@ public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements
         this.getScrollBar().setRange(0, this.lines.size() - 1, 1);
     }
 
-    private boolean fluidStackMatchesSearchTerm(final IAEFluidStack iaeFluidStack, final String searchTerm) {
-        if (iaeFluidStack == null) {
+    private boolean fluidStackMatchesSearchTerm(final GenericStack stack, final String searchTerm) {
+        if (stack == null) {
             return false;
         }
 
         boolean foundMatchingFluidStack = false;
 
-        final String displayName = Platform.getFluidDisplayName(iaeFluidStack).toLowerCase();
+        final String displayName = Platform.getFluidDisplayName(stack.what()).toLowerCase();
 
         for (String term : searchTerm.split(" ")) {
             if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
@@ -476,7 +491,7 @@ public class GuiFluidInterfaceConfigurationTerminal extends AEBaseGui implements
                     public void accept(Object ingredient) {
                         final PacketInventoryAction p;
                         try {
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, AEItemStack.fromItemStack(itemStack));
+                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, GenericStack.fromItemStack(itemStack));
                             NetworkHandler.instance().sendToServer(p);
 
                         } catch (IOException e) {

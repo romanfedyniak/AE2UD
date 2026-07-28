@@ -27,8 +27,8 @@ import appeng.api.AEApi;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.definitions.IParts;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEItemStack;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerCraftingStatus;
@@ -205,7 +205,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
 
                 GL11.glPushMatrix();
                 GL11.glTranslatef(x + 3, y + 11, 0);
-                final IAEItemStack craftingStack = cpu.getCrafting();
+                final GenericStack craftingStack = cpu.getCrafting();
                 if (craftingStack != null) {
                     final int iconIndex = 16 * 11 + 2;
                     this.bindTexture("guis/states.png");
@@ -216,7 +216,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                     GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
                     this.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
                     GL11.glTranslatef(18.0f, 2.0f, 0.0f);
-                    String amount = Long.toString(craftingStack.getStackSize());
+                    String amount = Long.toString(craftingStack.amount());
                     if (amount.length() > 5) {
                         amount = amount.substring(0, 5) + "..";
                     }
@@ -225,7 +225,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                     GL11.glPopMatrix();
                     GL11.glPushMatrix();
                     GL11.glTranslatef(x + CPU_TABLE_SLOT_WIDTH - 19, y + 3, 0);
-                    this.drawItem(0, 0, craftingStack.createItemStack());
+                    this.drawItem(0, 0, GenericStack.wrapInItemStack(craftingStack));
                 } else {
                     final int iconIndex = 16 * 4 + 3;
                     this.bindTexture("guis/states.png");
@@ -255,13 +255,13 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                 tooltip.append(hoveredCpu.getSerial());
                 tooltip.append('\n');
             }
-            IAEItemStack crafting = hoveredCpu.getCrafting();
-            if (crafting != null && crafting.getStackSize() > 0) {
+            GenericStack crafting = hoveredCpu.getCrafting();
+            if (crafting != null && crafting.amount() > 0) {
                 tooltip.append(GuiText.Crafting.getLocal());
                 tooltip.append(": ");
-                tooltip.append(crafting.getStackSize());
+                tooltip.append(crafting.amount());
                 tooltip.append(' ');
-                tooltip.append(crafting.createItemStack().getDisplayName());
+                tooltip.append(GenericStack.wrapInItemStack(crafting).getDisplayName());
                 tooltip.append('\n');
                 tooltip.append(hoveredCpu.getRemainingItems());
                 tooltip.append(" / ");

@@ -19,13 +19,12 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.fluids.client.gui.GuiFluidTerminal;
 import appeng.fluids.client.gui.GuiWirelessFluidTerminal;
-import appeng.fluids.util.AEFluidStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
@@ -59,7 +58,7 @@ public class PacketMEFluidInventoryUpdate extends AppEngPacket {
 
     // input.
     @Nullable
-    private final List<IAEFluidStack> list;
+    private final List<GridInventoryEntry> list;
     // output...
     private final byte ref;
 
@@ -103,7 +102,7 @@ public class PacketMEFluidInventoryUpdate extends AppEngPacket {
             }
 
             while (uncompressed.readableBytes() > 0) {
-                this.list.add(AEFluidStack.fromPacket(uncompressed));
+                this.list.add(GridInventoryEntry.fromPacket(uncompressed));
             }
         }
 
@@ -159,7 +158,7 @@ public class PacketMEFluidInventoryUpdate extends AppEngPacket {
         return null;
     }
 
-    public void appendFluid(final IAEFluidStack fs) throws IOException, BufferOverflowException {
+    public void appendFluid(final GridInventoryEntry fs) throws IOException, BufferOverflowException {
         final ByteBuf tmp = Unpooled.buffer(OPERATION_BYTE_LIMIT);
         fs.writeToPacket(tmp);
 

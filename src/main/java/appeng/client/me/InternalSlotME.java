@@ -19,7 +19,7 @@
 package appeng.client.me;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import net.minecraft.item.ItemStack;
 
 
@@ -38,10 +38,13 @@ public class InternalSlotME {
     }
 
     ItemStack getStack() {
-        return this.getAEStack() == null ? ItemStack.EMPTY : this.getAEStack().asItemStackRepresentation();
+        final GridInventoryEntry entry = this.getEntry();
+        // wrapForDisplayOrFilter() is identity-only (count 1) - the actual amount is drawn separately by
+        // StackSizeRenderer, exactly like the old asItemStackRepresentation() it replaces.
+        return entry == null ? ItemStack.EMPTY : entry.getWhat().wrapForDisplayOrFilter();
     }
 
-    IAEItemStack getAEStack() {
+    GridInventoryEntry getEntry() {
         return this.repo.getReferenceItem(this.offset);
     }
 
