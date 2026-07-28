@@ -23,12 +23,11 @@ import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
 import appeng.api.exceptions.MissingDefinitionException;
 import appeng.api.implementations.items.IItemGroup;
-import appeng.api.implementations.items.IStorageCell;
 import appeng.api.implementations.items.IUpgradeModule;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.localization.GuiText;
@@ -61,7 +60,7 @@ import java.util.Set;
  * @version rv6 - 2018-01-17
  * @since rv6 2018-01-17
  */
-public abstract class AbstractStorageCell<T extends IAEStack<T>> extends AEBaseItem implements IStorageCell<T>, IItemGroup {
+public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCellItem, IItemGroup {
     protected final MaterialType component;
     protected final int totalBytes;
 
@@ -76,7 +75,7 @@ public abstract class AbstractStorageCell<T extends IAEStack<T>> extends AEBaseI
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         AEApi.instance()
                 .client()
-                .addCellInformation(AEApi.instance().registries().cell().getCellInventory(stack, null, this.getChannel()), lines);
+                .addCellInformation(StorageCells.getCellInventory(stack, null), lines);
     }
 
     @Override
@@ -90,7 +89,7 @@ public abstract class AbstractStorageCell<T extends IAEStack<T>> extends AEBaseI
     }
 
     @Override
-    public boolean isBlackListed(final ItemStack cellItem, final T requestedAddition) {
+    public boolean isBlackListed(final ItemStack cellItem, final AEKey requestedAddition) {
         return false;
     }
 
@@ -152,11 +151,10 @@ public abstract class AbstractStorageCell<T extends IAEStack<T>> extends AEBaseI
             }
 
             final InventoryPlayer playerInventory = player.inventory;
-            final IMEInventoryHandler inv = AEApi.instance().registries().cell().getCellInventory(stack, null, this.getChannel());
+            final StorageCell inv = StorageCells.getCellInventory(stack, null);
             if (inv != null && playerInventory.getCurrentItem() == stack) {
                 final InventoryAdaptor ia = InventoryAdaptor.getAdaptor(player);
-                final IItemList<IAEItemStack> list = inv.getAvailableItems(this.getChannel().createList());
-                if (list.isEmpty() && ia != null) {
+                if (inv.getAvailableStacks().isEmpty() && ia != null) {
                     playerInventory.setInventorySlotContents(playerInventory.currentItem, ItemStack.EMPTY);
 
                     // drop core

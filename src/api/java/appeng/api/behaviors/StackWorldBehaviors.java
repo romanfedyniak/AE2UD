@@ -35,6 +35,7 @@ import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.enchantment.Enchantment;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
@@ -160,10 +161,10 @@ public final class StackWorldBehaviors {
     }
 
     public static List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
-            TileEntity host, int fortuneLevel, boolean silkTouch, @Nullable UUID owningPlayerId) {
+            TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId) {
         List<PickupStrategy> strategies = new ArrayList<>(pickupStrategies.size());
         for (PickupStrategy.Factory factory : pickupStrategies.values()) {
-            strategies.add(factory.create(world, fromPos, fromSide, host, fortuneLevel, silkTouch, owningPlayerId));
+            strategies.add(factory.create(world, fromPos, fromSide, host, enchantments, owningPlayerId));
         }
         return strategies;
     }

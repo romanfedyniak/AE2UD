@@ -23,10 +23,12 @@
 
 package appeng.api.behaviors;
 
+import java.util.Map;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.Entity;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -73,11 +75,14 @@ public interface PickupStrategy {
 
     interface Factory {
         /**
-         * Upstream AE2 passes an {@code ItemEnchantments} here. Forge 1.12.2 has no equivalent data
-         * type, so the two enchantments the plane actually reads are passed directly.
+         * @param enchantments every enchantment on the plane, as captured when it was placed. Upstream AE2
+         *                     passes only a fortune level and a silk-touch flag here, because those are the
+         *                     only two its plane reads. AE2UD's energy-cost formula also reads Efficiency and
+         *                     Unbreaking, so the whole map is passed and this diverges from upstream
+         *                     deliberately. A strategy that cares about neither may ignore it.
          */
         PickupStrategy create(World world, BlockPos fromPos, EnumFacing fromSide, TileEntity host,
-                int fortuneLevel, boolean silkTouch, @Nullable UUID owningPlayerId);
+                Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId);
     }
 
     static void register(AEKeyType type, Factory factory) {

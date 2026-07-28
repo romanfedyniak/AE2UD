@@ -380,7 +380,7 @@ public interface PickupStrategy {
     enum Result { CANT_PICKUP, PICKED_UP, CANT_STORE }
     interface Factory {
         PickupStrategy create(World world, BlockPos fromPos, EnumFacing fromSide,
-                              TileEntity host, int fortuneLevel, boolean silkTouch,
+                              TileEntity host, Map<Enchantment, Integer> enchantments,
                               @Nullable UUID owningPlayerId);
     }
     static void register(AEKeyType type, Factory factory);
@@ -403,7 +403,7 @@ public interface StackTransferContext {
 }
 ```
 
-> **Deviation from upstream in `PickupStrategy.Factory`:** AE2-original passes `ItemEnchantments`, a modern data type with no 1.12.2 equivalent, so we pass the decomposed values — `int fortuneLevel, boolean silkTouch`. Those are the only two enchantments the annihilation plane actually reads.
+> **Deviation from upstream in `PickupStrategy.Factory`:** AE2-original passes `ItemEnchantments`, a modern data type with no 1.12.2 equivalent, and its own plane reads only a fortune level and a silk-touch flag. AE2UD's energy-cost formula also reads Efficiency and Unbreaking, so the factory carries the whole `Map<Enchantment, Integer>` the plane captured when it was placed. A strategy for a type that has no enchantment concept (fluids) simply ignores it. See §8.4 for why this was amended after wave 3.
 
 ### 3.1 `StackWorldBehaviors`
 
@@ -435,7 +435,7 @@ public final class StackWorldBehaviors {
     public static Map<AEKeyType, PlacementStrategy> createPlacementStrategies(World w, BlockPos pos,
             EnumFacing side, TileEntity host, @Nullable UUID owningPlayerId);
     public static List<PickupStrategy> createPickupStrategies(World w, BlockPos pos, EnumFacing side,
-            TileEntity host, int fortuneLevel, boolean silkTouch, @Nullable UUID owningPlayerId);
+            TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId);
 }
 ```
 
@@ -675,6 +675,23 @@ The change is **additive** (breaks nothing), mirrors AE2-original verbatim, and 
 **Related requirement for the waves that follow:** `appeng.crafting.MECraftingInventory`, `appeng.me.storage.MEMonitorPassThrough`, `PartStorageBus` and `PartFluidStorageBus` relied on the stored/craftable distinction living in the stack itself. They must query `ICraftingGrid` instead of looking for a flag. `appeng.util.inv.ItemListIgnoreCrafting` was deleted rather than ported for the same reason — there is nothing left to strip.
 
 **Requirement for wave 2 (from gap #1):** `Platform.postChanges` is currently implemented as `gs.invalidateCache()` — correct, but not incremental. The `IStorageService` implementation keeps `cachedAvailableAmounts` and diffs it against a fresh `KeyCounter` on refresh, calling `IStorageWatcherNode.onStackChange(what, newAmount)` for changed and removed keys — as in `AE2-original\src\main\java\appeng\me\service\StorageService.java:120-156`. Nothing needs to be added to the API for this.
+
+## 8.4 Amendment after wave 3a — `PickupStrategy.Factory` carries the enchantment map
+
+**This was a change to the frozen API. Approved by the owner 2026-07-28.**
+
+The frozen factory took `int fortuneLevel, boolean silkTouch`, mirroring AE2-original, and §3 asserted those were the only two enchantments the annihilation plane reads. That assertion was wrong about this fork: AE2UD's energy-cost formula also reads **Efficiency** (reduces the surcharge 15% per level) and **Unbreaking** (randomised discount). Both were in the pre-port `PartAnnihilationPlane`, lines 486-494.
+
+The wave 3a agent kept the mechanic without touching api, by making `PartAnnihilationPlane` build its `ItemPickupStrategy` directly from its own enchantment map and filtering the registered one back out. Behaviour was preserved, but the strategy handed out by `StackWorldBehaviors.createPickupStrategies` stayed lossy — so an addon registering a key type and relying on the registry would have got the wrong energy model. That defeats the reason the strategy layer exists (§3, "Item and Fluid get no privileges").
+
+Changed in `src\api\java\appeng\api\behaviors\PickupStrategy.java` and `StackWorldBehaviors.java`:
+
+```java
+PickupStrategy create(World world, BlockPos fromPos, EnumFacing fromSide, TileEntity host,
+                      Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId);
+```
+
+This is a **deliberate divergence from upstream**, of exactly the kind rule 6 requires: the fork has a mechanic upstream does not, and the upstream-shaped signature could not carry it. A strategy for a type with no enchantment concept ignores the parameter. `PartAnnihilationPlane.createPickupStrategies` now simply delegates to the registry, and `PartIdentityAnnihilationPlane` still overrides the hook to substitute its always-silk-touch strategy. `compileApiJava` is green.
 
 ## 9. Implementation class registry
 
@@ -958,6 +975,361 @@ Notes from wave 2 that later waves depend on:
 - **`ICellGuiHandler.isSpecializedFor(ItemStack)` was restored** after wave 2 dropped it. It is a `default false` addon extension point — an addon shipping a cell with its own screen overrides it. `StorageCells.getGuiHandler(AEKeyType, ItemStack)` honours it; `TileChest.openGui()` calls that overload.
 - **The GUI-handler registry lives in `StorageCells`** (api), not in `appeng.core.features.registries.cell`. Wave 2 landed it as a `src/main`-only class because the frozen `StorageCells` covered only `ICellHandler` and upstream AE2 has no GUI-handler concept at all; that left an addon able to implement the api interface but forced to import an internal class to register it. Resolved by the owner after wave 2 — `addCellGuiHandler`/`getGuiHandler` moved onto `StorageCells` and `CellRegistry` was deleted. **This is a deliberate divergence from upstream** and one of the few additions to the otherwise frozen §4 surface.
 
+### Wave 3b — `appeng.parts.misc` and `appeng.parts.reporting` (done)
+
+Nine files: `PartStorageBus`, `PartOreDicStorageBus`, `PartInterface`, `ItemHandlerAdapter`, `ItemRepositoryAdapter` (all `appeng.parts.misc`); `AbstractPartTerminal`, `AbstractPartMonitor`, `AbstractPartEncoder`, `PartConversionMonitor` (all `appeng.parts.reporting`). One new file: `appeng.parts.misc.InitExternalStorageStrategies`.
+
+This wave built the `appeng.api.behaviors.ExternalStorageStrategy` consumer side that §3/§3.1 specified but nothing implemented yet, and is the reason `PartStorageBus` no longer hand-resolves `IItemHandler` for items only.
+
+```java
+// appeng.parts.misc.ItemHandlerAdapter implements MEStorage, ITickingMonitor    — package-private
+ItemHandlerAdapter(IItemHandler itemHandler, boolean extractableOnly, @Nullable Runnable changeListener);
+// insert/extract loop over the wrapped IItemHandler exactly like the old injectItems/extractItems did, but
+// return a plain `long` (no more IAEItemStack "leftover" object); getAvailableStacks() serves a KeyCounter
+// cache rebuilt in the constructor, after every MODULATE insert/extract, and once per onTick() (which also
+// runs changeListener.run() and reports URGENT/SLOWER by diffing the cache against its previous contents).
+// changeListener replaces the old per-listener IMEMonitorHandlerReceiver posting: it is invoked exactly once
+// per real (non-simulated) mutation, and PartStorageBus wires it to `getProxy().getTick().alertDevice(...)`.
+
+// appeng.parts.misc.ItemHandlerAdapter.Strategy implements ExternalStorageStrategy   — package-private, static nested
+Strategy(World world, BlockPos fromPos, EnumFacing fromSide);
+// createWrapper(extractableOnly, callback) re-resolves the IItemHandler capability at `fromPos`/`fromSide`
+// fresh every call (target may not exist, may have changed) and wraps it in a new ItemHandlerAdapter, or
+// returns null if there is nothing there. This is the ExternalStorageStrategy for AEKeyType.items(); the
+// fluid equivalent (wave 5) and any addon's are expected to follow the exact same shape.
+
+// appeng.parts.misc.InitExternalStorageStrategies   — NEW, public
+public static void register();
+// ExternalStorageStrategy.register(AEKeyType.items(), ItemHandlerAdapter.Strategy::new); nothing else.
+// Called from appeng.core.Registration (agent 3-4's file; already wired up as of that wave's edit, see §9's
+// wave 3d entry) after the AEKeyType Forge registry is populated.
+
+// appeng.parts.misc.ItemRepositoryAdapter implements MEStorage, ITickingMonitor   — package-private
+ItemRepositoryAdapter(IItemRepository itemRepository, @Nullable Runnable changeListener);
+// Same shape as ItemHandlerAdapter but wraps AE2UD's fork-specific IItemRepository (Storage Drawers; see
+// CONTRACT.md §10/§11). Not registered through ExternalStorageStrategy — the capability is not keyed by
+// AEKeyType at all — instead PartStorageBus checks for it explicitly as an extra, exactly like the old code.
+
+// appeng.parts.misc.PartStorageBus extends PartUpgradeable implements IGridTickable, IStorageProvider, IPriorityHost
+public MEInventoryHandler getInternalHandler();       // was MEInventoryHandler<IAEItemStack>; unaffected callers: wave 4's ContainerStorageBus/ContainerOreDictStorageBus
+public void mountInventories(IStorageMounts mounts);  // replaces the deleted ICellContainer#getCellArray
+protected IPartitionList createFilter();              // NEW, protected — factored out so PartOreDicStorageBus only overrides the filter contents, not the whole handler-rebuild method
+MEStorage findExternalStorage(TileEntity target, EnumFacing targetSide, boolean extractableOnly, Runnable changeListener);
+// Resolution order, all preserved from the pre-migration code: (1) IStorageMonitorableAccessor (direct link
+// to another ME network / storage-bus-on-interface), (2) IItemRepository (fork-specific, see above), (3) the
+// generic ExternalStorageStrategy registry via StackWorldBehaviors.createExternalStorageStrategies, composed
+// by a private CompositeExternalStorage when more than one AEKeyType answers (only items today; from wave 5
+// onward the same bus serves items and fluids simultaneously with no further change to this file).
+// `handler` is now one stable MEInventoryHandler instance for the part's whole lifetime (mirroring
+// AE2-original's StorageBusPart.StorageBusInventory) instead of a fresh object every rebuild: settings
+// changes (ACCESS/STORAGE_FILTER/FUZZY_MODE/Upgrades.INVERTER/CAPACITY/FUZZY/STICKY) just update its flags
+// in place, and IStorageProvider.requestUpdate(node) is only called when the registration-worthy state
+// actually flips (NullInventory ↔ a real target) or the priority setter runs — not on every settings change.
+
+// appeng.parts.misc.PartOreDicStorageBus extends PartStorageBus
+// No longer overrides getInternalHandler() at all (previously ~70 duplicated lines) — only createFilter()
+// is overridden, returning the ore-dictionary OreDictPriorityList instead of the config-slot-built one.
+// ACCESS/STORAGE_FILTER/Upgrades.INVERTER/Upgrades.STICKY/priority are shared, unchanged, with the base class.
+
+// appeng.parts.misc.PartInterface
+// Dropped `implements IStorageMonitorable` (interface deleted) and its `getInventory(IStorageChannel<T>)`
+// override — DualityInterface already implements MEStorage directly and exposes itself through
+// IStorageMonitorableAccessor via its own capability handler (both wave 2), so there was nothing left for
+// PartInterface itself to provide. Dropped the `onStackReturnNetwork(IAEItemStack)` override too — it is now
+// a `default` method on IInterfaceHost itself, already forwarding to the right place.
+public GenericStack injectCraftedItems(ICraftingLink link, GenericStack items, Actionable mode);   // was IAEItemStack
+
+// appeng.parts.reporting.AbstractPartTerminal implements ITerminalHost, ...
+public MEStorage getInventory();   // was <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T>)
+
+// appeng.parts.reporting.AbstractPartEncoder
+// GenericStack.wrapInItemStack(GenericStack) replaces IAEItemStack.createItemStack() for the crafting/output
+// preview slots — deliberately the generic wrapper (not an AEItemKey-only cast), so a processing pattern's
+// fluid ingredients (Upgrades.PATTERN_EXPANSION-adjacent fork feature, EXPANDED_PROCESSING_PATTERN_TERMINAL,
+// see §10) still display correctly once wave 5 lands, with no further change to this file.
+
+// appeng.parts.reporting.AbstractPartMonitor extends AbstractPartDisplay implements IPartStorageMonitor, IStorageWatcherNode
+// Collapsed the old split configuredItem/configuredFluid fields into a single `AEKey configuredKey` — a
+// type-erased key covers both variants (and any future one) uniformly, which the old per-channel IAEStack
+// subclasses could not. NBT/packet (de)serialisation now goes through AEKey.toTagGeneric/fromTagGeneric and
+// AEKey.writeOptionalKey/readOptionalKey instead of two separate AEItemStack/AEFluidStack (de)serialisers.
+public GenericStack getDisplayed();                 // was IAEStack<?>
+protected final AEKey getConfiguredKey();           // NEW, protected — the bare key, for subclasses (below) that need it without the amount getDisplayed() also carries
+public void onStackChange(AEKey what, long amount); // was onStackChange(IItemList<?>, IAEStack<?>, IAEStack<?>, IActionSource, IStorageChannel<?>)
+// configureWatchers() now reads getProxy().getStorage().getCachedInventory().get(key) — the network's own
+// per-tick cache (IStorageService#getCachedInventory, restored by the wave-1a review, §8.3's neighbour) —
+// instead of calling findPrecise() on a per-channel IMEMonitor's IItemList.
+
+// appeng.parts.reporting.PartConversionMonitor extends AbstractPartMonitor
+// insertItem/extractItem/drainFluidContainer/fillFluidContainer rewritten around AEItemKey/AEFluidKey and
+// Platform.poweredInsert/poweredExtraction's new `long` (amount actually moved) return value, replacing the
+// old "returns the leftover IAEItemStack/IAEFluidStack" contract everywhere those two methods were called.
+```
+
+**Sticky Card, ACCESS/STORAGE_FILTER/FUZZY_MODE, Upgrades.INVERTER/CAPACITY/FUZZY, the ore-dictionary mechanic, Upgrades.PATTERN_EXPANSION** — all audited against the pre-migration file and confirmed present, see the `PartStorageBus`/`PartOreDicStorageBus`/`PartInterface`/`AbstractPartEncoder` notes above.
+
+**Could not be literally preserved — reported per Rule 6, not silently dropped:** the pre-migration `PartStorageBus.updateSetting` compared the old vs. new `Settings.ACCESS` value specifically to replay one last full listing through `IStorageService#postAlterationOfStoredItems` *using the old (more permissive) access* before applying a stricter new one, so watchers got a proper "these items just disappeared" notification instead of the bus's contribution silently vanishing mid-cache. That method does not exist on the new `IStorageService` (§4.3) — there is no per-source posting entry point left at all, because `MEStorage` is not a per-listener monitor any more and the network now diffs its own cached view once per tick (`GridStorageCache.updateCachedStacks`, §8.3) instead of being pushed to. **Best-effort equivalent implemented:** every settings change (not just ACCESS) forces a full rebuild of `handler`'s flags via `resetCache(true)`, and any change that flips whether this bus contributes anything at all triggers `IStorageProvider.requestUpdate`, so the network re-derives its cache — and any watcher sees the bus's contents disappear — on the very next tick, centrally, instead of through a per-bus push. The visible *result* for a player is unchanged; the old *mechanism* that produced it no longer exists to be mirrored literally. Flagged here per Rule 6 rather than left silent.
+
+**Debt handed to wave 4 (`appeng.client.render`):** `AbstractPartMonitor.renderDynamic` calls `TesrRenderHelper.renderItem2dWithAmount`/`renderFluid2dWithAmount` as if their signatures were `(AEItemKey, long amount, float, float)`/`(AEFluidKey, long amount, float, float)`. The actual file (`appeng.client.render`, wave 4 scope, untouched here) still has the pre-migration `(IAEItemStack, float, float)`/`(IAEFluidStack, float, float)` signatures — those types no longer exist, so this was never going to compile against the old file regardless of how this wave wrote it. Wave 4 must update the two methods to take a key and an amount separately, mirroring every other forward reference already listed as debt in this file (e.g. wave 2's `TileCharger`/`ContainerOreDictStorageBus` entry).
+
+**Debt handed to wave 4 (`appeng.container`):** `ContainerStorageBus`/`ContainerOreDictStorageBus`/`ContainerFluidStorageBus` still call `this.storageBus.getInternalHandler()` and treat the result as `IMEInventory<IAEItemStack>`/`getAvailableItems(IItemList<IAEItemStack>)`. Not touched here (`appeng.container` is wave 4 per §7) — the new `getInternalHandler()` returns a plain `MEInventoryHandler` (a `MEStorage`); wave 4's `partition()`-style code should call `getAvailableStacks()` (a `KeyCounter`) and wrap each key with `AEKey.wrapForDisplayOrFilter()`/`GenericStack.wrapInItemStack` for the config slots, the same pattern wave 3c/3d already used elsewhere.
+
+Audited for the `GenericStack.equals()` hazard (§9.1): `PartConversionMonitor`'s wrench/fluid/item match checks (`onPartActivate`) and its inventory-scan match checks (`insertItem`'s `allItems` branch) all use `AEItemKey.matches(ItemStack)`/`AEFluidKey.matches(FluidStack)`, never `GenericStack.equals()` or a whole-`GenericStack` comparison — this is exactly the hazard case (the old `IAEStack` subclasses' `equals(ItemStack/FluidStack)` overloads ignored size) and every instance found was translated to the size-insensitive key-level check.
+
+### Wave 3a — `appeng.parts.automation` (done)
+
+Rewrote the six part classes named in the brief (`PartImportBus`, `PartExportBus`, `PartAnnihilationPlane`,
+`PartAbstractFormationPlane`, `PartFormationPlane`, `PartLevelEmitter`) plus a small, necessary companion
+(`PartIdentityAnnihilationPlane` — not in the brief's file list, but it subclasses `PartAnnihilationPlane`
+and overrode two methods that no longer exist on the part once pickup moved into a strategy object; leaving
+it untouched would have silently dropped the whole "Identity Annihilation Plane" mechanic, which rule 6
+forbids). Created the whole item strategy layer plus the registration entry point.
+
+**New classes (all package-private except `InitStackWorldBehaviors`, which must be public for
+`appeng.core.Registration` to call):**
+
+```java
+// appeng.parts.automation.StackTransferContextImpl implements StackTransferContext
+StackTransferContextImpl(MEStorage internalStorage, IEnergySource energySource, IActionSource actionSource,
+        int operationsRemaining, IPartitionList filter, @Nullable FuzzyMode fuzzyMode);
+boolean hasDoneWork();                 // initialOperations > operationsRemaining, for TickRateModulation
+IPartitionList getPartitionList();     // extension beyond the frozen interface, see note below
+@Nullable FuzzyMode getFuzzyMode();    // extension beyond the frozen interface
+IEnergySource getEnergySource();       // extension beyond the frozen interface
+
+// appeng.parts.automation.HandlerStrategy — thin AEKeyType.items() <-> InventoryAdaptor association
+static final HandlerStrategy ITEMS;
+AEKeyType getKeyType();  boolean isSupported(AEKey what);
+
+// appeng.parts.automation.StorageImportStrategy implements StackImportStrategy
+StorageImportStrategy(World world, BlockPos fromPos, EnumFacing fromSide);
+static StackImportStrategy createItem(World world, BlockPos fromPos, EnumFacing fromSide);
+
+// appeng.parts.automation.StorageExportStrategy implements StackExportStrategy
+StorageExportStrategy(World world, BlockPos fromPos, EnumFacing fromSide);
+static StackExportStrategy createItem(World world, BlockPos fromPos, EnumFacing fromSide);
+
+// appeng.parts.automation.StackImportFacade / StackExportFacade / PlacementStrategyFacade
+// — iterate/dispatch over List<StackImportStrategy>, List<StackExportStrategy>,
+//   Map<AEKeyType, PlacementStrategy> respectively. Ported verbatim from AE2-original.
+
+// appeng.parts.automation.ItemPickupStrategy implements PickupStrategy
+ItemPickupStrategy(World world, BlockPos pos, EnumFacing side, TileEntity host,
+        Map<Enchantment, Integer> enchantments, @Nullable UUID ownerUuid);
+protected float calculateEnergyUsage(WorldServer w, BlockPos pos, List<ItemStack> items);   // overridable
+protected List<ItemStack> obtainBlockDrops(WorldServer w, BlockPos pos);                    // overridable
+
+// appeng.parts.automation.IdentityItemPickupStrategy extends ItemPickupStrategy
+IdentityItemPickupStrategy(World world, BlockPos pos, EnumFacing side, TileEntity host,
+        Map<Enchantment, Integer> enchantments, @Nullable UUID ownerUuid);
+// overrides calculateEnergyUsage (x16) and obtainBlockDrops (always the silk-touch result) — this is
+// exactly what PartIdentityAnnihilationPlane used to override directly on the part.
+
+// appeng.parts.automation.ItemPlacementStrategy implements PlacementStrategy
+ItemPlacementStrategy(World world, BlockPos pos, EnumFacing fromSide, TileEntity host, @Nullable UUID ownerUuid);
+
+// appeng.parts.automation.InitStackWorldBehaviors — PUBLIC, the wave's entry point
+public static void register();   // items only: import, export, placement, pickup. No ExternalStorageStrategy
+                                  // (that belongs to agent 3-2's appeng.parts.misc.InitExternalStorageStrategies).
+
+// appeng.parts.automation.PartAbstractFormationPlane extends PartUpgradeable
+//         implements IStorageProvider, IPriorityHost, MEStorage   — no longer generic over IAEStack<T>
+protected abstract AEKeyType getKeyType();
+protected abstract AppEngInternalAEInventory getConfigInventory();
+protected int getFilterSlotsInUse();                     // default 18 + Upgrades.CAPACITY*9
+protected final PlacementStrategy getPlacementStrategies();
+protected boolean matchesConfiguredFilter(AEKey what);
+public abstract long insert(AEKey, long, Actionable, IActionSource);   // left abstract, like the old injectItems()
+// extract()->0, getAvailableStacks()->no-op, getDescription()->getItemStackRepresentation().getDisplayName()
+
+// appeng.parts.automation.PartFormationPlane extends PartAbstractFormationPlane
+// getKeyType() = AEKeyType.items(); config is still a 63-slot AppEngInternalAEInventory (unchanged size).
+```
+
+**Why `StackTransferContext` needed extra, non-frozen accessors on `StackTransferContextImpl`.** AE2UD's
+frozen `StackTransferContext` (CONTRACT.md §3) is deliberately smaller than AE2-original's: it has no
+`getEnergySource()`, no `isInFilter()`/`isKeyTypeEnabled()`. But the pre-port `PartImportBus`/`PartExportBus`
+charged AE power for every network access (`Platform.poweredInsert`/`poweredExtraction`) and drove a
+per-slot configured-filter loop — both real, currently-live mechanics, not something introduced this wave.
+Since `StackTransferContextImpl` is an implementation class in `main` (not part of the frozen surface), it
+exposes `getEnergySource()`/`getPartitionList()`/`getFuzzyMode()` as **additional** package-private methods
+beyond the interface; `StorageImportStrategy`/`StorageExportStrategy` cast their `StackTransferContext`
+parameter to the concrete type to reach them. This is the same pattern earlier waves used to restore
+mechanics that didn't fit a frozen shape verbatim (§10, "Restored regressions") — nothing on the frozen
+interface changed, no api file was touched.
+
+**Contradicted CONTRACT.md — since resolved by amending the api, see §8.4.** §3's note on
+`PickupStrategy.Factory` claimed fortune and silk touch were "the only two enchantments the annihilation
+plane actually reads." That was false: AE2UD's energy-cost formula (`ItemPickupStrategy#calculateEnergyUsage`,
+ported unchanged from the pre-port `PartAnnihilationPlane`) also reads Efficiency and Unbreaking. The wave 3a
+agent kept the mechanic by having `PartAnnihilationPlane` bypass the registry and build its
+`ItemPickupStrategy` directly from the full enchantment map. That preserved behaviour but left the
+*registered* item strategy lossy, so an addon reaching the plane through
+`StackWorldBehaviors.createPickupStrategies` would have got the wrong energy model. The factory now carries
+the whole map and the bypass is gone.
+
+**Item-only exception to "no item-specific logic in the bus parts": craft-on-demand.** `PartExportBus`'s
+craft-on-demand path still calls `MultiCraftingTracker.handleCrafting(int, long, AEKey, InventoryAdaptor, ...)`
+— that signature is frozen from wave 1b/2 (CONTRACT.md §9, "IMPORTANT for wave 2") and needs an
+`InventoryAdaptor` to pre-check whether the destination can accept the crafted result before a job starts.
+Autocrafting itself is entirely item/`GenericStack`-based in this codebase already (§4.4: aligning the
+crafting API is out of scope for v1), so `PartExportBus` obtains that adaptor the same way
+`PartSharedItemBus` always did (`getHandler()`) purely for that one pre-check; the actual push once a craft
+completes (`injectCraftedItems`) goes through the generic `StackExportStrategy.push(...)`, not the adaptor.
+This is not a regression — it is the shape wave 1b/2 already committed to.
+
+**`StorageImportStrategy`/`StorageExportStrategy`/`HandlerStrategy` are adapted, not literal ports.**
+AE2-original's versions talk to the adjacent block through a raw `Storage<ItemVariant>`/`ResourceHandler`
+capability. Doing the same in 1.12.2 via the bare `IItemHandler` capability would have silently dropped a
+mechanic the pre-port `PartImportBus`/`PartExportBus` already had for free: `appeng.util.InventoryAdaptor`
+also transparently supports Storage Drawers' `IItemRepository` capability
+(`appeng.util.inv.AdaptorItemRepository`) alongside plain `IItemHandler`. `StorageImportStrategy`/
+`StorageExportStrategy` therefore wrap `InventoryAdaptor.getAdaptor(...)` (exactly how the pre-port classes
+reached the adjacent inventory) instead of a raw capability, preserving that integration. `HandlerStrategy`
+still exists (as the brief asked) but is a thin `AEKeyType`/support-check association rather than the
+generic `<C, S>` conversion layer upstream has — there is only one handler kind to support this wave (items;
+fluids is wave 5's own file).
+
+**Formation plane split preserved, not merged.** AE2-original merged item and fluid formation planes into
+one `FormationPlanePart` now that `MEStorage` is type-erased. AE2UD keeps them as separate part
+items/blocks (matching the pre-port shape and `appeng.items.parts.PartType`'s registration, which is
+outside this wave's scope to change), so `PartAbstractFormationPlane` is non-generic but still
+single-key-type per instance: each concrete plane declares its own `getKeyType()` and `insert()` rejects
+any other type. **Wave 5 requirement:** `appeng.fluids.parts.PartFluidFormationPlane` currently extends the
+deleted generic `PartAbstractFormationPlane<IAEFluidStack>`. It must be changed to extend the new
+non-generic `PartAbstractFormationPlane`, implement `getKeyType()` returning `AEKeyType.fluids()`, supply its
+own `getConfigInventory()`, and implement `insert(...)` with its own fluid placement logic (block/entity
+placement is inherently fluid-shaped, unlike the item template in `PartFormationPlane`).
+
+**Minor, deliberate behavioural simplifications (not mechanic losses):**
+- `PickupStrategy.pickUpEntity`'s frozen contract is "true if the entity was consumed" (not "true if
+  anything changed", which is what the pre-port `storeEntityItem` returned). `ItemPickupStrategy` follows
+  the frozen contract's wording; the visual transition-effect packet in `PartAnnihilationPlane` therefore
+  only fires on full pickup, not on a partial-overflow shrink. The storage mechanic itself (partial
+  insertion, shrinking the entity's stack) is unchanged.
+- `PartImportBus`'s old `isSleeping()` override (`getHandler() == null || super.isSleeping()`) is gone,
+  because the bus no longer holds a bus-wide `InventoryAdaptor` field to null-check; `canDoBusWork()`'s
+  per-tick chunk-loaded gate (unchanged) already prevents wasted work each tick, so this only affects how
+  eagerly the node goes to sleep as an optimisation, not correctness.
+- Import-bus per-slot filter order became enumeration order over an `IPartitionList`/`KeyCounter` instead of
+  literal config-slot order (both drain fully whenever there's enough operation budget in a tick; this only
+  matters when the budget runs out mid-way, a cosmetic scheduling nuance).
+
+**§9.1 hazard, audited:** no whole-`GenericStack` comparisons anywhere in this wave's files; every identity
+check compares `AEKey`s (`AEItemKey.of(...)`, `.equals(...)`, `AEItemKey.is(...)`) or uses
+`GenericStack.what()`/`.amount()` explicitly where both are meant.
+
+### Wave 3c — `appeng.items.storage`, `appeng.items.contents`, `appeng.recipes` (done)
+
+Six files: `AbstractStorageCell`, `BasicItemStorageCell`, `ItemCreativeStorageCell`, `ItemViewCell` (all `appeng.items.storage`), `PortableCellViewer` (`appeng.items.contents`), `DisassembleRecipe` (`appeng.recipes.game`).
+
+```java
+// appeng.items.storage.AbstractStorageCell — no longer generic (dropped <T extends IAEStack<T>>)
+public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCellItem, IItemGroup
+// isBlackListed(ItemStack, AEKey) — was isBlackListed(ItemStack, T)
+// getKeyType() stays abstract, implemented per key type by subclasses
+
+// appeng.items.storage.BasicItemStorageCell extends AbstractStorageCell  (was AbstractStorageCell<IAEItemStack>)
+public AEKeyType getKeyType() { return AEKeyType.items(); }   // was getChannel() -> IStorageChannel<IAEItemStack>
+
+// appeng.items.storage.ItemCreativeStorageCell implements IBasicCellItem   (was ICellWorkbenchItem only)
+public AEKeyType getKeyType() { return AEKeyType.items(); }   // fixes the wave-2-deferred gap, see below
+public int getBytes(ItemStack)/getBytesPerType(ItemStack)/getTotalTypes(ItemStack); public double getIdleDrain();
+// declared to satisfy the interface; CreativeCellInventory never reads them (its capacity is unlimited by
+// design), values chosen to read as "unlimited" (Integer.MAX_VALUE bytes/types, 0 idle drain) if anything
+// ever does query them (e.g. a future cell-workbench display)
+
+// appeng.items.storage.ItemViewCell — unchanged public shape except createFilter
+public static AEKeyFilter createFilter(ItemStack[] list);   // was IPartitionList<IAEItemStack>; NEVER returns
+// null — AEKeyFilter.all() stands in for the old "no filter installed" null. See the method's javadoc
+// in the file itself for the full rationale and the note to waves 4/5 below.
+
+// appeng.items.contents.PortableCellViewer extends DelegatingMEInventory implements IPortableCell, IInventorySlotAware
+// (was MEMonitorHandler<IAEItemStack>). Public constructor unchanged: PortableCellViewer(ItemStack is, int slot).
+public MEStorage getInventory();   // returns this — ITerminalHost
+// injectItems/extractItems overrides (and their notifyListenersOfChange calls) are GONE — there is nothing
+// to override any more, since MEStorage's insert/extract are forwarded as-is by DelegatingMEInventory. See
+// the live-update note below.
+
+// appeng.recipes.game.DisassembleRecipe — no public signature change; internals only
+// getOutput(...) now empties-checks via StorageCells.getCellInventory(stackInSlot, null).getAvailableStacks().isEmpty()
+// instead of the deleted IMEInventory<IAEItemStack>/IItemList<IAEItemStack> pair.
+```
+
+**Fixed the wave-2-deferred gap.** `ItemCreativeStorageCell` now implements `IBasicCellItem`. `TileChest`/`TileDrive`/`TileIOPort`'s `is.getItem() instanceof IBasicCellItem c ? c.getKeyType() : AEKeyType.items()` now takes the `IBasicCellItem` branch for the creative cell instead of the default-to-items fallback. Behaviourally identical either way today — AE2UD has exactly one creative cell item and it has always been item-only (no creative fluid cell exists in this codebase, confirmed by grep) — but the type is now declared rather than inferred by omission, so an addon (or a future AE2UD creative fluid cell) that pattern-matches on `IBasicCellItem` sees the creative cell correctly.
+
+**`ItemViewCell.createFilter` return type — the decision waves 4/5 need to know.** The task brief called for `AEKeyFilter`; the api-level `AEKeyFilter` was chosen over the already-multi-type-capable `appeng.util.prioritylist.IPartitionList` (which wave 1 had already turned into a non-generic, `AEKey`-based type — it would have satisfied "works for every key type" too) because `AEKeyFilter` is the frozen, addon-facing type whose javadoc states it "Replaces the various per-channel filter interfaces", i.e. it is the intended long-term home for exactly this kind of predicate. Internally `createFilter` is unchanged: it still builds an `IPartitionList`/`MergedPriorityList` (the same fuzzy/inverter/merge machinery `BasicCellInventory` uses for a cell's own partition list) and exposes it as an `AEKeyFilter` via `list::isListed` (a method reference is valid regardless of the method's name, only its signature has to match `AEKeyFilter.matches(AEKey)`, which `isListed(AEKey)` does).
+
+The friction this creates: `appeng.util.Platform.extractItemsByRecipe(..., IPartitionList filter)` (frozen since wave 1) is fed the result of `ItemViewCell.createFilter(...)` directly at three call sites — `appeng.container.slot.SlotCraftingTerm`, `appeng.container.implementations.ContainerPatternEncoder`, `appeng.core.sync.packets.PacketJEIRecipe` — all three in wave 4's scope and already broken by unrelated deleted types (`IMEMonitor`, `IStorageGrid`, `IItemList<IAEItemStack>`), so they need a full rewrite regardless of this choice. When wave 4 gets there: either give `Platform.extractItemsByRecipe` an additional `AEKeyFilter`-typed overload (additive, does not break the four-argument `IPartitionList` form), or adapt at the call site. Do **not** try to make `IPartitionList` and `AEKeyFilter` interchangeable by retrofitting inheritance between them — `IPartitionList` carries `isEmpty()`/`getItems()` that an arbitrary `AEKeyFilter` cannot generally supply.
+
+**`ItemViewCell.createFilter` never returns null.** Empty/no-op input now yields `AEKeyFilter.all()` instead of `null`, so every caller's old `if (filter != null && !filter.isListed(x))` collapses to `if (!filter.matches(x))`. This is a call-site simplification available to whichever wave rewrites each caller; it is not itself a behaviour change (`AEKeyFilter.all()` matches everything, the same as skipping the check the old null did).
+
+**`PortableCellViewer` gave up its own live-update push** (the `injectItems`/`extractItems` overrides and their `notifyListenersOfChange` calls) because the `IMEMonitor`/`MEMonitorHandler` listener layer they used no longer exists anywhere in the codebase. This is deliberate, not a silent cut: CONTRACT.md §10 ("Third case: terminal live updates") already identifies this exact gap — "Portable cell / view-only cell terminals ... There is no replacement yet ... Wave 4 needs a small push interface on this path" — and wave 2 already hit the same wall in `WirelessTerminalGuiObject`, which forwards `insert`/`extract` with no notification step either. `PortableCellViewer` now matches that established precedent instead of inventing a second, different stopgap. Reads/writes to a portable cell's contents work; a terminal watching a portable cell open in a player's hand will not refresh live until wave 4 designs the replacement push interface, exactly as already flagged.
+
+**Debt handed to wave 5 (fluids):** `appeng.fluids.items.BasicFluidStorageCell extends AbstractStorageCell<IAEFluidStack>` still uses the old generic form and overrides the now-removed `getChannel()`. It was already broken (uses deleted `IAEFluidStack`/`IStorageChannel`) and out of this wave's scope (`appeng.fluids` is wave 5 in its entirety per §7). Wave 5 must change it to `extends AbstractStorageCell` and replace `getChannel()` with `public AEKeyType getKeyType() { return AEKeyType.fluids(); }`, mirroring `BasicItemStorageCell` exactly.
+
+**Audited for the `GenericStack.equals()` hazard (§9.1):** none of the six files compared whole stacks for identity; `ItemViewCell`/`BasicCellInventory`-style partition building always keyed off `AEKey`, never a `GenericStack`, so there was nothing to fix here.
+
+**Nothing implemented against `GenericStack.Wrapper`.** `ItemViewCell.keyOf`/`ItemCreativeStorageCell` decode a config slot's `ItemStack` defensively via `GenericStack.isWrapped`/`unwrapItemStack` (mirroring `appeng.core.api.ApiClientHelper`'s wave-2 `keyOf` helper), but the wrapper item itself still does not exist anywhere in `src/main` — confirmed by grep, and `appeng.core.Registration.java:222-224` still carries the wave-2 `// TODO wave 3: once the GenericStack.Wrapper item ... exists` comment un-actioned. Creating that item is out of this wave's assigned file list (it would live under `appeng.items.misc` and be wired up in `appeng.core.Registration`, both explicitly other agents' territory this wave), so it is reported here rather than attempted: **whichever wave creates it must also flip the `Registration.java` TODO to a real `GenericStack.setWrapper(...)` call**, at which point view cells and the creative-cell tooltip transparently start supporting non-item keys with no further change to the files in this entry.
+
+### Wave 3d — `appeng.items.misc`, `appeng.items.tools.powered`, registration (done)
+
+Four rewritten files (`ItemEncodedPattern`, `ToolPortableCell`, `ToolColorApplicator`, `ToolMatterCannon`), one new file (`WrappedGenericStack`), and edits to the two files this wave owns exclusively (`appeng.core.Registration`, `appeng.core.api.definitions.ApiItems`).
+
+```java
+// appeng.items.misc.WrappedGenericStack extends AEBaseItem implements GenericStack.Wrapper   — NEW
+// The 1.12.2 implementation of the GenericStack.Wrapper SPI (CONTRACT.md §1.5 / §8 item 3 / §8.1 item 2).
+public WrappedGenericStack();                              // setMaxStackSize(1)
+public ItemStack wrap(AEKey what, long amount);             // new ItemStack(this) + GenericStack.writeTag
+public boolean isWrapped(ItemStack stack);                  // stack.getItem() == this
+public GenericStack unwrap(ItemStack stack);                // GenericStack.readTag, null if unreadable
+public String getItemStackDisplayName(ItemStack stack);     // wrapped key's getDisplayName()
+public void addCheckedInformation(...);                     // "<name>: <formatted amount>" tooltip line
+protected void getCheckedSubItems(...);                      // no-op — never listed in any creative tab
+public void onUpdate(ItemStack stack, World world, Entity entity, int itemSlot, boolean isSelected);
+// ^ sweep hook: scans player.inventory by stack identity (same pattern ItemEncodedPattern.clearPattern
+//   uses) and clears the slot if this item is ever found there. Registered via Item#onUpdate, the same
+//   per-tick hook appeng.items.tools.powered.ToolWirelessTerminal already used for its magnet logic —
+//   confirmed as the correct 1.12.2 equivalent of a "runs every tick while an ItemStack sits in a player's
+//   main inventory" callback.
+
+// appeng.core.api.definitions.ApiItems — one new registration + getter (mirrors dummyFluidItem()'s pattern)
+this.wrappedGenericStack = registry.item("wrapped_generic_stack", WrappedGenericStack::new)
+        .creativeTab(null).build();
+public IItemDefinition wrappedGenericStack();
+
+// appeng.core.Registration.initialize() — the wave-2 TODO at line ~222 is now:
+definitions.items().wrappedGenericStack().maybeItem()
+        .ifPresent(item -> GenericStack.setWrapper((GenericStack.Wrapper) item));
+InitStackWorldBehaviors.register();          // appeng.parts.automation — agent 3-1's entry point
+InitExternalStorageStrategies.register();    // appeng.parts.misc — agent 3-2's entry point
+// All three calls sit after StorageCells.addCellHandler/addCellGuiHandler and after the AEKeyType Forge
+// registry is populated (that happens in newRegistry(), RegistryEvent.NewRegistry, long before this
+// FMLInitializationEvent handler runs) — satisfying the ordering both the wave-2 TODO and this wave's
+// brief called for. Neither appeng.parts.automation.InitStackWorldBehaviors nor
+// appeng.parts.misc.InitExternalStorageStrategies exists on disk yet at the time of this edit — expected,
+// per the big-bang rule; both are `public static void register()` per the brief that named them.
+```
+
+**The four rewritten cell/pattern items — same shape of change in all three cell items:**
+`IStorageCell<IAEItemStack>` → `IBasicCellItem`; `getChannel(): IStorageChannel<IAEItemStack>` → `getKeyType(): AEKeyType` returning `AEKeyType.items()`; `isBlackListed(ItemStack, IAEItemStack)` → `isBlackListed(ItemStack, AEKey)` (each now pattern-matches `instanceof AEItemKey`, defaulting to blacklisted for any non-item key, matching the old code's `null`-falls-through-to-`true` default); the `AEApi.instance().registries().cell().getCellInventory(stack, null, channel)` tooltip lookup → `StorageCells.getCellInventory(stack, null)` (no channel argument — a cell no longer needs one to be resolved). `getBytes`/`getBytesPerType`/`getTotalTypes`/`getIdleDrain`/`storableInStorageCell`/`isStorageCell` keep their old numeric bodies unchanged in all three items.
+
+**`ToolMatterCannon`:** the ammo-selection/firing loop (`onItemRightClick`) now reads the cell's `KeyCounter.getFirstEntry()` (key + amount together, replacing `IAEItemStack.getStackSize()` living on the same object the identity did) and fires `MEStorage.extract(ammoKey, 1, MODULATE, ...)` once per shot instead of copying/mutating an `IAEItemStack`. `Upgrades.SPEED` shot-count math, the paintball-vs-matter-ball branch (`penetration <= 0`), and the entity/block damage model in `standardAmmo`/`shootPaintBalls` are untouched — only the ammo lookup/extraction plumbing changed. No `Upgrades.MAGNET`/`Upgrades.QUANTUM_LINK` reference exists in this file (only `Upgrades.SPEED`); §10's "at risk" magnet/quantum-link entries live in `UpgradeInventory`/`ItemMaterial`, outside this wave's file list, so nothing to restore here.
+
+**`ToolColorApplicator`:** the cell-backed dye storage (`consumeColor`, `consumeItem`, `setActiveColor`, `findNextColor`, the color-cycling used by `onWheel`/sneak-right-click) now walks `MEStorage.getAvailableStacks()` (a `KeyCounter`) and extracts via `AEItemKey`/`MEStorage.extract` instead of `IMEInventory<IAEItemStack>.getAvailableItems()`/`extractItems()`. Colour cycling, the "next/previous colour" scroll behaviour, and the cell-backed dye storage mechanic are all preserved.
+
+**§9.1 hazard, specifically checked in `ToolColorApplicator.findNextColor`:** the old code cycled a `LinkedList<IAEItemStack>` until `where.equals(anchor)`, where `anchor` is a plain `ItemStack` — this relied on old `AEItemStack.equals(ItemStack)` overriding `Object.equals` to mean "same item, ignore count" (confirmed by reading the pre-migration `AEItemStack.equals` at commit `128816d22`). Translated to `AEItemKey where; ItemStack anchor; where.matches(anchor)` — `AEItemKey.matches(ItemStack)` is the size-insensitive "same item" comparison, i.e. the correct target, **not** `GenericStack.equals()`. No whole-`GenericStack` comparison exists anywhere in the four rewritten files.
+
+**`ItemEncodedPattern`:** `ICraftingPatternDetails.getCondensedInputs()`/`getCondensedOutputs()` now return `GenericStack[]` instead of `IAEItemStack[]`; the tooltip loop reads `anOut.amount()` + `Platform.getItemDisplayName(anOut.what())` in place of `anOut.getStackSize()` + `Platform.getItemDisplayName(anOut)`. `getOutput(ItemStack)` (the cached-icon accessor) now builds its `ItemStack` via `GenericStack.wrapInItemStack(details.getOutputs()[0])` instead of the deleted `IAEItemStack.createItemStack()`; because `AEItemKey` is handled inline by `wrapInItemStack` (CONTRACT.md §1.5), this works today even for pattern outputs (always items in this fork) without depending on the wrapper item at all. Pattern inputs/outputs, substitution flags, and the crafting-vs-processing distinction are all unchanged; `InvalidPatternHelper` (the invalid-pattern tooltip branch) was never touched — it already operated on raw NBT/`ItemStack`, not `IAEItemStack`.
+
+**`ToolPortableCell`:** cell-side shape change only (see above); the GUI hookup (`getGuiObject` → `new PortableCellViewer(is, pos.getX())`) is untouched — `PortableCellViewer`'s constructor was already ported to the same `(ItemStack, int)` signature by the wave-3c agent (`appeng.items.contents`, done in parallel), confirmed by reading the file after that wave landed. `ContainerMEMonitorable`/the portable-cell push design are wave 4's explicitly-deferred decision (CONTRACT.md §10, "Third case") and were not touched here, per the brief.
+
+**Nothing left against `GenericStack.Wrapper` for later waves to resolve** — installed and wired up, closing the gap wave 3c's entry flagged ("whichever wave creates it must also flip the `Registration.java` TODO"). `appeng.util.Platform`, `appeng.core.api.ApiClientHelper` (`keyOf`), `appeng.items.storage.ItemViewCell`/`ItemCreativeStorageCell` (wave 3c) all called `GenericStack.isWrapped`/`unwrapItemStack`/`wrapForDisplayOrFilter` defensively before this wave landed the actual implementation; they now resolve non-item keys instead of throwing `IllegalStateException`.
+
+**Could not be verified in-game** (no compiler feedback per the big-bang rule, and this wave does not include the multi-type filter GUI that would actually display a wrapped stack in a slot): the wrapper item has no client-side model/rendering registered. This is deliberate, not an oversight — CONTRACT.md §5 defers "the multi-type filter GUI" to wave 4 ("no 1.12.2 precedent exists in any source"), and the established precedent for a placeholder item in this codebase (`FluidDummyItem`) is rendered by GUI code drawing the wrapped content's own icon directly rather than through the vanilla item model (see `FluidDummyItemRendering`). Wave 4 should follow the same pattern for `WrappedGenericStack` once the multi-type GUI exists, rather than giving the item its own texture.
+
+Audited clean as of wave 3d: `appeng.items.misc`, `appeng.items.tools.powered` (the four rewritten files) — one identity comparison found and fixed (`ToolColorApplicator.findNextColor`, see above); no whole-`GenericStack` comparisons anywhere in this wave's files.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
@@ -967,6 +1339,12 @@ A literal translation therefore compiles cleanly and silently changes behaviour.
 **Rule:** when the old code compared stacks for identity, compare `a.what().equals(b.what())`, not `a.equals(b)`. Only compare whole `GenericStack`s when the amount genuinely is part of the comparison. Audit every `.equals(` you carry over from a stack comparison, and say in your report which ones you checked.
 
 Audited clean as of wave 2: `appeng.me`, `appeng.crafting`, `appeng.helpers`, `appeng.util`, `appeng.tile`, `appeng.core`.
+
+Audited clean as of wave 3c: `appeng.items.storage`, `appeng.items.contents`, `appeng.recipes.game` (the six files in that entry) — no whole-`GenericStack` comparisons; all identity checks key off `AEKey`.
+
+Audited clean as of wave 3d: `appeng.items.misc`, `appeng.items.tools.powered` (the four files rewritten in that entry) — one size-insensitive identity comparison found and translated to `AEItemKey.matches(ItemStack)` (`ToolColorApplicator.findNextColor`); no whole-`GenericStack` comparisons anywhere in this wave's files.
+
+Audited clean as of wave 3b: `appeng.parts.misc`, `appeng.parts.reporting` (the nine files in that entry) — several size-insensitive identity comparisons found (`PartConversionMonitor.onPartActivate`'s wrench/fluid/item matches, `insertItem`'s inventory scan), all translated to `AEItemKey.matches(ItemStack)`/`AEFluidKey.matches(FluidStack)`; no whole-`GenericStack` comparisons anywhere in this wave's files.
 
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 

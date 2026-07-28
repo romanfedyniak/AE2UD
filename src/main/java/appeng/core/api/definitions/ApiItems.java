@@ -125,6 +125,8 @@ public final class ApiItems implements IItems {
 
     private final IItemDefinition dummyFluidItem;
 
+    private final IItemDefinition wrappedGenericStack;
+
     public ApiItems(FeatureFactory registry) {
         FeatureFactory certusTools = registry.features(AEFeature.CERTUS_QUARTZ_TOOLS);
         this.certusQuartzAxe = certusTools.item("certus_quartz_axe", () -> new ToolQuartzAxe(AEFeature.CERTUS_QUARTZ_TOOLS))
@@ -270,6 +272,12 @@ public final class ApiItems implements IItems {
         this.toolReplicatorCard = debugTools.item("debug_replicator_card", ToolReplicatorCard::new).build();
 
         this.dummyFluidItem = registry.item("dummy_fluid_item", FluidDummyItem::new).rendering(new FluidDummyItemRendering()).build();
+
+        // CONTRACT.md section 1.5 / section 8 item 3: the GenericStack.Wrapper implementation. Never shown, never
+        // craftable, installed as the wrapper during Registration.initialize().
+        this.wrappedGenericStack = registry.item("wrapped_generic_stack", WrappedGenericStack::new)
+                .creativeTab(null)
+                .build();
     }
 
     @Override
@@ -519,5 +527,9 @@ public final class ApiItems implements IItems {
 
     public IItemDefinition dummyFluidItem() {
         return this.dummyFluidItem;
+    }
+
+    public IItemDefinition wrappedGenericStack() {
+        return this.wrappedGenericStack;
     }
 }

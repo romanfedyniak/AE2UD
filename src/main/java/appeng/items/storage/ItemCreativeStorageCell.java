@@ -19,12 +19,11 @@
 package appeng.items.storage;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.ICellWorkbenchItem;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.channels.IItemStorageChannel;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import net.minecraft.client.util.ITooltipFlag;
@@ -37,10 +36,46 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 
-public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenchItem {
+/**
+ * The creative storage cell: reports as an {@link IBasicCellItem} of {@link AEKeyType#items()} - it
+ * has always behaved as an item-only cell - so {@code TileChest}/{@code TileDrive}/{@code TileIOPort}
+ * read its key type correctly instead of falling back to the {@code items()} default for every
+ * non-{@link IBasicCellItem} item (see CONTRACT.md §9, wave 2 note "A cell's key type").
+ * <p/>
+ * {@link #getBytes}/{@link #getBytesPerType}/{@link #getTotalTypes}/{@link #getIdleDrain} are declared
+ * to satisfy the interface but are not consulted by {@link appeng.me.storage.CreativeCellInventory},
+ * which never limits itself by byte/type accounting - they are set to values that read naturally as
+ * "unlimited" should any future caller (e.g. the cell workbench GUI) query them.
+ */
+public class ItemCreativeStorageCell extends AEBaseItem implements IBasicCellItem {
 
     public ItemCreativeStorageCell() {
         this.setMaxStackSize(1);
+    }
+
+    @Override
+    public AEKeyType getKeyType() {
+        return AEKeyType.items();
+    }
+
+    @Override
+    public int getBytes(final ItemStack cellItem) {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public int getBytesPerType(final ItemStack cellItem) {
+        return 8;
+    }
+
+    @Override
+    public int getTotalTypes(final ItemStack cellItem) {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public double getIdleDrain() {
+        return 0;
     }
 
     @Override
@@ -71,13 +106,9 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
     @SideOnly(Side.CLIENT)
     @Override
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
-        final IMEInventoryHandler<?> inventory = AEApi.instance()
-                .registries()
-                .cell()
-                .getCellInventory(stack, null,
-                        AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+        final StorageCell inventory = StorageCells.getCellInventory(stack, null);
 
-        if (inventory instanceof ICellInventoryHandler) {
+        if (inventory != null) {
             final CellConfig cc = new CellConfig(stack);
 
             for (final ItemStack is : cc) {

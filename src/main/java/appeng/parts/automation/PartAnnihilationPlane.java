@@ -18,17 +18,38 @@
 
 package appeng.parts.automation;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
+
+import com.google.common.collect.ImmutableList;
+
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
 import appeng.api.AEApi;
+import appeng.api.behaviors.PickupStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.Actionable;
-import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -36,56 +57,22 @@ import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.core.sync.packets.PacketTransitionEffect;
-import appeng.hooks.TickHandler;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.PartBasicState;
 import appeng.util.EnchantmentUtil;
-import appeng.util.IWorldCallable;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
-import appeng.util.item.AEItemStack;
-import com.google.common.collect.Lists;
-import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.item.EntityItem;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Blocks;
-import net.minecraft.init.Enchantments;
-import net.minecraft.init.Items;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
-import net.minecraftforge.common.util.FakePlayer;
-import net.minecraftforge.common.util.FakePlayerFactory;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
-
-
-public class PartAnnihilationPlane extends PartBasicState implements IGridTickable, IWorldCallable<TickRateModulation> {
+public class PartAnnihilationPlane extends PartBasicState implements IGridTickable {
 
     private static final PlaneModels MODELS = new PlaneModels("part/annihilation_plane_", "part/annihilation_plane_on_");
 
@@ -95,8 +82,9 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     }
 
     private final IActionSource mySrc = new MachineSource(this);
-    private boolean isAccepting = true;
-    private boolean breaking = false;
+
+    @Nullable
+    private List<PickupStrategy> pickupStrategies;
 
     /**
      * Enchantments found on the plane when it was placed will be used to enchant the fake tool used for picking up
@@ -107,13 +95,6 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     public PartAnnihilationPlane(final ItemStack is) {
         super(is);
     }
-
-    @Override
-    public TickRateModulation call(final World world) throws Exception {
-        this.breaking = false;
-        return this.breakBlock(true);
-    }
-
 
     @Override
     public void getBoxes(final IPartCollisionHelper bch) {
@@ -227,130 +208,88 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
 
     @Override
     public void onEntityCollision(final Entity entity) {
-        if (this.isAccepting && entity instanceof EntityItem && !entity.isDead && Platform.isServer() && this.getProxy().isActive()) {
-            boolean capture = false;
-            final BlockPos pos = this.getTile().getPos();
+        if (!(entity instanceof EntityItem) || entity.isDead || !Platform.isServer() || !this.getProxy().isActive()) {
+            return;
+        }
 
-            // This is the middle point of the entities BB, which is better suited for comparisons that don't rely on it
-            // "touching" the plane
-            double posYMiddle = (entity.getEntityBoundingBox().minY + entity.getEntityBoundingBox().maxY) / 2.0D;
+        boolean capture = false;
+        final BlockPos pos = this.getTile().getPos();
 
-            switch (this.getSide()) {
-                case DOWN:
-                case UP:
-                    if (entity.posX > pos.getX() && entity.posX < pos.getX() + 1) {
-                        if (entity.posZ > pos.getZ() && entity.posZ < pos.getZ() + 1) {
-                            if ((entity.posY > pos.getY() + 0.9 && this.getSide() == AEPartLocation.UP) || (entity.posY < pos.getY() + 0.1 && this
-                                    .getSide() == AEPartLocation.DOWN)) {
-                                capture = true;
-                            }
-                        }
-                    }
-                    break;
-                case SOUTH:
-                case NORTH:
-                    if (entity.posX > pos.getX() && entity.posX < pos.getX() + 1) {
-                        if (posYMiddle > pos.getY() && posYMiddle < pos.getY() + 1) {
-                            if ((entity.posZ > pos.getZ() + 0.9 && this.getSide() == AEPartLocation.SOUTH) || (entity.posZ < pos.getZ() + 0.1 && this
-                                    .getSide() == AEPartLocation.NORTH)) {
-                                capture = true;
-                            }
-                        }
-                    }
-                    break;
-                case EAST:
-                case WEST:
+        // This is the middle point of the entities BB, which is better suited for comparisons that don't rely on it
+        // "touching" the plane
+        double posYMiddle = (entity.getEntityBoundingBox().minY + entity.getEntityBoundingBox().maxY) / 2.0D;
+
+        switch (this.getSide()) {
+            case DOWN:
+            case UP:
+                if (entity.posX > pos.getX() && entity.posX < pos.getX() + 1) {
                     if (entity.posZ > pos.getZ() && entity.posZ < pos.getZ() + 1) {
-                        if (posYMiddle > pos.getY() && posYMiddle < pos.getY() + 1) {
-                            if ((entity.posX > pos.getX() + 0.9 && this.getSide() == AEPartLocation.EAST) || (entity.posX < pos.getX() + 0.1 && this
-                                    .getSide() == AEPartLocation.WEST)) {
-                                capture = true;
-                            }
+                        if ((entity.posY > pos.getY() + 0.9 && this.getSide() == AEPartLocation.UP) || (entity.posY < pos.getY() + 0.1 && this
+                                .getSide() == AEPartLocation.DOWN)) {
+                            capture = true;
                         }
                     }
-                    break;
-                default:
-                    // umm?
-                    break;
-            }
-
-            if (capture) {
-                final boolean changed = this.storeEntityItem((EntityItem) entity);
-
-                if (changed) {
-                    AppEng.proxy.sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 64, this.getTile().getWorld(),
-                            new PacketTransitionEffect(entity.posX, entity.posY, entity.posZ, this.getSide(), false));
                 }
+                break;
+            case SOUTH:
+            case NORTH:
+                if (entity.posX > pos.getX() && entity.posX < pos.getX() + 1) {
+                    if (posYMiddle > pos.getY() && posYMiddle < pos.getY() + 1) {
+                        if ((entity.posZ > pos.getZ() + 0.9 && this.getSide() == AEPartLocation.SOUTH) || (entity.posZ < pos.getZ() + 0.1 && this
+                                .getSide() == AEPartLocation.NORTH)) {
+                            capture = true;
+                        }
+                    }
+                }
+                break;
+            case EAST:
+            case WEST:
+                if (entity.posZ > pos.getZ() && entity.posZ < pos.getZ() + 1) {
+                    if (posYMiddle > pos.getY() && posYMiddle < pos.getY() + 1) {
+                        if ((entity.posX > pos.getX() + 0.9 && this.getSide() == AEPartLocation.EAST) || (entity.posX < pos.getX() + 0.1 && this
+                                .getSide() == AEPartLocation.WEST)) {
+                            capture = true;
+                        }
+                    }
+                }
+                break;
+            default:
+                // umm?
+                break;
+        }
+
+        if (!capture) {
+            return;
+        }
+
+        PickupStrategy strategy = null;
+        for (PickupStrategy candidate : this.getPickupStrategies()) {
+            if (candidate.canPickUpEntity(entity)) {
+                strategy = candidate;
+                break;
             }
+        }
+        if (strategy == null) {
+            return;
+        }
+
+        final IEnergySource energy;
+        try {
+            energy = this.getProxy().getEnergy();
+        } catch (final GridAccessException e) {
+            return;
+        }
+
+        final boolean consumed = strategy.pickUpEntity(energy, this::insertIntoGrid, entity);
+        if (consumed) {
+            AppEng.proxy.sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 64, this.getTile().getWorld(),
+                    new PacketTransitionEffect(entity.posX, entity.posY, entity.posZ, this.getSide(), false));
         }
     }
 
     @Override
     public float getCableConnectionLength(AECableType cable) {
         return 1;
-    }
-
-    /**
-     * Stores an {@link EntityItem} inside the network and either marks it as dead or sets it to the leftover stackSize.
-     *
-     * @param entityItem {@link EntityItem} to store
-     */
-    private boolean storeEntityItem(final EntityItem entityItem) {
-        if (!entityItem.isDead) {
-            final IAEItemStack overflow = this.storeItemStack(entityItem.getItem());
-
-            return this.handleOverflow(entityItem, overflow);
-        }
-
-        return false;
-    }
-
-    /**
-     * Stores an {@link ItemStack} inside the network.
-     *
-     * @param item {@link ItemStack} to store
-     * @return the leftover items, which could not be stored inside the network
-     */
-    private IAEItemStack storeItemStack(final ItemStack item) {
-        final IAEItemStack itemToStore = AEItemStack.fromItemStack(item);
-        try {
-            final IStorageGrid storage = this.getProxy().getStorage();
-            final IEnergyGrid energy = this.getProxy().getEnergy();
-            final IAEItemStack overflow = Platform.poweredInsert(energy,
-                    storage.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)), itemToStore, this.mySrc);
-
-            this.isAccepting = overflow == null;
-
-            return overflow;
-        } catch (final GridAccessException e1) {
-            // :P
-        }
-
-        return null;
-    }
-
-    /**
-     * Handles a possible overflow or none at all.
-     * It will update the entity to match the leftover stack size as well as mark it as dead without any leftover
-     * amount.
-     *
-     * @param entityItem the entity to update or destroy
-     * @param overflow   the leftover {@link IAEItemStack}
-     * @return true, if the entity was changed otherwise false.
-     */
-    private boolean handleOverflow(final EntityItem entityItem, final IAEItemStack overflow) {
-        if (overflow == null || overflow.getStackSize() == 0) {
-            entityItem.setDead();
-            return true;
-        }
-
-        final int oldStackSize = entityItem.getItem().getCount();
-        final int newStackSize = (int) overflow.getStackSize();
-        final boolean changed = oldStackSize != newStackSize;
-
-        entityItem.getItem().setCount(newStackSize);
-
-        return changed;
     }
 
     protected boolean isAnnihilationPlane(final TileEntity blockTileEntity, final AEPartLocation side) {
@@ -375,42 +314,63 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
         this.getHost().markForUpdate();
     }
 
-    private TickRateModulation breakBlock(final boolean modulate) {
-        if (this.isAccepting && this.getProxy().isActive()) {
-            try {
-                final TileEntity te = this.getTile();
-                final WorldServer w = (WorldServer) te.getWorld();
-
-                final BlockPos pos = te.getPos().offset(this.getSide().getFacing());
-                final IEnergyGrid energy = this.getProxy().getEnergy();
-
-                if (this.canHandleBlock(w, pos)) {
-                    final List<ItemStack> items = this.obtainBlockDrops(w, pos);
-                    final float requiredPower = this.calculateEnergyUsage(w, pos, items);
-
-                    final boolean hasPower = energy.extractAEPower(requiredPower, Actionable.SIMULATE, PowerMultiplier.CONFIG) > requiredPower - 0.1;
-                    final boolean canStore = this.canStoreItemStacks(items);
-
-                    if (hasPower && canStore) {
-                        if (modulate) {
-                            energy.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                            this.breakBlockAndStoreItems(w, pos, items);
-                            AppEng.proxy.sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 64, w,
-                                    new PacketTransitionEffect(pos.getX(), pos.getY(), pos.getZ(), this.getSide(), true));
-                        } else {
-                            this.breaking = true;
-                            TickHandler.INSTANCE.addCallable(this.getTile().getWorld(), this);
-                        }
-                        return TickRateModulation.URGENT;
-                    }
-                }
-            } catch (final GridAccessException e1) {
-                // :P
+    /**
+     * Lazily built once the node exists; cleared whenever the plane's enchantments change.
+     */
+    protected List<PickupStrategy> getPickupStrategies() {
+        if (this.pickupStrategies == null) {
+            final IGridNode node = this.getProxy().getNode();
+            if (node == null) {
+                return ImmutableList.of();
             }
-        }
 
-        // nothing to do here :)
-        return TickRateModulation.IDLE;
+            final TileEntity self = this.getHost().getTile();
+            final BlockPos fromPos = self.getPos().offset(this.getSide().getFacing());
+            final EnumFacing fromSide = this.getSide().getFacing().getOpposite();
+            final UUID owner = resolveOwnerUuid(node.getPlayerID());
+
+            this.pickupStrategies = this.createPickupStrategies(self.getWorld(), fromPos, fromSide, self,
+                    this.getEnchantments(), owner);
+        }
+        return this.pickupStrategies;
+    }
+
+    /**
+     * Extension point: {@link PartIdentityAnnihilationPlane} overrides this to substitute its own
+     * always-silk-touch pickup strategy instead of the registered item one.
+     * <p>
+     * The plane itself is type-agnostic: it picks up whatever the registered strategies know how to
+     * take out of the world, so a key type registered by an addon works here with no change.
+     */
+    protected List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
+            TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owner) {
+        return StackWorldBehaviors.createPickupStrategies(world, fromPos, fromSide, host, enchantments, owner);
+    }
+
+    /**
+     * @return the enchantments captured from the plane's item when it was placed. Exposed so
+     *         {@link PartIdentityAnnihilationPlane} can build its own pickup strategy with full
+     *         fidelity instead of the fortune/silk-touch-only view the frozen
+     *         {@code PickupStrategy.Factory} would give it.
+     */
+    protected final Map<Enchantment, Integer> getEnchantments() {
+        return this.enchantments;
+    }
+
+    @Nullable
+    private UUID resolveOwnerUuid(int playerId) {
+        EntityPlayer player = AEApi.instance().registries().players().findPlayer(playerId);
+        return player != null ? player.getGameProfile().getId() : null;
+    }
+
+    private long insertIntoGrid(AEKey what, long amount, Actionable mode) {
+        try {
+            final IEnergySource energy = this.getProxy().getEnergy();
+            final MEStorage storage = this.getProxy().getStorage().getInventory();
+            return Platform.poweredInsert(energy, storage, what, amount, this.mySrc, mode);
+        } catch (final GridAccessException e) {
+            return 0;
+        }
     }
 
     @Override
@@ -420,132 +380,38 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
 
     @Override
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
-        if (this.breaking) {
-            return TickRateModulation.URGENT;
+        if (!this.getProxy().isActive()) {
+            return TickRateModulation.SLEEP;
         }
 
-        this.isAccepting = true;
-        return this.breakBlock(false);
-    }
-
-    /**
-     * Checks if this plane can handle the block at the specific coordinates.
-     */
-    private boolean canHandleBlock(final WorldServer w, final BlockPos pos) {
-        final IBlockState state = w.getBlockState(pos);
-        final Material material = state.getMaterial();
-        final float hardness = state.getBlockHardness(w, pos);
-        final boolean ignoreMaterials = material == Material.AIR || material == Material.LAVA || material == Material.WATER || material.isLiquid();
-        final boolean ignoreBlocks = state.getBlock() == Blocks.BEDROCK || state.getBlock() == Blocks.END_PORTAL || state
-                .getBlock() == Blocks.END_PORTAL_FRAME || state.getBlock() == Blocks.COMMAND_BLOCK;
-
-        return !ignoreMaterials && !ignoreBlocks && hardness >= 0f && !w.isAirBlock(pos) && w.isBlockLoaded(pos) && w.canMineBlockBody(
-                Platform.getPlayer(w),
-                pos);
-    }
-
-    protected List<ItemStack> obtainBlockDrops(final WorldServer w, final BlockPos pos) {
-        final FakePlayer fakePlayer = FakePlayerFactory.getMinecraft(w);
-        final IBlockState state = w.getBlockState(pos);
-
-        if (state.getBlock().canSilkHarvest(w, pos, state, fakePlayer) && enchantments.containsKey(Enchantments.SILK_TOUCH)) {
-            final List<ItemStack> out = new ArrayList<>(1);
-            final Item item = Item.getItemFromBlock(state.getBlock());
-
-            if (item != Items.AIR) {
-                int meta = 0;
-                if (item.getHasSubtypes()) {
-                    meta = state.getBlock().getMetaFromState(state);
-                }
-                final ItemStack itemstack = new ItemStack(item, 1, meta);
-                out.add(itemstack);
-            }
-            return out;
-        } else {
-            final ItemStack[] out = Platform.getBlockDrops(w, pos, enchantments.getOrDefault(Enchantments.FORTUNE, 0));
-            return Lists.newArrayList(out);
-        }
-    }
-
-    /**
-     * Checks if this plane can handle the block at the specific coordinates.
-     */
-    protected float calculateEnergyUsage(final WorldServer w, final BlockPos pos, final List<ItemStack> items) {
-        boolean useEnergy = true;
-        final IBlockState state = w.getBlockState(pos);
-        final float hardness = state.getBlockHardness(w, pos);
-
-        float requiredEnergy = 1 + hardness;
-        for (final ItemStack is : items) {
-            requiredEnergy += is.getCount();
-        }
-
-        if (!enchantments.isEmpty()) {
-            var efficiencyFactor = 1f;
-            var efficiencyLevel = 0;
-            if (enchantments.containsKey(Enchantments.EFFICIENCY)) {
-                // Reduce total energy usage incurred by other enchantments by 15% per Efficiency level.
-                efficiencyLevel = enchantments.get(Enchantments.EFFICIENCY);
-                efficiencyFactor *= Math.pow(0.85, efficiencyLevel);
-            }
-            if (enchantments.containsKey(Enchantments.UNBREAKING)) {
-                // Give plane only a (100 / (level + 1))% chance to use energy.
-                // This is similar to vanilla Unbreaking behaviour for tools.
-                int randomNumber = ThreadLocalRandom.current().nextInt(enchantments.get(Enchantments.UNBREAKING) + 1);
-                useEnergy = randomNumber == 0;
-            }
-            var levelSum = enchantments.values().stream().reduce(0, Integer::sum) - efficiencyLevel;
-            requiredEnergy *= 8 * levelSum * efficiencyFactor;
-        }
-
-        return useEnergy ? requiredEnergy : 0;
-    }
-
-    /**
-     * Checks if the network can store the possible drops.
-     * <p>
-     * It also sets isAccepting to false, if the item can not be stored.
-     *
-     * @param itemStacks an array of {@link ItemStack} to test
-     * @return true, if the network can store all drops or no drops are reported
-     */
-    private boolean canStoreItemStacks(final List<ItemStack> itemStacks) {
-        boolean canStore = true;
-
+        final IEnergySource energy;
         try {
-            final IStorageGrid storage = this.getProxy().getStorage();
-
-            for (final ItemStack itemStack : itemStacks) {
-                final IAEItemStack itemToTest = AEItemStack.fromItemStack(itemStack);
-                final IAEItemStack overflow = storage.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class))
-                        .injectItems(itemToTest, Actionable.SIMULATE, this.mySrc);
-                if (overflow != null) {
-                    canStore = false;
-                }
-            }
+            energy = this.getProxy().getEnergy();
         } catch (final GridAccessException e) {
-            // :P
+            return TickRateModulation.SLEEP;
         }
 
-        this.isAccepting = canStore;
-        return canStore;
-    }
-
-    private void breakBlockAndStoreItems(final WorldServer w, final BlockPos pos, List<ItemStack> items) {
-        for (ItemStack item : items) {
-            Block.spawnAsEntity(w, pos, item);
+        for (final PickupStrategy strategy : this.getPickupStrategies()) {
+            strategy.reset();
         }
 
-        final AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.2);
-        for (EntityItem entityItem : w.getEntitiesWithinAABB(EntityItem.class, box)) {
-            this.storeEntityItem(entityItem);
+        for (final PickupStrategy strategy : this.getPickupStrategies()) {
+            final PickupStrategy.Result result = strategy.tryPickup(energy, this::insertIntoGrid);
+
+            if (result == PickupStrategy.Result.PICKED_UP) {
+                return TickRateModulation.URGENT;
+            } else if (result == PickupStrategy.Result.CANT_STORE) {
+                return TickRateModulation.IDLE;
+            }
         }
 
-        w.destroyBlock(pos, false);
+        return TickRateModulation.SLEEP;
     }
 
     private void refresh() {
-        this.isAccepting = true;
+        for (final PickupStrategy strategy : this.getPickupStrategies()) {
+            strategy.reset();
+        }
 
         try {
             this.getProxy().getTick().alertDevice(this.getProxy().getNode());
@@ -573,19 +439,20 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     @Override
     public void uploadSettings(SettingsFrom from, NBTTagCompound output, EntityPlayer player) {
         super.uploadSettings(from, output, player);
-        // Import enchants only when the plan is placed, not from memory cards
+        // Import enchants only when the plane is placed, not from memory cards
         if (from == SettingsFrom.DISMANTLE_ITEM) {
             readEnchantments(output);
         }
     }
 
     public void readEnchantments(NBTTagCompound data) {
-        enchantments = EnchantmentUtil.getEnchantments(data);
-        EnchantmentHelper.setEnchantments(enchantments, getItemStack());
+        this.enchantments = EnchantmentUtil.getEnchantments(data);
+        EnchantmentHelper.setEnchantments(this.enchantments, getItemStack());
+        this.pickupStrategies = null;
     }
 
     public void writeEnchantments(NBTTagCompound data) {
-        EnchantmentUtil.setEnchantments(data, enchantments);
+        EnchantmentUtil.setEnchantments(data, this.enchantments);
     }
 
     @Override
@@ -603,6 +470,7 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     @Override
     public void addToWorld() {
         super.addToWorld();
-        enchantments = EnchantmentHelper.getEnchantments(getItemStack());
+        this.enchantments = EnchantmentHelper.getEnchantments(getItemStack());
+        this.pickupStrategies = null;
     }
 }

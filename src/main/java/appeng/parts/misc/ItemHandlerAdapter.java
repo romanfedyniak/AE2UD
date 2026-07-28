@@ -19,286 +19,219 @@
 package appeng.parts.misc;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
+import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.config.Actionable;
-import appeng.api.config.Settings;
-import appeng.api.config.StorageFilter;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
 import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
-import appeng.me.GridAccessException;
-import appeng.me.helpers.IGridProxyable;
 import appeng.me.storage.ITickingMonitor;
 import appeng.util.inv.ItemHandlerIterator;
 import appeng.util.inv.ItemSlot;
-import appeng.util.item.AEItemStack;
-import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
-import java.util.*;
+import javax.annotation.Nullable;
 
 
 /**
- * Wraps an Item Handler in such a way that it can be used as an IMEInventory for items.
+ * Wraps a plain {@link IItemHandler} (any inventory that only exposes the vanilla Forge capability) so it can be
+ * used as an {@link MEStorage} - the role {@code IMEInventory<IAEItemStack>} used to play for a storage bus.
+ * <p/>
+ * This is also the reference {@link ExternalStorageStrategy} for {@link appeng.api.stacks.AEKeyType#items()},
+ * registered by {@link InitExternalStorageStrategies}. A fluid (wave 5) or addon strategy is expected to follow
+ * the exact same shape: a small {@code Factory} that looks the capability up fresh in {@link #createWrapper} so
+ * {@link PartStorageBus} can hold onto the {@code Factory} for the part's whole lifetime and only re-resolve the
+ * capability when it actually needs to.
  */
-class ItemHandlerAdapter implements IMEInventory<IAEItemStack>, IBaseMonitor<IAEItemStack>, ITickingMonitor {
-    private final Object2ObjectMap<IMEMonitorHandlerReceiver<IAEItemStack>, Object> listeners = new Object2ObjectOpenHashMap<>();
-    private IActionSource mySource;
+class ItemHandlerAdapter implements MEStorage, ITickingMonitor {
     private final IItemHandler itemHandler;
-    private final IGridProxyable proxyable;
-    private final InventoryCache cache;
-    private StorageFilter mode;
-    private AccessRestriction access;
+    private final boolean extractableOnly;
+    @Nullable
+    private final Runnable changeListener;
+    private KeyCounter currentlyCached = new KeyCounter();
 
-    ItemHandlerAdapter(IItemHandler itemHandler, IGridProxyable proxy) {
+    ItemHandlerAdapter(final IItemHandler itemHandler, final boolean extractableOnly, @Nullable final Runnable changeListener) {
         this.itemHandler = itemHandler;
-        this.proxyable = proxy;
-        if (this.proxyable instanceof PartStorageBus) {
-            PartStorageBus partStorageBus = (PartStorageBus) this.proxyable;
-            this.mode = ((StorageFilter) partStorageBus.getConfigManager().getSetting(Settings.STORAGE_FILTER));
-            this.access = ((AccessRestriction) partStorageBus.getConfigManager().getSetting(Settings.ACCESS));
-        }
-        this.cache = new InventoryCache(this.itemHandler, this.mode);
-        this.cache.update();
+        this.extractableOnly = extractableOnly;
+        this.changeListener = changeListener;
+        this.updateCache();
     }
 
     @Override
-    public IAEItemStack injectItems(IAEItemStack iox, Actionable type, IActionSource src) {
-        // Try to reuse the cached stack
-        ItemStack inputStack = iox.getCachedItemStack(iox.getStackSize());
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (!(what instanceof AEItemKey itemKey) || amount <= 0) {
+            return 0;
+        }
 
-        ItemStack remaining = inputStack;
+        final int toInsertCount = (int) Math.min(amount, Integer.MAX_VALUE);
+        ItemStack remaining = itemKey.toStack(toInsertCount);
 
-        int slotCount = this.itemHandler.getSlots();
+        final int slotCount = this.itemHandler.getSlots();
         for (int i = 0; i < slotCount && !remaining.isEmpty(); i++) {
-            remaining = this.itemHandler.insertItem(i, remaining, type == Actionable.SIMULATE);
+            remaining = this.itemHandler.insertItem(i, remaining, mode == Actionable.SIMULATE);
         }
 
-        // Store the stack in the cache for next time.
-        if (type == Actionable.SIMULATE) {
-            iox.setCachedItemStack(inputStack);
-        } else {
-            if (!remaining.isEmpty()) {
-                iox.setCachedItemStack(remaining);
-            }
+        final long inserted = toInsertCount - remaining.getCount();
+
+        if (inserted > 0 && mode == Actionable.MODULATE) {
+            this.updateCache();
+            this.notifyChange();
         }
 
-        // At this point, we still have some items left...
-        if (remaining == inputStack) {
-            // The stack remained unmodified, target inventory is full
-            return iox;
-        }
-
-        if (type == Actionable.MODULATE) {
-            IAEItemStack added = iox.copy().setStackSize(iox.getStackSize() - remaining.getCount());
-            this.cache.currentlyCached.add(added);
-            this.postDifference(Collections.singletonList(added));
-            try {
-                this.proxyable.getProxy().getTick().alertDevice(this.proxyable.getProxy().getNode());
-            } catch (GridAccessException ex) {
-                // meh
-            }
-        }
-
-        return AEItemStack.fromItemStack(remaining);
+        return inserted;
     }
 
     @Override
-    public IAEItemStack extractItems(IAEItemStack request, Actionable mode, IActionSource src) {
-        int remainingSize = Ints.saturatedCast(request.getStackSize());
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (!(what instanceof AEItemKey itemKey) || amount <= 0) {
+            return 0;
+        }
 
-        // Use this to gather the requested items
-        ItemStack gathered = ItemStack.EMPTY;
+        final boolean simulate = mode == Actionable.SIMULATE;
+        long remainingToExtract = amount;
+        long extracted = 0;
 
-        final boolean simulate = (mode == Actionable.SIMULATE);
-        for (int i = 0; i < this.itemHandler.getSlots(); i++) {
-            ItemStack stackInInventorySlot = this.itemHandler.getStackInSlot(i);
-
-            if (!request.isSameType(stackInInventorySlot)) {
+        for (int i = 0; i < this.itemHandler.getSlots() && remainingToExtract > 0; i++) {
+            final ItemStack stackInSlot = this.itemHandler.getStackInSlot(i);
+            if (!itemKey.matches(stackInSlot)) {
                 continue;
             }
 
-            ItemStack extracted;
-
-            int stackSizeCurrentSlot = stackInInventorySlot.getCount();
-            int remainingCurrentSlot = Math.min(remainingSize, stackSizeCurrentSlot);
+            final int wanted = (int) Math.min(remainingToExtract, stackInSlot.getCount());
+            int gatheredThisSlot = 0;
+            ItemStack pulled;
 
             // We have to loop here because according to the docs, the handler shouldn't return a stack with size >
             // maxSize, even if we request more. So even if it returns a valid stack, it might have more stuff.
             do {
-                extracted = this.itemHandler.extractItem(i, remainingCurrentSlot, simulate);
-                if (!extracted.isEmpty()) {
-                    // In order to guard against broken IItemHandler implementations, we'll try to guess if the returned
-                    // stack (especially in simulate mode) is the same that was returned by getStackInSlot. This is
-                    // obviously not a precise science, but it would catch the previous Forge bug:
-                    // https://github.com/MinecraftForge/MinecraftForge/pull/6580
-                    if (extracted == stackInInventorySlot) {
-                        extracted = extracted.copy();
+                final int remainingWanted = wanted - gatheredThisSlot;
+                pulled = this.itemHandler.extractItem(i, remainingWanted, simulate);
+                if (!pulled.isEmpty()) {
+                    if (pulled == stackInSlot) {
+                        // Guard against broken IItemHandler implementations that return the live stack instead of a
+                        // copy (see https://github.com/MinecraftForge/MinecraftForge/pull/6580).
+                        pulled = pulled.copy();
                     }
 
-                    if (extracted.getCount() > remainingCurrentSlot) {
-                        // Something broke. It should never return more than we requested...
-                        // We're going to silently eat the remainder
-                        AELog.warn("Mod that provided item handler %s is broken. Returned %s items while only requesting %d.", this.itemHandler.getClass().getName(), extracted.toString(), remainingCurrentSlot);
-                        extracted.setCount(remainingCurrentSlot);
+                    if (pulled.getCount() > remainingWanted) {
+                        // Something broke. It should never return more than we requested. Silently eat the remainder.
+                        AELog.warn("Mod that provided item handler %s is broken. Returned %s items while only requesting %d.",
+                                this.itemHandler.getClass().getName(), pulled, remainingWanted);
+                        pulled.setCount(remainingWanted);
                     }
 
-                    // Heuristic for simulation: looping in case of simulations is pointless, since the state of the
-                    // underlying inventory does not change after a simulated extraction. To still support inventories
-                    // that report stacks that are larger than maxStackSize, we use this heuristic
-                    if (simulate && extracted.getCount() == extracted.getMaxStackSize() && remainingCurrentSlot > extracted.getMaxStackSize()) {
-                        extracted.setCount(remainingCurrentSlot);
+                    // Heuristic for simulation: looping is pointless since a simulated extraction doesn't change the
+                    // underlying inventory. To still support handlers that report stacks larger than maxStackSize,
+                    // assume the full amount is available if a simulated pull already maxed out a single stack.
+                    if (simulate && pulled.getCount() == pulled.getMaxStackSize() && remainingWanted > pulled.getMaxStackSize()) {
+                        pulled.setCount(remainingWanted);
                     }
 
-                    if (gathered.isEmpty()) {
-                        gathered = extracted;
-                    } else {
-                        gathered.grow(extracted.getCount());
-                    }
-                    remainingCurrentSlot -= extracted.getCount();
+                    gatheredThisSlot += pulled.getCount();
                 }
-            } while (!simulate && !extracted.isEmpty() && remainingCurrentSlot > 0);
+            } while (!simulate && !pulled.isEmpty() && gatheredThisSlot < wanted);
 
-            remainingSize -= stackSizeCurrentSlot - remainingCurrentSlot;
-            if (remainingSize <= 0) {
-                break;
-            }
+            extracted += gatheredThisSlot;
+            remainingToExtract -= gatheredThisSlot;
         }
 
-        if (!gathered.isEmpty()) {
-            IAEItemStack gatheredAEItemStack = AEItemStack.fromItemStack(gathered);
-            if (mode == Actionable.MODULATE) {
-                IAEItemStack cachedStack = this.cache.currentlyCached.findPrecise(request);
-                if (cachedStack != null) {
-                    cachedStack.decStackSize(gatheredAEItemStack.getStackSize());
-                    this.postDifference(Collections.singletonList(gatheredAEItemStack.copy().setStackSize(-gatheredAEItemStack.getStackSize())));
-                }
-                try {
-                    this.proxyable.getProxy().getTick().alertDevice(this.proxyable.getProxy().getNode());
-                } catch (GridAccessException ex) {
-                    // meh
-                }
-            }
-
-            return gatheredAEItemStack;
+        if (extracted > 0 && mode == Actionable.MODULATE) {
+            this.updateCache();
+            this.notifyChange();
         }
 
-        return null;
+        return extracted;
+    }
+
+    @Override
+    public void getAvailableStacks(final KeyCounter out) {
+        for (final var entry : this.currentlyCached) {
+            out.add(entry.getKey(), entry.getLongValue());
+        }
     }
 
     @Override
     public TickRateModulation onTick() {
-        List<IAEItemStack> changes = this.cache.update();
-        if (!changes.isEmpty() && access.hasPermission(AccessRestriction.READ)) {
-            this.postDifference(changes);
-            return TickRateModulation.URGENT;
-        } else {
-            return TickRateModulation.SLOWER;
+        final KeyCounter before = this.currentlyCached;
+        this.updateCache();
+        return keyCountersEqual(before, this.currentlyCached) ? TickRateModulation.SLOWER : TickRateModulation.URGENT;
+    }
+
+    private void notifyChange() {
+        if (this.changeListener != null) {
+            this.changeListener.run();
         }
     }
 
-    @Override
-    public void setActionSource(final IActionSource mySource) {
-        this.mySource = mySource;
-    }
-
-    @Override
-    public IItemList<IAEItemStack> getAvailableItems(IItemList<IAEItemStack> out) {
-        return this.cache.getAvailableItems(out);
-    }
-
-    @Override
-    public IItemStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    @Override
-    public void addListener(final IMEMonitorHandlerReceiver<IAEItemStack> l, final Object verificationToken) {
-        this.listeners.put(l, verificationToken);
-    }
-
-    @Override
-    public void removeListener(final IMEMonitorHandlerReceiver<IAEItemStack> l) {
-        this.listeners.remove(l);
-    }
-
-    private void postDifference(Iterable<IAEItemStack> a) {
-        final Iterator<Map.Entry<IMEMonitorHandlerReceiver<IAEItemStack>, Object>> i = this.listeners.entrySet().iterator();
-        while (i.hasNext()) {
-            final Map.Entry<IMEMonitorHandlerReceiver<IAEItemStack>, Object> l = i.next();
-            final IMEMonitorHandlerReceiver<IAEItemStack> key = l.getKey();
-            if (key.isValid(l.getValue())) {
-                key.postChange(this, a, this.mySource);
-            } else {
-                i.remove();
+    private void updateCache() {
+        final KeyCounter fresh = new KeyCounter();
+        final var it = new ItemHandlerIterator(this.itemHandler);
+        while (it.hasNext()) {
+            final ItemSlot slot = it.next();
+            if (this.extractableOnly && !slot.isExtractable()) {
+                continue;
+            }
+            final GenericStack stack = slot.getGenericStack();
+            if (stack != null) {
+                fresh.add(stack.what(), stack.amount());
             }
         }
+        this.currentlyCached = fresh;
     }
 
-    private static class InventoryCache implements Iterable<ItemSlot> {
-        private final IItemHandler itemHandler;
-        private final StorageFilter mode;
-        IItemList<IAEItemStack> currentlyCached = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-
-        public InventoryCache(IItemHandler itemHandler, StorageFilter mode) {
-            this.mode = mode;
-            this.itemHandler = itemHandler;
+    private static boolean keyCountersEqual(final KeyCounter a, final KeyCounter b) {
+        if (a.size() != b.size()) {
+            return false;
         }
-
-        public IItemList<IAEItemStack> getAvailableItems(IItemList<IAEItemStack> out) {
-            currentlyCached.iterator().forEachRemaining(out::add);
-            return out;
+        for (final var entry : a) {
+            if (b.get(entry.getKey()) != entry.getLongValue()) {
+                return false;
+            }
         }
+        return true;
+    }
 
-        private StorageFilter getMode() {
-            return this.mode;
-        }
+    /**
+     * The {@link ExternalStorageStrategy} for {@link appeng.api.stacks.AEKeyType#items()}. Registered by
+     * {@link InitExternalStorageStrategies#register()}; {@link PartStorageBus} obtains it (and, from wave 5
+     * onward, the fluid equivalent) through {@link appeng.api.behaviors.StackWorldBehaviors#createExternalStorageStrategies}
+     * rather than talking to this class directly.
+     */
+    static final class Strategy implements ExternalStorageStrategy {
+        private final World world;
+        private final BlockPos fromPos;
+        private final EnumFacing fromSide;
 
-        public List<IAEItemStack> update() {
-            final List<IAEItemStack> changes = new ArrayList<>();
-
-            IItemList<IAEItemStack> currentlyOnStorage = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-
-            for (final ItemSlot is : this) {
-                if (this.mode == StorageFilter.EXTRACTABLE_ONLY && !is.isExtractable()) {
-                    continue;
-                }
-                currentlyOnStorage.add(is.getAEItemStack());
-            }
-
-            for (final IAEItemStack is : currentlyCached) {
-                is.setStackSize(-is.getStackSize());
-            }
-
-            for (final IAEItemStack is : currentlyOnStorage) {
-                currentlyCached.add(is);
-            }
-
-            for (final IAEItemStack is : currentlyCached) {
-                if (is.getStackSize() != 0) {
-                    changes.add(is);
-                }
-            }
-
-            currentlyCached = currentlyOnStorage;
-
-            return changes;
+        Strategy(final World world, final BlockPos fromPos, final EnumFacing fromSide) {
+            this.world = world;
+            this.fromPos = fromPos;
+            this.fromSide = fromSide;
         }
 
         @Override
-        public Iterator<ItemSlot> iterator() {
-            return new ItemHandlerIterator(this.itemHandler);
-        }
+        @Nullable
+        public MEStorage createWrapper(final boolean extractableOnly, final Runnable injectOrExtractCallback) {
+            final TileEntity target = this.world.getTileEntity(this.fromPos);
+            if (target == null) {
+                return null;
+            }
 
+            final IItemHandler itemHandler = target.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, this.fromSide);
+            if (itemHandler == null) {
+                return null;
+            }
+
+            return new ItemHandlerAdapter(itemHandler, extractableOnly, injectOrExtractCallback);
+        }
     }
 }

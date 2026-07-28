@@ -24,13 +24,12 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.implementations.tiles.IViewCellStorage;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.IConfigManager;
 import appeng.core.sync.GuiBridge;
 import appeng.me.GridAccessException;
+import appeng.me.storage.NullInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
@@ -116,13 +115,13 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
     }
 
     @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
+    public MEStorage getInventory() {
         try {
-            return this.getProxy().getStorage().getInventory(channel);
+            return this.getProxy().getStorage().getInventory();
         } catch (final GridAccessException e) {
             // err nope?
         }
-        return null;
+        return NullInventory.of();
     }
 
     @Override

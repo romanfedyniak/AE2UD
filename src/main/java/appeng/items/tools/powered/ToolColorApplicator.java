@@ -23,14 +23,14 @@ import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.implementations.items.IItemGroup;
-import appeng.api.implementations.items.IStorageCell;
 import appeng.api.implementations.tiles.IColorableTile;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalCoord;
 import appeng.block.networking.BlockCableBus;
@@ -46,7 +46,6 @@ import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.me.helpers.BaseActionSource;
 import appeng.tile.misc.TilePaint;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockColored;
 import net.minecraft.block.BlockStainedGlass;
@@ -76,7 +75,7 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 
-public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCell<IAEItemStack>, IItemGroup, IBlockTool, IMouseWheelItem {
+public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCellItem, IItemGroup, IBlockTool, IMouseWheelItem {
 
     private static final double POWER_PER_USE = 100;
     private static final Map<Integer, AEColor> ORE_TO_COLOR = new HashMap<>();
@@ -120,13 +119,14 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
 
         ItemStack paintBall = this.getColor(is);
 
-        final IMEInventory<IAEItemStack> inv = getInventory(is);
+        final MEStorage inv = getInventory(is);
         if (inv != null) {
-            final IAEItemStack option = inv.extractItems(AEItemStack.fromItemStack(paintBall), Actionable.SIMULATE, new BaseActionSource());
+            final AEItemKey key = AEItemKey.of(paintBall);
+            final long extracted = key == null ? 0
+                    : inv.extract(key, paintBall.getCount(), Actionable.SIMULATE, new BaseActionSource());
 
-            if (option != null) {
-                paintBall = option.createItemStack();
-                paintBall.setCount(1);
+            if (extracted > 0) {
+                paintBall = key.toStack(1);
             } else {
                 paintBall = ItemStack.EMPTY;
             }
@@ -171,15 +171,16 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     }
 
     public boolean consumeColor(ItemStack applicator, AEColor color, boolean simulate) {
-        final IMEInventory<IAEItemStack> inv = getInventory(applicator);
+        final MEStorage inv = getInventory(applicator);
         if (inv == null) return false;
 
         ItemStack paintItem = null;
-        for (final IAEItemStack what : inv.getAvailableItems(getChannel().createList())) {
-            final ItemStack def = what.createItemStack();
-            def.setCount(1);
-            if (getColorFromItem(def) == color) {
-                paintItem = def;
+        for (final var entry : inv.getAvailableStacks()) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                final ItemStack def = itemKey.toStack(1);
+                if (getColorFromItem(def) == color) {
+                    paintItem = def;
+                }
             }
         }
 
@@ -190,16 +191,20 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     }
 
     public boolean consumeItem(ItemStack applicator, ItemStack paintItem, boolean simulate) {
-        final IMEInventory<IAEItemStack> inv = getInventory(applicator);
+        final MEStorage inv = getInventory(applicator);
         if (inv == null) return false;
 
+        final AEItemKey key = AEItemKey.of(paintItem);
+        if (key == null) return false;
+
         final Actionable mode = simulate ? Actionable.SIMULATE : Actionable.MODULATE;
-        boolean success = inv.extractItems(AEItemStack.fromItemStack(paintItem), mode, new BaseActionSource()) != null
+        final long amount = paintItem.getCount();
+        boolean success = inv.extract(key, amount, mode, new BaseActionSource()) > 0
                 && this.extractAEPower(applicator, POWER_PER_USE, mode) >= POWER_PER_USE;
 
         // Clear the color when we run out
         if (success && !simulate && ItemStack.areItemStacksEqual(paintItem, getColor(applicator))) {
-            if (inv.extractItems(AEItemStack.fromItemStack(paintItem), Actionable.SIMULATE, new BaseActionSource()) == null) {
+            if (inv.extract(key, amount, Actionable.SIMULATE, new BaseActionSource()) <= 0) {
                 setColor(applicator, ItemStack.EMPTY);
             }
         }
@@ -212,14 +217,16 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
             return true;
         }
 
-        final IMEInventory<IAEItemStack> inv = getInventory(applicator);
+        final MEStorage inv = getInventory(applicator);
         if (inv == null) return false;
 
-        for (IAEItemStack stack : inv.getAvailableItems(getChannel().createList())) {
-            ItemStack def = stack.getDefinition();
-            if (getColorFromItem(def) == color) {
-                setColor(applicator, def);
-                return true;
+        for (final var entry : inv.getAvailableStacks()) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                final ItemStack def = itemKey.toStack(1);
+                if (getColorFromItem(def) == color) {
+                    setColor(applicator, def);
+                    return true;
+                }
             }
         }
         return false;
@@ -266,11 +273,8 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
         return null;
     }
 
-    private IMEInventory<IAEItemStack> getInventory(ItemStack stack) {
-        return AEApi.instance()
-                .registries()
-                .cell()
-                .getCellInventory(stack, null, getChannel());
+    private MEStorage getInventory(ItemStack stack) {
+        return StorageCells.getCellInventory(stack, null);
     }
 
     public ItemStack getColor(final ItemStack is) {
@@ -289,28 +293,30 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     private ItemStack findNextColor(final ItemStack is, final ItemStack anchor, final int scrollOffset) {
         ItemStack newColor = ItemStack.EMPTY;
 
-        final IMEInventory<IAEItemStack> inv = getInventory(is);
+        final MEStorage inv = getInventory(is);
         if (inv != null) {
-            final IItemList<IAEItemStack> itemList = inv.getAvailableItems(getChannel().createList());
+            final KeyCounter itemList = inv.getAvailableStacks();
             if (anchor.isEmpty()) {
-                final IAEItemStack firstItem = itemList.getFirstItem();
+                final AEItemKey firstItem = itemList.getFirstKey(AEItemKey.class);
                 if (firstItem != null) {
-                    newColor = firstItem.asItemStackRepresentation();
+                    newColor = firstItem.toStack(1);
                 }
             } else {
-                final LinkedList<IAEItemStack> list = new LinkedList<>();
+                final LinkedList<AEItemKey> list = new LinkedList<>();
 
-                for (final IAEItemStack i : itemList) {
-                    list.add(i);
+                for (final var entry : itemList) {
+                    if (entry.getKey() instanceof AEItemKey itemKey) {
+                        list.add(itemKey);
+                    }
                 }
 
-                Collections.sort(list, Comparator.comparingInt(IAEItemStack::getItemDamage));
+                list.sort(Comparator.comparingInt(AEItemKey::getDamage));
                 if (list.isEmpty()) return ItemStack.EMPTY;
 
-                IAEItemStack where = list.getFirst();
+                AEItemKey where = list.getFirst();
                 int cycles = 1 + list.size();
 
-                while (cycles > 0 && !where.equals(anchor)) {
+                while (cycles > 0 && !where.matches(anchor)) {
                     list.addLast(list.removeFirst());
                     cycles--;
                     where = list.getFirst();
@@ -324,7 +330,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
                     list.addFirst(list.removeLast());
                 }
 
-                return list.get(0).asItemStackRepresentation();
+                return list.get(0).toStack(1);
             }
         }
 
@@ -411,11 +417,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
-        final ICellInventoryHandler<IAEItemStack> cdi = AEApi.instance()
-                .registries()
-                .cell()
-                .getCellInventory(stack, null,
-                        AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+        final var cdi = StorageCells.getCellInventory(stack, null);
 
         AEApi.instance().client().addCellInformation(cdi, lines);
     }
@@ -436,9 +438,9 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     }
 
     @Override
-    public boolean isBlackListed(final ItemStack cellItem, final IAEItemStack requestedAddition) {
-        if (requestedAddition != null) {
-            final int[] id = OreDictionary.getOreIDs(requestedAddition.getDefinition());
+    public boolean isBlackListed(final ItemStack cellItem, final AEKey requestedAddition) {
+        if (requestedAddition instanceof AEItemKey itemKey) {
+            final int[] id = OreDictionary.getOreIDs(itemKey.getReadOnlyStack());
 
             for (final int x : id) {
                 if (ORE_TO_COLOR.containsKey(x)) {
@@ -446,11 +448,11 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
                 }
             }
 
-            if (requestedAddition.getItem() instanceof ItemSnowball) {
+            if (itemKey.getItem() instanceof ItemSnowball) {
                 return false;
             }
 
-            return !(requestedAddition.getItem() instanceof ItemPaintBall && requestedAddition.getItemDamage() < 20);
+            return !(itemKey.getItem() instanceof ItemPaintBall && itemKey.getDamage() < 20);
         }
         return true;
     }
@@ -471,8 +473,8 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IStorageCe
     }
 
     @Override
-    public IStorageChannel<IAEItemStack> getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
+    public AEKeyType getKeyType() {
+        return AEKeyType.items();
     }
 
     @Override

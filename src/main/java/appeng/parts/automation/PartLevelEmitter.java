@@ -19,42 +19,10 @@
 package appeng.parts.automation;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.*;
-import appeng.api.networking.crafting.*;
-import appeng.api.networking.energy.IEnergyGrid;
-import appeng.api.networking.energy.IEnergyWatcher;
-import appeng.api.networking.energy.IEnergyWatcherHost;
-import appeng.api.networking.events.MENetworkChannelsChanged;
-import appeng.api.networking.events.MENetworkCraftingPatternChange;
-import appeng.api.networking.events.MENetworkEventSubscribe;
-import appeng.api.networking.events.MENetworkPowerStatusChange;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.networking.storage.IStackWatcher;
-import appeng.api.networking.storage.IStackWatcherHost;
-import appeng.api.parts.IPartCollisionHelper;
-import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
-import appeng.api.util.AECableType;
-import appeng.api.util.AEPartLocation;
-import appeng.api.util.IConfigManager;
-import appeng.core.AppEng;
-import appeng.core.sync.GuiBridge;
-import appeng.helpers.Reflected;
-import appeng.items.parts.PartModels;
-import appeng.me.GridAccessException;
-import appeng.me.cache.NetworkMonitor;
-import appeng.parts.PartModel;
-import appeng.tile.inventory.AppEngInternalAEInventory;
-import appeng.util.Platform;
-import appeng.util.inv.InvOperation;
+import java.util.Random;
+
+import javax.annotation.Nullable;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -68,10 +36,46 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
-import java.util.Random;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.LevelType;
+import appeng.api.config.RedstoneMode;
+import appeng.api.config.Settings;
+import appeng.api.config.Upgrades;
+import appeng.api.config.YesNo;
+import appeng.api.networking.crafting.ICraftingGrid;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.networking.crafting.ICraftingProviderHelper;
+import appeng.api.networking.crafting.ICraftingWatcher;
+import appeng.api.networking.crafting.ICraftingWatcherHost;
+import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.energy.IEnergyWatcher;
+import appeng.api.networking.energy.IEnergyWatcherHost;
+import appeng.api.networking.events.MENetworkChannelsChanged;
+import appeng.api.networking.events.MENetworkCraftingPatternChange;
+import appeng.api.networking.events.MENetworkEventSubscribe;
+import appeng.api.networking.events.MENetworkPowerStatusChange;
+import appeng.api.networking.storage.IStackWatcher;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.networking.storage.IStorageWatcherNode;
+import appeng.api.parts.IPartCollisionHelper;
+import appeng.api.parts.IPartModel;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.util.AECableType;
+import appeng.api.util.AEPartLocation;
+import appeng.api.util.IConfigManager;
+import appeng.core.AppEng;
+import appeng.core.sync.GuiBridge;
+import appeng.helpers.Reflected;
+import appeng.items.parts.PartModels;
+import appeng.me.GridAccessException;
+import appeng.parts.PartModel;
+import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.util.Platform;
+import appeng.util.inv.InvOperation;
 
-
-public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherHost, IStackWatcherHost, ICraftingWatcherHost, IMEMonitorHandlerReceiver<IAEItemStack>, ICraftingProvider {
+public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherHost, IStorageWatcherNode, ICraftingWatcherHost, ICraftingProvider {
 
     @PartModels
     public static final ResourceLocation MODEL_BASE_OFF = new ResourceLocation(AppEng.MOD_ID, "part/level_emitter_base_off");
@@ -99,13 +103,11 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
 
     private long lastReportedValue = 0;
     private long reportingValue = 0;
+    private long lastWatcherRescanTick = -1;
 
     private IStackWatcher myWatcher;
     private IEnergyWatcher myEnergyWatcher;
     private ICraftingWatcher myCraftingWatcher;
-    private double centerX;
-    private double centerY;
-    private double centerZ;
 
     @Reflected
     public PartLevelEmitter(final ItemStack is) {
@@ -153,7 +155,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
 
         if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0) {
             try {
-                return this.getProxy().getCrafting().isRequesting(this.config.getAEStackInSlot(0));
+                return this.getProxy().getCrafting().isRequesting(this.getConfiguredKey());
             } catch (final GridAccessException e) {
                 // :P
             }
@@ -169,7 +171,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     @MENetworkEventSubscribe
     public void powerRender(final MENetworkPowerStatusChange powerEvent) {
         if (this.getProxy().isActive()) {
-            onListUpdate();
+            this.onListUpdate();
         }
         this.updateState();
     }
@@ -178,7 +180,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     @MENetworkEventSubscribe
     public void chanRender(final MENetworkChannelsChanged c) {
         if (this.getProxy().isActive()) {
-            onListUpdate();
+            this.onListUpdate();
         }
         this.updateState();
     }
@@ -195,13 +197,19 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     }
 
     @Override
-    public void onRequestChange(final ICraftingGrid craftingGrid, final IAEItemStack what) {
+    public void onRequestChange(final ICraftingGrid craftingGrid, final AEKey what) {
         this.updateState();
+    }
+
+    @Nullable
+    private AEKey getConfiguredKey() {
+        final GenericStack stack = this.config.getAEStackInSlot(0);
+        return stack != null ? stack.what() : null;
     }
 
     // update the system...
     private void configureWatchers() {
-        final IAEItemStack myStack = this.config.getAEStackInSlot(0);
+        final AEKey myStack = this.getConfiguredKey();
 
         if (this.myWatcher != null) {
             this.myWatcher.reset();
@@ -238,9 +246,6 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
                 // update to power...
                 this.lastReportedValue = (long) this.getProxy().getEnergy().getStoredPower();
                 this.updateState();
-
-                // no more item stuff..
-                this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).removeListener(this);
             } catch (final GridAccessException e) {
                 // :P
             }
@@ -248,43 +253,45 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
             return;
         }
 
-        try {
+        if (this.myWatcher != null) {
             if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0 || myStack == null) {
-                this.getProxy()
-                        .getStorage()
-                        .getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class))
-                        .addListener(this,
-                                this.getProxy().getGrid());
+                this.myWatcher.setWatchAll(true);
             } else {
-                this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).removeListener(this);
-
-                if (this.myWatcher != null) {
-                    this.myWatcher.add(myStack);
-                }
+                this.myWatcher.setWatchAll(false);
+                this.myWatcher.add(myStack);
             }
+        }
 
-            this.updateReportingValue(this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
+        try {
+            this.updateReportingValue(this.getProxy().getStorage());
         } catch (final GridAccessException e) {
             // >.>
         }
     }
 
-    private void updateReportingValue(final IMEMonitor<IAEItemStack> monitor) {
-        final IAEItemStack myStack = this.config.getAEStackInSlot(0);
+    private void updateReportingValue(final IStorageService storage) {
+        final AEKey myStack = this.getConfiguredKey();
+        final var stacks = storage.getCachedInventory();
 
         if (myStack == null) {
-            if (monitor instanceof NetworkMonitor) {
-                this.lastReportedValue = ((NetworkMonitor<IAEItemStack>) monitor).getGridCurrentCount();
+            this.lastReportedValue = 0;
+            for (var entry : stacks) {
+                this.lastReportedValue += entry.getLongValue();
+                if (this.lastReportedValue > this.reportingValue) {
+                    // Stop here, we have enough info -- avoids blank-emitter spam causing lag, same
+                    // idea as the deleted NetworkMonitor.getGridCurrentCount() this replaces.
+                    break;
+                }
             }
         } else if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
             final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
 
             this.lastReportedValue = 0;
-            monitor.getStorageList().findFuzzy(myStack, fzMode).forEach(iaeItemStack -> lastReportedValue += iaeItemStack.getStackSize());
+            for (var entry : stacks.findFuzzy(myStack, fzMode)) {
+                this.lastReportedValue += entry.getLongValue();
+            }
         } else {
-            this.lastReportedValue = 0;
-            IAEItemStack precise = monitor.getStorageList().findPrecise(myStack);
-            if (precise != null) lastReportedValue = precise.getStackSize();
+            this.lastReportedValue = stacks.get(myStack);
         }
         this.updateState();
     }
@@ -296,10 +303,29 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     }
 
     @Override
-    public void onStackChange(final IItemList o, final IAEStack fullStack, final IAEStack diffStack, final IActionSource src, final IStorageChannel chan) {
-        if (chan == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class) && fullStack.equals(this.config.getAEStackInSlot(0)) && this.getInstalledUpgrades(Upgrades.FUZZY) == 0) {
-            this.lastReportedValue = fullStack.getStackSize();
+    public void onStackChange(final AEKey what, final long amount) {
+        final AEKey myStack = this.getConfiguredKey();
+
+        if (myStack != null && what.equals(myStack) && this.getInstalledUpgrades(Upgrades.FUZZY) == 0) {
+            this.lastReportedValue = amount;
             this.updateState();
+            return;
+        }
+
+        // Either a fuzzy filter or no filter at all -- both watch every key in the network, so a
+        // single change has to trigger a full rescan. Guard against rescanning more than once per
+        // tick when many keys change at once, same idea as the pre-port "once per tick" concern.
+        final TileEntity te = this.getHost() != null ? this.getHost().getTile() : null;
+        final long tick = te != null && te.getWorld() != null ? te.getWorld().getTotalWorldTime() : -1;
+        if (tick == this.lastWatcherRescanTick) {
+            return;
+        }
+        this.lastWatcherRescanTick = tick;
+
+        try {
+            this.updateReportingValue(this.getProxy().getStorage());
+        } catch (final GridAccessException e) {
+            // :P
         }
     }
 
@@ -315,24 +341,9 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
         this.updateState();
     }
 
-    @Override
-    public boolean isValid(final Object effectiveGrid) {
+    private void onListUpdate() {
         try {
-            return this.getProxy().getGrid() == effectiveGrid;
-        } catch (final GridAccessException e) {
-            return false;
-        }
-    }
-
-    @Override
-    public void postChange(final IBaseMonitor<IAEItemStack> monitor, final Iterable<IAEItemStack> change, final IActionSource actionSource) {
-        this.updateReportingValue((IMEMonitor<IAEItemStack>) monitor);
-    }
-
-    @Override
-    public void onListUpdate() {
-        try {
-            this.updateReportingValue(this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
+            this.updateReportingValue(this.getProxy().getStorage());
         } catch (final GridAccessException e) {
             // ;P
         }
@@ -451,7 +462,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     public void provideCrafting(final ICraftingProviderHelper craftingTracker) {
         if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0) {
             if (this.getConfigManager().getSetting(Settings.CRAFT_VIA_REDSTONE) == YesNo.YES) {
-                final IAEItemStack what = this.config.getAEStackInSlot(0);
+                final AEKey what = this.getConfiguredKey();
                 if (what != null) {
                     craftingTracker.setEmitable(what);
                 }

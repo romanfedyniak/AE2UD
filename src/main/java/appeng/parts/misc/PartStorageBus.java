@@ -20,6 +20,8 @@ package appeng.parts.misc;
 
 
 import appeng.api.AEApi;
+import appeng.api.behaviors.ExternalStorageStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.*;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.events.MENetworkCellArrayUpdate;
@@ -27,8 +29,6 @@ import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.ITickManager;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -36,10 +36,14 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.*;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageMonitorableAccessor;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.capabilities.Capabilities;
@@ -50,20 +54,18 @@ import appeng.helpers.IPriorityHost;
 import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
-import appeng.me.cache.GridStorageCache;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.MEInventoryHandler;
+import appeng.me.storage.NullInventory;
 import appeng.parts.PartModel;
 import appeng.parts.automation.PartUpgradeable;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.misc.TileInterface;
 import appeng.tile.networking.TileCableBus;
-import appeng.util.ConfigManager;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
-import appeng.util.prioritylist.FuzzyPriorityList;
-import appeng.util.prioritylist.PrecisePriorityList;
+import appeng.util.prioritylist.IPartitionList;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -74,19 +76,36 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityInject;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import javax.annotation.Nullable;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 
-public class PartStorageBus extends PartUpgradeable implements IGridTickable, ICellContainer, IMEMonitorHandlerReceiver<IAEItemStack>, IPriorityHost {
+/**
+ * Storage bus. Wraps whatever is on the far side of the block it's attached to as one {@link MEStorage} and mounts
+ * it into the network at {@link #priority}.
+ * <p/>
+ * Since the {@code MEStorage}/{@code AEKeyType} port (see CONTRACT.md), the target inventory is no longer resolved
+ * by hand for items only: {@link #findExternalStorage} tries, in order,
+ * <ol>
+ * <li>a direct link to another ME network ({@link IStorageMonitorableAccessor}),</li>
+ * <li>AE2UD's fork-specific Storage Drawers integration ({@link IItemRepository}, see CONTRACT.md §10/§11),</li>
+ * <li>the generic {@link ExternalStorageStrategy} registry, one wrapper per registered {@link AEKeyType}, composed
+ * transparently by {@link CompositeExternalStorage} when more than one type answers (items today; fluids from
+ * wave 5 onward; anything an addon registers) - this is what lets the same bus serve every type without any
+ * further change here.</li>
+ * </ol>
+ */
+public class PartStorageBus extends PartUpgradeable implements IGridTickable, IStorageProvider, IPriorityHost {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/storage_bus_base");
     @PartModels
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/storage_bus_off"));
@@ -96,17 +115,18 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/storage_bus_has_channel"));
     @CapabilityInject(IItemRepository.class)
     public static Capability<IItemRepository> ITEM_REPOSITORY_CAPABILITY = null;
+
     protected final IActionSource mySrc;
     protected final AppEngInternalAEInventory Config = new AppEngInternalAEInventory(this, 63);
+    protected final StorageBusHandler handler = new StorageBusHandler(NullInventory.of());
     protected int priority = 0;
     protected boolean cached = false;
     protected ITickingMonitor monitor = null;
-    protected MEInventoryHandler<IAEItemStack> handler = null;
     protected int handlerHash = 0;
     private boolean wasActive = false;
     private byte resetCacheLogic = 0;
-    private boolean accessChanged;
-    private boolean readOncePass;
+    @Nullable
+    private Map<AEKeyType, ExternalStorageStrategy> externalStorageStrategies;
 
     @Reflected
     public PartStorageBus(final ItemStack is) {
@@ -150,9 +170,16 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
 
     @Override
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
-        if (settingName.name().equals("ACCESS")) {
-            this.accessChanged = true;
-        }
+        // Fork note on the ACCESS old/new comparison (see CONTRACT.md §10): the pre-migration code used the OLD
+        // access value to post one last "everything just disappeared" notification via the removed
+        // IMEMonitor#postAlterationOfStoredItems before applying a more restrictive new access - there is no
+        // equivalent call any more, IStorageService has no per-source posting method at all, MEStorage is not a
+        // per-listener monitor, and the network now diffs its own cached view once per tick instead of being
+        // pushed to (see CraftingGridCache/GridStorageCache). The visible result - losing READ access makes this
+        // bus's contents disappear from every terminal - still happens: resetCache(true) below always forces a
+        // full rebuild of `handler` (fresh allowExtraction/allowInsertion/filter flags) and a
+        // IStorageProvider.requestUpdate() call, so the network re-derives its available-stacks cache as soon as
+        // it next ticks, exactly as before, just centrally instead of through a per-bus push.
         this.resetCache(true);
         this.getHost().markForSave();
     }
@@ -177,7 +204,6 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         super.readFromNBT(data);
         this.Config.readFromNBT(data, "config");
         this.priority = data.getInteger("priority");
-        this.accessChanged = false;
     }
 
     @Override
@@ -212,42 +238,6 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         } catch (final GridAccessException e) {
             // :P
         }
-    }
-
-    @Override
-    public boolean isValid(final Object verificationToken) {
-        return this.handler == verificationToken;
-    }
-
-    @Override
-    public void postChange(final IBaseMonitor<IAEItemStack> monitor, final Iterable<IAEItemStack> change, final IActionSource source) {
-        if (this.getProxy().isActive()) {
-            var filteredChanges = this.filterChanges(change);
-
-            AccessRestriction currentAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS);
-            if (readOncePass) {
-                readOncePass = false;
-                try {
-                    this.getProxy().getStorage().postAlterationOfStoredItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class), filteredChanges, mySrc);
-                } catch (final GridAccessException e) {
-                    // :(
-                }
-                return;
-            }
-            if (!currentAccess.hasPermission(AccessRestriction.READ)) {
-                return;
-            }
-            try {
-                this.getProxy().getStorage().postAlterationOfStoredItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class), filteredChanges, source);
-            } catch (final GridAccessException e) {
-                // :(
-            }
-        }
-    }
-
-    @Override
-    public void onListUpdate() {
-        // not used here.
     }
 
     @Override
@@ -323,77 +313,85 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         final boolean fullReset = this.resetCacheLogic == 2;
         this.resetCacheLogic = 0;
 
-        final MEInventoryHandler<IAEItemStack> in = this.getInternalHandler();
-
-        IItemList<IAEItemStack> before = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        if (in != null) {
-            if (accessChanged) {
-                AccessRestriction currentAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS);
-                AccessRestriction oldAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getOldSetting(Settings.ACCESS);
-                if (oldAccess.hasPermission(AccessRestriction.READ) && !currentAccess.hasPermission(AccessRestriction.READ)) {
-                    readOncePass = true;
-                }
-                in.setBaseAccess(oldAccess);
-                before = in.getAvailableItems(before);
-                in.setBaseAccess(currentAccess);
-                accessChanged = false;
-            } else {
-                before = in.getAvailableItems(before);
-            }
-        }
-
-        this.cached = false;
         if (fullReset) {
             this.handlerHash = 0;
         }
 
-        final MEInventoryHandler<IAEItemStack> out = this.getInternalHandler();
-
-        IItemList<IAEItemStack> after = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-
-        if (in != out) {
-            if (out != null) {
-                after = out.getAvailableItems(after);
-            }
-            Platform.postListChanges(before, after, this, this.mySrc);
-        }
+        this.cached = false;
+        this.getInternalHandler();
     }
 
-    IMEInventory<IAEItemStack> getInventoryWrapper(TileEntity target) {
-
-        EnumFacing targetSide = this.getSide().getFacing().getOpposite();
-
-        // Prioritize a handler to directly link to another ME network
-        IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
-
+    /**
+     * Resolves the storage this bus should expose, in priority order. See the class javadoc.
+     */
+    @Nullable
+    MEStorage findExternalStorage(final TileEntity target, final EnumFacing targetSide, final boolean extractableOnly,
+            final Runnable changeListener) {
+        // 1. A direct link to another ME network (sub-networking through a storage bus).
+        final IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
         if (accessor != null) {
-            IStorageMonitorable inventory = accessor.getInventory(this.mySrc);
-            if (inventory != null) {
-                return inventory.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-            }
+            return accessor.getInventory(this.mySrc);
+        }
 
-            // So this could / can be a design decision. If the tile does support our custom capability,
-            // but it does not return an inventory for the action source, we do NOT fall back to using
-            // IItemHandler's, as that might circumvent the security setings, and might also cause
-            // performance issues.
+        // 2. Fork-specific: Storage Drawers' IItemRepository. Upstream has no equivalent (CONTRACT.md §10/§11); kept
+        // as an explicit extra rather than a registered ExternalStorageStrategy because the capability is not keyed
+        // by AEKeyType at all.
+        if (ITEM_REPOSITORY_CAPABILITY != null && target.hasCapability(ITEM_REPOSITORY_CAPABILITY, targetSide)) {
+            final IItemRepository repo = target.getCapability(ITEM_REPOSITORY_CAPABILITY, targetSide);
+            if (repo != null) {
+                return new ItemRepositoryAdapter(repo, changeListener);
+            }
+        }
+
+        // 3. Generic external-storage strategies: one per registered AEKeyType.
+        return this.createGenericExternalStorage(extractableOnly, changeListener);
+    }
+
+    private Map<AEKeyType, ExternalStorageStrategy> getExternalStorageStrategies() {
+        if (this.externalStorageStrategies == null) {
+            final TileEntity self = this.getHost().getTile();
+            final BlockPos targetPos = self.getPos().offset(this.getSide().getFacing());
+            final EnumFacing targetSide = this.getSide().getFacing().getOpposite();
+            this.externalStorageStrategies = StackWorldBehaviors.createExternalStorageStrategies(self.getWorld(), targetPos, targetSide);
+        }
+        return this.externalStorageStrategies;
+    }
+
+    @Nullable
+    private MEStorage createGenericExternalStorage(final boolean extractableOnly, final Runnable changeListener) {
+        final Map<AEKeyType, ExternalStorageStrategy> strategies = this.getExternalStorageStrategies();
+        if (strategies.isEmpty()) {
             return null;
         }
 
-        // Check via cap for IItemRepository
-        if (ITEM_REPOSITORY_CAPABILITY != null && target.hasCapability(ITEM_REPOSITORY_CAPABILITY, targetSide)) {
-            IItemRepository handlerRepo = target.getCapability(ITEM_REPOSITORY_CAPABILITY, targetSide);
-            if (handlerRepo != null) {
-                return new ItemRepositoryAdapter(handlerRepo, this);
+        Map<AEKeyType, MEStorage> wrappers = null;
+        MEStorage single = null;
+        for (final Map.Entry<AEKeyType, ExternalStorageStrategy> entry : strategies.entrySet()) {
+            final MEStorage wrapper = entry.getValue().createWrapper(extractableOnly, changeListener);
+            if (wrapper == null) {
+                continue;
+            }
+            if (wrappers != null) {
+                wrappers.put(entry.getKey(), wrapper);
+            } else if (single == null) {
+                single = wrapper;
+                wrappers = new LinkedHashMap<>();
+                wrappers.put(entry.getKey(), wrapper);
             }
         }
-        // Check via cap for IItemHandler
-        IItemHandler handlerExt = target.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, targetSide);
-        if (handlerExt != null) {
-            return new ItemHandlerAdapter(handlerExt, this);
+
+        if (wrappers == null) {
+            return null;
         }
+        return wrappers.size() == 1 ? single : new CompositeExternalStorage(wrappers);
+    }
 
-        return null;
-
+    private void onExternalStorageChanged() {
+        try {
+            this.getProxy().getTick().alertDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            // meh
+        }
     }
 
     int createHandlerHash(TileEntity target) {
@@ -406,10 +404,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         if (target.hasCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide)) {
             IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
             if (accessor != null) {
-                IStorageMonitorable inventory = accessor.getInventory(this.mySrc);
-                if (inventory != null) {
-                    return Objects.hash(target, inventory.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
-                }
+                return Objects.hash(target, accessor.getInventory(this.mySrc));
             }
             return Objects.hash(target, target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide));
         }
@@ -423,12 +418,13 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         return 0;
     }
 
-    public MEInventoryHandler<IAEItemStack> getInternalHandler() {
+    public MEInventoryHandler getInternalHandler() {
         if (this.cached) {
             return this.handler;
         }
 
         final boolean wasSleeping = this.monitor == null;
+        final boolean wasRegistered = this.hasRegisteredCellToNetwork();
 
         this.cached = true;
         final TileEntity self = this.getHost().getTile();
@@ -440,55 +436,37 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         }
 
         this.handlerHash = newHandlerHash;
-        this.handler = null;
-        if (this.monitor != null) {
-            ((IBaseMonitor<IAEItemStack>) monitor).removeListener(this);
-        }
         this.monitor = null;
+
+        MEStorage newDelegate = NullInventory.of();
         if (target != null) {
-            IMEInventory<IAEItemStack> inv = this.getInventoryWrapper(target);
-
-            if (inv instanceof ITickingMonitor) {
-                this.monitor = (ITickingMonitor) inv;
-                this.monitor.setActionSource(mySrc);
-                this.monitor.setMode((StorageFilter) this.getConfigManager().getSetting(Settings.STORAGE_FILTER));
-            }
-
-            if (inv != null) {
-                this.handler = new MEInventoryHandler<>(inv, AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-
-                this.handler.setBaseAccess((AccessRestriction) this.getConfigManager().getSetting(Settings.ACCESS));
-                this.handler.setWhitelist(this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
-                this.handler.setPriority(this.priority);
-                this.handler.setStorageFilter((StorageFilter) this.getConfigManager().getSetting(Settings.STORAGE_FILTER));
-
-                final IItemList<IAEItemStack> priorityList = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-
-                final int slotsToUse = 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
-                for (int x = 0; x < this.Config.getSlots() && x < slotsToUse; x++) {
-                    final IAEItemStack is = this.Config.getAEStackInSlot(x);
-                    if (is != null) {
-                        priorityList.add(is);
-                    }
-                }
-
-                if (this.getInstalledUpgrades(Upgrades.STICKY) > 0) {
-                    this.handler.setSticky(true);
-                }
-
-                if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-                    this.handler.setPartitionList(new FuzzyPriorityList<>(priorityList, (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)));
-                } else {
-                    this.handler.setPartitionList(new PrecisePriorityList<>(priorityList));
-                }
-
-                if (inv instanceof IBaseMonitor) {
-                    if (((AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS)).hasPermission(AccessRestriction.READ)) {
-                        ((IBaseMonitor<IAEItemStack>) inv).addListener(this, this.handler);
-                    }
-                }
+            final EnumFacing targetSide = this.getSide().getFacing().getOpposite();
+            final boolean extractableOnly = this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
+            final MEStorage found = this.findExternalStorage(target, targetSide, extractableOnly, this::onExternalStorageChanged);
+            if (found != null) {
+                newDelegate = found;
             }
         }
+
+        this.handler.setDelegate(newDelegate);
+
+        if (newDelegate instanceof ITickingMonitor) {
+            this.monitor = (ITickingMonitor) newDelegate;
+        }
+
+        final AccessRestriction access = (AccessRestriction) this.getConfigManager().getSetting(Settings.ACCESS);
+        final boolean allowExtraction = access.hasPermission(AccessRestriction.READ);
+        final boolean extractableOnlyFilter = this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
+
+        this.handler.setAllowExtraction(allowExtraction);
+        this.handler.setAllowInsertion(access.hasPermission(AccessRestriction.WRITE));
+        // filterOnExtraction is forced on unconditionally: the old generic MEInventoryHandler<T> gated BOTH
+        // extraction and visibility on hasReadAccess unconditionally; the new one only does either when told to
+        // via setExtractFiltering, so READ (and the whitelist) must always be asked here to reproduce that.
+        this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
+        this.handler.setWhitelist(this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+        this.handler.setPartitionList(this.createFilter());
+        this.handler.setSticky(this.getInstalledUpgrades(Upgrades.STICKY) > 0);
 
         // update sleep state...
         if (wasSleeping != (this.monitor == null)) {
@@ -504,25 +482,44 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
             }
         }
 
-        try {
-            // force grid to update handlers...
-            ((GridStorageCache) this.getProxy().getGrid().getCache(IStorageGrid.class)).cellUpdate(null);
-        } catch (final GridAccessException e) {
-            // :3
+        if (wasRegistered != this.hasRegisteredCellToNetwork()) {
+            IStorageProvider.requestUpdate(this.getProxy().getNode());
         }
 
         return this.handler;
     }
 
-    @Override
-    public List<IMEInventoryHandler> getCellArray(final IStorageChannel channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-            final IMEInventoryHandler<IAEItemStack> out = this.getInternalHandler();
-            if (out != null) {
-                return Collections.singletonList(out);
+    private boolean hasRegisteredCellToNetwork() {
+        return !(this.handler.getDelegate() instanceof NullInventory);
+    }
+
+    /**
+     * Builds the priority/filter list from the config slots. Overridden by {@link PartOreDicStorageBus} to swap in
+     * an ore-dictionary rule list instead - everything else (ACCESS, STORAGE_FILTER, Upgrades.INVERTER,
+     * Upgrades.STICKY, priority) is shared, unchanged, through {@link #getInternalHandler()}.
+     */
+    protected IPartitionList createFilter() {
+        final IPartitionList.Builder filterBuilder = IPartitionList.builder();
+        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+            filterBuilder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
+        }
+
+        final int slotsToUse = 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
+        for (int x = 0; x < this.Config.getSlots() && x < slotsToUse; x++) {
+            final GenericStack is = this.Config.getAEStackInSlot(x);
+            if (is != null) {
+                filterBuilder.add(is.what());
             }
         }
-        return Collections.emptyList();
+
+        return filterBuilder.build();
+    }
+
+    @Override
+    public void mountInventories(final IStorageMounts mounts) {
+        if (this.hasRegisteredCellToNetwork()) {
+            mounts.mount(this.getInternalHandler(), this.priority);
+        }
     }
 
     @Override
@@ -535,24 +532,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         this.priority = newValue;
         this.getHost().markForSave();
         this.resetCache(true);
-    }
-
-    @Override
-    public void blinkCell(final int slot) {
-    }
-
-    // TODO: BC PIPE INTEGRATION
-    /*
-     * @Override
-     * @Method( iname = IntegrationType.BuildCraftTransport )
-     * public ConnectOverride overridePipeConnection( PipeType type, ForgeDirection with )
-     * {
-     * return type == PipeType.ITEM && with == this.getSide() ? ConnectOverride.CONNECT : ConnectOverride.DISCONNECT;
-     * }
-     */
-    @Override
-    public void saveChanges(final ICellInventory<?> cellInventory) {
-        // nope!
+        IStorageProvider.requestUpdate(this.getProxy().getNode());
     }
 
     @Override
@@ -576,25 +556,98 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IC
         return GuiBridge.GUI_STORAGEBUS;
     }
 
-    // TODO: 1/28/2024 Unify both methods.
     /**
-     * Filters the changes to only include items that pass the storage filter.
-     * Optimally, this should be handled by the underlying monitor.
-     * 
-     * @see appeng.fluids.parts.PartFluidStorageBus#filterChanges
+     * Persistent wrapper around whatever {@link #findExternalStorage} last resolved. Kept as a single, stable
+     * instance for the part's whole lifetime (mirroring AE2-original's {@code StorageBusPart.StorageBusInventory})
+     * so that settings changes only need to update flags in place; only {@link #setDelegate} swaps the backing
+     * storage when the target itself changes. Re-declaring the protected accessors here (rather than leaving them
+     * on {@link MEInventoryHandler}) is what makes them callable from {@link PartStorageBus} despite being
+     * `protected`: the override moves their declaring class into this package, see the outer class's uses.
      */
-    protected Iterable<IAEItemStack> filterChanges(Iterable<IAEItemStack> change) {
-        var storageFilter = this.getConfigManager().getSetting(Settings.STORAGE_FILTER);
-        if (storageFilter == StorageFilter.EXTRACTABLE_ONLY && handler != null) {
-            var filteredList = new ArrayList<IAEItemStack>();
-            for (final IAEItemStack stack : change) {
-                if (this.handler.passesBlackOrWhitelist(stack)) {
-                    filteredList.add(stack);
+    private static final class StorageBusHandler extends MEInventoryHandler {
+        StorageBusHandler(final MEStorage delegate) {
+            super(delegate);
+        }
+
+        @Override
+        protected MEStorage getDelegate() {
+            return super.getDelegate();
+        }
+
+        @Override
+        protected void setDelegate(final MEStorage delegate) {
+            super.setDelegate(delegate);
+        }
+    }
+
+    /**
+     * Combines one {@link MEStorage} per {@link AEKeyType} into a single view, so a single storage bus can serve
+     * items, fluids and any type an addon registers through {@link ExternalStorageStrategy}, with no branching in
+     * the bus itself. Only relevant once more than one type answers (items today; fluids from wave 5 onward).
+     */
+    private static final class CompositeExternalStorage implements MEStorage, ITickingMonitor {
+        private static final TickRateModulation[] URGENCY_ORDER = {
+                TickRateModulation.URGENT, TickRateModulation.FASTER, TickRateModulation.SAME,
+                TickRateModulation.SLOWER, TickRateModulation.IDLE, TickRateModulation.SLEEP,
+        };
+
+        private final Map<AEKeyType, MEStorage> storages;
+
+        CompositeExternalStorage(final Map<AEKeyType, MEStorage> storages) {
+            this.storages = storages;
+        }
+
+        @Override
+        public boolean isPreferredStorageFor(final AEKey what, final IActionSource source) {
+            final MEStorage storage = this.storages.get(what.getType());
+            return storage != null && storage.isPreferredStorageFor(what, source);
+        }
+
+        @Override
+        public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            final MEStorage storage = this.storages.get(what.getType());
+            return storage == null ? 0 : storage.insert(what, amount, mode, source);
+        }
+
+        @Override
+        public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            final MEStorage storage = this.storages.get(what.getType());
+            return storage == null ? 0 : storage.extract(what, amount, mode, source);
+        }
+
+        @Override
+        public void getAvailableStacks(final KeyCounter out) {
+            for (final MEStorage storage : this.storages.values()) {
+                storage.getAvailableStacks(out);
+            }
+        }
+
+        @Override
+        public ITextComponent getDescription() {
+            for (final MEStorage storage : this.storages.values()) {
+                return storage.getDescription();
+            }
+            return new TextComponentString("");
+        }
+
+        @Override
+        public TickRateModulation onTick() {
+            TickRateModulation result = TickRateModulation.SLEEP;
+            for (final MEStorage storage : this.storages.values()) {
+                if (storage instanceof ITickingMonitor) {
+                    result = mostUrgent(result, ((ITickingMonitor) storage).onTick());
                 }
             }
-
-            return filteredList;
+            return result;
         }
-        return change;
+
+        private static TickRateModulation mostUrgent(final TickRateModulation a, final TickRateModulation b) {
+            for (final TickRateModulation m : URGENCY_ORDER) {
+                if (a == m || b == m) {
+                    return m;
+                }
+            }
+            return TickRateModulation.SLEEP;
+        }
     }
 }

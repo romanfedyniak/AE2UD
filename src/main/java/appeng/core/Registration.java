@@ -45,6 +45,7 @@ import appeng.capabilities.Capabilities;
 import appeng.core.features.AEFeature;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageCells;
 import appeng.core.api.AEFluidKeyType;
 import appeng.core.api.AEItemKeyType;
@@ -52,6 +53,8 @@ import appeng.core.features.registries.P2PTunnelRegistry;
 import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.BasicItemCellGuiHandler;
 import appeng.core.features.registries.cell.CreativeCellHandler;
+import appeng.parts.automation.InitStackWorldBehaviors;
+import appeng.parts.misc.InitExternalStorageStrategies;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.stats.AdvancementTriggers;
@@ -219,9 +222,16 @@ final class Registration {
         StorageCells.addCellGuiHandler(new BasicItemCellGuiHandler());
         StorageCells.addCellGuiHandler(new BasicFluidCellGuiHandler());
 
-        // TODO wave 3: once the GenericStack.Wrapper item (CONTRACT.md §8 item 3, §8.1 item 2) exists, call
-        // appeng.api.stacks.GenericStack.setWrapper(...) with it here, before anything can query non-item keys'
-        // wrapForDisplayOrFilter(). It does not exist anywhere in src/main yet.
+        // Install the GenericStack.Wrapper implementation (CONTRACT.md §8 item 3, §8.1 item 2) before anything
+        // below - or anything running later during init - can call a non-item key's wrapForDisplayOrFilter().
+        definitions.items().wrappedGenericStack().maybeItem()
+                .ifPresent(item -> GenericStack.setWrapper((GenericStack.Wrapper) item));
+
+        // Wave 3: register the item strategies for the world-interaction (import/export/placement/pickup) and
+        // external-storage behaviour layers (CONTRACT.md §3). Must run after the AEKeyType registry is populated,
+        // which happens in newRegistry() (RegistryEvent.NewRegistry) - long before this FMLInitializationEvent.
+        InitStackWorldBehaviors.register();
+        InitExternalStorageStrategies.register();
 
         api.definitions().materials().matterBall().maybeStack(1).ifPresent(ammoStack ->
         {

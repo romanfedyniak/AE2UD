@@ -19,19 +19,26 @@
 package appeng.parts.automation;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.*;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+
+import appeng.api.behaviors.StackImportStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.RedstoneMode;
+import appeng.api.config.Settings;
+import appeng.api.config.Upgrades;
 import appeng.api.networking.IGridNode;
-import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
@@ -41,19 +48,19 @@ import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.PartModel;
-import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
-import appeng.util.inv.IInventoryDestination;
-import appeng.util.item.AEItemStack;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.Vec3d;
+import appeng.util.prioritylist.IPartitionList;
 
 
-public class PartImportBus extends PartSharedItemBus implements IInventoryDestination {
+/**
+ * Moves the bus' configured keys from the adjacent block into the network. Unlike the pre-port
+ * version (which talked to the adjacent inventory as {@code ItemStack}s directly), this class knows
+ * nothing about items: it just builds a {@link appeng.api.behaviors.StackTransferContext} once per
+ * tick and hands it to whatever {@link StackImportStrategy}s are registered for the configured key
+ * types (see {@link InitStackWorldBehaviors}). A future addon registering a new {@code AEKeyType}
+ * with its own import strategy gets a working import bus for free.
+ */
+public class PartImportBus extends PartSharedItemBus {
 
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/import_bus_base");
     @PartModels
@@ -64,8 +71,8 @@ public class PartImportBus extends PartSharedItemBus implements IInventoryDestin
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/import_bus_has_channel"));
 
     private final IActionSource source;
-    private int itemsToSend; // used in tickingRequest
-    private boolean worked; // used in tickingRequest
+
+    private StackImportStrategy importStrategy;
 
     @Reflected
     public PartImportBus(final ItemStack is) {
@@ -74,30 +81,6 @@ public class PartImportBus extends PartSharedItemBus implements IInventoryDestin
         this.getConfigManager().registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.source = new MachineSource(this);
-    }
-
-    @Override
-    public boolean canInsert(final ItemStack stack) {
-        if (stack.isEmpty() || stack.getItem() == Items.AIR) {
-            return false;
-        }
-
-        try {
-            final IMEMonitor<IAEItemStack> inv = this.getProxy()
-                    .getStorage()
-                    .getInventory(
-                            AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-
-            final IAEItemStack out = inv.injectItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(stack),
-                    Actionable.SIMULATE,
-                    this.source);
-            if (out == null) {
-                return true;
-            }
-            return out.getStackSize() != stack.getCount();
-        } catch (GridAccessException ex) {
-            return false;
-        }
     }
 
     @Override
@@ -136,126 +119,54 @@ public class PartImportBus extends PartSharedItemBus implements IInventoryDestin
             return TickRateModulation.IDLE;
         }
 
-        this.worked = false;
-
-        final InventoryAdaptor myAdaptor = this.getHandler();
-        final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
-
-        if (myAdaptor != null) {
-            try {
-                this.itemsToSend = this.calculateItemsToSend();
-
-                final IMEMonitor<IAEItemStack> inv = this.getProxy()
-                        .getStorage()
-                        .getInventory(
-                                AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-                final IEnergyGrid energy = this.getProxy().getEnergy();
-
-                boolean Configured = false;
-                for (int x = 0; x < this.availableSlots(); x++) {
-                    final IAEItemStack ais = this.getConfig().getAEStackInSlot(x);
-                    if (ais != null && this.itemsToSend > 0) {
-                        Configured = true;
-                        while (this.itemsToSend > 0) {
-                            if (this.importStuff(myAdaptor, ais, inv, energy, fzMode)) {
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!Configured) {
-                    while (this.itemsToSend > 0) {
-                        if (this.importStuff(myAdaptor, null, inv, energy, fzMode)) {
-                            break;
-                        }
-                    }
-                }
-            } catch (final GridAccessException e) {
-                // :3
-            }
-        } else {
-            return TickRateModulation.SLEEP;
+        if (this.importStrategy == null) {
+            final var self = this.getHost().getTile();
+            final var fromPos = self.getPos().offset(this.getSide().getFacing());
+            final var fromSide = this.getSide().getFacing().getOpposite();
+            this.importStrategy = new StackImportFacade(
+                    StackWorldBehaviors.createImportStrategies(self.getWorld(), fromPos, fromSide,
+                            StackWorldBehaviors.hasImportStrategyTypeFilter()));
         }
 
-        return this.worked ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
+        final MEStorage internalStorage;
+        final IEnergySource energy;
+        try {
+            internalStorage = this.getProxy().getStorage().getInventory();
+            energy = this.getProxy().getEnergy();
+        } catch (final GridAccessException e) {
+            return TickRateModulation.IDLE;
+        }
+
+        final IPartitionList filter = this.buildFilter();
+        final FuzzyMode fzMode = this.getInstalledUpgrades(Upgrades.FUZZY) > 0
+                ? (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)
+                : null;
+
+        final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
+                this.calculateItemsToSend(), filter, fzMode);
+
+        this.importStrategy.transfer(context);
+
+        return context.hasDoneWork() ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 
-    private boolean importStuff(final InventoryAdaptor myAdaptor, final IAEItemStack whatToImport, final IMEMonitor<IAEItemStack> inv, final IEnergySource energy, final FuzzyMode fzMode) {
-        final int toSend = this.calculateMaximumAmountToImport(myAdaptor, whatToImport, inv, fzMode);
-
-        if (toSend == 0) {
-            return true;
-        }
-
-        final ItemStack newItems;
-
+    /**
+     * Builds the partition list from the bus' configured slots, matching the pre-port behaviour where
+     * an unconfigured bus imports anything and a configured one only imports the listed items (fuzzy
+     * or precise depending on {@code Upgrades.FUZZY}).
+     */
+    private IPartitionList buildFilter() {
+        final var builder = IPartitionList.builder();
         if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-            newItems = myAdaptor.removeSimilarItems(toSend, whatToImport == null ? ItemStack.EMPTY : whatToImport.getDefinition(), fzMode, this);
-        } else {
-            newItems = myAdaptor.removeItems(toSend, whatToImport == null ? ItemStack.EMPTY : whatToImport.getDefinition(), this);
+            builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
-
-        if (!newItems.isEmpty()) {
-            final IAEItemStack aeStack = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(newItems);
-            final IAEItemStack failed = Platform.poweredInsert(energy, inv, aeStack, this.source);
-
-            if (failed != null) {
-                // try unpowered insert, better be a bit lenient then void items
-                final IAEItemStack spill = inv.injectItems(failed, Actionable.MODULATE, this.source);
-                if (spill != null) {
-                    // last resort try to put it back .. lets hope it's a chest type of thing
-                    myAdaptor.addItems(spill.createItemStack());
-                }
-                return true;
-            } else {
-                this.itemsToSend -= newItems.getCount();
-                this.worked = true;
+        for (int x = 0; x < this.availableSlots(); x++) {
+            final var stack = this.getConfig().getAEStackInSlot(x);
+            if (stack != null) {
+                builder.add(stack.what());
             }
-        } else {
-            return true;
         }
-
-        return false;
-    }
-
-    private int calculateMaximumAmountToImport(final InventoryAdaptor myAdaptor, final IAEItemStack whatToImport, final IMEMonitor<IAEItemStack> inv, final FuzzyMode fzMode) {
-        final int toSend = Math.min(this.itemsToSend, 64);
-        final ItemStack itemStackToImport;
-
-        if (whatToImport == null) {
-            itemStackToImport = ItemStack.EMPTY;
-        } else {
-            itemStackToImport = whatToImport.getDefinition();
-        }
-
-        final IAEItemStack itemAmountNotStorable;
-        final ItemStack simResult;
-        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-            simResult = myAdaptor.simulateSimilarRemove(toSend, itemStackToImport, fzMode, null);
-            itemAmountNotStorable = inv.injectItems(AEItemStack.fromItemStack(simResult), Actionable.SIMULATE, this.source);
-        } else {
-            simResult = myAdaptor.simulateRemove(toSend, itemStackToImport, null);
-            itemAmountNotStorable = inv.injectItems(AEItemStack.fromItemStack(simResult), Actionable.SIMULATE, this.source);
-        }
-
-        if (simResult.isEmpty()) {
-            return 0;
-        }
-
-        if (itemAmountNotStorable != null) {
-            if (simResult.getCount() == itemAmountNotStorable.getStackSize()) {
-                return 0;
-            }
-            return (int) Math.min(simResult.getCount() - itemAmountNotStorable.getStackSize(), toSend);
-        }
-
-        return toSend;
-    }
-
-    @Override
-    protected boolean isSleeping() {
-        return this.getHandler() == null || super.isSleeping();
+        return builder.build();
     }
 
     @Override

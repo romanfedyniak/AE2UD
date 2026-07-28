@@ -19,26 +19,28 @@
 package appeng.parts.automation;
 
 
-import appeng.api.AEApi;
-import appeng.api.parts.IPartHost;
-import appeng.api.parts.IPartModel;
-import appeng.items.parts.PartModels;
-import net.minecraft.block.state.IBlockState;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
+
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Enchantments;
-import net.minecraft.init.Items;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.WorldServer;
-import net.minecraftforge.common.util.FakePlayer;
-import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraft.world.World;
 
-import java.util.ArrayList;
-import java.util.List;
+import appeng.api.AEApi;
+import appeng.api.behaviors.PickupStrategy;
+import appeng.api.parts.IPartHost;
+import appeng.api.parts.IPartModel;
+import appeng.items.parts.PartModels;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.init.Enchantments;
 
 
 public class PartIdentityAnnihilationPlane extends PartAnnihilationPlane {
@@ -50,40 +52,23 @@ public class PartIdentityAnnihilationPlane extends PartAnnihilationPlane {
         return MODELS.getModels();
     }
 
-    private static final float SILK_TOUCH_FACTOR = 16;
-
     public PartIdentityAnnihilationPlane(final ItemStack is) {
         super(is);
     }
 
+    /**
+     * Substitutes {@link IdentityItemPickupStrategy} for the plain {@link ItemPickupStrategy} that
+     * {@link PartAnnihilationPlane} would otherwise build, so this plane always yields the
+     * silk-touch drop at a fixed energy surcharge regardless of its actual enchantments. This used to
+     * be two protected method overrides directly on {@code PartAnnihilationPlane}
+     * ({@code calculateEnergyUsage}/{@code obtainBlockDrops}); both moved onto
+     * {@link ItemPickupStrategy} when the pickup logic left the part, so this class now overrides the
+     * strategy list instead.
+     */
     @Override
-    protected float calculateEnergyUsage(final WorldServer w, final BlockPos pos, final List<ItemStack> items) {
-        final float requiredEnergy = super.calculateEnergyUsage(w, pos, items);
-
-        return requiredEnergy * SILK_TOUCH_FACTOR;
-    }
-
-    @Override
-    protected List<ItemStack> obtainBlockDrops(final WorldServer w, final BlockPos pos) {
-        final FakePlayer fakePlayer = FakePlayerFactory.getMinecraft(w);
-        final IBlockState state = w.getBlockState(pos);
-
-        if (state.getBlock().canSilkHarvest(w, pos, state, fakePlayer)) {
-            final List<ItemStack> out = new ArrayList<>(1);
-            final Item item = Item.getItemFromBlock(state.getBlock());
-
-            if (item != Items.AIR) {
-                int meta = 0;
-                if (item.getHasSubtypes()) {
-                    meta = state.getBlock().getMetaFromState(state);
-                }
-                final ItemStack itemstack = new ItemStack(item, 1, meta);
-                out.add(itemstack);
-            }
-            return out;
-        } else {
-            return super.obtainBlockDrops(w, pos);
-        }
+    protected List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
+            TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owner) {
+        return List.of(new IdentityItemPickupStrategy(world, fromPos, fromSide, host, enchantments, owner));
     }
 
     @Override
