@@ -76,29 +76,45 @@ client 24), plus two prerequisites done by hand first because more than one agen
 Both are documented in `CONTRACT.md` §9's "Wave 4 prerequisites" subsection, along with the cross-agent
 signatures that were fixed up front. Per-agent detail is in §9's Wave 4a-4d entries.
 
-### Open question for the owner — the wireless terminal's live updates
+### Planned, not yet implemented — cheapen the case-2 terminal diff
 
-`ContainerMEMonitorable` splits on `host instanceof AbstractPartTerminal`: part-based terminals get real
-push (the part holds the `IStackWatcher` and relays `onStackChange` to attached containers, because
-`GridStorageCache.addNode` only ever installs a watcher on a node's *machine* and a container has no node
-of its own); everything else gets the §10 case-2 per-tick diff.
+**The situation.** `ContainerMEMonitorable` splits on `host instanceof AbstractPartTerminal`: part-based
+terminals get real push (the part holds the `IStackWatcher` and relays `onStackChange` to attached
+containers, because `GridStorageCache.addNode` only ever installs a watcher on a node's *machine* and a
+container has no node of its own); everything else gets the §10 case-2 per-tick diff. That puts the
+**wireless terminal** in case 2, where §10's justification for case 2 — "the snapshot covers one cell, not
+a whole network" — does not hold. `MEStorage.getAvailableStacks()` allocates a fresh `KeyCounter` and walks
+every mount, once per tick per open terminal.
 
-That puts the **wireless terminal** in case 2, and §10 justified case 2 on the grounds that the snapshot
-covers one cell rather than a whole network. For the portable cell, the ME chest and the security station
-that holds. For the wireless terminal it does not: `MEStorage.getAvailableStacks()` allocates a fresh
-`KeyCounter` and walks the entire network storage, once per tick per open wireless terminal. The mechanic
-is intact and the diff is correct — the cost profile is what changed, and it changed outside what §10
-sanctioned. Options, none of them applied yet:
+**What upstream actually does, which settles the framing.** Upstream's `MEStorageMenu.broadcastChanges()`
+calls `storage.getAvailableStacks()` plus `getCraftablesFromGrid()` **every tick for every terminal**,
+including the wall-mounted network terminal, and pointedly does *not* use its own
+`IStorageService.getCachedInventory()` there. So case 2 is not a regression against the reference
+implementation — it *is* the reference implementation — and AE2UD's part-terminal push path is already
+strictly better than upstream. The earlier framing of this as "a cost regression outside what §10
+sanctioned" was wrong: nothing regressed against upstream, and the mechanic was never at risk.
 
-1. Leave it. Invisible on small networks, a full storage walk per tick on large ones.
-2. Apply the same relay trick to `TileWireless` / `TileQuantumBridge` — they are the machines behind the
-   node `WirelessTerminalGuiObject.getActionableNode()` returns, so no API change is needed. Semantically
-   odd (an access point watching storage for someone else's GUI) but it follows an established pattern.
-3. Give `IStorageService` a way to register a node-less watcher. Cleanest conceptually; a frozen-API
-   change, so owner approval required.
+**The plan.** Keep case 2. Do not add a watcher relay to `TileWireless`/`TileQuantumBridge`, and do not
+touch the frozen API — both of those options are dropped. Instead take the cheap win upstream leaves on
+the table:
 
-Related and unresolved: there is no craftable-flag watcher, so `computeCraftables()` runs every tick on
-**both** paths, including the push path.
+1. In `ContainerMEMonitorable`'s case-2 branch, when the host is network-backed (`networkNode != null` and
+   the grid has an `IStorageService`), source the snapshot from `IStorageService.getCachedInventory()`
+   instead of `MEStorage.getAvailableStacks()`. `GridStorageCache` maintains that counter behind a
+   `cachedStacksNeedUpdate` dirty flag, so N open terminals cost one recompute per invalidation instead of
+   N full walks over every drive, cell and storage bus. Hosts that view a cell directly (portable cell, ME
+   chest, security station) keep `getAvailableStacks()` — there is no service to ask and the walk is one
+   cell deep, exactly as §10 assumed.
+2. **`getCachedInventory()` returns the service's own mutable `KeyCounter`.** Never store that reference as
+   `previousAvailableStacks` — copy it. Storing the reference would make the diff compare the object with
+   itself and the terminal would silently stop updating.
+3. Optional, same shape: `CraftingGridCache.getCraftables(AEKeyFilter)` builds a fresh `HashSet` over
+   `craftableItems.keySet()` + `emitableItems` on every call, and `computeCraftables()` calls it every tick
+   on **both** paths, including the push path, because no craftable-flag watcher exists. Caching an
+   immutable view inside `CraftingGridCache`, invalidated where that map is mutated, removes the per-tick
+   allocation for every open terminal at once. Upstream has the same cost, so this is optional polish.
+
+Nothing here changes behaviour a player can observe; it is purely how the same delta is computed.
 
 ### Debt wave 4 handed to wave 5
 
