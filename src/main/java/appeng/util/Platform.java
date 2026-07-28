@@ -37,6 +37,7 @@ import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
@@ -1265,7 +1266,13 @@ public class Platform {
         }
     }
 
-    public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final MEStorage src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final KeyCounter items, final Actionable realForFake, final IPartitionList filter) {
+    /**
+     * @param filter the view-cell filter, as produced by {@code ItemViewCell.createFilter}, or {@code null}
+     *               for "no filtering". Takes an {@link AEKeyFilter} rather than an {@link IPartitionList}
+     *               because a view cell filters keys of any registered key type; see the note on
+     *               {@code ItemViewCell.createFilter}.
+     */
+    public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final MEStorage src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final KeyCounter items, final Actionable realForFake, final AEKeyFilter filter) {
         if (energySrc.extractAEPower(1, Actionable.SIMULATE, PowerMultiplier.CONFIG) > 0.9) {
             if (providedTemplate == null) {
                 return ItemStack.EMPTY;
@@ -1276,7 +1283,7 @@ public class Platform {
                 return ItemStack.EMPTY;
             }
 
-            if (filter == null || filter.isListed(ae_req)) {
+            if (filter == null || filter.matches(ae_req)) {
                 final long ae_ext = src.extract(ae_req, 1, realForFake, mySrc);
                 if (ae_ext > 0) {
                     energySrc.extractAEPower(1, realForFake, PowerMultiplier.CONFIG);
@@ -1298,7 +1305,7 @@ public class Platform {
                         cp.setCount(1);
                         ci.setInventorySlotContents(slot, cp);
                         if (r.matches(ci, w) && ItemStack.areItemsEqual(r.getCraftingResult(ci), output)) {
-                            if (filter == null || filter.isListed(x)) {
+                            if (filter == null || filter.matches(x)) {
                                 final long ex = src.extract(x, 1, realForFake, mySrc);
                                 if (ex > 0) {
                                     energySrc.extractAEPower(1, realForFake, PowerMultiplier.CONFIG);

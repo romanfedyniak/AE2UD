@@ -61,14 +61,9 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
      * or all-{@code null}/{@link ItemStack#EMPTY} array), this returns {@link AEKeyFilter#all()} - i.e.
      * "no filtering" - which is the same behaviour the old null return produced at every call site
      * ({@code if (filter != null && !filter.isListed(x)) skip}), just without forcing callers to
-     * null-check. <b>Wave 4/5 note:</b> {@code appeng.util.Platform.extractItemsByRecipe} still takes an
-     * {@code IPartitionList} parameter (frozen from wave 1) and three call sites
-     * ({@code SlotCraftingTerm}, {@code ContainerPatternEncoder}, {@code PacketJEIRecipe}) currently pass
-     * this method's result straight into it; all three files are already broken by deleted types
-     * ({@code IMEMonitor}, {@code IStorageGrid}, {@code IItemList<IAEItemStack>}) and squarely in wave
-     * 4's scope, so they need rewriting regardless - when doing so, adapt via
-     * {@code filter::matches}-style glue or (preferably) give {@code extractItemsByRecipe} an
-     * {@code AEKeyFilter} overload rather than trying to preserve the {@code IPartitionList} parameter.
+     * null-check. {@code appeng.util.Platform.extractItemsByRecipe} now takes an {@code AEKeyFilter}
+     * parameter as well, so its three call sites ({@code SlotCraftingTerm},
+     * {@code ContainerPatternEncoder}, {@code PacketJEIRecipe}) pass this method's result straight in.
      */
     public static AEKeyFilter createFilter(final ItemStack[] list) {
         MergedPriorityList myMergedList = null;

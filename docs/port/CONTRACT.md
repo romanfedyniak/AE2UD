@@ -1330,6 +1330,32 @@ InitExternalStorageStrategies.register();    // appeng.parts.misc — agent 3-2'
 
 Audited clean as of wave 3d: `appeng.items.misc`, `appeng.items.tools.powered` (the four rewritten files) — one identity comparison found and fixed (`ToolColorApplicator.findNextColor`, see above); no whole-`GenericStack` comparisons anywhere in this wave's files.
 
+### Wave 4 prerequisites — done by hand before the wave, do not redo
+
+Two things wave 4 needed in more than one agent's files at once. They are already in the tree; treat them as given.
+
+**1. `appeng.container.me.GridInventoryEntry` (new class).** The old `IAEItemStack` carried three numbers per key — `stackSize`, `countRequestable` and the `isCraftable` flag — and `PacketMEInventoryUpdate` shipped all three to the client. A `GenericStack` carries one `long` and keys carry no craftable flag (§8.3), so the terminal protocol needs a carrier type. It is a port of upstream's `appeng.menu.me.common.GridInventoryEntry` minus the `serial` field, because AE2UD's protocol identifies a row by the key itself rather than by serial and always sends the key:
+
+```java
+public class GridInventoryEntry {
+    public GridInventoryEntry(@Nonnull AEKey what, long storedAmount, long requestableAmount, boolean craftable);
+    @Nonnull AEKey getWhat();          // replaces the old stack identity
+    long getStoredAmount();            // replaces IAEItemStack.getStackSize()
+    long getRequestableAmount();       // replaces IAEItemStack.getCountRequestable()
+    boolean isCraftable();             // replaces IAEItemStack.isCraftable()
+    boolean isMeaningful();            // stored > 0 || requestable > 0 || craftable — false means "remove this row"
+    GridInventoryEntry withStoredAmount(long newStoredAmount);
+    void writeToPacket(ByteBuf) throws IOException;
+    static GridInventoryEntry fromPacket(ByteBuf) throws IOException;
+}
+```
+
+Like the `IAEItemStack` it replaces, it doubles as the generic payload of `PacketMEInventoryUpdate`, and the other containers that packet serves keep reading the two amount fields with their own meaning: `ContainerNetworkStatus` puts a machine count in `storedAmount` and that machine's idle power drain (x100) in `requestableAmount`; `ContainerCraftConfirm` puts the used/missing amount in `storedAmount` and the to-be-crafted amount in `requestableAmount`. That reuse is inherited from the old code, not new.
+
+Consequently `PacketMEInventoryUpdate`'s shape is fixed as: `List<GridInventoryEntry> list` on the receiving side, `appendItem(GridInventoryEntry)` on the sending side, the `byte ref` constructor argument unchanged, and the gzip framing/`OPERATION_BYTE_LIMIT`/`BufferOverflowException` behaviour unchanged. `postUpdate` on the four receiving containers takes `List<GridInventoryEntry>` (plus the `byte ref` where it already did).
+
+**2. `appeng.util.Platform.extractItemsByRecipe`'s last parameter is now `AEKeyFilter`**, not `IPartitionList` (`filter == null || filter.matches(key)`). Its three call sites — `SlotCraftingTerm`, `ContainerPatternEncoder`, `PacketJEIRecipe` — pass `ItemViewCell.createFilter(...)` straight in. Nothing else to adapt.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
