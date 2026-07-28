@@ -1356,6 +1356,34 @@ Consequently `PacketMEInventoryUpdate`'s shape is fixed as: `List<GridInventoryE
 
 **2. `appeng.util.Platform.extractItemsByRecipe`'s last parameter is now `AEKeyFilter`**, not `IPartitionList` (`filter == null || filter.matches(key)`). Its three call sites — `SlotCraftingTerm`, `ContainerPatternEncoder`, `PacketJEIRecipe` — pass `ItemViewCell.createFilter(...)` straight in. Nothing else to adapt.
 
+**3. Signatures fixed up front because more than one wave-4 agent meets at them.** These are decided; implement them exactly, and call them exactly. Not a suggestion, and not renegotiable mid-wave — if one looks wrong, stop and report rather than choosing your own.
+
+```java
+// appeng.container.AEBaseContainer                       (agent 4-3 implements)
+@Nullable AEKey getTargetStack();                         // was IAEItemStack; only identity + display were ever read
+void setTargetStack(@Nullable AEKey stack);
+MEStorage getCellInventory();                             // was IMEInventoryHandler<IAEItemStack>
+void setCellInventory(MEStorage cellInv);
+
+// appeng.core.sync.packets.PacketInventoryAction         (agent 4-1 implements)
+PacketInventoryAction(InventoryAction action, int slot, @Nullable GenericStack slotItem);
+PacketInventoryAction(InventoryAction action, IJEITargetSlot slot, @Nullable GenericStack slotItem);
+
+// appeng.core.sync.packets                               (agent 4-1 implements)
+PacketTargetItemStack(@Nullable AEKey what);              // both still exist and still dispatch to the
+PacketTargetFluidStack(@Nullable AEKey what);             // same containers as before; do not merge them
+PacketPatternSlot(IItemHandler pat, @Nullable GenericStack slotItem, boolean shift);   // GenericStack[9] pattern
+PacketAssemblerAnimation(BlockPos pos, byte rate, GenericStack is);                    // pinned by TileMolecularAssembler (wave 2)
+PacketCraftingToast(GenericStack stack, boolean cancelled);                            // pinned by CraftingCPUCluster (wave 2)
+PacketInformPlayer(GenericStack expected, @Nullable GenericStack actual, InfoType type); // pinned by CraftingTreeNode/MECraftingInventory (wave 2)
+
+// appeng.container.implementations.ContainerCraftAmount  (agent 4-2 implements)
+@Nullable AEKey getItemToCraft();
+void setItemToCraft(@Nonnull AEKey itemToCreate);
+```
+
+The old `PLACE_JEI_GHOST_ITEM` path in `PacketInventoryAction` detected a fluid by unwrapping `slotItem.getDefinition().getTagCompound()` through `AEFluidStack.fromNBT` — i.e. the fluid was smuggled inside a dummy item. With a `GenericStack` payload the fluid arrives as an `AEFluidKey` directly; test `slotItem.what() instanceof AEFluidKey` instead. The ghost-item-into-fluid-slot mechanic must survive that change, including the 1000 mB default it applied.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
