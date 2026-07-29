@@ -198,6 +198,18 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         }
     }
 
+    /**
+     * @return true if the drop that is being handled right now came from the right mouse button, meaning
+     *         the container item itself is wanted rather than its contents.
+     *         <p>
+     *         JEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
+     *         It is accurate here because {@code accept} runs synchronously inside the click that ends the
+     *         drag, while that button is still down.
+     */
+    private static boolean dropsContainerItself() {
+        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
+    }
+
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
         mapTargetSlot.clear();
@@ -257,14 +269,15 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                     PacketInventoryAction p = null;
                     try {
                         if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                            // A container dropped on a filter sets the filter to what it HOLDS, and a
-                            // dragged fluid goes in as itself. Both used to end up as a filled bucket,
-                            // because a filter slot could only ever express an item - and a bucket filter
-                            // is a different thing, matching a bucket in a chest rather than water in a
-                            // tank, so it looked right and quietly matched nothing. The bucket itself is
-                            // still reachable by hand: right click places the item, left click its
-                            // contents, the same rule with a modifier the ghost drag does not have.
-                            if (finalFluidStack != null) {
+                            // Same rule as clicking a filter slot by hand: left button takes what the
+                            // container HOLDS, right button takes the container itself. A dragged fluid
+                            // has no container to fall back to, so it goes in either way.
+                            //
+                            // Both used to end up as a filled bucket, because a filter slot could only
+                            // ever express an item - and a bucket filter is a different thing, matching a
+                            // bucket in a chest rather than water in a tank, so it looked right and
+                            // quietly matched nothing.
+                            if (finalFluidStack != null && !(dropsContainerItself() && !finalItemStack.isEmpty())) {
                                 p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                             } else if (!finalItemStack.isEmpty()) {
                                 p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(finalItemStack));
