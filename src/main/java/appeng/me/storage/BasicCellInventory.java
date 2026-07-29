@@ -115,7 +115,12 @@ public class BasicCellInventory implements StorageCell {
         boolean hasFuzzy = false;
         boolean hasSticky = false;
 
-        for (int x = 0; x < upgrades.getSlots(); x++) {
+        // ICellWorkbenchItem does not forbid a null upgrades inventory - this fork's creative cell returned
+        // null for years, safely, because CreativeCellInventory never read it. Treating null as "no upgrades"
+        // rather than dereferencing it keeps a third-party cell that does the same from crashing the client
+        // while it builds the creative search tree, where the stack trace points at a tooltip and not at the
+        // cell. This is defensive only; it is not what fixed the creative cell (see ItemCreativeStorageCell).
+        for (int x = 0; upgrades != null && x < upgrades.getSlots(); x++) {
             final ItemStack is = upgrades.getStackInSlot(x);
             if (!is.isEmpty() && is.getItem() instanceof IUpgradeModule) {
                 final Upgrades u = ((IUpgradeModule) is.getItem()).getType(is);
@@ -131,7 +136,7 @@ public class BasicCellInventory implements StorageCell {
         this.sticky = hasSticky;
 
         final IPartitionList.Builder builder = IPartitionList.builder();
-        for (int x = 0; x < config.getSlots(); x++) {
+        for (int x = 0; config != null && x < config.getSlots(); x++) {
             final ItemStack is = config.getStackInSlot(x);
             if (!is.isEmpty()) {
                 final AEItemKey key = AEItemKey.of(is);

@@ -22,7 +22,7 @@ package appeng.items.storage;
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.StorageCells;
-import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
@@ -37,45 +37,28 @@ import java.util.List;
 
 
 /**
- * The creative storage cell: reports as an {@link IBasicCellItem} of {@link AEKeyType#items()} - it
- * has always behaved as an item-only cell - so {@code TileChest}/{@code TileDrive}/{@code TileIOPort}
- * read its key type correctly instead of falling back to the {@code items()} default for every
- * non-{@link IBasicCellItem} item (see CONTRACT.md §9, wave 2 note "A cell's key type").
+ * The creative storage cell. It is an {@link ICellWorkbenchItem} and deliberately <strong>not</strong> an
+ * {@link appeng.api.storage.cells.IBasicCellItem}, matching upstream's {@code CreativeCellItem} and the
+ * pre-port class.
  * <p/>
- * {@link #getBytes}/{@link #getBytesPerType}/{@link #getTotalTypes}/{@link #getIdleDrain} are declared
- * to satisfy the interface but are not consulted by {@link appeng.me.storage.CreativeCellInventory},
- * which never limits itself by byte/type accounting - they are set to values that read naturally as
- * "unlimited" should any future caller (e.g. the cell workbench GUI) query them.
+ * <strong>Do not widen it to {@code IBasicCellItem} again.</strong> That was tried, to let
+ * {@code TileChest}/{@code TileIOPort} read {@code getKeyType()} off the item, and it crashed the client on
+ * startup. {@code StorageCells.getCellInventory} returns the first handler whose {@code isCell} accepts the
+ * stack, {@code BasicCellHandler} is registered before {@code CreativeCellHandler}, and
+ * {@code BasicCellInventory.isCell} is exactly "is an {@code IBasicCellItem}" - so widening the interface
+ * silently moved the creative cell from {@link appeng.me.storage.CreativeCellInventory} to
+ * {@code BasicCellInventory}, which then dereferenced this class's null upgrades inventory.
+ * <p/>
+ * Nothing was gained by it either: both call sites already fall back to {@link AEKeyType#items()} for an
+ * item that declares no key type, and items is the right answer for this cell. The unreachable
+ * {@code getBytes}/{@code getBytesPerType}/{@code getTotalTypes}/{@code getIdleDrain} overrides that existed
+ * only to satisfy the wider interface are gone with it; {@code CreativeCellInventory} never did byte or type
+ * accounting.
  */
-public class ItemCreativeStorageCell extends AEBaseItem implements IBasicCellItem {
+public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenchItem {
 
     public ItemCreativeStorageCell() {
         this.setMaxStackSize(1);
-    }
-
-    @Override
-    public AEKeyType getKeyType() {
-        return AEKeyType.items();
-    }
-
-    @Override
-    public int getBytes(final ItemStack cellItem) {
-        return Integer.MAX_VALUE;
-    }
-
-    @Override
-    public int getBytesPerType(final ItemStack cellItem) {
-        return 8;
-    }
-
-    @Override
-    public int getTotalTypes(final ItemStack cellItem) {
-        return Integer.MAX_VALUE;
-    }
-
-    @Override
-    public double getIdleDrain() {
-        return 0;
     }
 
     @Override
