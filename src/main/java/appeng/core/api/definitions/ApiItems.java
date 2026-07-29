@@ -277,6 +277,7 @@ public final class ApiItems implements IItems {
         // craftable, installed as the wrapper during Registration.initialize().
         this.wrappedGenericStack = registry.item("wrapped_generic_stack", WrappedGenericStack::new)
                 .creativeTab(null)
+                .rendering(new WrappedGenericStackRendering())
                 .build();
     }
 
