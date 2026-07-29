@@ -236,11 +236,27 @@ public class GridStorageCache implements IStorageService, IGridCache {
         }
     }
 
+    /**
+     * Re-mounts the inventories of the provider attached to this node, if it has one mounted yet.
+     * <p>
+     * <b>A node this cache has not seen is not an error here, unlike upstream, and the difference is
+     * structural rather than a matter of taste.</b> {@code Grid.add} walks its caches in order and
+     * {@code EnergyGridCache.addNode} posts {@code MENetworkPowerStatusChange} synchronously - so a part
+     * that reacts to a power change by asking for a re-mount (every formation plane does, through
+     * {@code PartAbstractFormationPlane.stateChanged}) can reach this method while its own node is still
+     * being propagated and before {@link #addNode} has registered it. Upstream has no such window: it
+     * neither posts that event from inside grid assembly nor re-mounts in response to one.
+     * <p>
+     * Nothing is lost by returning quietly. A node with no provider mounted yet will be mounted from
+     * scratch when {@link #addNode} reaches it, with whatever contents it has by then - which is exactly
+     * what the refresh would have produced. Throwing instead aborted world unload part-way through
+     * {@code MinecraftServer.stopServer}, which is a great deal worse than a skipped no-op.
+     */
     @Override
     public void refreshNodeStorageProvider(IGridNode node) {
         var state = nodeProviders.get(node);
         if (state == null) {
-            throw new IllegalArgumentException("The given node is not part of this grid or has no storage provider.");
+            return;
         }
         state.update();
     }
