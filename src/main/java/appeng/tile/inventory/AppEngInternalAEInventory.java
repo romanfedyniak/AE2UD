@@ -33,6 +33,7 @@ import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 
 
@@ -59,6 +60,25 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
     public void setMaxStackSize(final int s) {
         this.maxStack = s;
+    }
+
+    /**
+     * Reads a written stack back into the key it stands for.
+     * <p>
+     * <b>This is what makes a config inventory type-agnostic.</b> {@link GenericStack#fromItemStack} always
+     * yields an {@link AEItemKey} - it does not unwrap a placeholder - so writing through the
+     * {@code IItemHandler} surface used to be able to express item filters and nothing else, no matter what
+     * the slots themselves could hold. Every filter in the mod goes through this class, so every one of them
+     * was item-only: a storage bus could show fluids but not be partitioned to one, and the fluid formation
+     * plane needed a private NBT mirror to have a working filter at all.
+     */
+    @Nullable
+    private static GenericStack toGenericStack(final ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        final GenericStack unwrapped = GenericStack.unwrapItemStack(stack);
+        return unwrapped != null ? unwrapped : GenericStack.fromItemStack(stack);
     }
 
     public GenericStack getAEStackInSlot(final int var1) {
@@ -117,11 +137,14 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
     @Override
     public ItemStack getStackInSlot(final int var1) {
         final GenericStack stack = this.inv[var1];
-        if (stack == null || !(stack.what() instanceof AEItemKey itemKey)) {
+        if (stack == null) {
             return ItemStack.EMPTY;
         }
 
-        return itemKey.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()));
+        // A non-item key comes back as the placeholder the GUI layer already understands, so the slot
+        // renders and can be picked up like any other. For an item key this is the stack itself, so the
+        // item case is unchanged.
+        return GenericStack.wrapInItemStack(stack);
     }
 
     @Override
@@ -149,8 +172,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
         if (!simulate) {
             if (existing.isEmpty()) {
-                this.inv[slot] = GenericStack
-                        .fromItemStack(reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+                this.inv[slot] = toGenericStack(reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
             } else {
                 existing.grow(reachedLimit ? limit : stack.getCount());
             }
@@ -185,7 +207,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
     @Override
     public void setStackInSlot(final int slot, final ItemStack newItemStack) {
         ItemStack oldStack = this.getStackInSlot(slot).copy();
-        this.inv[slot] = GenericStack.fromItemStack(newItemStack);
+        this.inv[slot] = toGenericStack(newItemStack);
 
         if (this.te != null && Platform.isServer()) {
             ItemStack newStack = newItemStack.copy();
