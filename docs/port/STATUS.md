@@ -1,7 +1,7 @@
 # Port status — resume here
 
-Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated after the
-first play-test pass, 2026-07-29.
+Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
+2026-07-30, mid-way through the `appeng.fluids` decomposition — **start at "Post-v1 phase" below.**
 
 Branch: `feature/generic-storage`.
 
@@ -61,7 +61,10 @@ listed below, not porting.
 The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. One class is merely
 *named* `IMEInventoryDestination` and matches the scan pattern by accident; it is not work.
 
-**The first play-test pass is done**: nine defects found and fixed, none of which any scan could have
+**All seven waves are committed and the port is play-tested.** Work has moved on to the post-v1
+`appeng.fluids` decomposition, which is in progress — its own section below is the place to resume.
+
+The first play-test pass found nine defects, none of which any scan could have
 caught. See "In-game testing" below — the table is worth reading before writing more code, because three of
 the nine were the same kind of silent mistranslation and there are certainly more.
 
@@ -336,6 +339,92 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
 - **Removed by owner decision**: the Identity Annihilation Plane (`279b73791`), api definition included.
   Efficiency and Unbreaking on the annihilation plane were considered for removal and deliberately kept -
   they are the reason `PickupStrategy.Factory` carries an enchantment map at all (§8.4).
+
+## Post-v1 phase — decomposing `appeng.fluids` (in progress, resume here)
+
+The goal, agreed with the owner: the legacy fluid parts are duplicates of parts that are already generic and
+should go, because ME became universal. `appeng.fluids` is 55 files, of which only some are duplication.
+
+### Classification
+
+| Keep | Why |
+|---|---|
+| `FluidImportStrategy`, `FluidExportStrategy`, `FluidPickupStrategy`, `FluidPlacementStrategy`, `FluidTransferContext`, `FluidHandlerAdapter` | the fluid type's implementation of the generic hooks — this is the model working |
+| `BasicFluidStorageCell`, `BasicFluidCellGuiHandler` | a cell parameterised by key type is not a duplicate; the item cell has the same shape |
+
+| Delete | Replaced by |
+|---|---|
+| `PartFluidImportBus`, `PartFluidExportBus`, `PartSharedFluidBus` | `PartImportBus` / `PartExportBus` |
+| `PartFluidStorageBus` | `PartStorageBus` |
+| `PartFluidTerminal` | `PartTerminal` |
+| `PartFluidAnnihilationPlane` | `PartAnnihilationPlane` |
+| `PartFluidLevelEmitter` | `PartLevelEmitter` |
+| `PartFluidFormationPlane` | `PartFormationPlane`, once its two `AEKeyType.items()` checks go |
+
+Plus their containers, screens and the client plumbing that serves only them. The owner chose to drop the
+recipes outright rather than keep them as aliases (option A), and to remove api accessors along with the
+parts rather than leave disabled stubs — this port replaces the API wholesale, so "frozen" never meant
+"permanent".
+
+### Stage 0 — the config layer, done
+
+**The planned order was wrong and had to be inverted.** Deleting the fluid parts first would have lost fluid
+*filtering*: the generic parts serve fluids for **contents**, but every filter in the mod goes through
+`AppEngInternalAEInventory`, which was item-only in both directions. A storage bus could show fluids and
+never be partitioned to one. Deleting the fluid parts on top of that is exactly the silent capability loss
+rule 6 forbids.
+
+| Commit | What |
+|---|---|
+| `ed22508f5` | config inventories resolve and render any key type |
+| `afba0e4e0` | left click sets a filter to a held container's contents, right click to the container |
+| `2306030ca` | the legacy `FluidDummyItem` placeholder is recognised wherever configs are written |
+| `386f054a1` | pattern terminals accept a dragged fluid |
+| `a2045a263` | filters can be set from HEI and by hand |
+| `53953f435` | a dragged container follows the same button rule as clicking |
+| `c688e87ca` | a fluid cell's own partition accepts the generic placeholder |
+| `fe6ade83c` | a wrapped key's name no longer recolours the rest of a tooltip line |
+
+### Next, and it blocks stage 1 — import/export buses do not move fluids
+
+Diagnosed, not yet fixed. `FluidImportStrategy.transfer` opens with
+
+```java
+if (!(context instanceof FluidTransferContext ctx) || !context.hasOperationsLeft()) {
+    return false;
+}
+```
+
+and the **generic** bus builds a `StackTransferContextImpl`, so the fluid strategy bails on its first line.
+Only `PartFluidImportBus` builds a `FluidTransferContext`, which is why the legacy bus works and the generic
+one does not. `FluidExportStrategy` has the same shape.
+
+The cast exists only for **package visibility**: `getPartitionList()` and `getFuzzyMode()` are package-private
+on both context classes, and `FluidImportStrategy` happens to share a package with one of them. Nothing needs
+to move to the api — `StackTransferContext.getFilter()` is already public, is already documented as "the bus'
+configured filter, strategies must not move anything this rejects", and both implementations build it
+identically (`what -> filter.isEmpty() || filter.isListed(what)`), with the fuzzy mode already baked into the
+`IPartitionList`. Replace the cast and the hand-rolled `matchesFilter` with `context.getFilter().matches(what)`
+in both strategies.
+
+**Do not delete the legacy fluid buses until this is fixed and tested**, or fluid import/export disappears
+with them.
+
+### Then, in order
+
+1. **Stage 1** — drop the six legacy parts above, after generalising `PartFormationPlane`.
+2. **Stage 2** — replace `AEFluidInventory`/`AEFluidTank`/`IAEFluidTank` with the generic `GenericStack`
+   config inventory (upstream calls it `ConfigInventory`). About 30 files; the largest mechanical step.
+3. **Stage 3** — the universal interface. `DualityFluidInterface` holds tanks, `DualityInterface` holds item
+   slots; merging them means teaching the generic interface to *stock* `GenericStack`s rather than
+   `ItemStack`s. This is a feature, not a deletion, and it is also what makes **fluids in patterns** work —
+   verified as never having existed in this fork, not a port regression.
+
+### Working rule adopted during this phase
+
+**Do not commit a change that needs in-game testing until the owner has verified it.** Build, report what to
+test, leave the tree dirty. Committing first produced a run of corrections-of-corrections that had to be
+squashed away.
 
 ## How terminal live updates ended up working
 
