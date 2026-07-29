@@ -40,6 +40,7 @@ now answerable rather than a matter of opinion.
 | `5d757ea55` | 5 | `appeng.fluids` (38 files), plus the fluid strategy registrations |
 | `2f1818b92` | — | per-type fuzzy documented; the formation-plane filter trap documented |
 | `e1ce42413` | 6 | `integration/modules` (7 files), the HEI swap, and the 26 fixes the first compile exposed |
+| `6b7caf5e0` | — | first in-game launch: creative cell was being claimed by the wrong cell handler |
 
 ## Where the work stands
 
@@ -233,7 +234,33 @@ platform-version mismatches (Java 8 classpath, older fastutil), API surface move
 type-inference corners. A migration executed against a frozen contract instead of a compiler will produce
 exactly this residue, and it is cheap to fix once — but only once something actually compiles.
 
-## Not done yet — play-testing
+## In-game testing — started, one crash found and fixed
+
+**Launch 1 (`9446286de`) crashed on startup.** Not in a terminal, not under load — while Minecraft indexed
+creative tab tooltips, before a world was even loaded. NPE in `BasicCellInventory`'s constructor.
+
+The null was not the bug. `StorageCells.getCellInventory` returns the **first** handler whose `isCell`
+accepts the stack; `BasicCellHandler` is registered before `CreativeCellHandler`; and
+`BasicCellInventory.isCell` means exactly "is an `IBasicCellItem`". A later wave widened
+`ItemCreativeStorageCell` from `ICellWorkbenchItem` to `IBasicCellItem` so `TileChest`/`TileIOPort` could
+read `getKeyType()` off the item — and that widening silently handed the creative cell to the wrong
+inventory class. Had it not tripped over a null, the creative cell would simply have become a **finite**
+basic cell, with nothing anywhere reporting a problem.
+
+Two things worth carrying forward:
+
+- **Widening an interface is a routing change.** `instanceof` checks elsewhere key off that interface, and
+  the compiler cannot see that one of them is a handler-selection race. Before adding an interface to an
+  item, grep for who tests it.
+- **The evidence was already in the tree.** `TileChest.updateHandler`'s javadoc still said the creative cell
+  is expected *not* to declare a key type and to take the `items()` fallback. The item and its own consumer
+  had disagreed in writing for two waves and nothing forced them to agree.
+
+Fixed in `6b7caf5e0` by reverting to `ICellWorkbenchItem`, which is also upstream's shape and the pre-port
+shape. `BasicCellInventory` additionally tolerates a null upgrades/config inventory now — defensive only;
+every other `IBasicCellItem` in the tree returns a real `CellUpgrades`, checked.
+
+## Still not done — the rest of play-testing
 
 **A green build proves the types line up and nothing else.** No part of this port has been run in a game.
 `CONTRACT.md` §10's "Inventory of at-risk features" is the walk-through list; the four rule-6 violations
