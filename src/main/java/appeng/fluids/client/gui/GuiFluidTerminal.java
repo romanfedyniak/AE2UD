@@ -20,8 +20,9 @@ package appeng.fluids.client.gui;
 
 
 import appeng.api.config.Settings;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.gui.AEBaseMEGui;
@@ -32,6 +33,7 @@ import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.client.me.FluidRepo;
 import appeng.client.me.InternalFluidSlotME;
 import appeng.client.me.SlotFluidME;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -161,18 +163,18 @@ public class GuiFluidTerminal extends AEBaseMEGui implements ISortSource, IConfi
         if (slot != null && slot instanceof IMEFluidSlot && slot.isEnabled()) {
             final IMEFluidSlot fluidSlot = (IMEFluidSlot) slot;
 
-            if (fluidSlot.getAEFluidStack() != null && fluidSlot.shouldRenderAsFluid()) {
-                final IAEFluidStack fluidStack = fluidSlot.getAEFluidStack();
-                final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(fluidStack.getStackSize() / 1000.0) + " B";
+            final GenericStack stack = fluidSlot.getGenericStack();
+            if (stack != null && fluidSlot.shouldRenderAsFluid() && stack.what() instanceof AEFluidKey fluidKey) {
+                final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(stack.amount() / 1000.0) + " B";
 
                 final String modName = "" + TextFormatting.BLUE + TextFormatting.ITALIC + Loader.instance()
                         .getIndexedModList()
-                        .get(Platform.getModId(fluidStack))
+                        .get(Platform.getModId(fluidKey))
                         .getName();
 
                 final List<String> list = new ArrayList<>();
 
-                list.add(fluidStack.getFluidStack().getLocalizedName());
+                list.add(Platform.getFluidDisplayName(fluidKey));
                 list.add(formattedAmount);
                 list.add(modName);
 
@@ -213,13 +215,17 @@ public class GuiFluidTerminal extends AEBaseMEGui implements ISortSource, IConfi
             if (clickType == ClickType.PICKUP) {
                 // TODO: Allow more options
                 if (mouseButton == 0 && meSlot.getHasStack()) {
-                    this.container.setTargetStack(meSlot.getAEFluidStack());
-                    AELog.debug("mouse0 GUI STACK SIZE %s", meSlot.getAEFluidStack().getStackSize());
+                    final GenericStack stack = meSlot.getGenericStack();
+                    this.container.setTargetStack(stack == null ? null : stack.what());
+                    if (stack != null) {
+                        AELog.debug("mouse0 GUI STACK SIZE %s", stack.amount());
+                    }
                     NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.FILL_ITEM, slot.slotNumber, 0));
                 } else {
-                    this.container.setTargetStack(meSlot.getAEFluidStack());
-                    if (meSlot.getAEFluidStack() != null) {
-                        AELog.debug("mouse1 GUI STACK SIZE %s", meSlot.getAEFluidStack().getStackSize());
+                    final GenericStack stack = meSlot.getGenericStack();
+                    this.container.setTargetStack(stack == null ? null : stack.what());
+                    if (stack != null) {
+                        AELog.debug("mouse1 GUI STACK SIZE %s", stack.amount());
                     }
                     NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.EMPTY_ITEM, slot.slotNumber, 0));
                 }
@@ -260,9 +266,9 @@ public class GuiFluidTerminal extends AEBaseMEGui implements ISortSource, IConfi
         super.mouseClicked(xCoord, yCoord, btn);
     }
 
-    public void postUpdate(final List<IAEFluidStack> list) {
-        for (final IAEFluidStack is : list) {
-            this.repo.postUpdate(is);
+    public void postUpdate(final List<GridInventoryEntry> list) {
+        for (final GridInventoryEntry entry : list) {
+            this.repo.postUpdate(entry);
         }
 
         this.repo.updateView();

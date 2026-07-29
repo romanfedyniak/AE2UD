@@ -20,9 +20,7 @@ package appeng.fluids.items;
 
 
 import appeng.api.AEApi;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEKeyType;
 import appeng.fluids.helper.FluidCellConfig;
 import appeng.items.materials.MaterialType;
 import appeng.items.storage.AbstractStorageCell;
@@ -37,7 +35,7 @@ import net.minecraftforge.items.IItemHandler;
  * @version rv6 - 2018-01-17
  * @since rv6 2018-01-17
  */
-public final class BasicFluidStorageCell extends AbstractStorageCell<IAEFluidStack> {
+public final class BasicFluidStorageCell extends AbstractStorageCell {
 
     private final int perType;
     private final double idleDrain;
@@ -79,8 +77,8 @@ public final class BasicFluidStorageCell extends AbstractStorageCell<IAEFluidSta
     }
 
     @Override
-    public IStorageChannel<IAEFluidStack> getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
+    public AEKeyType getKeyType() {
+        return AEKeyType.fluids();
     }
 
     @Override

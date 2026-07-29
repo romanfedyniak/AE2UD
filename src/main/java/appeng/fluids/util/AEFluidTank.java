@@ -19,13 +19,22 @@
 package appeng.fluids.util;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.util.Platform;
-import appeng.util.inv.InvOperation;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.fluids.FluidTank;
 
+import javax.annotation.Nullable;
 
+
+/**
+ * Single-slot tank. Retyped like {@link AEFluidInventory}: the slot accessors carry {@link GenericStack}
+ * instead of the deleted {@code IAEFluidStack}. Not currently instantiated anywhere in the tree (confirmed
+ * by grep - no {@code new AEFluidTank(} call site exists), but it is a migration target, not a deletion
+ * target, so it is kept faithful to its pre-migration shape for whichever future caller needs a single-slot
+ * tank.
+ */
 public class AEFluidTank extends FluidTank implements IAEFluidTank {
     private final IAEFluidInventory host;
 
@@ -46,17 +55,20 @@ public class AEFluidTank extends FluidTank implements IAEFluidTank {
     }
 
     @Override
-    public void setFluidInSlot(int slot, IAEFluidStack fluid) {
+    public void setFluidInSlot(int slot, @Nullable GenericStack fluid) {
         if (slot == 0) {
-            this.setFluid(fluid == null ? null : fluid.getFluidStack());
+            this.setFluid(fluid != null && fluid.what() instanceof AEFluidKey fluidKey
+                    ? fluidKey.toStack((int) Math.min(fluid.amount(), Integer.MAX_VALUE))
+                    : null);
             this.onContentsChanged();
         }
     }
 
     @Override
-    public IAEFluidStack getFluidInSlot(int slot) {
+    @Nullable
+    public GenericStack getFluidInSlot(int slot) {
         if (slot == 0) {
-            return AEFluidStack.fromFluidStack(this.getFluid());
+            return GenericStack.fromFluidStack(this.getFluid());
         }
         return null;
     }

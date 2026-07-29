@@ -19,13 +19,12 @@
 package appeng.fluids.parts;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Upgrades;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.parts.IPartCollisionHelper;
-import appeng.api.storage.channels.IFluidStorageChannel;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.util.AECableType;
 import appeng.core.sync.GuiBridge;
 import appeng.fluids.helper.IConfigurableFluidInventory;
@@ -48,6 +47,12 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 
 
 /**
+ * Shared base of the fluid import/export busses. Fluid counterpart of
+ * {@code appeng.parts.automation.PartSharedItemBus}: the config stays an {@link AEFluidInventory} (fluid-tank
+ * shaped, matching this fork's dedicated fluid bus GUI) rather than switching to the item-wrapping
+ * {@code AppEngInternalAEInventory} the item bus uses -- there is no frozen base class forcing that shape here,
+ * unlike the formation plane.
+ *
  * @author BrockWS
  * @version rv6 - 30/04/2018
  * @since rv6 30/04/2018
@@ -120,8 +125,14 @@ public abstract class PartSharedFluidBus extends PartUpgradeable implements IGri
         return null;
     }
 
-    protected int calculateAmountToSend() {
-        double amount = this.getChannel().transferFactor();
+    /**
+     * Amount to move this tick, in millibuckets. {@code AEKeyType.fluids().getAmountPerOperation()} is the direct
+     * rename of the old {@code IFluidStorageChannel#transferFactor()} (see
+     * {@code appeng.tile.misc.CondenserItemInventory}'s javadoc), so this is the same cascading Speed-upgrade
+     * scaling the pre-port code had, just against the new unit source.
+     */
+    protected long calculateAmountToSend() {
+        double amount = AEKeyType.fluids().getAmountPerOperation();
         switch (this.getInstalledUpgrades(Upgrades.SPEED)) {
             case 4:
                 amount = amount * 1.5;
@@ -159,10 +170,6 @@ public abstract class PartSharedFluidBus extends PartUpgradeable implements IGri
             return this.config;
         }
         return null;
-    }
-
-    protected IFluidStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
     }
 
     @Override

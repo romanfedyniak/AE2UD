@@ -21,7 +21,9 @@ package appeng.fluids.container;
 
 import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Upgrades;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.IConfigManager;
 import appeng.container.guisync.GuiSync;
 import appeng.core.sync.network.NetworkHandler;
@@ -30,7 +32,6 @@ import appeng.fluids.helper.DualityFluidInterface;
 import appeng.fluids.helper.FluidSyncHelper;
 import appeng.fluids.helper.IFluidInterfaceHost;
 import appeng.fluids.util.AEFluidInventory;
-import appeng.fluids.util.AEFluidStack;
 import appeng.fluids.util.IAEFluidInventory;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.helpers.InventoryAction;
@@ -48,6 +49,7 @@ import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
 
@@ -57,7 +59,7 @@ public class ContainerFluidInterface extends ContainerFluidConfigurable implemen
     private final FluidSyncHelper tankSync;
     private IConfigManagerHost gui;
     // Holds the fluid the client wishes to extract, or null for insert
-    private IAEFluidStack clientRequestedTargetFluid = null;
+    private AEKey clientRequestedTargetFluid = null;
 
     @GuiSync(7)
     public int capacityUpgrades = 0;
@@ -125,7 +127,7 @@ public class ContainerFluidInterface extends ContainerFluidConfigurable implemen
     }
 
     @Override
-    public void receiveFluidSlots(Map<Integer, IAEFluidStack> fluids) {
+    public void receiveFluidSlots(Map<Integer, GenericStack> fluids) {
         super.receiveFluidSlots(fluids);
         this.tankSync.readPacket(fluids);
     }
@@ -153,19 +155,16 @@ public class ContainerFluidInterface extends ContainerFluidConfigurable implemen
             return;
         }
 
-        if (action == InventoryAction.FILL_ITEM && this.clientRequestedTargetFluid != null) {
-            final IAEFluidStack stack = this.clientRequestedTargetFluid.copy();
-
+        if (action == InventoryAction.FILL_ITEM && this.clientRequestedTargetFluid instanceof AEFluidKey targetFluid) {
             // Check how much we can store in the item
-            stack.setStackSize(Integer.MAX_VALUE);
-            int amountAllowed = fh.fill(stack.getFluidStack(), false);
+            int amountAllowed = fh.fill(targetFluid.toStack(Integer.MAX_VALUE), false);
             int heldAmount = held.getCount();
             for (int i = 0; i < heldAmount; i++) {
                 ItemStack copiedFluidContainer = held.copy();
                 copiedFluidContainer.setCount(1);
                 fh = FluidUtil.getFluidHandler(copiedFluidContainer);
 
-                FluidStack extractableFluid = this.myDuality.getTanks().drain(stack.setStackSize(amountAllowed).getFluidStack(), false);
+                FluidStack extractableFluid = this.myDuality.getTanks().drain(targetFluid.toStack(amountAllowed), false);
                 if (extractableFluid == null || extractableFluid.amount == 0) {
                     break;
                 }
@@ -211,18 +210,20 @@ public class ContainerFluidInterface extends ContainerFluidConfigurable implemen
         this.updateHeld(player);
     }
 
-    public void setTargetStack(final IAEFluidStack stack) {
+    public void setTargetStack(@Nullable final AEKey stack) {
         if (Platform.isClient()) {
             if (stack == null && this.clientRequestedTargetFluid == null) {
                 return;
             }
-            if (stack != null && this.clientRequestedTargetFluid != null && stack.getFluidStack().isFluidEqual(this.clientRequestedTargetFluid.getFluidStack())) {
+            // AEKey carries no amount (unlike GenericStack) - equals() here is already the size-insensitive
+            // identity check the old FluidStack#isFluidEqual was. See CONTRACT.md §9.1.
+            if (stack != null && stack.equals(this.clientRequestedTargetFluid)) {
                 return;
             }
-            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack((AEFluidStack) stack));
+            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack(stack));
         }
 
-        this.clientRequestedTargetFluid = stack == null ? null : stack.copy();
+        this.clientRequestedTargetFluid = stack;
     }
 
     @Override

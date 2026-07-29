@@ -3,10 +3,9 @@ package appeng.fluids.container;
 
 import appeng.api.config.Upgrades;
 import appeng.api.implementations.IUpgradeableHost;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
 import appeng.container.implementations.ContainerUpgradeable;
 import appeng.fluids.helper.FluidSyncHelper;
-import appeng.fluids.util.AEFluidStack;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -40,7 +39,7 @@ public abstract class ContainerFluidConfigurable extends ContainerUpgradeable im
         FluidStack fs = FluidUtil.getFluidContained(input);
         if (fs != null) {
             final IAEFluidTank t = this.getFluidConfigInventory();
-            final IAEFluidStack stack = AEFluidStack.fromFluidStack(fs);
+            final GenericStack stack = GenericStack.fromFluidStack(fs);
             for (int i = 0; i < t.getSlots(); ++i) {
                 if (t.getFluidInSlot(i) == null && this.isValidForConfig(i, stack)) {
                     t.setFluidInSlot(i, stack);
@@ -51,7 +50,7 @@ public abstract class ContainerFluidConfigurable extends ContainerUpgradeable im
         return input;
     }
 
-    protected boolean isValidForConfig(int slot, IAEFluidStack fs) {
+    protected boolean isValidForConfig(int slot, GenericStack fs) {
         if (this.supportCapacity()) {
             // assumes 4 slots per upgrade
             final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
@@ -88,7 +87,7 @@ public abstract class ContainerFluidConfigurable extends ContainerUpgradeable im
     }
 
     @Override
-    public void receiveFluidSlots(Map<Integer, IAEFluidStack> fluids) {
+    public void receiveFluidSlots(Map<Integer, GenericStack> fluids) {
         this.getSynchHelper().readPacket(fluids);
     }
 

@@ -19,35 +19,46 @@
 package appeng.fluids.parts;
 
 
-import appeng.api.config.*;
+import javax.annotation.Nonnull;
+
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+
+import appeng.api.behaviors.StackImportStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.RedstoneMode;
+import appeng.api.config.SchedulingMode;
+import appeng.api.config.Settings;
+import appeng.api.config.Upgrades;
+import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.MEStorage;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
-import appeng.fluids.util.AEFluidStack;
-import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
+import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
-import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-
-import javax.annotation.Nonnull;
+import appeng.util.prioritylist.IPartitionList;
 
 
 /**
- * @author BrockWS
- * @version rv6 - 30/04/2018
- * @since rv6 30/04/2018
+ * Moves the bus' configured fluids from the adjacent tank into the network. Fluid counterpart of
+ * {@code appeng.parts.automation.PartImportBus}: routes through the same
+ * {@link appeng.api.behaviors.StackImportStrategy} layer (here, {@link FluidImportStrategy}, obtained through the
+ * public registry exactly like an addon would), rather than talking to the adjacent {@code IFluidHandler}
+ * directly the way the pre-port class did.
+ * <p/>
+ * {@code Settings.SCHEDULING_MODE} is registered here for GUI parity with {@code PartFluidExportBus}, but -- as in
+ * the pre-port class -- has no effect on import: the bus doesn't pick one configured slot to try each tick, it
+ * just tests the incoming fluid against the whole configured filter set at once.
  */
 public class PartFluidImportBus extends PartSharedFluidBus {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/fluid_import_bus_base");
@@ -59,6 +70,8 @@ public class PartFluidImportBus extends PartSharedFluidBus {
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/fluid_import_bus_has_channel"));
 
     private final IActionSource source;
+
+    private StackImportStrategy importStrategy;
 
     public PartFluidImportBus(ItemStack is) {
         super(is);
@@ -76,7 +89,12 @@ public class PartFluidImportBus extends PartSharedFluidBus {
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        return this.canDoBusWork() ? this.doBusWork() : TickRateModulation.IDLE;
+        return this.doBusWork();
+    }
+
+    @Override
+    protected boolean canDoBusWork() {
+        return this.getProxy().isActive();
     }
 
     @Override
@@ -85,67 +103,58 @@ public class PartFluidImportBus extends PartSharedFluidBus {
             return TickRateModulation.IDLE;
         }
 
-        final TileEntity te = this.getConnectedTE();
-
-        if (te != null && te.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, this.getSide().getFacing().getOpposite())) {
-            try {
-                final IFluidHandler fh = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, this.getSide().getFacing().getOpposite());
-                final IMEMonitor<IAEFluidStack> inv = this.getProxy().getStorage().getInventory(this.getChannel());
-
-                if (fh != null) {
-                    final FluidStack fluidStack = fh.drain(this.calculateAmountToSend(), false);
-
-                    if (this.filterEnabled() && !this.isInFilter(fluidStack)) {
-                        return TickRateModulation.SLOWER;
-                    }
-
-                    final AEFluidStack aeFluidStack = AEFluidStack.fromFluidStack(fluidStack);
-
-                    if (aeFluidStack != null) {
-                        final IAEFluidStack notInserted = inv.injectItems(aeFluidStack, Actionable.MODULATE, this.source);
-
-                        if (notInserted != null && notInserted.getStackSize() > 0) {
-                            aeFluidStack.decStackSize(notInserted.getStackSize());
-                        }
-
-                        fh.drain(aeFluidStack.getFluidStack(), true);
-
-                        return TickRateModulation.FASTER;
-                    }
-
-                    return TickRateModulation.IDLE;
-                }
-            } catch (GridAccessException e) {
-                e.printStackTrace();
-            }
+        if (this.importStrategy == null) {
+            final var self = this.getHost().getTile();
+            final var fromPos = self.getPos().offset(this.getSide().getFacing());
+            final var fromSide = this.getSide().getFacing().getOpposite();
+            this.importStrategy = StackWorldBehaviors
+                    .createImportStrategies(self.getWorld(), fromPos, fromSide, type -> type == AEKeyType.fluids())
+                    .stream().findFirst().orElse(null);
+        }
+        if (this.importStrategy == null) {
+            // No fluid import strategy registered at all -- nothing this bus can do.
+            return TickRateModulation.IDLE;
         }
 
-        return TickRateModulation.SLEEP;
-    }
-
-    @Override
-    protected boolean canDoBusWork() {
-        return this.getProxy().isActive();
-    }
-
-    private boolean isInFilter(FluidStack fluid) {
-        for (int i = 0; i < this.getConfig().getSlots(); i++) {
-            final IAEFluidStack stack = this.getConfig().getFluidInSlot(i);
-            if (stack != null && stack.equals(fluid)) {
-                return true;
-            }
+        final MEStorage internalStorage;
+        final IEnergySource energy;
+        try {
+            internalStorage = this.getProxy().getStorage().getInventory();
+            energy = this.getProxy().getEnergy();
+        } catch (final GridAccessException e) {
+            return TickRateModulation.IDLE;
         }
-        return false;
+
+        final IPartitionList filter = this.buildFilter();
+        final FuzzyMode fzMode = this.getInstalledUpgrades(Upgrades.FUZZY) > 0
+                ? (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)
+                : null;
+
+        final FluidTransferContext context = new FluidTransferContext(internalStorage, energy, this.source,
+                (int) this.calculateAmountToSend(), filter, fzMode);
+
+        final boolean worked = this.importStrategy.transfer(context);
+
+        return worked ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 
-    private boolean filterEnabled() {
-        for (int i = 0; i < this.getConfig().getSlots(); i++) {
-            final IAEFluidStack stack = this.getConfig().getFluidInSlot(i);
+    /**
+     * Builds the partition list from the bus' configured slots, matching the pre-port behaviour where an
+     * unconfigured bus imports anything and a configured one only imports the listed fluids (fuzzy or precise
+     * depending on {@code Upgrades.FUZZY}).
+     */
+    private IPartitionList buildFilter() {
+        final var builder = IPartitionList.builder();
+        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+            builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
+        }
+        for (int x = 0; x < this.getConfig().getSlots(); x++) {
+            final var stack = this.getConfig().getFluidInSlot(x);
             if (stack != null) {
-                return true;
+                builder.add(stack.what());
             }
         }
-        return false;
+        return builder.build();
     }
 
     @Override

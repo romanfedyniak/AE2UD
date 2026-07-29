@@ -19,18 +19,17 @@
 package appeng.fluids.container;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.MEStorage;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.fluids.parts.PartFluidStorageBus;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.util.Platform;
 import appeng.util.iterators.NullIterator;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.items.IItemHandler;
 
@@ -82,7 +81,7 @@ public class ContainerFluidStorageBus extends ContainerFluidConfigurable {
     }
 
     @Override
-    protected boolean isValidForConfig(int slot, IAEFluidStack fs) {
+    protected boolean isValidForConfig(int slot, GenericStack fs) {
         if (this.supportCapacity()) {
             final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
 
@@ -135,18 +134,20 @@ public class ContainerFluidStorageBus extends ContainerFluidConfigurable {
     public void partition() {
         IAEFluidTank h = this.storageBus.getConfig();
 
-        final IMEInventory<IAEFluidStack> cellInv = this.storageBus.getInternalHandler();
+        // NOTE: PartFluidStorageBus#getInternalHandler() is agent 5-A's file, migrated in parallel with this
+        // one. Written against the item-side precedent (PartStorageBus#getInternalHandler(): MEInventoryHandler,
+        // a MEStorage) - see this class's Wave 5c report for the cross-agent seam this assumes.
+        final MEStorage cellInv = this.storageBus.getInternalHandler();
 
-        Iterator<IAEFluidStack> i = new NullIterator<>();
+        Iterator<Object2LongMap.Entry<AEKey>> i = new NullIterator<>();
         if (cellInv != null) {
-            final IItemList<IAEFluidStack> list = cellInv
-                    .getAvailableItems(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList());
-            i = list.iterator();
+            i = cellInv.getAvailableStacks().iterator();
         }
 
         for (int x = 0; x < h.getSlots(); x++) {
             if (i.hasNext() && this.isSlotEnabled((x / 9) - 2)) {
-                h.setFluidInSlot(x, i.next());
+                final Object2LongMap.Entry<AEKey> entry = i.next();
+                h.setFluidInSlot(x, new GenericStack(entry.getKey(), entry.getLongValue()));
             } else {
                 h.setFluidInSlot(x, null);
             }

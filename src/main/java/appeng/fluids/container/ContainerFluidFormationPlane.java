@@ -3,7 +3,7 @@ package appeng.fluids.container;
 
 import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Upgrades;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.fluids.parts.PartFluidFormationPlane;
 import appeng.fluids.util.IAEFluidTank;
@@ -56,7 +56,7 @@ public class ContainerFluidFormationPlane extends ContainerFluidConfigurable {
     }
 
     @Override
-    protected boolean isValidForConfig(int slot, IAEFluidStack fs) {
+    protected boolean isValidForConfig(int slot, GenericStack fs) {
         if (this.supportCapacity()) {
             final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
 

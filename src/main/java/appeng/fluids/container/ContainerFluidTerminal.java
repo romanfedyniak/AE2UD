@@ -19,7 +19,6 @@
 package appeng.fluids.container;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
@@ -28,18 +27,19 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
+import appeng.api.networking.storage.IStackWatcher;
+import appeng.api.networking.storage.IStorageWatcherNode;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.container.me.GridInventoryEntry;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
@@ -48,9 +48,9 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEFluidInventoryUpdate;
 import appeng.core.sync.packets.PacketTargetFluidStack;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.InventoryAction;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
@@ -64,19 +64,34 @@ import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
  * @author BrockWS
  * @version rv6 - 12/05/2018
  * @since rv6 12/05/2018
+ * <p/>
+ * Live updates follow CONTRACT.md §10 "Third case: terminal live updates", the same split
+ * {@code appeng.container.implementations.ContainerMEMonitorable} implements: a fluid terminal part built on
+ * {@link AbstractPartTerminal} (the only host this container is constructed with today, {@code PartFluidTerminal})
+ * gets case 1 (real push, relayed through {@link AbstractPartTerminal#addTerminalListener}); any other
+ * {@link ITerminalHost} falls back to case 2 (a server-side per-tick diff of {@link MEStorage#getAvailableStacks()}).
+ * Unlike {@code ContainerMEMonitorable}, there is no craftable-flag column here: the pre-migration fluid terminal
+ * never surfaced {@code isCraftable()}/{@code countRequestable()} for fluids (verified by reading the whole file
+ * before this rewrite - {@code IAEFluidStack} inherited those members from {@code IAEStack} but this container
+ * never read them), so every {@link GridInventoryEntry} sent from here carries {@code requestableAmount = 0} and
+ * {@code craftable = false}, preserving that behaviour exactly rather than adding a new one.
  */
-public class ContainerFluidTerminal extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject, IMEMonitorHandlerReceiver<IAEFluidStack> {
+public class ContainerFluidTerminal extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject, IStorageWatcherNode {
     private final IConfigManager clientCM;
-    private final IMEMonitor<IAEFluidStack> monitor;
-    private final IItemList<IAEFluidStack> fluids = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
+    private final MEStorage monitor;
     @GuiSync(99)
     public boolean hasPower = false;
     private final ITerminalHost terminal;
@@ -84,7 +99,25 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
     private IConfigManagerHost gui;
     private IGridNode networkNode;
     // Holds the fluid the client wishes to extract, or null for insert
-    private IAEFluidStack clientRequestedTargetFluid = null;
+    private AEKey clientRequestedTargetFluid = null;
+
+    /**
+     * Non-null only when {@code terminal} is a {@link AbstractPartTerminal} (true for {@code PartFluidTerminal},
+     * the only host this container is built from today). See CONTRACT.md §10 / {@code ContainerMEMonitorable}'s
+     * identical field for the full reasoning: the grid only ever installs a watcher on the node's *machine*, so
+     * the part - not this container - holds the {@link IStackWatcher} and relays {@link #onStackChange} to
+     * whichever containers are attached.
+     */
+    private AbstractPartTerminal networkTerminalPart;
+
+    /** Case 1 buffer: keys the grid told us changed since the last {@link #detectAndSendChanges()}. */
+    private final Map<AEKey, Long> pendingPushChanges = new LinkedHashMap<>();
+
+    /**
+     * Case 2 snapshot: the amounts last broadcast to listeners. Seeded at construction so the tick right after a
+     * GUI opens does not immediately re-broadcast the same full listing {@link #queueInventory} already sent.
+     */
+    private KeyCounter previousAvailableStacks = new KeyCounter();
 
     public ContainerFluidTerminal(InventoryPlayer ip, ITerminalHost terminal) {
         super(ip, terminal);
@@ -96,11 +129,9 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
         this.clientCM.registerSetting(Settings.VIEW_MODE, ViewItems.ALL);
         if (Platform.isServer()) {
             this.serverCM = terminal.getConfigManager();
-            this.monitor = terminal.getInventory(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
+            this.monitor = terminal.getInventory();
 
             if (this.monitor != null) {
-                this.monitor.addListener(this, null);
-
                 if (terminal instanceof IEnergySource) {
                     this.setPowerSource((IEnergySource) terminal);
                 } else if (terminal instanceof IGridHost || terminal instanceof IActionHost) {
@@ -121,30 +152,18 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                         }
                     }
                 }
+
+                if (terminal instanceof AbstractPartTerminal) {
+                    this.networkTerminalPart = (AbstractPartTerminal) terminal;
+                    this.networkTerminalPart.addTerminalListener(this);
+                }
+
+                this.previousAvailableStacks = this.monitor.getAvailableStacks();
             }
         } else {
             this.monitor = null;
         }
         this.bindPlayerInventory(ip, 0, 222 - 82);
-    }
-
-    @Override
-    public boolean isValid(Object verificationToken) {
-        return true;
-    }
-
-    @Override
-    public void postChange(IBaseMonitor<IAEFluidStack> monitor, Iterable<IAEFluidStack> change, IActionSource actionSource) {
-        for (final IAEFluidStack is : change) {
-            this.fluids.add(is);
-        }
-    }
-
-    @Override
-    public void onListUpdate() {
-        for (final IContainerListener c : this.listeners) {
-            this.queueInventory(c);
-        }
     }
 
     @Override
@@ -155,10 +174,19 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
     }
 
     @Override
+    public void removeListener(final IContainerListener c) {
+        super.removeListener(c);
+
+        if (this.listeners.isEmpty() && this.networkTerminalPart != null) {
+            this.networkTerminalPart.removeTerminalListener(this);
+        }
+    }
+
+    @Override
     public void onContainerClosed(final EntityPlayer player) {
         super.onContainerClosed(player);
-        if (this.monitor != null) {
-            this.monitor.removeListener(this);
+        if (this.networkTerminalPart != null) {
+            this.networkTerminalPart.removeTerminalListener(this);
         }
     }
 
@@ -166,9 +194,9 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
         if (Platform.isServer() && c instanceof EntityPlayer && this.monitor != null) {
             try {
                 PacketMEFluidInventoryUpdate piu = new PacketMEFluidInventoryUpdate();
-                final IItemList<IAEFluidStack> monitorCache = this.monitor.getStorageList();
 
-                for (final IAEFluidStack send : monitorCache) {
+                for (final var entry : this.monitor.getAvailableStacks()) {
+                    final GridInventoryEntry send = new GridInventoryEntry(entry.getKey(), entry.getLongValue(), 0, false);
                     try {
                         piu.appendFluid(send);
                     } catch (final BufferOverflowException boe) {
@@ -186,6 +214,59 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
         }
     }
 
+    /**
+     * Called on the server only, relayed from {@link AbstractPartTerminal#onStackChange(AEKey, long)} - see
+     * {@link #networkTerminalPart}. Not called directly by the grid: this container is not itself a grid machine,
+     * so {@link #updateWatcher(IStackWatcher)} below is never invoked in practice.
+     */
+    @Override
+    public void onStackChange(final AEKey what, final long amount) {
+        this.pendingPushChanges.put(what, amount);
+    }
+
+    @Override
+    public void updateWatcher(final IStackWatcher newWatcher) {
+        // Never called: the grid registers watchers against the terminal part (the node's machine), not
+        // against this container. See AbstractPartTerminal.updateWatcher/addTerminalListener.
+    }
+
+    /**
+     * Builds this tick's delta - whichever of case 1 / case 2 (CONTRACT.md §10) applies to this terminal.
+     */
+    private List<GridInventoryEntry> collectChanges() {
+        final List<GridInventoryEntry> result = new ArrayList<>();
+
+        if (this.networkTerminalPart != null) {
+            // Case 1: real push - only the keys the grid actually told us changed, via onStackChange.
+            for (final Map.Entry<AEKey, Long> e : this.pendingPushChanges.entrySet()) {
+                result.add(new GridInventoryEntry(e.getKey(), e.getValue(), 0, false));
+            }
+            this.pendingPushChanges.clear();
+        } else {
+            // Case 2: server-side per-tick diff, exactly like upstream's MEStorageMenu.broadcastChanges().
+            final KeyCounter current = this.monitor.getAvailableStacks();
+
+            for (final var entry : current) {
+                final AEKey what = entry.getKey();
+                final long amount = entry.getLongValue();
+                if (amount != this.previousAvailableStacks.get(what)) {
+                    result.add(new GridInventoryEntry(what, amount, 0, false));
+                }
+            }
+
+            for (final var entry : this.previousAvailableStacks) {
+                final AEKey what = entry.getKey();
+                if (entry.getLongValue() != 0 && current.get(what) == 0) {
+                    result.add(new GridInventoryEntry(what, 0, 0, false));
+                }
+            }
+
+            this.previousAvailableStacks = current;
+        }
+
+        return result;
+    }
+
     @Override
     public IConfigManager getConfigManager() {
         if (Platform.isServer()) {
@@ -194,19 +275,20 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
         return this.clientCM;
     }
 
-    public void setTargetStack(final IAEFluidStack stack) {
+    public void setTargetStack(@Nullable final AEKey stack) {
         if (Platform.isClient()) {
             if (stack == null && this.clientRequestedTargetFluid == null) {
                 return;
             }
-            if (stack != null && this.clientRequestedTargetFluid != null && stack.getFluidStack()
-                    .isFluidEqual(this.clientRequestedTargetFluid.getFluidStack())) {
+            // AEKey carries no amount (unlike GenericStack) - equals() here is already the size-insensitive
+            // identity check the old FluidStack#isFluidEqual was. See CONTRACT.md §9.1.
+            if (stack != null && stack.equals(this.clientRequestedTargetFluid)) {
                 return;
             }
-            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack((AEFluidStack) stack));
+            NetworkHandler.instance().sendToServer(new PacketTargetFluidStack(stack));
         }
 
-        this.clientRequestedTargetFluid = stack == null ? null : stack.copy();
+        this.clientRequestedTargetFluid = stack;
     }
 
     @Override
@@ -219,7 +301,7 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
     @Override
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
-            if (this.monitor != this.terminal.getInventory(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class))) {
+            if (this.monitor != this.terminal.getInventory()) {
                 this.setValidContainer(false);
             }
 
@@ -241,28 +323,22 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                 }
             }
 
-            if (!this.fluids.isEmpty()) {
+            if (this.monitor != null) {
                 try {
-                    final IItemList<IAEFluidStack> monitorCache = this.monitor.getStorageList();
+                    final List<GridInventoryEntry> changes = this.collectChanges();
 
-                    final PacketMEFluidInventoryUpdate piu = new PacketMEFluidInventoryUpdate();
+                    if (!changes.isEmpty()) {
+                        PacketMEFluidInventoryUpdate piu = new PacketMEFluidInventoryUpdate();
 
-                    for (final IAEFluidStack is : this.fluids) {
-                        final IAEFluidStack send = monitorCache.findPrecise(is);
-                        if (send == null) {
-                            is.setStackSize(0);
-                            piu.appendFluid(is);
-                        } else {
-                            piu.appendFluid(send);
+                        for (final GridInventoryEntry entry : changes) {
+                            piu.appendFluid(entry);
                         }
-                    }
 
-                    if (!piu.isEmpty()) {
-                        this.fluids.resetStatus();
-
-                        for (final Object c : this.listeners) {
-                            if (c instanceof EntityPlayer) {
-                                NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
+                        if (!piu.isEmpty()) {
+                            for (final Object c : this.listeners) {
+                                if (c instanceof EntityPlayer) {
+                                    NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
+                                }
                             }
                         }
                     }
@@ -305,12 +381,14 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                     return ItemStack.EMPTY;
                 }
 
-                // Check if we can push into the system
-                final IAEFluidStack notStorable = Platform.poweredInsert(this.getPowerSource(), this.monitor, AEFluidStack.fromFluidStack(extract), this.getActionSource(), Actionable.SIMULATE);
+                final AEFluidKey extractKey = AEFluidKey.of(extract);
 
-                if (notStorable != null && notStorable.getStackSize() > 0) {
-                    final int toStore = (int) (extract.amount - notStorable.getStackSize());
-                    final FluidStack storable = fh.drain(toStore, false);
+                // Check if we can push into the system
+                final long inserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, extractKey, extract.amount, this.getActionSource(), Actionable.SIMULATE);
+                final long notStorable = extract.amount - inserted;
+
+                if (notStorable > 0) {
+                    final FluidStack storable = fh.drain((int) inserted, false);
 
                     if (storable == null || storable.amount == 0) {
                         return ItemStack.EMPTY;
@@ -323,16 +401,18 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                 final FluidStack drained = fh.drain(extract, true);
                 extract.amount = drained.amount;
 
-                final IAEFluidStack notInserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, AEFluidStack.fromFluidStack(extract), this.getActionSource());
+                final long reallyInserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, extractKey, extract.amount, this.getActionSource());
+                final long leftover = extract.amount - reallyInserted;
 
-                if (notInserted != null && notInserted.getStackSize() > 0) {
-                    IAEFluidStack spill = this.monitor.injectItems(notInserted, Actionable.MODULATE, this.getActionSource());
-                    if (spill != null && spill.getStackSize() > 0) {
-                        fh.fill(spill.getFluidStack(), true);
+                if (leftover > 0) {
+                    final long spillInserted = this.monitor.insert(extractKey, leftover, Actionable.MODULATE, this.getActionSource());
+                    final long spill = leftover - spillInserted;
+                    if (spill > 0) {
+                        fh.fill(extractKey.toStack((int) spill), true);
                     }
                 }
 
-                if (notInserted == null || notInserted.getStackSize() == 0) {
+                if (leftover == 0) {
                     if (!player.inventory.addItemStackToInventory(fh.getContainer())) {
                         player.dropItem(fh.getContainer(), false);
                     }
@@ -361,12 +441,9 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
             return;
         }
 
-        if (action == InventoryAction.FILL_ITEM && this.clientRequestedTargetFluid != null) {
-            final IAEFluidStack stack = this.clientRequestedTargetFluid.copy();
-
+        if (action == InventoryAction.FILL_ITEM && this.clientRequestedTargetFluid instanceof AEFluidKey targetFluid) {
             // Check how much we can store in the item
-            stack.setStackSize(Integer.MAX_VALUE);
-            int amountAllowed = fh.fill(stack.getFluidStack(), false);
+            int amountAllowed = fh.fill(targetFluid.toStack(Integer.MAX_VALUE), false);
             int heldAmount = held.getCount();
             for (int i = 0; i < heldAmount; i++) {
                 ItemStack copiedFluidContainer = held.copy();
@@ -374,27 +451,27 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                 fh = FluidUtil.getFluidHandler(copiedFluidContainer);
 
                 // Check if we can pull out of the system
-                final IAEFluidStack canPull = Platform.poweredExtraction(this.getPowerSource(), this.monitor, stack.setStackSize(amountAllowed), this.getActionSource(), Actionable.SIMULATE);
-                if (canPull == null || canPull.getStackSize() < 1) {
+                final long canPull = Platform.poweredExtraction(this.getPowerSource(), this.monitor, targetFluid, amountAllowed, this.getActionSource(), Actionable.SIMULATE);
+                if (canPull < 1) {
                     return;
                 }
 
                 // How much could fit into the container
-                final int canFill = fh.fill(canPull.getFluidStack(), false);
+                final int canFill = fh.fill(targetFluid.toStack((int) canPull), false);
                 if (canFill == 0) {
                     return;
                 }
 
                 // Now actually pull out of the system
-                final IAEFluidStack pulled = Platform.poweredExtraction(this.getPowerSource(), this.monitor, stack.setStackSize(canFill), this.getActionSource());
-                if (pulled == null || pulled.getStackSize() < 1) {
+                final long pulled = Platform.poweredExtraction(this.getPowerSource(), this.monitor, targetFluid, canFill, this.getActionSource());
+                if (pulled < 1) {
                     // Something went wrong
                     AELog.error("Unable to pull fluid out of the ME system even though the simulation said yes ");
                     return;
                 }
 
                 // Actually fill
-                final int used = fh.fill(pulled.getFluidStack(), true);
+                final int used = fh.fill(targetFluid.toStack((int) pulled), true);
 
                 if (used != canFill) {
                     AELog.error("Fluid item [%s] reported a different possible amount than it actually accepted.", held.getDisplayName());
@@ -424,12 +501,14 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                     return;
                 }
 
-                // Check if we can push into the system
-                final IAEFluidStack notStorable = Platform.poweredInsert(this.getPowerSource(), this.monitor, AEFluidStack.fromFluidStack(extract), this.getActionSource(), Actionable.SIMULATE);
+                final AEFluidKey extractKey = AEFluidKey.of(extract);
 
-                if (notStorable != null && notStorable.getStackSize() > 0) {
-                    final int toStore = (int) (extract.amount - notStorable.getStackSize());
-                    final FluidStack storable = fh.drain(toStore, false);
+                // Check if we can push into the system
+                final long inserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, extractKey, extract.amount, this.getActionSource(), Actionable.SIMULATE);
+                final long notStorable = extract.amount - inserted;
+
+                if (notStorable > 0) {
+                    final FluidStack storable = fh.drain((int) inserted, false);
 
                     if (storable == null || storable.amount == 0) {
                         return;
@@ -442,12 +521,14 @@ public class ContainerFluidTerminal extends AEBaseContainer implements IConfigMa
                 final FluidStack drained = fh.drain(extract, true);
                 extract.amount = drained.amount;
 
-                final IAEFluidStack notInserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, AEFluidStack.fromFluidStack(extract), this.getActionSource());
+                final long reallyInserted = Platform.poweredInsert(this.getPowerSource(), this.monitor, extractKey, extract.amount, this.getActionSource());
+                final long leftover = extract.amount - reallyInserted;
 
-                if (notInserted != null && notInserted.getStackSize() > 0) {
-                    IAEFluidStack spill = this.monitor.injectItems(notInserted, Actionable.MODULATE, this.getActionSource());
-                    if (spill != null && spill.getStackSize() > 0) {
-                        fh.fill(spill.getFluidStack(), true);
+                if (leftover > 0) {
+                    final long spillInserted = this.monitor.insert(extractKey, leftover, Actionable.MODULATE, this.getActionSource());
+                    final long spill = leftover - spillInserted;
+                    if (spill > 0) {
+                        fh.fill(extractKey.toStack((int) spill), true);
                     }
                 }
 

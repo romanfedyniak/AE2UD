@@ -19,16 +19,41 @@
 package appeng.fluids.parts;
 
 
+import java.util.Objects;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.IBlockAccess;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+
 import appeng.api.AEApi;
-import appeng.api.config.*;
+import appeng.api.behaviors.ExternalStorageStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
+import appeng.api.config.AccessRestriction;
+import appeng.api.config.Actionable;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.IncludeExclude;
+import appeng.api.config.Settings;
+import appeng.api.config.StorageFilter;
+import appeng.api.config.Upgrades;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.events.MENetworkCellArrayUpdate;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
-import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.ITickManager;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -36,10 +61,13 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.*;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageMonitorableAccessor;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.capabilities.Capabilities;
@@ -54,46 +82,32 @@ import appeng.fluids.util.IAEFluidTank;
 import appeng.helpers.IPriorityHost;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
-import appeng.me.cache.GridStorageCache;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.MEInventoryHandler;
+import appeng.me.storage.NullInventory;
 import appeng.parts.PartModel;
 import appeng.parts.automation.PartUpgradeable;
 import appeng.tile.networking.TileCableBus;
-import appeng.util.ConfigManager;
 import appeng.util.Platform;
-import appeng.util.inv.InvOperation;
-import appeng.util.prioritylist.FuzzyPriorityList;
-import appeng.util.prioritylist.PrecisePriorityList;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.IBlockAccess;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import appeng.util.prioritylist.IPartitionList;
 
 
 /**
- * @author BrockWS
- * @version rv6 - 22/05/2018
- * @since rv6 22/05/2018
+ * Fluid storage bus. Fluid counterpart of {@code appeng.parts.misc.PartStorageBus}: same resolution order (direct
+ * ME network link, then the generic {@link ExternalStorageStrategy} registry), same stable-handler-instance shape,
+ * but restricted to {@link AEKeyType#fluids()} alone and driven by an {@link AEFluidInventory}-shaped GUI/config
+ * instead of the item bus' wrapped-item slots -- AE2UD keeps a dedicated fluid storage bus item/GUI rather than
+ * merging into the generic one, the same "split, not merged" shape the formation and annihilation planes keep
+ * (CONTRACT.md §10).
+ * <p/>
+ * A direct link to another ME network ({@link IStorageMonitorableAccessor}) is wrapped in {@link FluidOnlyStorage}
+ * so this bus only ever contributes fluids even when linked to a sub-network that also carries items -- mirroring
+ * the pre-port {@code getInventoryWrapper}'s {@code inventory.getInventory(IFluidStorageChannel.class)}, which had
+ * the same effect under the old per-channel model.
  */
-public class PartFluidStorageBus extends PartUpgradeable implements IGridTickable, ICellContainer, IMEMonitorHandlerReceiver<IAEFluidStack>, IAEFluidInventory, IConfigurableFluidInventory, IPriorityHost {
+public class PartFluidStorageBus extends PartUpgradeable
+        implements IGridTickable, IStorageProvider, IPriorityHost, IAEFluidInventory, IConfigurableFluidInventory {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/fluid_storage_bus_base");
     @PartModels
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/fluid_storage_bus_off"));
@@ -102,24 +116,25 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
     @PartModels
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/fluid_storage_bus_has_channel"));
 
-    private final IActionSource source;
+    private final IActionSource mySrc;
     private final AEFluidInventory config = new AEFluidInventory(this, 63);
+    private final StorageBusHandler handler = new StorageBusHandler(NullInventory.of());
     private int priority = 0;
     private boolean cached = false;
     private ITickingMonitor monitor = null;
-    private MEInventoryHandler<IAEFluidStack> handler = null;
     private int handlerHash = 0;
     private boolean wasActive = false;
     private byte resetCacheLogic = 0;
-    private boolean accessChanged;
-    private boolean readOncePass;
+    @Nullable
+    private ExternalStorageStrategy externalStorageStrategy;
+    private boolean externalStorageStrategyResolved;
 
-    public PartFluidStorageBus(ItemStack is) {
+    public PartFluidStorageBus(final ItemStack is) {
         super(is);
         this.getConfigManager().registerSetting(Settings.ACCESS, AccessRestriction.READ_WRITE);
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.getConfigManager().registerSetting(Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
-        this.source = new MachineSource(this);
+        this.mySrc = new MachineSource(this);
     }
 
     @Override
@@ -128,7 +143,7 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         this.updateStatus();
     }
 
-    protected void updateStatus() {
+    private void updateStatus() {
         final boolean currentActive = this.getProxy().isActive();
         if (this.wasActive != currentActive) {
             this.wasActive = currentActive;
@@ -154,15 +169,16 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
 
     @Override
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
-        if (settingName.name().equals("ACCESS")) {
-            this.accessChanged = true;
-        }
+        // Same reasoning as appeng.parts.misc.PartStorageBus (CONTRACT.md §9, wave 3b): there is no per-source
+        // posting entry point left on IStorageService, so every settings change forces a full rebuild of the
+        // handler's flags and, if the registration-worthy state flips, an IStorageProvider.requestUpdate call --
+        // the network re-derives its cache on the next tick instead of through a per-bus push.
         this.resetCache(true);
         this.getHost().markForSave();
     }
 
     @Override
-    public void onFluidInventoryChanged(IAEFluidTank inv, int slot) {
+    public void onFluidInventoryChanged(final IAEFluidTank inv, final int slot) {
         if (inv == this.config) {
             this.resetCache(true);
         }
@@ -179,7 +195,6 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         super.readFromNBT(data);
         this.config.readFromNBT(data, "config");
         this.priority = data.getInteger("priority");
-        this.accessChanged = false;
     }
 
     @Override
@@ -216,42 +231,6 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
     }
 
     @Override
-    public boolean isValid(final Object verificationToken) {
-        return this.handler == verificationToken;
-    }
-
-    @Override
-    public void postChange(final IBaseMonitor<IAEFluidStack> monitor, final Iterable<IAEFluidStack> change, final IActionSource source) {
-        if (this.getProxy().isActive()) {
-            var filteredChanges = this.filterChanges(change);
-
-            AccessRestriction currentAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS);
-            if (readOncePass) {
-                readOncePass = false;
-                try {
-                    this.getProxy().getStorage().postAlterationOfStoredItems(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class), filteredChanges, this.source);
-                } catch (final GridAccessException e) {
-                    // :(
-                }
-                return;
-            }
-            if (!currentAccess.hasPermission(AccessRestriction.READ)) {
-                return;
-            }
-            try {
-                this.getProxy().getStorage().postAlterationOfStoredItems(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class), filteredChanges, source);
-            } catch (final GridAccessException e) {
-                // :(
-            }
-        }
-    }
-
-    @Override
-    public void onListUpdate() {
-        // not used here.
-    }
-
-    @Override
     public void getBoxes(final IPartCollisionHelper bch) {
         bch.addBox(3, 3, 15, 13, 13, 16);
         bch.addBox(2, 2, 14, 14, 14, 15);
@@ -261,19 +240,28 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
     @Override
     public void onNeighborChanged(IBlockAccess w, BlockPos pos, BlockPos neighbor) {
         if (pos.offset(this.getSide().getFacing()).equals(neighbor)) {
-
             final TileEntity te = w.getTileEntity(neighbor);
 
             // In case the TE was destroyed, we have to do a full reset immediately.
             if (te instanceof TileCableBus) {
                 IPart iPart = ((TileCableBus) te).getPart(this.getSide().getOpposite());
-                if (iPart == null || iPart instanceof PartFluidInterface) {
+                if (iPart == null) {
+                    this.resetCache(true);
+                    this.resetCache();
+                } else if (iPart instanceof PartFluidInterface) {
+                    if (createHandlerHash(te) != handlerHash) {
+                        this.resetCache(true);
+                        this.resetCache();
+                    }
+                }
+            } else if (te == null) {
+                this.resetCache(true);
+                this.resetCache();
+            } else if (te instanceof TileFluidInterface) {
+                if (createHandlerHash(te) != handlerHash) {
                     this.resetCache(true);
                     this.resetCache();
                 }
-            } else if (te == null || te instanceof TileFluidInterface) {
-                this.resetCache(true);
-                this.resetCache();
             } else {
                 this.resetCache(false);
             }
@@ -294,12 +282,12 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
     }
 
     @Override
-    public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(TickRates.FluidStorageBus.getMin(), TickRates.FluidStorageBus.getMax(), monitor == null, true);
+    public TickingRequest getTickingRequest(final IGridNode node) {
+        return new TickingRequest(TickRates.FluidStorageBus.getMin(), TickRates.FluidStorageBus.getMax(), this.monitor == null, true);
     }
 
     @Override
-    public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
+    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
         if (this.resetCacheLogic != 0) {
             this.resetCache();
         }
@@ -315,67 +303,54 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         final boolean fullReset = this.resetCacheLogic == 2;
         this.resetCacheLogic = 0;
 
-        final MEInventoryHandler<IAEFluidStack> in = this.getInternalHandler();
-        IItemList<IAEFluidStack> before = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
-        if (in != null) {
-            if (accessChanged) {
-                AccessRestriction currentAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS);
-                AccessRestriction oldAccess = (AccessRestriction) ((ConfigManager) this.getConfigManager()).getOldSetting(Settings.ACCESS);
-                if (oldAccess.hasPermission(AccessRestriction.READ) && !currentAccess.hasPermission(AccessRestriction.READ)) {
-                    readOncePass = true;
-                }
-                in.setBaseAccess(oldAccess);
-                before = in.getAvailableItems(before);
-                in.setBaseAccess(currentAccess);
-                accessChanged = false;
-            } else {
-                before = in.getAvailableItems(before);
-            }
-        }
-
-        this.cached = false;
         if (fullReset) {
             this.handlerHash = 0;
         }
 
-        final MEInventoryHandler<IAEFluidStack> out = this.getInternalHandler();
-        IItemList<IAEFluidStack> after = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
-
-        if (in != out) {
-            if (out != null) {
-                after = out.getAvailableItems(after);
-            }
-            Platform.postListChanges(before, after, this, this.source);
-        }
+        this.cached = false;
+        this.getInternalHandler();
     }
 
-    private IMEInventory<IAEFluidStack> getInventoryWrapper(TileEntity target) {
-        EnumFacing targetSide = this.getSide().getFacing().getOpposite();
-        // Prioritize a handler to directly link to another ME network
-        IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
+    /**
+     * Resolves the storage this bus should expose, in priority order. See the class javadoc.
+     */
+    @Nullable
+    MEStorage findExternalStorage(final TileEntity target, final EnumFacing targetSide, final boolean extractableOnly,
+            final Runnable changeListener) {
+        // 1. A direct link to another ME network -- wrapped so only fluids ever pass through this bus.
+        final IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
         if (accessor != null) {
-            IStorageMonitorable inventory = accessor.getInventory(this.source);
-            if (inventory != null) {
-                return inventory.getInventory(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
-            }
-
-            // So this could / can be a design decision. If the tile does support our custom capability,
-            // but it does not return an inventory for the action source, we do NOT fall back to using
-            // IItemHandler's, as that might circumvent the security setings, and might also cause
-            // performance issues.
-            return null;
+            final MEStorage inventory = accessor.getInventory(this.mySrc);
+            return inventory != null ? new FluidOnlyStorage(inventory) : null;
         }
 
-        // Check via cap for IItemHandler
-        IFluidHandler handlerExt = target.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, targetSide);
-        if (handlerExt != null) {
-            return new FluidHandlerAdapter(handlerExt, this);
-        }
-
-        return null;
+        // 2. The generic external-storage strategy registered for fluids specifically.
+        final ExternalStorageStrategy strategy = this.getExternalStorageStrategy();
+        return strategy != null ? strategy.createWrapper(extractableOnly, changeListener) : null;
     }
 
-    private int createHandlerHash(TileEntity target) {
+    private ExternalStorageStrategy getExternalStorageStrategy() {
+        if (!this.externalStorageStrategyResolved) {
+            this.externalStorageStrategyResolved = true;
+            final TileEntity self = this.getHost().getTile();
+            final BlockPos targetPos = self.getPos().offset(this.getSide().getFacing());
+            final EnumFacing targetSide = this.getSide().getFacing().getOpposite();
+            this.externalStorageStrategy = StackWorldBehaviors
+                    .createExternalStorageStrategies(self.getWorld(), targetPos, targetSide)
+                    .get(AEKeyType.fluids());
+        }
+        return this.externalStorageStrategy;
+    }
+
+    private void onExternalStorageChanged() {
+        try {
+            this.getProxy().getTick().alertDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            // meh
+        }
+    }
+
+    int createHandlerHash(TileEntity target) {
         if (target == null) {
             return 0;
         }
@@ -383,6 +358,10 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         final EnumFacing targetSide = this.getSide().getFacing().getOpposite();
 
         if (target.hasCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide)) {
+            IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
+            if (accessor != null) {
+                return Objects.hash(target, accessor.getInventory(this.mySrc));
+            }
             return Objects.hash(target, target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide));
         }
 
@@ -395,12 +374,13 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         return 0;
     }
 
-    public MEInventoryHandler<IAEFluidStack> getInternalHandler() {
+    public MEInventoryHandler getInternalHandler() {
         if (this.cached) {
             return this.handler;
         }
 
         final boolean wasSleeping = this.monitor == null;
+        final boolean wasRegistered = this.hasRegisteredCellToNetwork();
 
         this.cached = true;
         final TileEntity self = this.getHost().getTile();
@@ -412,56 +392,35 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         }
 
         this.handlerHash = newHandlerHash;
-        this.handler = null;
-        if (this.monitor != null) {
-            ((IBaseMonitor<IAEFluidStack>) monitor).removeListener(this);
-        }
         this.monitor = null;
+
+        MEStorage newDelegate = NullInventory.of();
         if (target != null) {
-            IMEInventory<IAEFluidStack> inv = this.getInventoryWrapper(target);
-            if (inv instanceof ITickingMonitor) {
-                this.monitor = (ITickingMonitor) inv;
-                this.monitor.setActionSource(this.source);
-                this.monitor.setMode((StorageFilter) this.getConfigManager().getSetting(Settings.STORAGE_FILTER));
-            }
-
-            if (inv != null) {
-                this.handler = new MEInventoryHandler<>(inv, AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class));
-
-                this.handler.setBaseAccess((AccessRestriction) this.getConfigManager().getSetting(Settings.ACCESS));
-                this.handler.setWhitelist(this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
-                this.handler.setPriority(this.getPriority());
-                this.handler.setStorageFilter((StorageFilter) this.getConfigManager().getSetting(Settings.STORAGE_FILTER));
-
-                final IItemList<IAEFluidStack> priorityList = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class).createList();
-
-                final int slotsToUse = 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
-                for (int x = 0; x < this.config.getSlots() && x < slotsToUse; x++) {
-                    final IAEFluidStack is = this.config.getFluidInSlot(x);
-                    if (is != null) {
-                        priorityList.add(is);
-                    }
-                }
-
-                if (this.getInstalledUpgrades(Upgrades.STICKY) > 0) {
-                    this.handler.setSticky(true);
-                }
-
-                if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-                    this.handler.setPartitionList(new FuzzyPriorityList<IAEFluidStack>(priorityList, (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)));
-                } else {
-                    this.handler.setPartitionList(new PrecisePriorityList<IAEFluidStack>(priorityList));
-                }
-
-                if (inv instanceof IBaseMonitor) {
-                    if (((AccessRestriction) ((ConfigManager) this.getConfigManager()).getSetting(Settings.ACCESS)).hasPermission(AccessRestriction.READ)) {
-                        ((IBaseMonitor<IAEFluidStack>) inv).addListener(this, this.handler);
-                    }
-                }
+            final EnumFacing targetSide = this.getSide().getFacing().getOpposite();
+            final boolean extractableOnly = this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
+            final MEStorage found = this.findExternalStorage(target, targetSide, extractableOnly, this::onExternalStorageChanged);
+            if (found != null) {
+                newDelegate = found;
             }
         }
 
-        // update sleep state...
+        this.handler.setDelegate(newDelegate);
+
+        if (newDelegate instanceof ITickingMonitor) {
+            this.monitor = (ITickingMonitor) newDelegate;
+        }
+
+        final AccessRestriction access = (AccessRestriction) this.getConfigManager().getSetting(Settings.ACCESS);
+        final boolean allowExtraction = access.hasPermission(AccessRestriction.READ);
+        final boolean extractableOnlyFilter = this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
+
+        this.handler.setAllowExtraction(allowExtraction);
+        this.handler.setAllowInsertion(access.hasPermission(AccessRestriction.WRITE));
+        this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
+        this.handler.setWhitelist(this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+        this.handler.setPartitionList(this.createFilter());
+        this.handler.setSticky(this.getInstalledUpgrades(Upgrades.STICKY) > 0);
+
         if (wasSleeping != (this.monitor == null)) {
             try {
                 final ITickManager tm = this.getProxy().getTick();
@@ -470,30 +429,44 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
                 } else {
                     tm.wakeDevice(this.getProxy().getNode());
                 }
-            } catch (final GridAccessException ignore) {
+            } catch (final GridAccessException e) {
                 // :(
             }
         }
 
-        try {
-            // force grid to update handlers...
-            ((GridStorageCache) this.getProxy().getGrid().getCache(IStorageGrid.class)).cellUpdate(null);
-        } catch (final GridAccessException e) {
-            // :3
+        if (wasRegistered != this.hasRegisteredCellToNetwork()) {
+            IStorageProvider.requestUpdate(this.getProxy().getNode());
         }
 
         return this.handler;
     }
 
-    @Override
-    public List<IMEInventoryHandler> getCellArray(final IStorageChannel channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class)) {
-            final IMEInventoryHandler<IAEFluidStack> out = this.getInternalHandler();
-            if (out != null) {
-                return Collections.singletonList(out);
+    private boolean hasRegisteredCellToNetwork() {
+        return !(this.handler.getDelegate() instanceof NullInventory);
+    }
+
+    private IPartitionList createFilter() {
+        final IPartitionList.Builder filterBuilder = IPartitionList.builder();
+        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+            filterBuilder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
+        }
+
+        final int slotsToUse = 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
+        for (int x = 0; x < this.config.getSlots() && x < slotsToUse; x++) {
+            final var is = this.config.getFluidInSlot(x);
+            if (is != null) {
+                filterBuilder.add(is.what());
             }
         }
-        return Collections.emptyList();
+
+        return filterBuilder.build();
+    }
+
+    @Override
+    public void mountInventories(final IStorageMounts mounts) {
+        if (this.hasRegisteredCellToNetwork()) {
+            mounts.mount(this.getInternalHandler(), this.priority);
+        }
     }
 
     @Override
@@ -502,24 +475,11 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
     }
 
     @Override
-    public void setPriority(int newValue) {
+    public void setPriority(final int newValue) {
         this.priority = newValue;
         this.getHost().markForSave();
         this.resetCache(true);
-    }
-
-    @Override
-    public void blinkCell(int slot) {
-
-    }
-
-    @Override
-    public void saveChanges(@Nullable ICellInventory<?> cellInventory) {
-
-    }
-
-    public IAEFluidTank getConfig() {
-        return this.config;
+        IStorageProvider.requestUpdate(this.getProxy().getNode());
     }
 
     @Nonnull
@@ -544,26 +504,76 @@ public class PartFluidStorageBus extends PartUpgradeable implements IGridTickabl
         return GuiBridge.GUI_STORAGEBUS_FLUID;
     }
 
-    // TODO: 1/28/2024 Unify both methods.
+    public IAEFluidTank getConfig() {
+        return this.config;
+    }
 
     /**
-     * Filters the changes to only include items that pass the storage filter.
-     * Optimally, this should be handled by the underlying monitor.
-     *
-     * @see appeng.parts.misc.PartStorageBus#filterChanges
+     * Persistent wrapper around whatever {@link #findExternalStorage} last resolved. See
+     * {@code appeng.parts.misc.PartStorageBus.StorageBusHandler}, which this mirrors exactly, for why the
+     * accessors are re-declared here.
      */
-    protected Iterable<IAEFluidStack> filterChanges(Iterable<IAEFluidStack> change) {
-        var storageFilter = this.getConfigManager().getSetting(Settings.STORAGE_FILTER);
-        if (storageFilter == StorageFilter.EXTRACTABLE_ONLY && handler != null) {
-            var filteredList = new ArrayList<IAEFluidStack>();
-            for (final IAEFluidStack stack : change) {
-                if (this.handler.passesBlackOrWhitelist(stack)) {
-                    filteredList.add(stack);
+    private static final class StorageBusHandler extends MEInventoryHandler {
+        StorageBusHandler(final MEStorage delegate) {
+            super(delegate);
+        }
+
+        @Override
+        protected MEStorage getDelegate() {
+            return super.getDelegate();
+        }
+
+        @Override
+        protected void setDelegate(final MEStorage delegate) {
+            super.setDelegate(delegate);
+        }
+    }
+
+    /**
+     * Restricts a type-erased {@link MEStorage} (a whole linked sub-network) to fluids only, so this bus never
+     * leaks item access when linked to another network -- the new-model equivalent of the pre-port
+     * {@code inventory.getInventory(IFluidStorageChannel.class)} call under the old per-channel API.
+     */
+    private static final class FluidOnlyStorage implements MEStorage {
+        private final MEStorage delegate;
+
+        FluidOnlyStorage(final MEStorage delegate) {
+            this.delegate = delegate;
+        }
+
+        private static boolean isFluid(final AEKey what) {
+            return what.getType() == AEKeyType.fluids();
+        }
+
+        @Override
+        public boolean isPreferredStorageFor(final AEKey what, final IActionSource source) {
+            return isFluid(what) && this.delegate.isPreferredStorageFor(what, source);
+        }
+
+        @Override
+        public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            return isFluid(what) ? this.delegate.insert(what, amount, mode, source) : 0;
+        }
+
+        @Override
+        public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            return isFluid(what) ? this.delegate.extract(what, amount, mode, source) : 0;
+        }
+
+        @Override
+        public void getAvailableStacks(final KeyCounter out) {
+            final KeyCounter all = new KeyCounter();
+            this.delegate.getAvailableStacks(all);
+            for (final var entry : all) {
+                if (isFluid(entry.getKey())) {
+                    out.add(entry.getKey(), entry.getLongValue());
                 }
             }
-
-            return filteredList;
         }
-        return change;
+
+        @Override
+        public ITextComponent getDescription() {
+            return this.delegate.getDescription();
+        }
     }
 }

@@ -1,7 +1,7 @@
 package appeng.fluids.client.gui.widgets;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
 import appeng.container.slot.IOptionalSlotHost;
 import appeng.fluids.util.IAEFluidTank;
 import net.minecraft.client.renderer.GlStateManager;
@@ -30,7 +30,7 @@ public class GuiOptionalFluidSlot extends GuiFluidSlot {
     }
 
     @Override
-    public IAEFluidStack getFluidStack() {
+    public GenericStack getFluidStack() {
         if (!this.isSlotEnabled() && super.getFluidStack() != null) {
             this.setFluidStack(null);
         }

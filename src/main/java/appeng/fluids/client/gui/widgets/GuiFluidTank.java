@@ -19,13 +19,15 @@
 package appeng.fluids.client.gui.widgets;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.ITooltip;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.helpers.InventoryAction;
+import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -62,20 +64,20 @@ public class GuiFluidTank extends GuiCustomSlot implements ITooltip {
 
     @Override
     public void drawContent(Minecraft mc, int mouseX, int mouseY, float partialTicks) {
-        final IAEFluidStack fs = this.getFluidStack();
+        final GenericStack fs = this.getFluidStack();
         if (fs != null) {
             GlStateManager.disableBlend();
             GlStateManager.disableLighting();
 
             //drawRect( this.x, this.y, this.x + this.width, this.y + this.height, AEColor.GRAY.blackVariant | 0xFF000000 );
 
-            final IAEFluidStack fluid = this.tank.getFluidInSlot(this.slot);
-            if (fluid != null && fluid.getStackSize() > 0) {
+            final GenericStack fluid = this.tank.getFluidInSlot(this.slot);
+            if (fluid != null && fluid.amount() > 0 && fluid.what() instanceof AEFluidKey fluidKey) {
                 mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
 
-                float red = (fluid.getFluid().getColor() >> 16 & 255) / 255.0F;
-                float green = (fluid.getFluid().getColor() >> 8 & 255) / 255.0F;
-                float blue = (fluid.getFluid().getColor() & 255) / 255.0F;
+                float red = (fluidKey.getFluid().getColor() >> 16 & 255) / 255.0F;
+                float green = (fluidKey.getFluid().getColor() >> 8 & 255) / 255.0F;
+                float blue = (fluidKey.getFluid().getColor() & 255) / 255.0F;
                 if (darkened) {
                     red = red * 0.4F;
                     green = green * 0.4F;
@@ -83,8 +85,8 @@ public class GuiFluidTank extends GuiCustomSlot implements ITooltip {
                 }
                 GlStateManager.color(red, green, blue);
 
-                TextureAtlasSprite sprite = mc.getTextureMapBlocks().getAtlasSprite(fluid.getFluid().getStill().toString());
-                int scaledHeight = (int) (this.height * ((float) fluid.getStackSize() / this.tank.getTankProperties()[this.slot].getCapacity()));
+                TextureAtlasSprite sprite = mc.getTextureMapBlocks().getAtlasSprite(fluidKey.getFluid().getStill().toString());
+                int scaledHeight = (int) (this.height * ((float) fluid.amount() / this.tank.getTankProperties()[this.slot].getCapacity()));
                 scaledHeight = Math.min(this.height, scaledHeight);
 
                 int iconHeightRemainder = scaledHeight % 16;
@@ -100,11 +102,11 @@ public class GuiFluidTank extends GuiCustomSlot implements ITooltip {
 
     @Override
     public String getMessage() {
-        final IAEFluidStack fluid = this.tank.getFluidInSlot(this.slot);
-        if (fluid != null && fluid.getStackSize() > 0) {
-            String desc = fluid.getFluid().getLocalizedName(fluid.getFluidStack());
+        final GenericStack fluid = this.tank.getFluidInSlot(this.slot);
+        if (fluid != null && fluid.amount() > 0 && fluid.what() instanceof AEFluidKey fluidKey) {
+            String desc = Platform.getFluidDisplayName(fluidKey);
 
-            return desc + "\n" + fluid.getStackSize() + "/" + this.tank.getTankProperties()[this.slot].getCapacity() + "mB";
+            return desc + "\n" + fluid.amount() + "/" + this.tank.getTankProperties()[this.slot].getCapacity() + "mB";
         }
         return null;
     }
@@ -134,7 +136,7 @@ public class GuiFluidTank extends GuiCustomSlot implements ITooltip {
         return true;
     }
 
-    public IAEFluidStack getFluidStack() {
+    public GenericStack getFluidStack() {
         return this.tank.getFluidInSlot(this.slot);
     }
 
@@ -149,7 +151,11 @@ public class GuiFluidTank extends GuiCustomSlot implements ITooltip {
 
     @Override
     public Object getIngredient() {
-        return this.getFluidStack() == null ? null : this.getFluidStack().getFluidStack();
+        final GenericStack fs = this.getFluidStack();
+        if (fs == null || !(fs.what() instanceof AEFluidKey fluidKey)) {
+            return null;
+        }
+        return fluidKey.toStack((int) Math.min(fs.amount(), Integer.MAX_VALUE));
     }
 
 }

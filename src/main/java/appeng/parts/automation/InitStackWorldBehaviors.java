@@ -23,15 +23,24 @@ import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.behaviors.StackExportStrategy;
 import appeng.api.behaviors.StackImportStrategy;
 import appeng.api.stacks.AEKeyType;
+import appeng.fluids.parts.FluidExportStrategy;
+import appeng.fluids.parts.FluidImportStrategy;
+import appeng.fluids.parts.FluidPickupStrategy;
+import appeng.fluids.parts.FluidPlacementStrategy;
 
 /**
- * Registers the item import, export, placement and pickup strategies against
- * {@code AEKeyType.items()}, through the same public {@code register(...)} API any addon would use
- * (see CONTRACT.md &sect;3, "Item and Fluid get no privileges").
+ * Registers the item and fluid import, export, placement and pickup strategies against
+ * {@code AEKeyType.items()}/{@code AEKeyType.fluids()}, through the same public {@code register(...)} API any
+ * addon would use (see CONTRACT.md &sect;3, "Item and Fluid get no privileges").
  * <p>
  * Called from {@code appeng.core.Registration} (wave 3d's responsibility to wire in). Does
  * <b>not</b> register an {@code ExternalStorageStrategy} -- that belongs to the storage bus, owned by
  * {@code appeng.parts.misc.InitExternalStorageStrategies}.
+ * <p>
+ * The fluid registrations (wave 5) are the point of the wave: once they exist, the already-migrated generic
+ * {@code PartImportBus}, {@code PartExportBus}, {@code PartAnnihilationPlane} and
+ * {@code PartAbstractFormationPlane} pick up fluids with no further change, and {@code appeng.fluids.parts}'
+ * own dedicated fluid busses/planes route through the exact same registry entries.
  */
 public final class InitStackWorldBehaviors {
 
@@ -45,5 +54,12 @@ public final class InitStackWorldBehaviors {
         PlacementStrategy.register(AEKeyType.items(), ItemPlacementStrategy::new);
 
         PickupStrategy.register(AEKeyType.items(), ItemPickupStrategy::new);
+
+        StackImportStrategy.register(AEKeyType.fluids(), FluidImportStrategy::createFluid);
+        StackExportStrategy.register(AEKeyType.fluids(), FluidExportStrategy::createFluid);
+
+        PlacementStrategy.register(AEKeyType.fluids(), FluidPlacementStrategy::new);
+
+        PickupStrategy.register(AEKeyType.fluids(), FluidPickupStrategy::new);
     }
 }

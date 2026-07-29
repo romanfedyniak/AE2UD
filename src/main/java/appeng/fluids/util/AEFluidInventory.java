@@ -1,7 +1,8 @@
 package appeng.fluids.util;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
@@ -9,50 +10,66 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
-import java.util.Objects;
+import javax.annotation.Nullable;
 
 
+/**
+ * A fixed-size array of fluid config/storage slots. Retyped from the deleted {@code IAEFluidStack} to
+ * {@link GenericStack} (CONTRACT.md §9, "Wave 5 prerequisites"). An empty slot is still {@code null}.
+ * <p/>
+ * Constructors and {@link #readFromNBT}/{@link #writeToNBT} are pinned by already-committed callers
+ * ({@code appeng.parts.AEBasePart}, {@code appeng.tile.AEBaseTile}, {@code appeng.client.me.ClientDCInternalFluidInv},
+ * {@code appeng.container.implementations.ContainerFluidInterfaceConfigurationTerminal}) - do not change their
+ * shape.
+ */
 public class AEFluidInventory implements IAEFluidTank {
-    private final IAEFluidStack[] fluids;
+    private final GenericStack[] fluids;
     protected final IAEFluidInventory handler;
     private int capacity;
     private IFluidTankProperties[] props = null;
 
-    public AEFluidInventory(final IAEFluidInventory handler, final int slots, final int capcity) {
-        this.fluids = new IAEFluidStack[slots];
+    public AEFluidInventory(@Nullable final IAEFluidInventory handler, final int slots, final int capcity) {
+        this.fluids = new GenericStack[slots];
         this.handler = handler;
         this.capacity = capcity;
+    }
+
+    public AEFluidInventory(@Nullable final IAEFluidInventory handler, final int slots) {
+        this(handler, slots, Integer.MAX_VALUE);
     }
 
     public void setCapacity(int capacity) {
         this.capacity = capacity;
     }
 
-    public AEFluidInventory(final IAEFluidInventory handler, final int slots) {
-        this(handler, slots, Integer.MAX_VALUE);
-    }
-
     @Override
-    public void setFluidInSlot(final int slot, final IAEFluidStack fluid) {
-        if (slot >= 0 && slot < this.getSlots()) {
-            if (Objects.equals(this.fluids[slot], fluid)) {
-                if (fluid != null && fluid.getStackSize() != this.fluids[slot].getStackSize()) {
-                    this.fluids[slot].setStackSize(fluid.getStackSize());
-                    this.onContentChanged(slot, InvOperation.SET, fluid.getFluidStack(), null);
-                }
-            } else {
+    public void setFluidInSlot(final int slot, @Nullable final GenericStack fluid) {
+        if (slot < 0 || slot >= this.getSlots()) {
+            return;
+        }
 
-                if (fluid == null) {
-                    IAEFluidStack removeStack = this.fluids[slot].copy();
-                    this.fluids[slot] = null;
-                    this.onContentChanged(slot, InvOperation.SET, null, removeStack.getFluidStack());
-                } else {
-                    IAEFluidStack removeStack = this.fluids[slot];
-                    this.fluids[slot] = fluid.copy();
-                    this.fluids[slot].setStackSize(fluid.getStackSize());
-                    this.onContentChanged(slot, InvOperation.SET, fluid.getFluidStack(), removeStack == null ? null : removeStack.getFluidStack());
-                }
+        final GenericStack current = this.fluids[slot];
+
+        // CONTRACT.md §9.1: the old IAEFluidStack.equals() ignored the amount ("is this the same fluid");
+        // GenericStack.equals() compares the amount too, so "same fluid" has to be spelled out on the keys
+        // rather than on the whole stacks, or an amount-only change would wrongly fall into the
+        // remove-and-replace branch below and fire both callback parameters instead of just "added".
+        final boolean sameFluid = current == null ? fluid == null : (fluid != null && current.what().equals(fluid.what()));
+
+        if (sameFluid) {
+            if (fluid != null && fluid.amount() != current.amount()) {
+                this.fluids[slot] = fluid;
+                this.onContentChanged(slot, InvOperation.SET, toFluidStack(fluid), null);
             }
+            // else: identical key and amount (or both empty slots) - genuinely nothing changed
+        } else if (fluid == null) {
+            final GenericStack removed = current;
+            this.fluids[slot] = null;
+            this.onContentChanged(slot, InvOperation.SET, null, toFluidStack(removed));
+        } else {
+            final GenericStack removed = current;
+            this.fluids[slot] = fluid;
+            this.onContentChanged(slot, InvOperation.SET, toFluidStack(fluid), toFluidStack(removed));
         }
     }
 
@@ -63,7 +80,8 @@ public class AEFluidInventory implements IAEFluidTank {
     }
 
     @Override
-    public IAEFluidStack getFluidInSlot(final int slot) {
+    @Nullable
+    public GenericStack getFluidInSlot(final int slot) {
         if (slot >= 0 && slot < this.getSlots()) {
             return this.fluids[slot];
         }
@@ -92,25 +110,26 @@ public class AEFluidInventory implements IAEFluidTank {
             return 0;
         }
 
-        final IAEFluidStack fluid = this.fluids[slot];
+        final GenericStack fluid = this.fluids[slot];
 
-        if (fluid != null && !fluid.equals(resource)) {
+        if (fluid != null && !AEFluidKey.matches(fluid.what(), resource)) {
             return 0;
         }
 
         int amountToStore = this.capacity;
 
         if (fluid != null) {
-            amountToStore -= fluid.getStackSize();
+            amountToStore -= fluid.amount();
         }
 
         amountToStore = Math.min(amountToStore, resource.amount);
 
         if (doFill) {
             if (fluid == null) {
-                this.setFluidInSlot(slot, AEFluidStack.fromFluidStack(resource).setStackSize(amountToStore));
+                final AEFluidKey key = AEFluidKey.of(resource);
+                this.setFluidInSlot(slot, key == null ? null : new GenericStack(key, amountToStore));
             } else {
-                fluid.setStackSize(fluid.getStackSize() + amountToStore);
+                this.fluids[slot] = new GenericStack(fluid.what(), fluid.amount() + amountToStore);
                 this.onContentChanged(slot, InvOperation.INSERT, resource, null);
             }
         }
@@ -119,31 +138,29 @@ public class AEFluidInventory implements IAEFluidTank {
     }
 
     public FluidStack drain(final int slot, final FluidStack resource, final boolean doDrain) {
-        final IAEFluidStack fluid = this.fluids[slot];
-        if (resource == null || fluid == null || !fluid.equals(resource)) {
+        final GenericStack fluid = this.fluids[slot];
+        if (resource == null || fluid == null || !AEFluidKey.matches(fluid.what(), resource)) {
             return null;
         }
         return this.drain(slot, resource.amount, doDrain);
     }
 
     public FluidStack drain(final int slot, final int maxDrain, boolean doDrain) {
-        final IAEFluidStack fluid = this.fluids[slot];
-        if (fluid == null || maxDrain <= 0) {
+        final GenericStack fluid = this.fluids[slot];
+        if (fluid == null || maxDrain <= 0 || !(fluid.what() instanceof AEFluidKey fluidKey)) {
             return null;
         }
 
         int drained = maxDrain;
-        if (fluid.getStackSize() < drained) {
-            drained = (int) fluid.getStackSize();
+        if (fluid.amount() < drained) {
+            drained = (int) fluid.amount();
         }
 
-        FluidStack stack = new FluidStack(fluid.getFluid(), drained);
+        final FluidStack stack = fluidKey.toStack(drained);
         if (doDrain) {
-            fluid.setStackSize(fluid.getStackSize() - drained);
-            if (fluid.getStackSize() <= 0) {
-                this.fluids[slot] = null;
-            }
-            this.onContentChanged(slot, InvOperation.EXTRACT, null, new FluidStack(fluid.getFluid(), drained));
+            final long remaining = fluid.amount() - drained;
+            this.fluids[slot] = remaining <= 0 ? null : new GenericStack(fluidKey, remaining);
+            this.onContentChanged(slot, InvOperation.EXTRACT, null, fluidKey.toStack(drained));
         }
         return stack;
     }
@@ -237,11 +254,7 @@ public class AEFluidInventory implements IAEFluidTank {
         for (int x = 0; x < this.fluids.length; x++) {
             try {
                 final NBTTagCompound c = new NBTTagCompound();
-
-                if (this.fluids[x] != null) {
-                    this.fluids[x].writeToNBT(c);
-                }
-
+                GenericStack.writeTag(c, this.fluids[x]);
                 target.setTag("#" + x, c);
             } catch (final Exception ignored) {
             }
@@ -258,15 +271,21 @@ public class AEFluidInventory implements IAEFluidTank {
     private void readFromNBT(final NBTTagCompound target) {
         for (int x = 0; x < this.fluids.length; x++) {
             try {
-                final NBTTagCompound c = target.getCompoundTag("#" + x);
-
-                if (c != null) {
-                    this.fluids[x] = AEFluidStack.fromNBT(c);
+                if (target.hasKey("#" + x)) {
+                    this.fluids[x] = GenericStack.readTag(target.getCompoundTag("#" + x));
                 }
             } catch (final Exception e) {
                 AELog.debug(e);
             }
         }
+    }
+
+    @Nullable
+    private static FluidStack toFluidStack(@Nullable final GenericStack stack) {
+        if (stack == null || !(stack.what() instanceof AEFluidKey fluidKey)) {
+            return null;
+        }
+        return fluidKey.toStack((int) Math.min(stack.amount(), Integer.MAX_VALUE));
     }
 
     private class FluidTankPropertiesWrapper implements IFluidTankProperties {
@@ -278,7 +297,7 @@ public class AEFluidInventory implements IAEFluidTank {
 
         @Override
         public FluidStack getContents() {
-            return AEFluidInventory.this.fluids[this.slot] == null ? null : AEFluidInventory.this.fluids[this.slot].getFluidStack();
+            return toFluidStack(AEFluidInventory.this.fluids[this.slot]);
         }
 
         @Override

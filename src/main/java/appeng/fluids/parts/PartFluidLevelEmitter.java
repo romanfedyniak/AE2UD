@@ -1,25 +1,33 @@
 package appeng.fluids.parts;
 
 
-import appeng.api.AEApi;
+import java.util.Random;
+
+import javax.annotation.Nullable;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IBaseMonitor;
 import appeng.api.networking.storage.IStackWatcher;
-import appeng.api.networking.storage.IStackWatcherHost;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPartCollisionHelper;
-import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
@@ -31,29 +39,26 @@ import appeng.fluids.util.IAEFluidInventory;
 import appeng.fluids.util.IAEFluidTank;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
-import appeng.me.cache.NetworkMonitor;
 import appeng.parts.PartModel;
 import appeng.parts.automation.PartUpgradeable;
-import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
-import appeng.util.inv.InvOperation;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.EnumParticleTypes;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-
-import java.util.Random;
 
 
-public class PartFluidLevelEmitter extends PartUpgradeable implements IStackWatcherHost, IConfigManagerHost, IAEFluidInventory, IMEMonitorHandlerReceiver<IAEFluidStack>, IConfigurableFluidInventory {
+/**
+ * Fluid level emitter. Reports the network's stock of one configured fluid (or the network total, unconfigured)
+ * as a redstone signal.
+ * <p/>
+ * Narrower feature set than {@code appeng.parts.automation.PartLevelEmitter} on purpose: the pre-port fluid level
+ * emitter never supported {@code Settings.LEVEL_TYPE}/energy-level watching, {@code Settings.CRAFT_VIA_REDSTONE}
+ * or {@code Upgrades.FUZZY} filtering -- only {@code Settings.REDSTONE_EMITTER} plus a single exact configured
+ * fluid (or none, meaning "whole network"). Preserved exactly rather than expanded to match the item emitter,
+ * since adding those would be new functionality, not a migration of an existing mechanic.
+ * <p/>
+ * The old "register as a whole-monitor listener when unconfigured" mechanism ({@code IMEMonitorHandlerReceiver},
+ * deleted) is replaced by {@link IStackWatcher#setWatchAll(boolean)} -- exactly the case CONTRACT.md §10 designed
+ * that method for.
+ */
+public class PartFluidLevelEmitter extends PartUpgradeable implements IStorageWatcherNode, IAEFluidInventory, IConfigurableFluidInventory {
     @PartModels
     public static final ResourceLocation MODEL_BASE_OFF = new ResourceLocation(AppEng.MOD_ID, "part/level_emitter_base_off");
     @PartModels
@@ -77,6 +82,7 @@ public class PartFluidLevelEmitter extends PartUpgradeable implements IStackWatc
     private boolean prevState = false;
     private long lastReportedValue = 0;
     private long reportingValue = 0;
+    private long lastWatcherRescanTick = -1;
     private IStackWatcher stackWatcher = null;
     private final AEFluidInventory config = new AEFluidInventory(this, 1);
 
@@ -107,10 +113,29 @@ public class PartFluidLevelEmitter extends PartUpgradeable implements IStackWatc
     }
 
     @Override
-    public void onStackChange(IItemList<?> o, IAEStack<?> fullStack, IAEStack<?> diffStack, IActionSource src, IStorageChannel<?> chan) {
-        if (chan == AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class) && fullStack.equals(this.config.getFluidInSlot(0))) {
-            this.lastReportedValue = fullStack.getStackSize();
+    public void onStackChange(final AEKey what, final long amount) {
+        final AEKey myStack = this.getConfiguredKey();
+
+        if (myStack != null && what.equals(myStack)) {
+            this.lastReportedValue = amount;
             this.updateState();
+            return;
+        }
+
+        // Either the whole network is being watched (no filter configured) -- a single change has to trigger a
+        // full rescan. Guard against rescanning more than once per tick when many keys change at once, same idea
+        // as the pre-port "once per tick" concern the old listener model had implicitly.
+        final TileEntity te = this.getHost() != null ? this.getHost().getTile() : null;
+        final long tick = te != null && te.getWorld() != null ? te.getWorld().getTotalWorldTime() : -1;
+        if (tick == this.lastWatcherRescanTick) {
+            return;
+        }
+        this.lastWatcherRescanTick = tick;
+
+        try {
+            this.updateReportingValue(this.getProxy().getStorage());
+        } catch (final GridAccessException e) {
+            // :P
         }
     }
 
@@ -152,27 +177,9 @@ public class PartFluidLevelEmitter extends PartUpgradeable implements IStackWatc
         return cf | (this.prevState ? FLAG_ON : 0);
     }
 
-    @Override
-    public boolean isValid(final Object effectiveGrid) {
+    private void onListUpdate() {
         try {
-            return this.getProxy().getGrid() == effectiveGrid;
-        } catch (final GridAccessException e) {
-            return false;
-        }
-    }
-
-    @Override
-    public void postChange(final IBaseMonitor<IAEFluidStack> monitor, final Iterable<IAEFluidStack> change, final IActionSource actionSource) {
-        this.updateReportingValue((IMEMonitor<IAEFluidStack>) monitor);
-    }
-
-    @Override
-    public void onListUpdate() {
-        try {
-            final IStorageChannel<IAEFluidStack> channel = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
-            final IMEMonitor<IAEFluidStack> inventory = this.getProxy().getStorage().getInventory(channel);
-
-            this.updateReportingValue(inventory);
+            this.updateReportingValue(this.getProxy().getStorage());
         } catch (final GridAccessException e) {
             // ;P
         }
@@ -189,48 +196,49 @@ public class PartFluidLevelEmitter extends PartUpgradeable implements IStackWatc
         }
     }
 
+    @Nullable
+    private AEKey getConfiguredKey() {
+        final GenericStack stack = this.config.getFluidInSlot(0);
+        return stack != null ? stack.what() : null;
+    }
+
     private void configureWatchers() {
-        final IFluidStorageChannel channel = AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
+        final AEKey myStack = this.getConfiguredKey();
 
         if (this.stackWatcher != null) {
             this.stackWatcher.reset();
-
-            final IAEFluidStack myStack = this.config.getFluidInSlot(0);
-
-            try {
-                if (myStack != null) {
-                    this.getProxy().getStorage().getInventory(channel).removeListener(this);
-                    this.stackWatcher.add(myStack);
-                } else {
-                    this.getProxy()
-                            .getStorage()
-                            .getInventory(channel)
-                            .addListener(this, this.getProxy().getGrid());
-                }
-
-                final IMEMonitor<IAEFluidStack> inventory = this.getProxy().getStorage().getInventory(channel);
-
-                this.updateReportingValue(inventory);
-            } catch (GridAccessException e) {
-                // NOP
+            if (myStack != null) {
+                this.stackWatcher.setWatchAll(false);
+                this.stackWatcher.add(myStack);
+            } else {
+                // Replaces the pre-port "register as a listener on the whole monitor" path -- see class javadoc.
+                this.stackWatcher.setWatchAll(true);
             }
+        }
+
+        try {
+            this.updateReportingValue(this.getProxy().getStorage());
+        } catch (final GridAccessException e) {
+            // :P
         }
     }
 
-    private void updateReportingValue(final IMEMonitor<IAEFluidStack> monitor) {
-        final IAEFluidStack myStack = this.config.getFluidInSlot(0);
+    private void updateReportingValue(final IStorageService storage) {
+        final AEKey myStack = this.getConfiguredKey();
+        final var stacks = storage.getCachedInventory();
 
         if (myStack == null) {
-            if (monitor instanceof NetworkMonitor) {
-                this.lastReportedValue = ((NetworkMonitor<IAEFluidStack>) monitor).getGridCurrentCount();
+            this.lastReportedValue = 0;
+            for (var entry : stacks) {
+                this.lastReportedValue += entry.getLongValue();
+                if (this.lastReportedValue > this.reportingValue) {
+                    // Stop here, we have enough info -- avoids blank-emitter spam causing lag, same idea as the
+                    // deleted NetworkMonitor.getGridCurrentCount() this replaces.
+                    break;
+                }
             }
         } else {
-            final IAEFluidStack r = monitor.getStorageList().findPrecise(myStack);
-            if (r == null) {
-                this.lastReportedValue = 0;
-            } else {
-                this.lastReportedValue = r.getStackSize();
-            }
+            this.lastReportedValue = stacks.get(myStack);
         }
         this.updateState();
     }

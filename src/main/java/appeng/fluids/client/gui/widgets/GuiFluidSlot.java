@@ -1,13 +1,14 @@
 package appeng.fluids.client.gui.widgets;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.container.slot.IJEITargetSlot;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketFluidSlot;
-import appeng.fluids.util.AEFluidStack;
 import appeng.fluids.util.IAEFluidTank;
+import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -34,11 +35,11 @@ public class GuiFluidSlot extends GuiCustomSlot implements IJEITargetSlot {
 
     @Override
     public void drawContent(final Minecraft mc, final int mouseX, final int mouseY, final float partialTicks) {
-        final IAEFluidStack fs = this.getFluidStack();
-        if (fs != null) {
+        final GenericStack fs = this.getFluidStack();
+        if (fs != null && fs.what() instanceof AEFluidKey fluidKey) {
             GlStateManager.disableLighting();
             GlStateManager.disableBlend();
-            final Fluid fluid = fs.getFluid();
+            final Fluid fluid = fluidKey.getFluid();
             mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
             final TextureAtlasSprite sprite = mc.getTextureMapBlocks().getAtlasSprite(fluid.getStill().toString());
 
@@ -66,16 +67,16 @@ public class GuiFluidSlot extends GuiCustomSlot implements IJEITargetSlot {
         } else if (mouseButton == 0) {
             final FluidStack fluid = FluidUtil.getFluidContained(clickStack);
             if (fluid != null) {
-                this.setFluidStack(AEFluidStack.fromFluidStack(fluid));
+                this.setFluidStack(GenericStack.fromFluidStack(fluid));
             }
         }
     }
 
     @Override
     public String getMessage() {
-        final IAEFluidStack fluid = this.getFluidStack();
-        if (fluid != null) {
-            return fluid.getFluidStack().getLocalizedName();
+        final GenericStack fluid = this.getFluidStack();
+        if (fluid != null && fluid.what() instanceof AEFluidKey fluidKey) {
+            return Platform.getFluidDisplayName(fluidKey);
         }
         return null;
     }
@@ -85,11 +86,11 @@ public class GuiFluidSlot extends GuiCustomSlot implements IJEITargetSlot {
         return true;
     }
 
-    public IAEFluidStack getFluidStack() {
+    public GenericStack getFluidStack() {
         return this.fluids.getFluidInSlot(this.slot);
     }
 
-    public void setFluidStack(final IAEFluidStack stack) {
+    public void setFluidStack(final GenericStack stack) {
         this.fluids.setFluidInSlot(this.slot, stack);
         NetworkHandler.instance().sendToServer(new PacketFluidSlot(Collections.singletonMap(this.getId(), this.getFluidStack())));
     }
@@ -101,7 +102,11 @@ public class GuiFluidSlot extends GuiCustomSlot implements IJEITargetSlot {
 
     @Override
     public Object getIngredient() {
-        return this.getFluidStack() == null ? null : this.getFluidStack().getFluidStack();
+        final GenericStack fs = this.getFluidStack();
+        if (fs == null || !(fs.what() instanceof AEFluidKey fluidKey)) {
+            return null;
+        }
+        return fluidKey.toStack((int) Math.min(fs.amount(), Integer.MAX_VALUE));
     }
 
 }

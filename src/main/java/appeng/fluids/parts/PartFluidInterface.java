@@ -30,10 +30,6 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.IStorageMonitorable;
-import appeng.api.storage.data.IAEStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
@@ -63,7 +59,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 
-public class PartFluidInterface extends PartBasicState implements IGridTickable, IStorageMonitorable, IFluidInterfaceHost, IPriorityHost, IConfigurableFluidInventory {
+public class PartFluidInterface extends PartBasicState implements IGridTickable, IFluidInterfaceHost, IPriorityHost, IConfigurableFluidInventory {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/fluid_interface_base");
 
     @PartModels
@@ -139,11 +135,6 @@ public class PartFluidInterface extends PartBasicState implements IGridTickable,
         }
 
         return true;
-    }
-
-    @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        return this.duality.getInventory(channel);
     }
 
     @Override

@@ -2148,6 +2148,685 @@ void setReportingValue(long);   // called by the committed appeng.parts.AEBasePa
 
 **Agent 5-A also owns the two strategy-registration lines, and they are the point of the wave.** `appeng.parts.automation.InitStackWorldBehaviors.register()` and `appeng.parts.misc.InitExternalStorageStrategies.register()` are committed files outside `appeng.fluids`; 5-A adds the `AEKeyType.fluids()` registrations to them, mirroring the `AEKeyType.items()` lines already there, and no other agent may touch either file. Once those five strategies are registered, the **already migrated** generic `PartImportBus`, `PartExportBus`, `PartAnnihilationPlane`, `PartAbstractFormationPlane` and `PartStorageBus` handle fluids with no further change. Do not add fluid branches to those wave-3 parts.
 
+### Wave 5d — appeng.fluids.client (done)
+
+Five files: `GuiFluidTerminal`, `GuiMEPortableFluidCell` (`fluids/client/gui`); `GuiFluidSlot`, `GuiFluidTank`, `GuiOptionalFluidSlot` (`fluids/client/gui/widgets`). `appeng.fluids.client.render.FluidStackSizeRenderer` was already migrated by hand before the wave (CONTRACT.md's "Wave 5 prerequisites") and was read, not edited. `appeng.fluids.client.gui.GuiWirelessFluidTerminal` — the sixth file STATUS.md's file count implies for this package — is a trivial `GuiMEPortableFluidCell` subclass that overrides only `drawBG`/`getJEIExclusionArea`; it inherits `postUpdate(List<GridInventoryEntry>)` unchanged from its parent and needed no edit, confirmed by reading it.
+
+```java
+// appeng.fluids.client.gui.GuiFluidTerminal / GuiMEPortableFluidCell — identical shape, ported in lockstep
+public void postUpdate(final List<GridInventoryEntry> list);   // was List<IAEFluidStack>; loops repo.postUpdate(entry)
+// renderHoveredToolTip: IMEFluidSlot.getAEFluidStack() -> getGenericStack(); the tooltip's fluid name, mod
+// name and "<amount> B" line now read off the unwrapped AEFluidKey (stack.what() instanceof AEFluidKey fk),
+// required because GenericStack is type-erased - shouldRenderAsFluid() is still checked first, exactly as
+// before, so a slot that opts out of fluid rendering never reaches the pattern match. Platform.getModId(AEKey)
+// and Platform.getFluidDisplayName(AEKey) (both already generalised in wave 1a) replace the old
+// Platform.getModId(IAEFluidStack) and fluidStack.getFluidStack().getLocalizedName() calls one for one -
+// AEFluidKey.computeDisplayName() is exactly fluid.getLocalizedName(stack) at a 1-bucket amount, so the
+// displayed name is unchanged.
+// handleMouseClick: meSlot.getAEFluidStack() -> meSlot.getGenericStack(); container.setTargetStack(AEKey)
+// replaces container.setTargetStack(IAEFluidStack) - the container is assumed to expose the AEKey-typed
+// overload PacketTargetFluidStack already dispatches to (see "assumptions about the server side" below).
+// The debug logging (`AELog.debug("mouse0/mouse1 GUI STACK SIZE %s", ...)`) now reads stack.amount() instead
+// of stack.getStackSize() - same log, same call sites, same null-guard shape in the mouse1/EMPTY_ITEM branch.
+
+// appeng.fluids.client.gui.widgets.GuiFluidSlot — the JEI/HEI ghost-fluid-drop target used by the import/
+// export bus and fluid interface config screens
+@Nullable GenericStack getFluidStack();                 // was IAEFluidStack; delegates to IAEFluidTank
+void setFluidStack(@Nullable GenericStack stack);        // was IAEFluidStack; sends PacketFluidSlot(Map<Integer, GenericStack>)
+// drawContent/getMessage/getIngredient all pattern-match stack.what() instanceof AEFluidKey fk to recover the
+// Fluid/FluidStack the old IAEFluidStack carried directly - fk.getFluid() for the sprite/color, fk.toStack(...)
+// for the HEI ingredient-under-mouse hook (mirrors SlotFluidME.getIngredient() exactly, including the
+// Math.min(amount, Integer.MAX_VALUE) cast-safety guard). slotClicked's AEFluidStack.fromFluidStack(fluid) ->
+// GenericStack.fromFluidStack(fluid), the only other call site touched.
+
+// appeng.fluids.client.gui.widgets.GuiFluidTank — the fluid-interface-configuration-terminal tank display
+@Nullable GenericStack getFluidStack();                  // was IAEFluidStack; delegates to IAEFluidTank
+// drawContent's fill-height math (amount / tank capacity, clamped to the widget's pixel height, drawn in
+// 16px sprite strips plus a remainder strip) is untouched arithmetic, only reading fluid.amount() off the
+// unwrapped GenericStack/AEFluidKey pair instead of fluid.getStackSize()/fluid.getFluid(). getMessage's
+// tooltip is unchanged in shape and units: fluid display name, then "<raw amount>/<capacity>mB" on its own
+// line - deliberately NOT divided by 1000 into buckets, unlike FluidStackSizeRenderer's slot-label overlay;
+// this is the pre-port behaviour (the tank tooltip has always shown raw millibuckets against the tank's raw
+// millibucket capacity) and nothing here changes that unit choice. slotClicked (FILL_ITEM/EMPTY_ITEM by
+// slot+id, no stack payload) is untouched.
+
+// appeng.fluids.client.gui.widgets.GuiOptionalFluidSlot — the storage-bus-style optional fluid slot group
+@Override GenericStack getFluidStack();                  // was IAEFluidStack; only the override's return type changed
+// isSlotEnabled/drawBackground (the enabled/disabled tint) are untouched; the "auto-clear a stack sitting in
+// a slot that just got disabled" behaviour in getFluidStack() is preserved verbatim, now calling
+// this.setFluidStack(null) with the GenericStack-typed setter from GuiFluidSlot.
+```
+
+**Fork-specific mechanics from point 5, verified preserved:** `Settings.SORT_BY`/`SORT_DIRECTION`/`VIEW_MODE`
+(read through `ISortSource`/`IConfigManagerHost`, untouched in both terminal GUIs - `GuiFluidTerminal` and
+`GuiMEPortableFluidCell` never had a `SEARCH_MODE` button or a JEI-memory-text bridge before this port either,
+confirmed by reading the pre-migration files, so none was added); `Settings.ACTIONS` in `actionPerformed`'s
+`iBtn.getSetting() != Settings.ACTIONS` guard (untouched, no storage type involved); the whole
+`FLUID_TERMINAL`/portable-fluid-cell family (both GUIs, `ContainerFluidTerminal`/`ContainerMEPortableFluidCell`,
+5-C's containers, called but not edited here); the fluid tank widget's tooltip and its raw-millibucket display
+(`GuiFluidTank.getMessage()`, see above - explicitly kept in millibuckets, not converted to buckets); the
+`FluidStackSizeRenderer`'s bucket-divided slot-count overlay, read but not edited, still invoked exactly once,
+by the already-committed `AEBaseGui#drawSlot` - not by any file in this wave's list, since neither terminal
+screen ever called it directly before this port either. No `FUZZY_MODE` reference exists in any of this
+wave's five files (grep-confirmed); it was never part of this package's pre-port feature set.
+
+**`.equals(` audit, all five files:** grepped every file for `.equals(`. **Zero hits in any of the five
+files.** Every identity check in this wave's package is either a `null`/`instanceof AEFluidKey` guard or a
+delegate to `IAEFluidTank.getFluidInSlot`/`setFluidInSlot` - nothing here ever compared two stacks or two
+keys for equality, before or after the port. Nothing to translate, nothing to flag per the §9.1 hazard.
+
+**Assumptions made about what the server side (5-C, `appeng.fluids.container`) sends or expects, stated
+explicitly per the brief:**
+- `ContainerFluidTerminal`/`ContainerMEPortableFluidCell` (and, by inheritance, `ContainerWirelessFluidTerminal`)
+  expose `void setTargetStack(@Nullable AEKey stack)` - not `IAEFluidStack`. This is not a guess: it is pinned
+  by the already-committed `appeng.core.sync.packets.PacketTargetFluidStack`, whose header comment and
+  `serverPacketData` both call `((ContainerFluidTerminal) player.openContainer).setTargetStack(this.stack)`
+  with `this.stack` typed `AEKey`. Both GUI files call `this.container.setTargetStack(stack == null ? null :
+  stack.what())` against that exact shape.
+- `IMEFluidSlot.getGenericStack()` (used by both terminal GUIs via `SlotFluidME`, and read directly in
+  `renderHoveredToolTip`) is the already-migrated-by-hand prerequisite shape (`@Nullable GenericStack
+  getGenericStack()`), not something this wave invented.
+- `IAEFluidTank.getFluidInSlot(int)`/`setFluidInSlot(int, GenericStack)` (used by both `GuiFluidSlot` and
+  `GuiFluidTank`, owned by agent 5-B) match the prerequisite shape verbatim, including the "empty slot is
+  `null`, not an empty-sentinel `GenericStack`" rule.
+- `PacketFluidSlot`'s constructor takes `Map<Integer, GenericStack>` (confirmed by reading the already-committed
+  file directly, not assumed) - `GuiFluidSlot.setFluidStack` sends
+  `Collections.singletonMap(this.getId(), this.getFluidStack())` unchanged in shape from the pre-port file,
+  only the map's value type changed.
+- `PacketInventoryAction`'s `(InventoryAction, IJEITargetSlot, GenericStack)` constructor already special-cases
+  `GuiFluidSlot` by casting it directly (confirmed by reading the already-committed file) - `GuiFluidSlot`
+  needed no change to satisfy that cast, since `getId()` was already inherited from `GuiCustomSlot`.
+
+**Could not be verified without a build:** all rendering in this wave's files - the fluid sprite/color draw in
+`GuiFluidSlot`/`GuiFluidTank`, the tooltip text layout, and the terminal's slot grid, none of which can be
+exercised without launching the game. `ContainerFluidTerminal`/`ContainerMEPortableFluidCell`/
+`ContainerWirelessFluidTerminal`'s actual `setTargetStack(AEKey)`/`postUpdate(List<GridInventoryEntry>)`
+signatures (agent 5-C's files, not yet confirmed landed at the time of this writing) - this wave's GUI code is
+written against the shape CONTRACT.md's wave-5-prerequisites section and the already-committed
+`PacketTargetFluidStack`/`PacketMEFluidInventoryUpdate` pin, not against files this wave read directly.
+
+**API gaps hit: none.** Every method needed - `GenericStack.fromFluidStack`, `AEFluidKey.getFluid`/`.toStack`,
+`AEKey.getDisplayName`, `Platform.getModId`/`getFluidDisplayName`, `GridInventoryEntry.getWhat`/
+`.getStoredAmount` (via `FluidRepo.postUpdate`, already migrated) - was already in `src/api` or
+`appeng.util.Platform` from earlier waves. `src/api` was not touched.
+
+**Mechanics that could not be preserved: none.** Every mechanic enumerated in the pre-migration read of all
+five files (search field, sort-by/sort-direction buttons, view-mode-driven "zero copy" craftable rows via
+`FluidRepo`, the scrollbar math, the JEI/HEI ghost-fluid-drop target, the tank fill-height/tooltip display,
+the optional-slot enable/disable tint and auto-clear) has a direct translation in the new model.
+
+**Changed outside the assigned file list: none.** `appeng.fluids.client.render.FluidStackSizeRenderer` and
+`appeng.fluids.client.gui.GuiWirelessFluidTerminal` were both read but neither was edited: the former is the
+frozen wave-5 prerequisite, and no file in this wave's list calls it directly - only the already-committed
+`AEBaseGui#drawSlot` does; the latter is the trivial subclass discussed above.
+
+### Wave 5b — appeng.fluids.util and appeng.fluids.helper (done)
+
+Eight files: `AEFluidInventory`, `AEFluidTank`, `AENetworkFluidInventory` (migrated), `AEFluidStack`, `FluidList`,
+`MeaningfulFluidIterator` (deleted, not migrated — their item-side counterparts went the same way in wave 0)
+— all `appeng.fluids.util`; `DualityFluidInterface`, `IFluidInterfaceHost` — `appeng.fluids.helper`.
+`IAEFluidTank`/`FluidSorters` (util) and `FluidSyncHelper` (helper) were already migrated by hand before the
+wave and were read, not edited. `IAEFluidInventory` (util) and `IConfigurableFluidInventory`/`FluidCellConfig`
+(helper) were read too — none references a deleted type, so none needed a change; they are not part of the
+36-file count for this reason.
+
+```java
+// appeng.fluids.util.AEFluidInventory implements IAEFluidTank
+AEFluidInventory(@Nullable IAEFluidInventory handler, int slots, int capcity);
+AEFluidInventory(@Nullable IAEFluidInventory handler, int slots);              // capacity = Integer.MAX_VALUE
+void setFluidInSlot(int slot, @Nullable GenericStack fluid);   // was IAEFluidStack
+@Nullable GenericStack getFluidInSlot(int slot);               // was IAEFluidStack
+void setCapacity(int capacity);
+int fill(int slot, FluidStack resource, boolean doFill);       // per-slot IFluidHandler-style helpers, unchanged
+FluidStack drain(int slot, FluidStack resource, boolean doDrain);   // signatures - callers pass/receive plain
+FluidStack drain(int slot, int maxDrain, boolean doDrain);          // FluidStack, only the internal GenericStack
+// + the whole-tank IFluidHandler surface (fill/drain over all slots, getTankProperties) unchanged in shape.
+void readFromNBT(NBTTagCompound data, String name);   // per-slot payload now GenericStack.writeTag/readTag
+void writeToNBT(NBTTagCompound data, String name);    // ("#"+slotIndex -> tag), same key scheme as before
+
+// appeng.fluids.util.AEFluidTank extends FluidTank implements IAEFluidTank   — single-slot tank
+// Not instantiated anywhere in the tree (grep-confirmed, no `new AEFluidTank(` call site) - migrated anyway
+// per the brief (it's a migration target, not a deletion target), kept behaviourally identical.
+
+// appeng.fluids.util.AENetworkFluidInventory extends AEFluidInventory
+// Only fill() is network-aware (mirrors appeng.tile.inventory.AppEngNetworkInventory, which only overrides
+// insertItem, not extraction). MEStorage.insert() returns the amount actually inserted, not the old
+// IMEInventory.injectItems' leftover stack, so the three-way branch (nothing inserted -> store locally;
+// partially inserted -> report the inserted amount and store nothing locally; fully inserted -> report the
+// full stack) is the same leftover-math translated to inserted-math Platform.poweredInsert/poweredExtraction
+// already use elsewhere in this migration.
+
+// appeng.fluids.helper.IFluidInterfaceHost   (5-B owns; 5-A implements it)
+DualityFluidInterface getDualityFluidInterface();
+EnumSet<EnumFacing> getTargets();  TileEntity getTileEntity();  void saveChanges();   // unchanged
+default void onStackReturnNetwork(GenericStack stack) {}   // was IAEFluidStack; still an inert default no-op
+// (grep-confirmed: no override anywhere in the tree, before or after this migration)
+
+// appeng.fluids.helper.DualityFluidInterface implements IGridTickable, MEStorage, IAEFluidInventory,
+//         IAEAppEngInventory, IUpgradeableHost, IConfigManagerHost, IConfigurableFluidInventory
+// Follows appeng.helpers.DualityInterface's post-migration shape exactly: drops the deleted
+// IStorageMonitorable, implements MEStorage directly via a single getInventory(): MEStorage that returns
+// either an InterfaceInventory (config/whitelist mode) or the network's MEStorage (no config) - and exposes
+// itself through a private Accessor implements IStorageMonitorableAccessor, same pattern, same field name.
+public static final int NUMBER_OF_TANKS = 9;                      // unchanged
+public static final int TANK_CAPACITY = Fluid.BUCKET_VOLUME * 4;  // unchanged
+IAEFluidTank getConfig();          // returns the AEFluidInventory field directly - wave 4's cast still holds
+IAEFluidTank getTanks();
+IConfigManager getConfigManager(); // still registers Settings.INTERFACE_TERMINAL, YesNo.YES, at construction
+String getTermName();
+long getSortValue();
+DimensionalCoord getLocation();
+IUpgradeableHost getHost();
+int getPriority();  void setPriority(int newValue);
+void writeToNBT(NBTTagCompound data);  void readFromNBT(NBTTagCompound data);
+void saveChanges();
+void notifyNeighbors();  void gridChanged();
+AECableType getCableConnectionType(AEPartLocation dir);
+boolean hasCapability(Capability<?> capabilityClass, EnumFacing facing);
+<T> T getCapability(Capability<T> capabilityClass, EnumFacing facing);
+// MEStorage surface, all delegating to getInventory():
+long insert(AEKey what, long amount, Actionable mode, IActionSource source);
+long extract(AEKey what, long amount, Actionable mode, IActionSource source);
+void getAvailableStacks(KeyCounter out);
+ITextComponent getDescription();
+// IAEFluidInventory callback surface (onFluidInventoryChanged, 3 overloads) - unchanged shape, retyped
+// AEFluidStack.fromFluidStack(added) -> GenericStack.fromFluidStack(added) at both call sites.
+// IConfigurableFluidInventory.getFluidInventoryByName("config") -> IFluidHandler unchanged.
+// IAEAppEngInventory.getInventoryByName("upgrades") -> IItemHandler unchanged.
+```
+
+**Collapsed by the new model, not cut:** pre-migration, `getInventory(IStorageChannel<T>)` served two
+independent monitors — `items` (an `MEMonitorPassThrough`, always the full network, regardless of this
+interface's own fluid config) and `fluids` (full network, or the config-gated `InterfaceInventory`, depending
+on `hasConfig()`). `MEStorage` is not per-channel any more, so one object now has to answer for every key
+type at once. The natural, `DualityInterface`-precedented replacement is a single `getInventory(): MEStorage`
+that mirrors the *fluid* half exactly (config -> own tanks; no config -> whole network, any type) and, as a
+consequence, now also serves items the way the old `items` monitor did whenever there is no config (full
+network pass-through) — the one behavioural difference is that a config'd fluid interface's `InterfaceInventory`
+(a thin `MEMonitorIFluidHandler` wrapper around the tanks) will report 0 for an item query instead of the old
+model's outright `null` return for the items channel. No caller was found that distinguishes "no monitor at
+all" from "a monitor that has nothing"; both mean "you can't get items here." Flagged per rule 6 as a shape
+change forced by the new type-erased model, not a feature removal — the fluid interface's own storage/config
+behaviour, `Settings.INTERFACE_TERMINAL`, `getTermName`/`getSortValue`/`getLocation`, and the `requireWork`
+stocking loop are all unchanged.
+
+**`getMonitorable(IActionSource)` keeps the fluid interface's own pre-migration semantics, not the item
+interface's.** `DualityInterface.getMonitorable(src, myInterface)` falls back to a local-buffer
+`InterfaceInventory` when access is denied (so a foreign interface's block capability can still push directly
+into it even across grids) — but the pre-migration `DualityFluidInterface.getMonitorable(src)` returned `null`
+on access denial, and the fluid interface never had `DualityInterface`'s cross-grid push-into-adjacent-buffer
+mechanism (no `pushPattern`, no facing-based send queue) to begin with. Kept as `null` on denial; adopting the
+item interface's broader fallback here would be adding a capability the fluid interface never had, not
+"following the precedent."
+
+**Fork-specific mechanics, verified preserved:** `Settings.INTERFACE_TERMINAL` (`DualityFluidInterface`
+constructor, `YesNo.YES`) — still registered, still read every tick by the committed
+`ContainerFluidInterfaceConfigurationTerminal`; the whole `FLUID_INTERFACE_CONFIGURATION_TERMINAL` mechanic
+depends on `getTermName()`/`getSortValue()`/`getLocation()` staying live, which they do, byte-for-byte
+unchanged logic (only `getTermName()`'s neighbor-scan uses `IFluidInterfaceHost` / `sameGrid`, unaffected by
+the storage retype). `Upgrades.CAPACITY` — still read in `updatePlan`, `readFromNBT`, `onChangeInventory`
+(upgrade slot changed) to recompute `tanks.setCapacity(...)`; formula unchanged
+(`Math.pow(4, installedCapacityCards + 1) * Fluid.BUCKET_VOLUME`). `NUMBER_OF_TANKS = 9` and
+`TANK_CAPACITY = Fluid.BUCKET_VOLUME * 4` — unchanged constants. `Upgrades.PATTERN_EXPANSION` — grep-confirmed
+absent from the pre-migration file; the fluid interface has no crafting patterns or pattern slots in this
+fork (upstream and AE2UD agree here), so there was nothing to preserve. `Settings.FUZZY_MODE`/`Settings.ACTIONS`
+— grep-confirmed absent from the pre-migration file, nothing to preserve.
+
+**§9.1 `.equals(` audit, all eight files:**
+- `DualityFluidInterface.updatePlan()` — **one real hazard, fixed.** The old `req.equals(stored)` used
+  `IAEFluidStack`'s size-insensitive `equals()` to mean "same fluid, don't care about the amount yet"; a
+  literal `GenericStack.equals()` port would make a tank sitting at a *different level* than requested
+  wrongly take the "different fluid, dispose everything" branch instead of the "top up/drain to the
+  requested level" branch. Translated to `req.what().equals(stored.what())`.
+- `AEFluidInventory.setFluidInSlot()` — **one real hazard, fixed.** The old `Objects.equals(this.fluids[slot],
+  fluid)` relied on the same size-insensitive `equals()` to decide "same fluid, amount-only change" versus
+  "different fluid, remove-and-replace" (which fire different callback parameter pairs — added-only versus
+  added-and-removed). Translated to an explicit key-identity check (`current.what().equals(fluid.what())`)
+  computed once and branched on, rather than comparing the `GenericStack`s themselves.
+- `AEFluidInventory.fill(int, FluidStack, boolean)` / `drain(int, FluidStack, boolean)` — the old
+  `fluid.equals(resource)` cross-type comparison (`IAEFluidStack.equals(FluidStack)`, also size-insensitive)
+  meant "is this the fill/drain target the same fluid as what's already in the slot". Translated to
+  `AEFluidKey.matches(fluid.what(), resource)`, the API's own size-insensitive fluid/FluidStack comparison —
+  exactly the tool the hazard note recommends.
+- `DualityFluidInterface.usePlan()` — no `.equals(` call remains: the old code's network-availability
+  pre-check (`getStorageList().findPrecise(work) != null`) was dropped in favour of calling
+  `Platform.poweredExtraction` directly and checking `acquired > 0`, mirroring
+  `appeng.helpers.DualityInterface#usePlan`'s own precedent (it never pre-checked availability either,
+  `MEStorage` has no `findPrecise`, and `poweredExtraction`/`poweredInsert` already simulate-check
+  internally) — nothing to translate, the pre-check was a pure optimisation, not a behavioural gate.
+- Everything else (`AEFluidTank`, `AENetworkFluidInventory`, `IFluidInterfaceHost`) — no `.equals(` calls
+  found; `AENetworkFluidInventory.fill()`'s network-insert branch compares by `long` amount, not by stack.
+
+**Anything that could not be preserved: none.** Every mechanic enumerated from the pre-migration read of all
+eight files (the two-way tank/config reconciliation loop, the sticky-tank-capacity-upgrade recompute, the
+interface-priority-gated `InterfaceInventory`, the `Settings.INTERFACE_TERMINAL` gate, the block-picking
+`getTermName()` heuristic including its GT-machine special case) has a direct translation in the new model.
+
+**Changed outside the assigned file list: none.** `appeng.container.implementations.
+ContainerFluidInterfaceConfigurationTerminal`, `appeng.client.me.ClientDCInternalFluidInv`,
+`appeng.parts.AEBasePart`, `appeng.fluids.tile.TileFluidInterface` and `appeng.me.storage.MEMonitorIFluidHandler`
+were all read (per CONTRACT.md's "read them before writing, they are the specification" instruction and to
+confirm `TileFluidInterface` — not listed under any wave-5 agent — has no deleted-type reference at all,
+grep-confirmed, so it needed no change and none was made) but none was edited.
+
+**API gaps hit: none.** Every method needed — `GenericStack.fromFluidStack`/`writeTag`/`readTag`,
+`AEFluidKey.of`/`.matches`/`.toStack`/`.getFluid`, `MEStorage.getInventory()` (unified, no channel argument),
+`NullInventory.of()`, `Platform.poweredInsert`/`poweredExtraction` (`MEStorage`-based 5-arg and 6-arg
+overloads), `IStorageService.getInventory()` — was already in `src/api` or `appeng.util.Platform`/
+`appeng.me.storage` from earlier waves, exactly as CONTRACT.md's wave-5-prerequisites section described.
+`src/api` was not touched.
+
+### Wave 5c — appeng.fluids.container (done)
+
+Six files: `ContainerFluidConfigurable`, `ContainerFluidFormationPlane`, `ContainerFluidInterface`,
+`ContainerFluidStorageBus`, `ContainerFluidTerminal`, `ContainerMEPortableFluidCell`. `IFluidSyncContainer` and
+`container/slots/IMEFluidSlot` were already migrated by hand before the wave (CONTRACT.md's "Wave 5
+prerequisites") and were read, not edited.
+
+```java
+// appeng.fluids.container.ContainerFluidConfigurable implements IFluidSyncContainer   (abstract base)
+public abstract IAEFluidTank getFluidConfigInventory();                 // return type unchanged, see prerequisites
+protected boolean isValidForConfig(int slot, GenericStack fs);          // was IAEFluidStack
+public void receiveFluidSlots(Map<Integer, GenericStack> fluids);       // was Map<Integer, IAEFluidStack>
+// transferStackToContainer/standardDetectAndSendChanges: GenericStack.fromFluidStack(fs) replaces the deleted
+// AEFluidStack.fromFluidStack(fs); everything else (empty-slot scan, "clear config slots invalidated by a
+// removed capacity upgrade" sweep, FluidSyncHelper wiring) untouched.
+
+// appeng.fluids.container.ContainerFluidFormationPlane extends ContainerFluidConfigurable
+protected boolean isValidForConfig(int slot, GenericStack fs);          // was IAEFluidStack; body untouched,
+// param type only - the override never read the stack itself, only the slot index.
+
+// appeng.fluids.container.ContainerFluidStorageBus extends ContainerFluidConfigurable
+protected boolean isValidForConfig(int slot, GenericStack fs);          // was IAEFluidStack
+// partition() rewritten around PartFluidStorageBus#getInternalHandler() - see the cross-agent note below.
+// clear()/getFluidConfigInventory() unchanged in shape.
+
+// appeng.fluids.container.ContainerFluidInterface extends ContainerFluidConfigurable implements IConfigManagerHost
+public void receiveFluidSlots(Map<Integer, GenericStack> fluids);       // was Map<Integer, IAEFluidStack>
+public void setTargetStack(@Nullable AEKey stack);                     // was IAEFluidStack, pinned by
+                                                                        // PacketTargetFluidStack
+// doAction(FILL_ITEM/EMPTY_ITEM): clientRequestedTargetFluid retyped AEKey; fh.fill/drain calls now build their
+// FluidStack via `((AEFluidKey) clientRequestedTargetFluid).toStack(amount)` (pattern-matched) instead of
+// mutating a shared IAEFluidStack's stackSize field.
+
+// appeng.fluids.container.ContainerFluidTerminal extends AEBaseContainer
+//         implements IConfigManagerHost, IConfigurableObject, IStorageWatcherNode   (was IMEMonitorHandlerReceiver<IAEFluidStack>)
+public void setTargetStack(@Nullable AEKey stack);                     // was IAEFluidStack
+public void onStackChange(AEKey what, long amount);                   // new, case 1 (see below)
+public void updateWatcher(IStackWatcher newWatcher);                  // new, documented no-op (see below)
+// monitor retyped IMEMonitor<IAEFluidStack> -> MEStorage; terminal.getInventory(channel) -> terminal.getInventory().
+// The old `IItemList<IAEFluidStack> fluids` bookkeeping field is gone, replaced by the case-1/case-2 split below.
+// transferStackInSlot/doAction: Platform.poweredInsert/poweredExtraction's `long` (amount moved) return value
+// replaces the old "returns the leftover IAEFluidStack" contract; this.monitor.insert(...) replaces
+// this.monitor.injectItems(...) for the raw (non-powered) fallback insert. No GridInventoryEntry sent from this
+// class ever sets craftable=true or a nonzero requestableAmount - the pre-migration file never surfaced either
+// for fluids (checked before rewriting), so none was added.
+
+// appeng.fluids.container.ContainerMEPortableFluidCell extends AEBaseContainer
+//         implements IAEAppEngInventory, IConfigManagerHost, IConfigurableObject, IUpgradeableCellContainer, IInventorySlotAware
+//         (was ...,  IMEMonitorHandlerReceiver<IAEFluidStack>)
+public void setTargetStack(@Nullable AEKey stack);                     // was IAEFluidStack, pinned by
+                                                                        // PacketTargetFluidStack
+// monitor retyped IMEMonitor<IAEFluidStack> -> MEStorage; terminal.getInventory(channel) -> terminal.getInventory().
+// postChange/onListUpdate/isValid (the old IMEMonitorHandlerReceiver trio) are gone - no interface left to
+// implement them for; replaced by the case-2 collectChanges()/queueInventory() pair (see below).
+// transferStackInSlot/doAction translated the same way as ContainerFluidTerminal's.
+// appeng.fluids.container.ContainerWirelessFluidTerminal (not in this wave's file list - a trivial
+// ContainerMEPortableFluidCell subclass with no old-model reference of its own, confirmed by reading it) needed
+// no edit and inherits setTargetStack/postUpdate-adjacent behaviour unchanged.
+```
+
+**Terminal live updates (CONTRACT.md §10 "Third case"), which case each terminal landed in:**
+
+- **`ContainerFluidTerminal` — case 1 (real push) when its host is `AbstractPartTerminal`, case 2 otherwise.**
+  The constructor mirrors `ContainerMEMonitorable`'s branch exactly: `terminal instanceof AbstractPartTerminal`
+  sets `networkTerminalPart` and calls `addTerminalListener(this)`; `onStackChange(AEKey, long)` buffers into
+  `pendingPushChanges`, drained every tick in `collectChanges()`. In practice this container is only ever
+  constructed with `appeng.fluids.parts.PartFluidTerminal` (5-A's file), which extends `AbstractPartTerminal` -
+  confirmed by reading it - so it always gets case 1 today; the case-2 branch exists for symmetry with
+  `ContainerMEMonitorable` and so an addon's own non-`AbstractPartTerminal` `ITerminalHost` still gets a working
+  fallback rather than an NPE. `removeListener`/`onContainerClosed` call `networkTerminalPart.removeTerminalListener(this)`,
+  same lifecycle as the item-side terminal.
+- **`ContainerMEPortableFluidCell` — case 2 unconditionally.** Its host is always an `IPortableCell`
+  (`WirelessTerminalGuiObject` in every call site read), which is never an `AbstractPartTerminal` - a portable
+  item GUI object has no grid node of its own to hang a watcher off. `collectChanges()` snapshots
+  `MEStorage.getAvailableStacks()` (a **fresh** `KeyCounter` per the API contract, safe to store as
+  `previousAvailableStacks` - never `IStorageService.getCachedInventory()`'s mutable one, per the STATUS.md
+  warning) and diffs it against the previous tick's snapshot, exactly upstream's `MEStorageMenu.broadcastChanges()`.
+  No `IStorageWatcherNode` implementation was added here, since there is nothing for it to be registered against.
+- Both terminals send deltas as `GridInventoryEntry`-wrapped `PacketMEFluidInventoryUpdate` packets (kept as its
+  own class, not merged into `PacketMEInventoryUpdate`, per the wave 4 prerequisite - that merge is still not
+  this wave's decision to make). Neither case needed an addition to the frozen API.
+
+**Fork-specific mechanics from point 6, checked file by file:**
+
+- **`Settings.STICKY_MODE`/`Upgrades.STICKY` on `ContainerFluidStorageBus`.** Checked against the pre-port tree
+  at `1e855f729` before writing anything: unlike the item-side `ContainerStorageBus`/`PartStorageBus`, the fluid
+  storage bus **never** registered `Settings.STICKY_MODE` on its config manager and its container never had a
+  `stickyMode` field, before or after this port - the sticky *mechanic itself* (`Upgrades.STICKY` ->
+  `handler.setSticky(true)`) already lives in `appeng.fluids.parts.PartFluidStorageBus` (5-A's file, line 446-447
+  in the pre-migration tree) and in `appeng.me.storage.NetworkStorage`/`MEInventoryHandler` (wave 1b), neither of
+  which this wave touches. There is nothing to restore here specifically because there was never a GUI-facing
+  `stickyMode` setting on the fluid bus to lose - confirmed by diffing against the pre-port revision, not
+  assumed. Flagged here per the brief's explicit instruction to report on this exact mechanic rather than
+  silently deciding either way.
+- **`Settings.STORAGE_FILTER`, `Settings.ACCESS`, `Settings.FUZZY_MODE`, `Upgrades.CAPACITY` on
+  `ContainerFluidStorageBus`.** All untouched `@GuiSync` fields / `getUpgradeable().getConfigManager()` reads;
+  only `partition()`'s cell-scanning internals and the `isValidForConfig` parameter type changed.
+  `Upgrades.INVERTER` - grep-confirmed absent from the pre-migration `ContainerFluidStorageBus` (it is read by
+  `PartFluidStorageBus` itself, not surfaced in this container), nothing to preserve here.
+- **`Settings.SORT_BY`/`SORT_DIRECTION`/`VIEW_MODE` on `ContainerFluidTerminal`/`ContainerMEPortableFluidCell`.**
+  Both containers' `clientCM.registerSetting(...)` calls are untouched.
+- **`Settings.CRAFT_ONLY`, `Settings.SCHEDULING_MODE`.** Grep-confirmed absent from every file in this wave's
+  list - those settings surface in `ContainerFluidConfigurable`'s only other subclass in the tree
+  (`ContainerFluidFormationPlane`) not at all, and in the export-bus-only branch of the item-side
+  `ContainerUpgradeable.loadSettingsFromHost` (`instanceof PartExportBus`), which no fluid container reaches.
+  Nothing to preserve.
+- **The `FLUID_*` part family.** `ContainerFluidTerminal`/`ContainerFluidInterface`/`ContainerFluidStorageBus`/
+  `ContainerFluidFormationPlane`/`ContainerMEPortableFluidCell` all still exist with their pre-port constructor
+  shapes untouched (no signature was changed on any of them) - upstream has no equivalent of any of these and is
+  not a guide for whether they should exist, per point 6.
+
+**§9.1 `.equals(` audit, all six files:**
+
+- `ContainerFluidInterface.setTargetStack`/`ContainerFluidTerminal.setTargetStack`/
+  `ContainerMEPortableFluidCell.setTargetStack`: `stack.equals(this.clientRequestedTargetFluid)` - safe. All
+  three compare bare `AEKey`s, never `GenericStack`s; `AEKey` carries no amount (only `GenericStack` does), so
+  this is already the size-insensitive identity check the old `FluidStack#isFluidEqual` was. Same conclusion
+  wave 4c reached for the item-side `AEBaseContainer.setTargetStack`.
+- No other `.equals(` call on a stack-shaped value exists in any of the six files - grep-confirmed. Every other
+  identity check translated to `instanceof AEFluidKey`/`AEItemKey` pattern matches (e.g. the FILL_ITEM/EMPTY_ITEM
+  branches' `this.clientRequestedTargetFluid instanceof AEFluidKey targetFluid`) or `KeyCounter`/
+  `Object2LongMap.Entry<AEKey>` key lookups, never a whole-`GenericStack` or old `IAEFluidStack.equals()`-style
+  comparison.
+- **No whole-`GenericStack` comparison exists anywhere in this wave's six files.**
+
+**Client/server boundary changes, called out explicitly per the brief:** none beyond what CONTRACT.md's wave 4
+prerequisites and wave 5 prerequisites already pinned before this wave started. `IFluidSyncContainer.
+receiveFluidSlots(Map<Integer, GenericStack>)`, `ContainerFluid*.setTargetStack(AEKey)` and the
+`PacketMEFluidInventoryUpdate`/`GridInventoryEntry` wire format were all fixed by already-committed code (wave
+4a's packets) or the by-hand prerequisites before this wave touched anything - this wave implemented against
+those shapes, it did not invent a new wire format. Verified against 5-D's already-migrated
+`GuiFluidTerminal`/`GuiMEPortableFluidCell` (read, not edited): both call `this.container.setTargetStack(stack ==
+null ? null : stack.what())` and `this.container.isPowered()` against exactly the signatures produced here, and
+their own `postUpdate(List<GridInventoryEntry>)` lives on the GUI classes themselves (`PacketMEFluidInventoryUpdate`
+dispatches to the client screen, not the container - confirmed by reading the packet), so no method of that name
+was added to either container in this wave.
+
+**Cross-agent assumption flagged (5-A's file, not yet landed at the time of this writing):**
+`ContainerFluidStorageBus.partition()` calls `this.storageBus.getInternalHandler()` (`PartFluidStorageBus`,
+5-A's file) and assigns the result to a local `MEStorage` variable, then calls `.getAvailableStacks()` on it.
+This is written against the item-side precedent (`appeng.parts.misc.PartStorageBus#getInternalHandler():
+MEInventoryHandler`, a `MEStorage`) rather than against 5-A's actual migrated code, which had not landed when
+this file was written. Nothing in CONTRACT.md's wave-5-prerequisites section pins `PartFluidStorageBus`'s
+post-migration signature, so this is an assumption, not a confirmed shape - if 5-A's `getInternalHandler()`
+returns something that is not `MEStorage`-shaped, or is renamed, this call site needs a follow-up fix. Flagged
+per the brief's instruction to call out cross-agent seams explicitly rather than silently assume they resolve.
+
+**Mechanics that could not be preserved: none.** Every mechanic enumerated from a pre-migration read of all six
+files (the fluid config-slot capacity-upgrade gating, the FILL_ITEM/EMPTY_ITEM item-drain/-fill dance in both
+terminals and the fluid interface, the storage-bus partition/clear buttons, the formation-plane's per-row
+capacity gate) has a direct translation in the new model.
+
+**Files touched outside the assigned list: none.** `IFluidSyncContainer` and `container/slots/IMEFluidSlot` were
+read, per the brief's instruction, and confirmed already in their final shape - neither was edited.
+`appeng.container.implementations.ContainerMEMonitorable` (item-side precedent for both terminals),
+`appeng.container.implementations.ContainerStorageBus` (item-side precedent for the storage bus),
+`appeng.fluids.helper.FluidSyncHelper`, `appeng.fluids.util.IAEFluidTank`,
+`appeng.core.sync.packets.{PacketFluidSlot,PacketTargetFluidStack,PacketMEFluidInventoryUpdate,PacketInventoryAction}`,
+and `appeng.fluids.client.gui.{GuiFluidTerminal,GuiMEPortableFluidCell,GuiWirelessFluidTerminal}` were all read as
+the specification for this wave's call sites and callers, per rule 3/8 of the brief, but none was edited.
+
+**API gaps hit: none.** Every method needed - `GenericStack.fromFluidStack`, `AEFluidKey.of(FluidStack)`/
+`.toStack(int)`, `AEKey.equals`, `MEStorage.insert`/`.extract`/`.getAvailableStacks`, `KeyCounter.get`/`.iterator`,
+`Platform.poweredInsert`/`poweredExtraction` (5-arg and 6-arg `MEStorage`-based overloads),
+`ITerminalHost.getInventory()` (no-channel form), `IStorageWatcherNode`/`IStackWatcher`,
+`AbstractPartTerminal.addTerminalListener`/`removeTerminalListener`, `GridInventoryEntry`,
+`PacketMEFluidInventoryUpdate.appendFluid`, `PacketTargetFluidStack(AEKey)` - was already in `src/api`, already
+committed by wave 4, or already migrated by hand per the wave 5 prerequisites. `src/api` was not touched.
+
+**Mandatory deleted-symbol scan, run over `appeng.fluids.container` after finishing:** prints nothing.
+
+### Wave 5a — appeng.fluids.parts, items, registries (done)
+
+Eleven files: `FluidHandlerAdapter`, `PartFluidAnnihilationPlane`, `PartFluidExportBus`, `PartFluidFormationPlane`,
+`PartFluidImportBus`, `PartFluidInterface`, `PartFluidLevelEmitter`, `PartFluidStorageBus`, `PartSharedFluidBus`
+(`appeng.fluids.parts`); `BasicFluidCellGuiHandler` (`appeng.fluids.registries`); `BasicFluidStorageCell`
+(`appeng.fluids.items`). Plus the two registration edits (`appeng.parts.automation.InitStackWorldBehaviors`,
+`appeng.parts.misc.InitExternalStorageStrategies`) that this wave exists for. `appeng.fluids.parts.PartFluidTerminal`
+— present in the package but not on this wave's file list — was read and confirmed to already extend the
+already-migrated `AbstractPartTerminal` with no reference to any deleted type; it needed no change and none was
+made (consistent with 5-C's Wave 5c report, which reads it as already-correct).
+
+Five new classes were created in `appeng.fluids.parts`, mirroring the item-side strategy layer
+(`appeng.parts.automation.StorageImportStrategy`/`StorageExportStrategy`/`ItemPickupStrategy`/
+`ItemPlacementStrategy`/`appeng.parts.misc.ItemHandlerAdapter.Strategy`) in shape. Unlike their item-side
+counterparts they are **public** (classes, constructors and static factory methods), because
+`InitStackWorldBehaviors`/`InitExternalStorageStrategies` — the classes that register them — live in a different
+package (`appeng.parts.automation`/`appeng.parts.misc`), whereas the item strategies share a package with their
+registrar and can stay package-private.
+
+```java
+// appeng.fluids.parts.FluidTransferContext implements StackTransferContext   — package-private
+// Fluid-bus concrete StackTransferContext, mirroring appeng.parts.automation.StackTransferContextImpl (which is
+// package-private there and so cannot be reused from this package). Same non-frozen extras for the same reason:
+FluidTransferContext(MEStorage internalStorage, IEnergySource energySource, IActionSource actionSource,
+        int operationsRemaining, IPartitionList filter, @Nullable FuzzyMode fuzzyMode);
+boolean hasDoneWork();  IPartitionList getPartitionList();  @Nullable FuzzyMode getFuzzyMode();  IEnergySource getEnergySource();
+
+// appeng.fluids.parts.FluidImportStrategy implements StackImportStrategy   — public
+public static StackImportStrategy createFluid(World world, BlockPos fromPos, EnumFacing fromSide);
+// One bounded drain-then-insert per call (up to the whole per-tick millibucket budget), not a discrete-chunk
+// loop: the pre-port PartFluidImportBus#doBusWork always did a single, bounded drain per tick, fluids were
+// never chunked into "operations" the way item stacks are. Supports Upgrades.FUZZY (AEKey#fuzzyEquals against
+// the configured partition list) and an empty-filter "accept anything" mode, matching the item strategy's shape
+// — neither existed in the pre-port fluid import bus, which only ever did an exact IAEFluidStack#equals(FluidStack)
+// check; see the report below for why wiring this up for real was judged in-scope.
+
+// appeng.fluids.parts.FluidExportStrategy implements StackExportStrategy   — public
+public static StackExportStrategy createFluid(World world, BlockPos fromPos, EnumFacing fromSide);
+// simulate-extract -> simulate-fill -> extract -> fill sequence, mirroring the pre-port
+// PartFluidExportBus#doBusWork's simulate/fill/extract dance one for one.
+
+// appeng.fluids.parts.FluidPlacementStrategy implements PlacementStrategy   — public
+public FluidPlacementStrategy(World world, BlockPos pos, EnumFacing fromSide, TileEntity host, @Nullable UUID ownerUuid);
+// Full-bucket-only placement via FluidUtil.tryPlaceFluid, ported from PartFluidFormationPlane#injectItems.
+// No "place as entity" branch exists (fluids have no entity form), matching the pre-port class exactly.
+
+// appeng.fluids.parts.FluidPickupStrategy implements PickupStrategy   — public
+public FluidPickupStrategy(World world, BlockPos pos, EnumFacing side, TileEntity host,
+        Map<Enchantment, Integer> enchantments, @Nullable UUID ownerUuid);
+// Drains an adjacent fluid source block into the PickupSink, ported from
+// PartFluidAnnihilationPlane#pickupFluid/#storeFluid. canPickUpEntity/pickUpEntity always return false/no-op —
+// fluids have no entity form in this fork, matching the pre-port class (which never overrode onEntityCollision).
+// Still sends the pre-port's PacketTransitionEffect(..., true) visual on a successful drain (reconstructing the
+// plane's own AEPartLocation from the constructor's fromSide), which the shared base's tick path does not send
+// on its own — see the report's mechanic-preservation notes.
+
+// appeng.fluids.parts.FluidHandlerAdapter implements MEStorage, ITickingMonitor   — public (was package-private
+//         on the item side; see above for why)
+// Fluid counterpart of appeng.parts.misc.ItemHandlerAdapter, identical shape: a KeyCounter cache rebuilt on
+// construction, after every real insert/extract, and once per onTick().
+public static final class Strategy implements ExternalStorageStrategy {
+    public Strategy(World world, BlockPos fromPos, EnumFacing fromSide);
+    // createWrapper(extractableOnly, callback) re-resolves CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY fresh
+    // every call, exactly like ItemHandlerAdapter.Strategy. This is the ExternalStorageStrategy for
+    // AEKeyType.fluids(), registered by InitExternalStorageStrategies.
+}
+```
+
+**The two registration edits — the point of the wave:**
+
+```java
+// appeng.parts.automation.InitStackWorldBehaviors.register()   — added, alongside the existing items() lines
+StackImportStrategy.register(AEKeyType.fluids(), FluidImportStrategy::createFluid);
+StackExportStrategy.register(AEKeyType.fluids(), FluidExportStrategy::createFluid);
+PlacementStrategy.register(AEKeyType.fluids(), FluidPlacementStrategy::new);
+PickupStrategy.register(AEKeyType.fluids(), FluidPickupStrategy::new);
+
+// appeng.parts.misc.InitExternalStorageStrategies.register()   — added, alongside the existing items() line
+ExternalStorageStrategy.register(AEKeyType.fluids(), FluidHandlerAdapter.Strategy::new);
+```
+
+With these in place the already-migrated, already-committed `appeng.parts.automation.PartImportBus`,
+`PartExportBus`, `PartAnnihilationPlane`, `PartAbstractFormationPlane` and `appeng.parts.misc.PartStorageBus`
+all serve fluids with no further change to those files (none was made) — a fluid-wrapped stack dropped into any
+of their generic, item-shaped config slots is handled correctly by the strategies above, and
+`appeng.parts.misc.PartStorageBus.CompositeExternalStorage` now actually composes two types (items and fluids)
+for the first time.
+
+**The dedicated fluid parts still exist, split from the generic ones, and route through the same registry.**
+AE2UD keeps separate Fluid Import/Export/Storage Bus, Fluid Formation Plane and Fluid Annihilation Plane
+parts/items (own textures, own GUIs) rather than merging into the generic item-shaped parts — the same
+"split, not merged" shape CONTRACT.md §5/§10 already calls out for formation and annihilation planes, extended
+here to the busses too, since AE2UD never had a single universal bus item. Each dedicated fluid part obtains its
+strategy through `appeng.api.behaviors.StackWorldBehaviors`, the exact same public entry point an addon would
+use — no bypass, no privileged access:
+
+- `PartFluidImportBus`/`PartFluidExportBus` extend the (rewritten) `PartSharedFluidBus`, whose `AEFluidInventory`
+  config is unchanged in shape from the pre-port class (a fluid-tank, not the item bus'
+  `AppEngInternalAEInventory`) — there is no frozen base class here forcing an item-shaped config, unlike the
+  formation plane below.
+- `PartFluidAnnihilationPlane` now **extends the generic, already-migrated `appeng.parts.automation.
+  PartAnnihilationPlane`** instead of duplicating its whole box/connection/tick/entity-collision machinery by
+  extending `PartBasicState` directly (the pre-port shape). It overrides only `createPickupStrategies(...)` to
+  substitute `FluidPickupStrategy` for the generic list — the exact pattern
+  `appeng.parts.automation.PartIdentityAnnihilationPlane` already established for its own silk-touch substitution.
+  This deleted roughly 200 lines of duplicated logic that is now shared, and was the biggest simplification of
+  this wave.
+- `PartFluidFormationPlane` extends the (already-committed, non-generic) `PartAbstractFormationPlane`,
+  implementing `getKeyType() = AEKeyType.fluids()` and `insert(...)` with the pre-port block-fill logic moved
+  into `FluidPlacementStrategy`. Its `getConfigInventory()` shape required a real design decision — see below.
+- `PartFluidStorageBus` mirrors `appeng.parts.misc.PartStorageBus`'s resolution order (direct
+  `IStorageMonitorableAccessor` link, then the generic `ExternalStorageStrategy` registry) and stable-handler
+  shape, restricted to `AEKeyType.fluids()` alone. A direct sub-network link is wrapped in a private
+  `FluidOnlyStorage` decorator so this bus never leaks item access even when linked to another network that
+  carries both — the new-model equivalent of the pre-port `getInventoryWrapper`'s
+  `inventory.getInventory(IFluidStorageChannel.class)` call under the old per-channel API.
+
+**`PartFluidFormationPlane`'s config: a real cross-agent conflict, found and resolved, not assumed away.**
+`PartAbstractFormationPlane#getConfigInventory()` (wave 3a, already committed, frozen) returns the concrete class
+`appeng.tile.inventory.AppEngInternalAEInventory` — not an interface. Reading that class (wave 2, already
+committed) shows its `IItemHandler` mutation surface (`insertItem`/`setStackInSlot`) always builds slot content
+via `GenericStack.fromItemStack`, which can only ever produce an **item**-typed key — so a plain
+`AppEngInternalAEInventory` can never actually hold a fluid filter entry through normal play, no matter how its
+slot's `ItemStack` is wrapped. Meanwhile `appeng.fluids.container.ContainerFluidFormationPlane` (5-C, already
+committed, "done" before this was written) still calls `plane.getConfig(): IAEFluidTank` for its actual GUI,
+matching every other fluid part's shape and giving no sign of expecting an item-wrapped config. Naively
+switching this plane's real config to `AppEngInternalAEInventory` (as the wave 3a base class's own javadoc,
+written before this gap was found, suggested was possible) would have done one of two bad things: broken 5-C's
+container outright, or — if a second config were added without care — silently left `updateFilter()` (the
+`final`, inherited filter-builder) always seeing an empty configured-fluids list, turning "restrict what this
+plane places" into a permanent no-op. That is exactly the class of regression rule 6 forbids, and it would have
+been invisible without reading both the frozen base class and 5-C's already-committed container side by side.
+**Resolution:** the plane keeps two inventories. `config` (an `AEFluidInventory`, unchanged shape from the
+pre-port class) is the real, GUI-facing 63-slot filter, still returned by `getConfig()` for 5-C's container.
+`filterView` (an `AppEngInternalAEInventory`, never exposed to any GUI or capability) exists purely so
+`getConfigInventory()` has something to return; it is kept in sync with `config` by `syncFilterView()`, which
+round-trips through `GenericStack.writeTag`/`AppEngInternalAEInventory#readFromNBT` — both already generic over
+any `AEKey` type, unlike the `IItemHandler` surface — rather than through `insertItem`/`setStackInSlot`. This
+preserves the pre-port fluid-filtering mechanic exactly, keeps 5-C's container working unchanged, and touches
+neither frozen file. Flagged here in full per rule 6 and per the instruction to check cross-agent seams
+explicitly rather than assume they resolve.
+
+**Fork-specific mechanics, and where they now live:**
+
+- **`Settings.SCHEDULING_MODE`** (`PartFluidImportBus`/`PartFluidExportBus`, `SchedulingMode.DEFAULT`). Wired up
+  for real on the **export** bus (`getStartingSlot`/`updateSchedulingMode`, mirroring the item export bus
+  exactly) — the pre-port fluid export bus stopped at the first configured slot that accepted anything each
+  tick, which is preserved; scheduling mode only changes which slot is tried first. Registered but functionally
+  inert on the **import** bus, matching the pre-port class exactly: import never picked one configured slot to
+  try, it tested the incoming fluid against the whole configured filter set at once, so there is no "slot order"
+  for scheduling mode to affect.
+- **`Upgrades.STICKY`** — `PartFluidStorageBus.getInternalHandler()` calls
+  `this.handler.setSticky(this.getInstalledUpgrades(Upgrades.STICKY) > 0)`, mirroring
+  `appeng.parts.misc.PartStorageBus` exactly (both ultimately feed the same
+  `appeng.me.storage.NetworkStorage#insert` sticky pass from wave 1b). Confirmed present at the same relative
+  spot as the pre-migration file (`PartFluidStorageBus:446-448` in the pre-port tree).
+- **`Settings.STORAGE_FILTER`** (`StorageFilter.EXTRACTABLE_ONLY`) — registered and read by
+  `PartFluidStorageBus.getInternalHandler()` exactly as before (`extractableOnlyFilter`/`extractableOnly` locals
+  feeding `setExtractFiltering`/`findExternalStorage`).
+- **`Upgrades.CAPACITY`** — `PartFluidStorageBus.createFilter()`/`PartFluidFormationPlane`'s inherited
+  `getFilterSlotsInUse()` (default `18 + CAPACITY*9`, unchanged, not overridden since the pre-port fluid
+  formation plane used the identical formula) both still read it.
+- **`Upgrades.INVERTER`** — `PartFluidStorageBus.getInternalHandler()`'s whitelist/blacklist toggle, unchanged.
+- **`Upgrades.FUZZY`/`Settings.FUZZY_MODE`** — read by `PartFluidStorageBus.createFilter()`,
+  `PartFluidFormationPlane`'s inherited `updateFilter()`, and (newly wired up for real, see above)
+  `FluidImportStrategy`. The pre-port fluid import bus registered `Settings.FUZZY_MODE` but never read
+  `Upgrades.FUZZY` at all (grep-confirmed against the pre-port tree) — its filter check was a bare
+  `IAEFluidStack#equals(FluidStack)`. Judged safe and worth wiring up for real rather than left dead, because
+  (a) the brief's fork-mechanic list names `Upgrades.FUZZY`/`Settings.FUZZY_MODE` as things that "must keep
+  working" across this agent's files, and (b) the fuzzy-aware filter check was already necessary machinery for
+  `FluidImportStrategy` to serve the registered-strategy role the wave exists to create, so extending it to the
+  bus that already carries the setting was near-zero additional cost. **Not** extended to `FluidExportStrategy`
+  itself (which fuzzy-searches nothing — it only ever receives one already-resolved `AEKey` per call, same as
+  the item export strategy); export-side fuzzy *filter matching* stayed exactly as inert as the pre-port class,
+  since broadening it into a fuzzy-search-across-the-network loop (mirroring `PartExportBus`'s
+  `storageService.getCachedInventory().findFuzzy(...)` loop) is new functionality, not a preserved mechanic, and
+  was left for the owner to request rather than added silently.
+- **`Settings.CRAFT_ONLY`** — registered on both fluid busses for GUI parity with the pre-port class, but with
+  no craft-on-demand behind it, exactly as before: the pre-port `PartFluidExportBus` never implemented
+  `ICraftingRequester`/`MultiCraftingTracker` (grep-confirmed absent), unlike the item export bus. Building real
+  craft-on-demand for fluids would be new functionality requiring its own design (autocrafting is
+  fluid-agnostic today per CONTRACT.md §4.4's crafting-alignment deferral), not something this migration wave
+  invents unasked. Stated plainly per rule 6 rather than silently left to look finished.
+- **`Settings.ACCESS`/`Settings.REDSTONE_CONTROLLED`** — unchanged shape/read sites throughout.
+- **`Settings.ACTIONS`** — grep-confirmed absent from every file in this wave's list, before and after; it is a
+  GUI-button-only pseudo-setting read by `appeng.client`/`appeng.fluids.client` (5-D's territory), never
+  registered or read by any part class in either the item or fluid tree.
+- **The split item/fluid formation and annihilation planes** — both stay split, per CONTRACT.md §5/§10, and per
+  the pre-port shape; see above for how each now shares its generic counterpart's machinery instead of
+  duplicating it.
+- **The fluid storage bus staying a separate part** despite `appeng.parts.misc.PartStorageBus` now being able to
+  serve fluids on its own (see the registration note above) — preserved because AE2UD never had a single
+  universal storage bus item to begin with, and removing the dedicated fluid one would be removing a mechanic
+  (a distinct placeable item with its own recipe/texture/GUI), not merely changing its internals.
+
+**Power charging: a real asymmetry, preserved rather than "fixed."** The item import/export busses charge AE
+power for network access via `Platform.poweredInsert`/`poweredExtraction` (`StorageImportStrategy`/
+`StorageExportStrategy`). The pre-port fluid import/export busses never did this at all — `FluidImportStrategy`/
+`FluidExportStrategy` call `MEStorage#insert`/`#extract` directly, with no power deduction, exactly matching the
+pre-port `IMEMonitor#injectItems`/`#extractItems` calls they replace. This looks like an oversight in the
+original fork, but "fix" was not this wave's call to make silently; preserved byte-for-byte instead, flagged
+here so the owner can decide if it is intentional.
+
+**§9.1 `.equals(` audit, all eleven files (plus the five new strategy classes):** grepped every file.
+`name.equals("config")` (four call sites, `PartSharedFluidBus`/`PartFluidStorageBus`/`PartFluidFormationPlane`/
+`PartFluidLevelEmitter`) and `pos.offset(...).equals(neighbor)` (`PartFluidStorageBus`, vanilla `BlockPos`) are
+unrelated to the hazard. One stack-identity check found:
+`PartFluidLevelEmitter.onStackChange`'s `what.equals(myStack)` — safe, both sides are bare `AEKey`s (never
+`GenericStack`s), and `AEKey` carries no amount (only `GenericStack` does), the same conclusion wave 4c reached
+for `AEBaseContainer.setTargetStack` and wave 5c reached for the fluid containers' own `setTargetStack`.
+**No whole-`GenericStack` comparison anywhere in this wave's files.**
+
+**Mechanics that could not be preserved: none** beyond the two explicitly flagged above (fluid craft-on-demand
+never existed to preserve; fluid busses' lack of power-charging is a pre-existing asymmetry, not this wave's
+regression). Every other mechanic enumerated from a pre-migration read of all eleven files — the Sticky Card,
+ACCESS/STORAGE_FILTER/FUZZY_MODE, Upgrades.INVERTER/CAPACITY/FUZZY, the split formation/annihilation planes, the
+fluid annihilation plane's transition-effect packet, the fluid formation plane's full-bucket-only placement gate
+— has a direct translation in the new model, verified above.
+
+**Files touched outside the eleven-file list: none**, beyond the two registration files the brief names
+explicitly (`appeng.parts.automation.InitStackWorldBehaviors`, `appeng.parts.misc.InitExternalStorageStrategies`).
+`appeng.parts.automation.PartAnnihilationPlane`, `PartAbstractFormationPlane`, `PartImportBus`, `PartExportBus`,
+`appeng.parts.misc.PartStorageBus`, `appeng.parts.misc.ItemHandlerAdapter`, `appeng.items.storage.
+AbstractStorageCell`/`BasicItemStorageCell`, `appeng.tile.inventory.AppEngInternalAEInventory`,
+`appeng.fluids.container.{ContainerFluidStorageBus,ContainerFluidFormationPlane,ContainerFluidLevelEmitter}` and
+`appeng.fluids.parts.PartFluidTerminal` were all read as the specification for this wave's shapes and call
+sites, per the brief's instruction, but none was edited.
+
+**API gaps hit: none.** Every method needed — `AEKeyType.fluids()`/`.getAmountPerOperation()`,
+`AEFluidKey.of(FluidStack)`/`.matches`/`.toStack`/`fuzzyEquals` (inherited from `AEKey`), `MEStorage.insert`/
+`.extract`/`.getAvailableStacks`, `KeyCounter`, `IPartitionList.builder()`/`.getItems()`/`.isListed`,
+`StackWorldBehaviors.createImportStrategies` (with its `Predicate<AEKeyType>` filter)/`createExportStrategies`/
+`createExternalStorageStrategies`/`createPlacementStrategies`, `IStorageMonitorableAccessor`,
+`IStorageProvider.requestUpdate`, `StorageCells.addCellGuiHandler` — was already in `src/api`, already committed
+by earlier waves, or already migrated by hand per the wave 5 prerequisites. `src/api` was not touched; verified
+with `gradlew compileApiJava` after finishing (green, as it was before this wave started).
+
+**Mandatory deleted-symbol scan, run over `appeng.fluids.parts`, `appeng.fluids.items` and
+`appeng.fluids.registries` after finishing:** prints nothing.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
@@ -2169,6 +2848,21 @@ Audited clean as of wave 4b: `ContainerCraftAmount`, `ContainerCraftConfirm`, `C
 Audited clean as of wave 4c: `AEBaseContainer`, `ContainerMEMonitorable`, `ContainerStorageBus`, `ContainerOreDictStorageBus`, `ContainerCellWorkbench`, `ContainerFluidInterfaceConfigurationTerminal`, `SlotCraftingTerm`, `SlotPatternTerm` (plus `AbstractPartTerminal`, touched outside the file list) — two `.equals(` calls on bare `AEKey`s found (`AEBaseContainer`/`ContainerFluidInterfaceConfigurationTerminal`'s `setTargetStack`), both confirmed safe because `AEKey` carries no amount (only `GenericStack` does, per the hazard's own definition); one size-insensitive identity check translated to `AEItemKey.matches(ItemStack)` (`AEBaseContainer.doAction`'s `ROLL_UP`/`PICKUP_SINGLE` branch); no whole-`GenericStack` comparisons anywhere in this wave's files.
 
 Audited clean as of wave 4d: all 24 `appeng.client` files in that entry — one real instance found and fixed (`GuiFluidInterfaceConfigurationTerminal.matchedStacks`, switched from holding whole fluid stacks to bare `AEKey`s so a tank's amount drifting between search and redraw cannot make a membership check spuriously miss); `String.equals`/`AEKey.equals` hits elsewhere confirmed unrelated or already size-insensitive by definition; no whole-`GenericStack`/`GridInventoryEntry` comparison anywhere in this wave's files.
+
+Audited clean (with fixes) as of wave 5b: `appeng.fluids.util` (`AEFluidInventory`, `AEFluidTank`,
+`AENetworkFluidInventory`) and `appeng.fluids.helper` (`DualityFluidInterface`, `IFluidInterfaceHost`) — two
+real size-insensitive identity comparisons found and fixed (`DualityFluidInterface.updatePlan`'s
+`req.equals(stored)`, `AEFluidInventory.setFluidInSlot`'s `Objects.equals(this.fluids[slot], fluid)`), both
+translated to key-only comparisons (`.what().equals(.what())`); two more `fluid.equals(resource)`-style
+cross-type comparisons in `AEFluidInventory.fill`/`drain` translated to `AEFluidKey.matches(AEKey,
+FluidStack)`; no whole-`GenericStack` comparisons anywhere in this wave's files.
+
+Audited clean as of wave 5c: `appeng.fluids.container` (`ContainerFluidConfigurable`,
+`ContainerFluidFormationPlane`, `ContainerFluidInterface`, `ContainerFluidStorageBus`, `ContainerFluidTerminal`,
+`ContainerMEPortableFluidCell`) — three `.equals(` calls found, all on bare `AEKey`s in each terminal-shaped
+container's `setTargetStack` (`ContainerFluidInterface`/`ContainerFluidTerminal`/`ContainerMEPortableFluidCell`),
+all confirmed safe for the same reason wave 4c gave for `AEBaseContainer.setTargetStack`: `AEKey` carries no
+amount, only `GenericStack` does. No whole-`GenericStack` comparison anywhere in this wave's six files.
 
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 
