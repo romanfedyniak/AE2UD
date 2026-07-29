@@ -2923,3 +2923,19 @@ Neither case requires an addition to the frozen API.
 **Parts with no upstream equivalent:** `OREDICT_STORAGE_BUS`, `EXPANDED_PROCESSING_PATTERN_TERMINAL`, `INTERFACE_CONFIGURATION_TERMINAL`, `FLUID_INTERFACE_CONFIGURATION_TERMINAL`, `P2P_TUNNEL_GTEU`, `P2P_TUNNEL_IC2`, plus the whole `FLUID_*` set (inherited from the AE2FluidCraft line). Waves 3–5.
 
 **Checked and NOT damaged:** `Settings.STORAGE_FILTER` — `MEMonitorIInventory:117` and `MEMonitorIFluidHandler:103` still honour `StorageFilter.EXTRACTABLE_ONLY` via `setMode(...)`. Replacing `setStorageFilter` with `setExtractFiltering` on `MEInventoryHandler` is a different axis and does not affect behaviour.
+
+### The Fuzzy Card is decided per key type, not per part
+
+Every bus and plane reads `Upgrades.FUZZY` the same way and hands the mode to `IPartitionList.Builder.fuzzyMode`; nothing downstream branches on the key type. The type-specific half lives entirely in the frozen API, in `AEKey.fuzzyEquals(AEKey, FuzzyMode)`, which dispatches through `AEKeyType.supportsFuzzyRangeSearch()`:
+
+| Key type | `supportsFuzzyRangeSearch()` | `IGNORE_ALL` matches | Percentage modes (25/50/75/99%) |
+|---|---|---|---|
+| `AEItemKeyType` | `true` (overrides) | same item, damage ignored | compare remaining-durability against the mode's breakpoint |
+| `AEFluidKeyType` | `false` (inherits the default) | same `Fluid`, NBT ignored (`getPrimaryKey()`) | fall back to exact `equals` — i.e. **precise matching** |
+
+**A new key type gets fuzzy behaviour by overriding `supportsFuzzyRangeSearch()` plus `AEKey.getFuzzySearchValue()`/`getFuzzySearchMaxValue()`, and by nothing else.** No part, bus, plane or filter needs to learn about it. This is deliberate and is the reason `AEKeyType` is a Forge registry rather than a fixed pair.
+
+Two consequences worth knowing before someone "fixes" them:
+
+- For any type without a range concept, the percentage modes are *stricter* than `IGNORE_ALL`, not looser. The GUI still offers all four, because the setting is registered by the part and the part cannot know which types its filter will hold. That is not a bug in the part.
+- Wave 5 made `PartFluidImportBus` and `PartFluidStorageBus` read the setting they had registered since before the port but never consulted, so the legacy fluid parts now behave like the generic `PartImportBus`/`PartStorageBus`. This removed an inconsistency rather than adding a fluid-only feature: a Fuzzy Card in a legacy fluid bus used to do nothing at all.

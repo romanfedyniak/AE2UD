@@ -79,8 +79,23 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
     protected abstract AEKeyType getKeyType();
 
     /**
-     * The plane's configured filter, as an item-wrapped {@link AppEngInternalAEInventory} (any
-     * {@link AEKeyType}'s keys can be represented there via {@code GenericStack.wrapInItemStack}).
+     * The plane's configured filter, as an {@link AppEngInternalAEInventory}. Its slots hold
+     * {@link appeng.api.stacks.GenericStack}s, so any {@link AEKeyType}'s keys can be <i>stored</i>
+     * there and {@link #updateFilter()} reads them back type-erased.
+     * <p/>
+     * <b>But they cannot be put there through the {@link net.minecraftforge.items.IItemHandler}
+     * surface.</b> {@code AppEngInternalAEInventory.setStackInSlot}/{@code insertItem} build the slot
+     * content with {@code GenericStack.fromItemStack}, which always yields an
+     * {@link appeng.api.stacks.AEItemKey} - it does <b>not</b> unwrap a wrapped placeholder stack, so a
+     * key that arrived via {@code GenericStack.wrapInItemStack} comes back out as the placeholder item
+     * itself, not as the key it stood for. A plane whose filter is populated by item-handler writes can
+     * therefore only ever filter on items.
+     * <p/>
+     * Implementations for a non-item key type must populate this inventory some other way. The one in
+     * the tree, {@code appeng.fluids.parts.PartFluidFormationPlane}, keeps its real GUI-facing
+     * {@code AEFluidInventory} and mirrors it into a private instance of this class through
+     * {@code GenericStack.writeTag}/{@code readFromNBT}, both of which are type-erased. Getting this
+     * wrong is silent: the filter simply matches nothing and the plane places everything.
      */
     protected abstract AppEngInternalAEInventory getConfigInventory();
 
