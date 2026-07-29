@@ -43,6 +43,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.IBasicCellItem;
@@ -139,8 +140,14 @@ public class BasicCellInventory implements StorageCell {
         for (int x = 0; config != null && x < config.getSlots(); x++) {
             final ItemStack is = config.getStackInSlot(x);
             if (!is.isEmpty()) {
-                final AEItemKey key = AEItemKey.of(is);
-                builder.add(key);
+                // Resolve rather than assume: a cell's partition is stored as plain ItemStacks (CellConfig
+                // is an item inventory), so a non-item key travels through it as a wrapper. Reading that
+                // back with AEItemKey.of would partition the cell on the placeholder item itself - a filter
+                // matching nothing, which stops the cell accepting anything at all.
+                final GenericStack configured = AppEngInternalAEInventory.toGenericStack(is);
+                if (configured != null) {
+                    builder.add(configured.what());
+                }
             }
         }
 

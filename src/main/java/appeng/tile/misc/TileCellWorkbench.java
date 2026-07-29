@@ -19,9 +19,13 @@
 package appeng.tile.misc;
 
 
+import javax.annotation.Nullable;
+
 import appeng.api.config.CopyMode;
 import appeng.api.config.Settings;
 import appeng.api.config.Upgrades;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.util.IConfigManager;
@@ -89,6 +93,22 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
         }
 
         return null;
+    }
+
+    /**
+     * The key type the installed cell stores, or null when the workbench is empty.
+     * <p>
+     * A cell that declares no type at all - the creative cell - reads as items, the same fallback
+     * {@code TileChest} and {@code TileIOPort} use, because it has always behaved as an item cell.
+     */
+    @Nullable
+    public AEKeyType getCellKeyType() {
+        final ItemStack is = this.cell.getStackInSlot(0);
+        if (is.isEmpty()) {
+            return null;
+        }
+
+        return is.getItem() instanceof IBasicCellItem basicCell ? basicCell.getKeyType() : AEKeyType.items();
     }
 
     @Override

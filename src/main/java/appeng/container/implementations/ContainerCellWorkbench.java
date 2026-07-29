@@ -28,7 +28,7 @@ import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.OptionalSlotRestrictedInput;
-import appeng.container.slot.SlotFakeTypeOnly;
+import appeng.container.slot.SlotCellWorkbenchConfig;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.tile.misc.TileCellWorkbench;
 import appeng.util.Platform;
@@ -92,7 +92,7 @@ public class ContainerCellWorkbench extends ContainerUpgradeable {
         final int x = 8;
         for (int w = 0; w < 7; w++) {
             for (int z = 0; z < 9; z++) {
-                this.addSlotToContainer(new SlotFakeTypeOnly(inv, offset, x + z * 18, y + w * 18));
+                this.addSlotToContainer(new SlotCellWorkbenchConfig(() -> this.workBench, inv, offset, x + z * 18, y + w * 18));
                 offset++;
             }
         }

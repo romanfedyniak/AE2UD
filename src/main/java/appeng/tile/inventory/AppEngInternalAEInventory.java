@@ -77,7 +77,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
      * plane needed a private NBT mirror to have a working filter at all.
      */
     @Nullable
-    private static GenericStack toGenericStack(final ItemStack stack) {
+    public static GenericStack toGenericStack(final ItemStack stack) {
         if (stack.isEmpty()) {
             return null;
         }
