@@ -2114,6 +2114,40 @@ Callers already committed against all of the above, in wave 4 — **read them be
 
 **Three files in `appeng.fluids.util` are deletions, not migrations**: `AEFluidStack`, `FluidList` and `MeaningfulFluidIterator`. Their item-side counterparts (`AEItemStack`, `ItemList`, `MeaningfulItemIterator` in `appeng.util.item`) were deleted in wave 0; `AEFluidKey` and `KeyCounter` replace all six. Anything still importing them is a call site to migrate, not a reason to keep them.
 
+**Wave 5's agent split, and who owns each shared hub.** Four agents on disjoint file lists:
+
+| Agent | Files |
+|---|---|
+| 5-A | `appeng.fluids.parts` (9), `appeng.fluids.registries` (1), `appeng.fluids.items` (1), plus the two registration lines described below |
+| 5-B | `appeng.fluids.util` (6 left) and `appeng.fluids.helper` (2 left) |
+| 5-C | `appeng.fluids.container` (6 left) |
+| 5-D | `appeng.fluids.client` (5 left) |
+
+Three types are called across that boundary. **The owner writes them; everyone else calls them and does not edit them.**
+
+```java
+// appeng.fluids.helper.DualityFluidInterface                (5-B owns; 5-A and 5-C call it)
+// Follow appeng.helpers.DualityInterface (wave 2) exactly: it dropped the deleted IStorageMonitorable
+// and now `implements MEStorage` directly, exposing itself through an inner Accessor that implements
+// IStorageMonitorableAccessor. Do the same here. These members are called by ALREADY COMMITTED wave-4
+// code and must keep their names and return types:
+IAEFluidTank getConfig();          // wave 4 casts the result to AEFluidInventory - keep it an AEFluidInventory
+IAEFluidTank getTanks();
+IConfigManager getConfigManager(); // still registers Settings.INTERFACE_TERMINAL
+String getTermName();
+long getSortValue();
+DimensionalCoord getLocation();
+
+// appeng.fluids.helper.IFluidInterfaceHost                  (5-B owns; 5-A implements it)
+DualityFluidInterface getDualityFluidInterface();
+default void onStackReturnNetwork(GenericStack stack);   // was IAEFluidStack
+
+// appeng.fluids.parts.PartFluidLevelEmitter                 (5-A owns)
+void setReportingValue(long);   // called by the committed appeng.parts.AEBasePart#readFromNBT
+```
+
+**Agent 5-A also owns the two strategy-registration lines, and they are the point of the wave.** `appeng.parts.automation.InitStackWorldBehaviors.register()` and `appeng.parts.misc.InitExternalStorageStrategies.register()` are committed files outside `appeng.fluids`; 5-A adds the `AEKeyType.fluids()` registrations to them, mirroring the `AEKeyType.items()` lines already there, and no other agent may touch either file. Once those five strategies are registered, the **already migrated** generic `PartImportBus`, `PartExportBus`, `PartAnnihilationPlane`, `PartAbstractFormationPlane` and `PartStorageBus` handle fluids with no further change. Do not add fluid branches to those wave-3 parts.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.
