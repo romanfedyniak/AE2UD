@@ -699,6 +699,23 @@ PickupStrategy create(World world, BlockPos fromPos, EnumFacing fromSide, TileEn
 
 This is a **deliberate divergence from upstream**, of exactly the kind rule 6 requires: the fork has a mechanic upstream does not, and the upstream-shaped signature could not carry it. A strategy for a type with no enchantment concept ignores the parameter. `PartAnnihilationPlane.createPickupStrategies` now simply delegates to the registry, and `PartIdentityAnnihilationPlane` still overrides the hook to substitute its always-silk-touch strategy. `compileApiJava` is green.
 
+## 8.5 Amendment after the first play-test — `wrapForDisplayOrFilter()` wraps with amount 0
+
+**This was a change to the frozen API. Made 2026-07-29, needs owner review under §7.**
+
+`AEKey.wrapForDisplayOrFilter()` wrapped with amount **1**. That stack stands for an *identity* — it is what
+a terminal row, a filter slot or HEI is handed when only an `ItemStack` will do — and it never stands for a
+quantity, because the real amount is drawn beside the slot and belongs to the row.
+
+The placeholder amount leaked out as a wrong number: a terminal row for water read **`Water: 0B`**, because
+`WrappedGenericStack`'s tooltip formatted the wrapper's own amount and one millibucket rounds to zero
+buckets. It wraps with `0` now, and `WrappedGenericStack.addCheckedInformation` prints an amount line only
+when the wrapper genuinely carries one — which distinguishes a display placeholder from a configured filter
+entry, something amount `1` made inexpressible.
+
+Audited before changing: the only two callers of `GenericStack.unwrapItemStack` (`ApiClientHelper` and
+`ItemViewCell`) read `what()` and never the amount.
+
 ## 9. Implementation class registry
 
 ### Wave 1a — `appeng.util` (done)
@@ -2917,6 +2934,26 @@ Audited clean as of wave 5c: `appeng.fluids.container` (`ContainerFluidConfigura
 container's `setTargetStack` (`ContainerFluidInterface`/`ContainerFluidTerminal`/`ContainerMEPortableFluidCell`),
 all confirmed safe for the same reason wave 4c gave for `AEBaseContainer.setTargetStack`: `AEKey` carries no
 amount, only `GenericStack` does. No whole-`GenericStack` comparison anywhere in this wave's six files.
+
+## 9.1a Sibling hazard: `KeyCounter.reset()` is not `IItemList.resetStatus()`
+
+Found by play-testing, not by any scan or review, and it is the same shape as §9.1: a method that translates
+word for word and changes meaning.
+
+`KeyCounter.reset()` zeroes the amounts but **keeps the keys**, and `KeyCounter.isEmpty()` counts **keys**.
+The old `IItemList.isEmpty()` walked a *meaningful* iterator that skipped zero-size entries — the iterator
+classes wave 0 deleted — so `resetStatus()` genuinely emptied the list.
+
+`CraftingCPUCluster` carried the call over in three places. `waitingFor` was therefore never empty again,
+`isBusy()` answered true forever, and **a finished crafting job never released its CPU**: no further job
+could be submitted until the crafting storage block was broken and replaced. Nothing reported an error.
+
+**Rule:** zeroing a counter and then asking whether it is empty means `clear()`. `reset()` is only for a
+counter that the same scan is about to refill. `KeyCounter.reset()` documents this at the call site now.
+
+Sites checked afterwards: `CraftingTreeNode.setSimulate` (benign — `used` is only read by `populatePlan`,
+and `KeyCounter.add(key, 0)` is a no-op, so zeroed keys contribute nothing) and `JEIMissingItem.showError`
+(correct — it wants the amounts zeroed and the keys kept, and reads through `get()`, which answers 0).
 
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 

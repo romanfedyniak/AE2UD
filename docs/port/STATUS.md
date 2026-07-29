@@ -1,7 +1,7 @@
 # Port status — resume here
 
-Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated after
-wave 6, 2026-07-29.
+Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated after the
+first play-test pass, 2026-07-29.
 
 Branch: `feature/generic-storage`.
 
@@ -42,6 +42,10 @@ now answerable rather than a matter of opinion.
 | `e1ce42413` | 6 | `integration/modules` (7 files), the HEI swap, and the 26 fixes the first compile exposed |
 | `6b7caf5e0` | — | first in-game launch: creative cell was being claimed by the wrong cell handler |
 | `78e79e257` | — | second launch: the generic stack wrapper had no model |
+| `b53e12f36` | — | fluid callback dispatch, cell partition preference, fluid amounts |
+| `5c588f12a` | — | terminal counts move while shift freezes the row order |
+| `ed3b47d31` | — | crafting CPU released on completion; toast identity |
+| `6211b41d5` | — | craftables sent on terminal open; crafting progress counts down |
 
 ## Where the work stands
 
@@ -52,10 +56,13 @@ listed below, not porting.
 The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. One class is merely
 *named* `IMEInventoryDestination` and matches the scan pattern by accident; it is not work.
 
-**Nothing in this port has been run in a game yet.** A green build says the types line up. It says nothing
-about whether a storage bus still stocks, whether the terminal still updates, or whether a fluid pattern
-still encodes. That is the next thing to do, and the "at-risk features" inventory in `CONTRACT.md` §10 is
-the list to walk.
+**The first play-test pass is done**: nine defects found and fixed, none of which any scan could have
+caught. See "In-game testing" below — the table is worth reading before writing more code, because three of
+the nine were the same kind of silent mistranslation and there are certainly more.
+
+Still unplayed: patterns and interfaces, P2P, spatial storage, the ore-dictionary storage bus, and every
+terminal variant except the wall terminal. The "at-risk features" inventory in `CONTRACT.md` §10 is the list
+to walk.
 
 ## How to check where you are
 
@@ -239,50 +246,52 @@ platform-version mismatches (Java 8 classpath, older fastutil), API surface move
 type-inference corners. A migration executed against a frozen contract instead of a compiler will produce
 exactly this residue, and it is cheap to fix once — but only once something actually compiles.
 
-## In-game testing — started, one crash found and fixed
+## In-game testing — first pass done, nine defects found and fixed
 
-**Launch 1 (`9446286de`) crashed on startup.** Not in a terminal, not under load — while Minecraft indexed
-creative tab tooltips, before a world was even loaded. NPE in `BasicCellInventory`'s constructor.
+Everything below was found by playing, after `gradlew build` was already green. **None of it would have been
+caught by the deleted-symbol scan, the seam checks or the report verification** — that is the point of this
+section. The build proves the types line up; nothing else does.
 
-The null was not the bug. `StorageCells.getCellInventory` returns the **first** handler whose `isCell`
-accepts the stack; `BasicCellHandler` is registered before `CreativeCellHandler`; and
-`BasicCellInventory.isCell` means exactly "is an `IBasicCellItem`". A later wave widened
-`ItemCreativeStorageCell` from `ICellWorkbenchItem` to `IBasicCellItem` so `TileChest`/`TileIOPort` could
-read `getKeyType()` off the item — and that widening silently handed the creative cell to the wrong
-inventory class. Had it not tripped over a null, the creative cell would simply have become a **finite**
-basic cell, with nothing anywhere reporting a problem.
+| # | Symptom | Root cause | Commit |
+|---|---|---|---|
+| 1 | Client crashed on startup indexing creative tooltips | `ItemCreativeStorageCell` was widened to `IBasicCellItem`, so `BasicCellHandler` claimed it before `CreativeCellHandler` | `6b7caf5e0` |
+| 2 | Every non-item key rendered as a missing texture | `WrappedGenericStack` had no model at all | `78e79e257` |
+| 3 | Fluid formation plane placed everything regardless of its filter | `AEFluidInventory` calls the 5-arg `onFluidInventoryChanged`; the interface declared it a no-op default and three parts override the 2-arg one | `b53e12f36` |
+| 4 | Fluid storage bus and fluid level emitter ignored config changes until reload | same dispatch mismatch | `b53e12f36` |
+| 5 | A partitioned Sticky cell accepted nothing at all | `BasicCellInventory` never answered `isPreferredStorageFor`, so the sticky pass did not claim, and the ordinary pass skips sticky mounts | `b53e12f36` |
+| 6 | Terminal tooltip read `Water: 0B` and `Items Stored: 1,000` | display wrapper carried amount 1; the stored line went through a bare `NumberFormat` | `b53e12f36` |
+| 7 | Shift-extraction did not visibly decrement | the view rebuild was suppressed wholesale while shift was held | `5c588f12a` |
+| 8 | A finished job never released its CPU | `KeyCounter.reset()` keeps the keys and `isEmpty()` counts keys — see §9.1a | `ed3b47d31` |
+| 9 | Craftables invisible in a freshly opened terminal; `10 / 10` never counted down; toast said "Air" | initial sync sent only stocked keys; `remainingItemCount` was never decremented; the toast wrapped a stack already counted down to zero | `6211b41d5`, `ed3b47d31` |
 
-Two things worth carrying forward:
+### What the pattern says
 
-- **Widening an interface is a routing change.** `instanceof` checks elsewhere key off that interface, and
-  the compiler cannot see that one of them is a handler-selection race. Before adding an interface to an
-  item, grep for who tests it.
-- **The evidence was already in the tree.** `TileChest.updateHandler`'s javadoc still said the creative cell
-  is expected *not* to declare a key type and to take the `items()` fallback. The item and its own consumer
-  had disagreed in writing for two waves and nothing forced them to agree.
+Three of the nine (3, 4, 8) are **the same kind of mistake**: a call that translated word for word and
+changed meaning. §9.1 predicted this shape for `equals`; §9.1a now records the `reset()`/`isEmpty()`
+instance. Expect more of them, and expect them to be silent — none of these three produced a log line.
 
-Fixed in `6b7caf5e0` by reverting to `ICellWorkbenchItem`, which is also upstream's shape and the pre-port
-shape. `BasicCellInventory` additionally tolerates a null upgrades/config inventory now — defensive only;
-every other `IBasicCellItem` in the tree returns a real `CellUpgrades`, checked.
+Two more (1, 5) are **routing**: an `instanceof` somewhere else keys off an interface, and widening or
+narrowing a type quietly changes who handles it. Before adding an interface to a class, grep for who tests
+it. The compiler cannot see a handler-selection race.
 
-## Still not done — the rest of play-testing
+One (9, first part) is worth remembering on its own: **an initial-sync path and an incremental-diff path can
+each be individually correct and still leave a hole between them.** The constructor seeded
+`previousCraftables`, so the diff had nothing to report; the initial sync only walked stocked keys. Neither
+looked wrong in isolation.
 
-**A green build proves the types line up and nothing else.** No part of this port has been run in a game.
-`CONTRACT.md` §10's "Inventory of at-risk features" is the walk-through list; the four rule-6 violations
-recorded below were all caught by reading, which means the reading was good, not that the code is proven.
+Two changes here were **frozen-API edits** and need owner review under §7: §8.5
+(`wrapForDisplayOrFilter()` wraps with amount 0) and the `KeyCounter.reset()` javadoc, which is
+documentation only.
 
-Worth testing first, because they are where the most behaviour was rewritten with the least type-checking:
+### Still open
 
-1. **Terminal live updates**, both cases — see the section below. Case 2 in particular is a per-tick diff
-   with a copy hazard written into it.
-2. **The storage bus and the buses under a Fuzzy Card**, on items *and* fluids, since the fuzzy path became
-   per-key-type in wave 5 and the fluid buses now read a setting they had ignored since before the port.
-3. **The fluid formation plane's filter**, which is the one place a workaround round-trips through NBT to
-   dodge a frozen shape; if the tag naming ever drifts, the filter goes silently empty.
-4. **The JEI/HEI recipe transfer overlay** — missing/craftable highlighting and middle-click autocraft, the
-   only wave 6 code with real logic in it.
-5. **Save compatibility is deliberately broken.** Test on a new world; an old one is expected to lose cell
-   contents. This is the single sanctioned exception to rule 6.
+- **Enhancements asked for during testing and delivered**: the completion toast names the crafted amount,
+  and the crafting status header shows elapsed time instead of a moving estimate.
+- **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
+  and did not exist pre-port either; it is believed to come from an addon. The data for one exists now that
+  `remainingItemCount` moves, if it is ever wanted.
+- **Untested so far**: patterns and interfaces (item, processing and fluid), P2P tunnels, spatial storage,
+  the ore-dictionary storage bus, and every terminal variant other than the wall terminal.
 
 ## How terminal live updates ended up working
 
