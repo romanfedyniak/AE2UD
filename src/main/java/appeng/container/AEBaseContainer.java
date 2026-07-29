@@ -34,6 +34,7 @@ import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.client.me.SlotME;
@@ -63,6 +64,9 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import org.jetbrains.annotations.NotNull;
+
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -509,6 +513,25 @@ public abstract class AEBaseContainer extends Container {
         return ((AppEngSlot) s).isDraggable();
     }
 
+    /**
+     * @return what the given stack holds, as a key and an amount, or null if it holds nothing this mod can
+     *         name. A fluid container reports its fluid; everything else reports nothing, including an
+     *         already-wrapped placeholder, which is handled by the ordinary path.
+     */
+    @Nullable
+    private static GenericStack containedStackOf(final ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+
+        final FluidStack fluid = FluidUtil.getFluidContained(stack);
+        if (fluid != null && fluid.amount > 0) {
+            return new GenericStack(AEFluidKey.of(fluid), fluid.amount);
+        }
+
+        return null;
+    }
+
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slot, final long id) {
         if (slot >= 0 && slot < this.inventorySlots.size()) {
             final Slot s = this.getSlot(slot);
@@ -587,6 +610,18 @@ public abstract class AEBaseContainer extends Container {
                             s.putStack(doubled);
                         }
                         break;
+                    case EMPTY_ITEM: {
+                        // Set the filter to what the held item *contains* rather than to the item.
+                        // Backported from upstream's InventoryAction.EMPTY_ITEM on fake slots; it is the
+                        // only way to express a fluid filter by hand, since a bucket dropped into a slot
+                        // is otherwise just a bucket. Fluids are the only container type this fork knows;
+                        // a future key type would extend the lookup here rather than the slot.
+                        final GenericStack contained = containedStackOf(hand);
+                        if (contained != null) {
+                            s.putStack(GenericStack.wrapInItemStack(contained));
+                        }
+                        break;
+                    }
                     case CREATIVE_DUPLICATE:
                     case MOVE_REGION:
                     case SHIFT_CLICK:

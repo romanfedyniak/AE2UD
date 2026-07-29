@@ -183,6 +183,20 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         return Collections.emptyList();
     }
 
+    /**
+     * @return true if the stack on the cursor holds a fluid, i.e. clicking a filter slot with it should set
+     *         the filter to that fluid rather than to the container item.
+     */
+    private boolean holdsFluidContainer() {
+        final ItemStack held = this.mc.player.inventory.getItemStack();
+        if (held.isEmpty()) {
+            return false;
+        }
+
+        final FluidStack fluid = FluidUtil.getFluidContained(held);
+        return fluid != null && fluid.amount > 0;
+    }
+
     protected void drawGuiSlot(GuiCustomSlot slot, int mouseX, int mouseY, float partialTicks) {
         if (slot.isSlotEnabled()) {
             final int left = slot.xPos();
@@ -376,7 +390,17 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         if (slot instanceof SlotFake) {
             final InventoryAction action;
-            action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
+            if (mouseButton == 1) {
+                action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
+            } else if (holdsFluidContainer()) {
+                // Left-clicking a filter slot with a bucket or tank in hand sets the filter to the FLUID it
+                // holds, not to the container. Right click still places the container itself, so an item
+                // filter can still be set to a bucket - that is the only way to tell the two apart, since a
+                // bucket is a perfectly ordinary item everywhere else.
+                action = InventoryAction.EMPTY_ITEM;
+            } else {
+                action = InventoryAction.PICKUP_OR_SET_DOWN;
+            }
 
             if (this.drag_click.size() > 1) {
                 return;
