@@ -97,21 +97,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private Stopwatch dbl_clickTimer = Stopwatch.createStarted();
     private ItemStack dbl_whichItem = ItemStack.EMPTY;
     private Slot bl_clicked;
-    private Stopwatch lastClicked = Stopwatch.createStarted();
-    private List<IGhostIngredientHandler.Target<Object>> hoveredIngredientTargets = new ArrayList<>();
-    private Object bookmarkedIngredient;
-    private boolean isDraggingJeiGhostItem;
     private boolean haltDragging = false;
-
-    public void setJeiGhostItem(boolean jeiGhostItem) {
-        isJeiGhostItem = jeiGhostItem;
-    }
-
-    private boolean isJeiGhostItem;
-
-    public Object getBookmarkedIngredient() {
-        return bookmarkedIngredient;
-    }
 
     public List<GuiCustomSlot> getGuiSlots() {
         return guiSlots;
@@ -190,58 +176,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
         }
         GlStateManager.enableDepth();
-        if (Platform.isModLoaded("jei")) {
-            bookmarkedJEIghostItem(mouseX, mouseY);
-        }
         GlStateManager.disableDepth();
     }
 
     public List<Rectangle> getJEIExclusionArea() {
         return Collections.emptyList();
-    }
-
-    @Optional.Method(modid = "jei")
-    void bookmarkedJEIghostItem(final int mouseX, final int mouseY) {
-        if (!isJeiGhostItem) {
-            bookmarkedIngredient = runtime.getBookmarkOverlay().getIngredientUnderMouse();
-        }
-
-        if (bookmarkedIngredient != null) {
-            hoveredIngredientTargets = aeGuiHandler.getTargets(this, bookmarkedIngredient, false);
-            ItemStack dragItem = ItemStack.EMPTY;
-            if (hoveredIngredientTargets.size() > 0) {
-                if (isShiftKeyDown() && Mouse.isButtonDown(0) && this.lastClicked.elapsed(TimeUnit.MILLISECONDS) > 200) {
-                    this.lastClicked = Stopwatch.createStarted();
-                    aeGuiHandler.getTargets(this, bookmarkedIngredient, true);
-                } else if (Mouse.isButtonDown(0) && this.lastClicked.elapsed(TimeUnit.MILLISECONDS) > 200) {
-                    this.lastClicked = Stopwatch.createStarted();
-                    if (bookmarkedIngredient instanceof ItemStack) {
-                        dragItem = ((ItemStack) bookmarkedIngredient);
-                    } else if (bookmarkedIngredient instanceof FluidStack) {
-                        dragItem = FluidUtil.getFilledBucket(((FluidStack) bookmarkedIngredient));
-                    }
-                    mc.player.inventory.setItemStack(dragItem.copy());
-                    this.isJeiGhostItem = true;
-                }
-                drawTargets(mouseX, mouseY);
-            }
-        }
-    }
-
-    private void drawTargets(int mouseX, int mouseY) {
-        GlStateManager.disableLighting();
-        for (IGhostIngredientHandler.Target target : hoveredIngredientTargets) {
-            Rectangle area = target.getArea();
-            Color color;
-            if (area.contains(mouseX, mouseY)) {
-                color = new Color(76, 201, 25, 128);
-            } else {
-                color = new Color(19, 201, 10, 64);
-            }
-            Gui.drawRect(area.x, area.y, area.x + area.width, area.y + area.height, color.getRGB());
-        }
-        GlStateManager.color(1f, 1f, 1f, 1f);
-        GlStateManager.enableDepth();
     }
 
     protected void drawGuiSlot(GuiCustomSlot slot, int mouseX, int mouseY, float partialTicks) {
@@ -435,34 +374,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
         final EntityPlayer player = Minecraft.getMinecraft().player;
 
-        if (this.isJeiGhostItem && isDraggingJeiGhostItem) {
-            for (IGhostIngredientHandler.Target target : hoveredIngredientTargets) {
-                Rectangle area = target.getArea();
-                final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
-                final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
-
-                if (area.contains(x, y)) {
-                    target.accept(bookmarkedIngredient);
-                    break;
-                }
-            }
-            this.isJeiGhostItem = false;
-            this.isDraggingJeiGhostItem = false;
-
-            ItemStack dragItem = ItemStack.EMPTY;
-            if (runtime.getBookmarkOverlay().getIngredientUnderMouse() != null) {
-                bookmarkedJEIghostItem(Mouse.getX(), this.mc.displayHeight - Mouse.getY());
-                if (bookmarkedIngredient instanceof ItemStack) {
-                    dragItem = ((ItemStack) bookmarkedIngredient);
-                } else if (bookmarkedIngredient instanceof FluidStack) {
-                    dragItem = FluidUtil.getFilledBucket(((FluidStack) bookmarkedIngredient));
-                }
-                mc.player.inventory.setItemStack(dragItem.copy());
-                this.isJeiGhostItem = true;
-            } else {
-                mc.player.inventory.setItemStack(dragItem);
-            }
-        } else if (slot instanceof SlotFake) {
+        if (slot instanceof SlotFake) {
             final InventoryAction action;
             action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
 
@@ -636,11 +548,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
 
             this.disableShiftClick = false;
-        }
-
-        if (clickType == ClickType.PICKUP && isJeiGhostItem && !isDraggingJeiGhostItem) {
-            this.isDraggingJeiGhostItem = true;
-            return;
         }
 
         super.handleMouseClick(slot, slotIdx, mouseButton, clickType);

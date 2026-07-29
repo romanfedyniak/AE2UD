@@ -28,7 +28,6 @@ import appeng.client.render.effects.*;
 import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
-import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.Api;
@@ -287,22 +286,6 @@ public class ClientHelper extends ServerHelper {
     private void spawnLightningArc(final World world, final double posX, final double posY, final double posZ, final Vec3d second) {
         final LightningFX fx = new LightningArcFX(world, posX, posY, posZ, second.x, second.y, second.z, 0.0f, 0.0f, 0.0f);
         Minecraft.getMinecraft().effectRenderer.addEffect(fx);
-    }
-
-    @SubscribeEvent
-    public void MouseClickEvent(final GuiScreenEvent.MouseInputEvent.Pre me) {
-        final Minecraft mc = Minecraft.getMinecraft();
-        if (mc.currentScreen instanceof IJEIGhostIngredients) {
-            AEBaseGui gui = ((AEBaseGui) mc.currentScreen);
-            Object ingredient = gui.getBookmarkedIngredient();
-            if (ingredient != null) {
-                if (GuiScreen.isShiftKeyDown()) {
-                    me.setCanceled(true);
-                } else if (Mouse.isButtonDown(0)) {
-                    me.setCanceled(true);
-                }
-            }
-        }
     }
 
     @SubscribeEvent
