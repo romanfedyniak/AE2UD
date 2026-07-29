@@ -19,8 +19,10 @@
 package appeng.tile.inventory;
 
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.fluids.items.FluidDummyItem;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
@@ -31,6 +33,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
+
+import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,7 +82,21 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             return null;
         }
         final GenericStack unwrapped = GenericStack.unwrapItemStack(stack);
-        return unwrapped != null ? unwrapped : GenericStack.fromItemStack(stack);
+        if (unwrapped != null) {
+            return unwrapped;
+        }
+
+        // The fluid-only placeholder predates GenericStack.Wrapper and is what the legacy fluid GUIs still
+        // hand out, so a fluid dragged from one of those into any filter would otherwise land as the
+        // placeholder item itself. Goes away with FluidDummyItem when appeng.fluids is decomposed.
+        if (stack.getItem() instanceof FluidDummyItem dummy) {
+            final FluidStack fluid = dummy.getFluidStack(stack);
+            if (fluid != null && fluid.amount > 0) {
+                return new GenericStack(AEFluidKey.of(fluid), fluid.amount);
+            }
+        }
+
+        return GenericStack.fromItemStack(stack);
     }
 
     public GenericStack getAEStackInSlot(final int var1) {
