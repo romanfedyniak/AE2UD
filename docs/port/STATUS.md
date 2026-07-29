@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated after
-wave 4, 2026-07-29.
+wave 5, 2026-07-29.
 
 Branch: `feature/generic-storage`.
 
@@ -32,22 +32,24 @@ surface; §9 is the class-by-class registry of what every wave produced. Anyone 
 | `814b8a864` | — | wave 4 prerequisites: `GridInventoryEntry`, `extractItemsByRecipe` takes `AEKeyFilter` |
 | `b7c364a6a` | — | wave 4 cross-agent signatures fixed in the contract |
 | `f6c12d6c0` | 4 | `appeng.container`, `appeng.client`, `appeng.core.sync.packets` (51 files) |
+| `0b0c253b9` | — | wave 5 prerequisites: the six fluid types the agents meet at |
+| `e85dcaf31` | — | wave 5 cross-agent surfaces pinned in the contract |
+| `5d757ea55` | 5 | `appeng.fluids` (38 files), plus the fluid strategy registrations |
+| `2f1818b92` | — | per-type fuzzy documented; the formation-plane filter trap documented |
 
 ## Where the work stands
 
-Done: waves 0-4. No non-comment references to the old model remain in `appeng.util`, `appeng.me`,
-`appeng.crafting`, `appeng.tile`, `appeng.helpers`, `appeng.core`, `appeng.parts`, `appeng.items`,
-`appeng.recipes`, `appeng.container` or `appeng.client`.
+Done: waves 0-5. **The whole of `appeng.fluids` is migrated**, and the deleted-symbol scan over
+`src/main/java/appeng` now returns nothing outside `integration/modules`.
 
-Remaining broken files, by package:
+Remaining:
 
 | Wave | Packages | Files |
 |---|---|---:|
-| 5 | `fluids/*` (parts 9, util 8, container 8, client 6, helper 3, registries 1, items 1) | 36 |
-| 6 | `integration/modules` 7, plus the HEI dependency swap | 7 |
+| 6 | `integration/modules` 7, plus the HEI dependency swap and a green `gradlew build` | 7 |
 
-The scattered single hits in `me/*`, `crafting/*`, `util/*`, `tile/*`, `parts/*`, `items/*` are comments
-and one class that is merely *named* `IMEInventoryDestination`. They are not work.
+One class is merely *named* `IMEInventoryDestination` and matches the scan pattern by accident. It is not
+work.
 
 ## How to check where you are
 
@@ -116,22 +118,13 @@ the table:
 
 Nothing here changes behaviour a player can observe; it is purely how the same delta is computed.
 
-### Debt wave 4 handed to wave 5
+### Debt wave 4 handed to wave 5 — all discharged
 
-Wave 4 wrote against these `appeng.fluids` shapes; wave 5 must produce them:
-- `IAEFluidTank.getFluidInSlot(int)` / `setFluidInSlot(int, GenericStack)` become `GenericStack`-typed
-  (mirrors the `AppEngInternalAEInventory.getAEStackInSlot(int): GenericStack` rename from wave 2).
-  `ContainerFluidInterfaceConfigurationTerminal` and `GuiFluidInterfaceConfigurationTerminal` already
-  call it that way, and both halves round-trip NBT through `GenericStack.writeTag`/`readTag`.
-- `IFluidSyncContainer.receiveFluidSlots(Map<Integer, GenericStack>)`, and `FluidSyncHelper` to match.
-- `IMEFluidSlot.getAEFluidStack()` becomes `getGenericStack()` (mirrors `ItemSlot`'s wave 1a rename).
-- `FluidSorters`' comparators become `Comparator<Object2LongMap.Entry<AEKey>>` (mirrors `ItemSorters`).
-- `FluidStackSizeRenderer` needs a `(FontRenderer, GenericStack, int, int)` overload.
-- `ContainerFluidTerminal` / `ContainerWirelessFluidTerminal` / `ContainerFluidInterface` /
-  `ContainerMEPortableFluidCell`: `setTargetStack(AEKey)`, and `postUpdate(List<GridInventoryEntry>)` on
-  the fluid terminals. `PacketMEFluidInventoryUpdate` was deliberately **kept as its own class** rather
-  than merged into `PacketMEInventoryUpdate`; merging them is a later decision, not wave 5's to take
-  silently.
+Every `appeng.fluids` shape wave 4 wrote against was produced by wave 5, most of them by hand before the
+wave started. One decision from that list is still open and was deliberately not taken:
+`PacketMEFluidInventoryUpdate` remains **its own class** rather than being merged into
+`PacketMEInventoryUpdate`. Merging them is a later call, and no wave has been authorised to take it
+silently.
 
 ### Still not delivered from wave 4's own brief
 
@@ -145,14 +138,51 @@ Wave 4 wrote against these `appeng.fluids` shapes; wave 5 must produce them:
   `appeng.client` is now generic over `AEKey`/`GenericStack`, so once wave 5 registers the fluid
   strategies the same terminal shows fluid rows with no further client change.
 
-## Wave 5 — file list
+## Wave 5 — done, and what it left behind
 
-36 files, all under `appeng.fluids`: `parts` 9, `util` 8, `container` 8, `client` 6, `helper` 3,
-`registries` 1, `items` 1. A natural split is parts+registries / util / container+client+helper.
+38 files across four parallel agents (parts+registries+items 11 / util+helper 8 / container 6 / client 5),
+plus six prerequisites done by hand first because more than one agent met at them: `IAEFluidTank`,
+`IFluidSyncContainer`, `IMEFluidSlot`, `FluidSyncHelper`, `FluidSorters` and `FluidStackSizeRenderer`.
+Both are documented in `CONTRACT.md` §9's "Wave 5 prerequisites" subsection; per-agent detail is in §9's
+Wave 5a-5d entries. The strategy layer paid off exactly as planned: registering the fluid import, export,
+placement, pickup and external-storage strategies is all it took to make the *already migrated* generic
+buses and storage bus serve fluids, and no fluid branch was added to any wave-3 part.
 
-Wave 5 is where the strategy layer pays off: registering the fluid import, export, placement, pickup and
-external-storage strategies is what makes the *already migrated* generic buses and storage bus handle
-fluids. Do not add fluid branches to the wave-3 parts.
+### The one design trap wave 5 uncovered — read this before writing another key type
+
+The frozen `PartAbstractFormationPlane.getConfigInventory()` returns a concrete
+`AppEngInternalAEInventory`, and its wave-3a javadoc claimed any key type could live there via
+`GenericStack.wrapInItemStack`. **That was wrong.** `AppEngInternalAEInventory.setStackInSlot`/`insertItem`
+build slot contents with `GenericStack.fromItemStack`, which never unwraps a placeholder stack and always
+yields an `AEItemKey`. A fluid filter populated through the `IItemHandler` surface would therefore have
+silently become a permanent no-op — the plane would place everything, and nothing would have reported an
+error. Agent 5-A caught it and worked around it by keeping the real `AEFluidInventory` GUI-facing and
+mirroring it into a private `AppEngInternalAEInventory` through `GenericStack.writeTag`/`readFromNBT`,
+which are type-erased. The misleading javadoc is now corrected in place with the full explanation.
+
+The general lesson: **the slots can hold any key; the item-handler mutation surface cannot put one there.**
+
+### Also settled in wave 5
+
+- **The Fuzzy Card is decided per key type, not per part** — `AEKeyType.supportsFuzzyRangeSearch()` plus
+  `AEKey.getFuzzySearchValue()`/`getFuzzySearchMaxValue()`, and nothing else. Full table and the two
+  counter-intuitive consequences are in `CONTRACT.md` §10. Wave 5 made the legacy `PartFluidImportBus` and
+  `PartFluidStorageBus` read the setting they had registered since before the port but never consulted, so
+  they now match the generic buses.
+- **`Platform.poweredInsert` returns the amount inserted, not the remainder** — the opposite of the old
+  `IAEStack`-era signature, which returned what would not fit. Any wave-2-or-later code carrying over that
+  subtraction dance is wrong. Verified correct in `DualityFluidInterface.usePlan`.
+- **`AEFluidStack`, `FluidList` and `MeaningfulFluidIterator` are deleted**, matching the item-side trio
+  wave 0 removed.
+
+### Pre-existing defect found, deliberately not fixed
+
+`PacketMEFluidInventoryUpdate.clientPacketData` dispatches only to `GuiFluidTerminal` and
+`GuiWirelessFluidTerminal`, never to `GuiMEPortableFluidCell` directly — so the portable fluid cell's own
+screen gets no live updates. `git show 1e855f729` confirms the dispatch list is **unchanged** since before
+the migration, so this is an inherited fork defect, not a port regression. Rule 6 forbids removing
+mechanics; it does not oblige this port to repair old ones. Fixing it is a one-line addition whenever
+someone wants it.
 
 ## Wave 6 — file list
 
@@ -163,7 +193,12 @@ fluids. Do not add fluid branches to the wave-3 parts.
 Then: swap the JEI dependency for HEI in `build.gradle:583` (see `CONTRACT.md` §8.2 — HEI is a drop-in
 CleanroomMC fork of JEI), and get `gradlew build` green.
 
-## Before starting wave 5 — read this
+## Before starting wave 6 — read this
+
+Wave 6 is the first wave since wave 0 that ends with a **compiling build**. `gradlew compileApiJava` stops
+being the only gate; `gradlew build` becomes the real one, and it will surface every mistake the previous
+five waves made that no scan could catch. Budget for that: the seven `integration/modules` files are the
+smallest part of the wave.
 
 ### How terminal live updates ended up working
 
@@ -174,21 +209,9 @@ only ever installs a watcher on a node's *machine* — a container is not a grid
 Case 2 (server-side per-tick diff) covers the portable cell, the ME chest, the security station and — see
 the open question above — the wireless terminal. Neither case needed an addition to the frozen API.
 
-Wave 5's fluid terminals inherit this: `ContainerFluidTerminal` and `ContainerMEPortableFluidCell` face
-the same split, and a fluid terminal part that extends `AbstractPartTerminal` gets case 1 for free.
-
-### Wave 5 notes already written down
-
-- `appeng.fluids.items.BasicFluidStorageCell` must become `extends AbstractStorageCell` (non-generic) with
-  `getKeyType() { return AEKeyType.fluids(); }`.
-- `PartFluidFormationPlane` must extend the new non-generic `PartAbstractFormationPlane` and implement
-  `getKeyType()` / `insert()` / `getConfigInventory()`. Formation planes stay **split** into item and fluid
-  parts (AE2UD's existing shape), not merged as upstream did.
-- Wave 5 registers the fluid import/export/placement/pickup and external-storage strategies. Once it does,
-  the existing generic bus and storage bus serve fluids with no further change — that plumbing is already
-  in place from wave 3.
-- `BasicFluidCellGuiHandler` registers through `StorageCells.addCellGuiHandler` now, not the deleted
-  `CellRegistry`.
+Wave 5 confirmed the split holds for fluids: `ContainerFluidTerminal` got case 1 for free because
+`PartFluidTerminal extends AbstractPartTerminal`, and `ContainerMEPortableFluidCell` is case 2
+unconditionally, since an `IPortableCell` is never an `AbstractPartTerminal`.
 
 ## Standing rules that have already been broken in practice
 
@@ -274,6 +297,29 @@ configuration terminal disagreed on the NBT wire format — the container still 
 `AEFluidStack.writeToNBT` while the screen already read through `GenericStack.readTag`. Neither agent was
 wrong within its own file list, and with no compiler there is nothing but a manual read to catch it. Run
 the deleted-symbol scan over the finished wave's packages before committing.
+
+**Verify the claims in a report, do not accept them.** This is what wave 5 actually cost, and it is where
+the value was. Every agent reported honestly, and the reports were still worth checking one by one:
+
+- A claim that a mechanic *never existed* is the one most worth testing, because it is indistinguishable
+  from having destroyed it. Wave 5's agent said `ContainerFluidStorageBus` never had `Settings.STICKY_MODE`
+  — true, confirmed against `1e855f729`, and confirmed *meaningful* by running the same grep against the
+  item-side container, which does have it. A grep that finds nothing proves nothing until you have seen it
+  find something.
+- A claim that a dropped call was *pure optimisation* needs the control flow traced, not skimmed. Wave 5
+  removed a `findPrecise` pre-check in `DualityFluidInterface.usePlan`; the old `else if` meant a miss left
+  `changed == false`, and so does a `poweredExtraction` returning 0. Equivalent — but only by reading both.
+- A sign flip hides in any signature that changed meaning. `Platform.poweredInsert` used to return the
+  **remainder**; it now returns the **inserted** amount. Code that carried over the old subtraction would
+  compile and silently misbehave.
+- When an agent works around a frozen shape, verify the workaround's own seam. Wave 5's formation-plane
+  fix round-trips through NBT; it only works because both sides agree on `"#" + slot` and on
+  `GenericStack.writeTag`/`readTag`. Had the tag naming differed, the filter would have gone silently
+  empty — the exact regression the workaround existed to prevent.
+
+**When a wave finds that a frozen javadoc is wrong, fix the javadoc in place.** Wave 5 found that
+`PartAbstractFormationPlane.getConfigInventory()` documented a capability the class does not have. Leaving
+that for a later wave to rediscover is how the same trap gets sprung twice.
 
 Reference sources to keep checked out locally: modern upstream Applied Energistics 2 (the reference
 implementation for every ported class), the AE2 GTNH fork and AE2FluidCraft-Rework-Unofficial (older
