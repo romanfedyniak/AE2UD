@@ -50,6 +50,7 @@ now answerable rather than a matter of opinion.
 | `a41e140bb` | — | terminal sort made a total order; partition tooltip names the item |
 | `279b73791` | — | Identity Annihilation Plane removed, api definition included |
 | `daf3523d9` | — | the fork's own HEI bookmark handler removed (revertable experiment) |
+| — | — | shift-place moved onto HEI's `quickMove` hook |
 
 ## Where the work stands
 
@@ -303,11 +304,12 @@ The standard ghost-drag path is untouched: `AEGuiHandler`, `IJEIGhostIngredients
 
 - *Dragging from the bookmark list into a filter does nothing.* It does nothing in other mods either, so it
   is HEI's own behaviour, not something this code ever provided.
-- *Shift-clicking a bookmark both fills the pattern slot and puts a stack on the cursor.* The first half is
-  ours (`AEGuiHandler.getTargets` auto-accepts on shift). The second is HEI's **cheat items mode**
-  (`BookmarkOverlay.handleMouseClicked` → `Config.isCheatItemsEnabled()` → `CommandUtil.giveStack`), which
-  does the same in every GUI of every mod. With cheat items off it does not happen. The old click-swallowing
-  hid it, at the cost of the recipe click.
+- *Shift-clicking a bookmark both filled the pattern slot and left a ghost on the cursor.* **Fixed** — this
+  one was ours after all. The shift-place was done inside `AEGuiHandler.getTargets`, which is a query, and
+  which HEI calls *while starting the drag it is about to run*: the ingredient got placed and then dragged.
+  HEI has a hook meant exactly for this, `IGhostIngredientHandler.quickMove`, called first and skipping the
+  drag entirely when it returns true. It did not exist in JEI 4.16, which this code was written against; it
+  arrived in HEI 4.30.2, so the wave 6 dependency swap is what made the proper fix available.
 
 ### Still open
 

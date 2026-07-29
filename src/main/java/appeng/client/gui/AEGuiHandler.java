@@ -13,10 +13,8 @@ import appeng.container.interfaces.ISpecialSlotIngredient;
 import appeng.container.slot.IJEITargetSlot;
 import mezz.jei.api.gui.IAdvancedGuiHandler;
 import mezz.jei.api.gui.IGhostIngredientHandler;
-import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
-import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -123,20 +121,38 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             List<Target<?>> phantomTargets = g.getPhantomTargets(ingredient);
             targets.addAll((List<Target<I>>) (Object) phantomTargets);
         }
-        if (doStart && GuiScreen.isShiftKeyDown() && Mouse.isButtonDown(0)) {
-            if (gui instanceof GuiUpgradeable || gui instanceof GuiPatternTerm || gui instanceof GuiExpandedProcessingPatternTerm) {
-                IJEIGhostIngredients ghostGui = ((IJEIGhostIngredients) gui);
-                for (Target<I> target : targets) {
-                    if (ghostGui.getFakeSlotTargetMap().get(target) instanceof IJEITargetSlot jeiSlot) {
-                        if (jeiSlot.needAccept()) {
-                            target.accept(ingredient);
-                            break;
-                        }
-                    }
-                }
+        return targets;
+    }
+
+    /**
+     * Shift-click places the ingredient straight into the first slot that will take it, instead of starting
+     * a drag.
+     * <p>
+     * This used to be done inside {@link #getTargets}, which is a query rather than an action - and, worse,
+     * one HEI calls <em>while starting the drag it is about to run</em>. The ingredient was therefore both
+     * placed in the slot and left hanging off the cursor as a ghost. {@code quickMove} is the hook meant for
+     * this: HEI calls it first, and a {@code true} return skips the targeting and drag logic entirely. It
+     * did not exist in JEI 4.16, which this code was originally written against; it arrived in HEI 4.30.2,
+     * so the workaround only became removable when the dependency was switched in wave 6.
+     */
+    @Override
+    public <I> boolean quickMove(@Nonnull AEBaseGui gui, @Nonnull I ingredient) {
+        if (!(gui instanceof GuiUpgradeable || gui instanceof GuiPatternTerm || gui instanceof GuiExpandedProcessingPatternTerm)) {
+            return false;
+        }
+
+        if (!(gui instanceof IJEIGhostIngredients ghostGui)) {
+            return false;
+        }
+
+        for (Target<I> target : this.getTargets(gui, ingredient, false)) {
+            if (ghostGui.getFakeSlotTargetMap().get(target) instanceof IJEITargetSlot jeiSlot && jeiSlot.needAccept()) {
+                target.accept(ingredient);
+                return true;
             }
         }
-        return targets;
+
+        return false;
     }
 
     @Override
