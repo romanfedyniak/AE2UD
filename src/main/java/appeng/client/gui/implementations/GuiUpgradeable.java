@@ -221,7 +221,11 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         List<IJEITargetSlot> slots = new ArrayList<>();
         if (!this.inventorySlots.inventorySlots.isEmpty()) {
             for (Slot slot : this.inventorySlots.inventorySlots) {
-                if (slot instanceof SlotFake && (!itemStack.isEmpty() || this instanceof GuiCellWorkbench && fluidStack != null)) {
+                // A filter slot is a valid drop target for a fluid too, not just for an item. This used to
+                // be allowed only in the cell workbench, because that was the one screen whose filter could
+                // express a fluid at all; every other filter silently offered no target, so a dragged fluid
+                // simply did nothing. Config inventories hold any key now, so the exception is the rule.
+                if (slot instanceof SlotFake && (!itemStack.isEmpty() || fluidStack != null)) {
                     slots.add((IJEITargetSlot) slot);
                 }
             }
@@ -253,8 +257,15 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                     PacketInventoryAction p = null;
                     try {
                         if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                            if (finalItemStack.isEmpty() && finalFluidStack != null) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(FluidUtil.getFilledBucket(finalFluidStack)));
+                            // A container dropped on a filter sets the filter to what it HOLDS, and a
+                            // dragged fluid goes in as itself. Both used to end up as a filled bucket,
+                            // because a filter slot could only ever express an item - and a bucket filter
+                            // is a different thing, matching a bucket in a chest rather than water in a
+                            // tank, so it looked right and quietly matched nothing. The bucket itself is
+                            // still reachable by hand: right click places the item, left click its
+                            // contents, the same rule with a modifier the ghost drag does not have.
+                            if (finalFluidStack != null) {
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                             } else if (!finalItemStack.isEmpty()) {
                                 p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(finalItemStack));
                             }
