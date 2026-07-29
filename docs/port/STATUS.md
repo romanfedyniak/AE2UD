@@ -46,6 +46,10 @@ now answerable rather than a matter of opinion.
 | `5c588f12a` | — | terminal counts move while shift freezes the row order |
 | `ed3b47d31` | — | crafting CPU released on completion; toast identity |
 | `6211b41d5` | — | craftables sent on terminal open; crafting progress counts down |
+| `820798123` | — | world unload no longer aborts when a node is mid-propagation |
+| `a41e140bb` | — | terminal sort made a total order; partition tooltip names the item |
+| `279b73791` | — | Identity Annihilation Plane removed, api definition included |
+| `daf3523d9` | — | the fork's own HEI bookmark handler removed (revertable experiment) |
 
 ## Where the work stands
 
@@ -282,6 +286,28 @@ looked wrong in isolation.
 Two changes here were **frozen-API edits** and need owner review under §7: §8.5
 (`wrapForDisplayOrFilter()` wraps with amount 0) and the `KeyCounter.reset()` javadoc, which is
 documentation only.
+
+### HEI bookmarks — the fork's own handler was removed, deliberately
+
+AE GUIs would not let a click on a bookmarked ingredient open its recipe, while other mods would. The cause
+was `ClientHelper.MouseClickEvent`, which cancelled the entire mouse-input event whenever the cursor sat
+over a bookmarked ingredient with shift or left-button down — and `AEBaseGui` refreshed that ingredient
+every frame the mouse hovered the overlay, so in practice every left click there was swallowed before HEI
+saw it. Removed in `daf3523d9` along with the parallel bookmark implementation it existed to serve
+(`bookmarkedJEIghostItem`, `drawTargets`, the cursor-carry state machine in `handleMouseClick`).
+
+The standard ghost-drag path is untouched: `AEGuiHandler`, `IJEIGhostIngredients` and every
+`getPhantomTargets` are still registered, and dragging from the ingredient list still works.
+
+**Two behaviours that look like bugs and are not:**
+
+- *Dragging from the bookmark list into a filter does nothing.* It does nothing in other mods either, so it
+  is HEI's own behaviour, not something this code ever provided.
+- *Shift-clicking a bookmark both fills the pattern slot and puts a stack on the cursor.* The first half is
+  ours (`AEGuiHandler.getTargets` auto-accepts on shift). The second is HEI's **cheat items mode**
+  (`BookmarkOverlay.handleMouseClicked` → `Config.isCheatItemsEnabled()` → `CommandUtil.giveStack`), which
+  does the same in every GUI of every mod. With cheat items off it does not happen. The old click-swallowing
+  hid it, at the cost of the recipe click.
 
 ### Still open
 
