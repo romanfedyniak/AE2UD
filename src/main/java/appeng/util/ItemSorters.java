@@ -40,7 +40,12 @@ public class ItemSorters {
 
     public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
     {
-        final int cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+        int cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
@@ -52,12 +57,25 @@ public class ItemSorters {
             cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
         }
 
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
     public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
     {
-        final int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
+        int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
+
+        if (cmp == 0) {
+            cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+        }
+
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
@@ -69,7 +87,12 @@ public class ItemSorters {
             return CONFIG_BASED_SORT_BY_NAME.compare(o1, o2);
         }
 
-        final int cmp = api.compareItems(o1.getKey().wrapForDisplayOrFilter(), o2.getKey().wrapForDisplayOrFilter());
+        int cmp = api.compareItems(o1.getKey().wrapForDisplayOrFilter(), o2.getKey().wrapForDisplayOrFilter());
+
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
@@ -101,6 +124,19 @@ public class ItemSorters {
 
     public static void setDirection(final SortDir direction) {
         Direction = direction;
+    }
+
+    /**
+     * Last-resort ordering so no two distinct keys ever compare equal.
+     * <p>
+     * Without it the sort is only a partial order, and the rows that tie fall back to whatever order the
+     * repo's backing hash map happens to iterate in - which changes as rows are added and removed. Two
+     * fluids both holding exactly one bucket would visibly swap places every time the player pulled an
+     * unrelated item out of the terminal.
+     */
+    private static int identityTieBreak(final AEKey a, final AEKey b) {
+        final int cmp = String.valueOf(a.getId()).compareTo(String.valueOf(b.getId()));
+        return cmp != 0 ? cmp : Integer.compare(a.hashCode(), b.hashCode());
     }
 
     private static int applyDirection(int cmp) {

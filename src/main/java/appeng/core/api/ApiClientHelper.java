@@ -97,16 +97,17 @@ public class ApiClientHelper implements IClientHelper {
                             size += entry.getLongValue();
                         }
 
-                        final int[] ids = OreDictionary.getOreIDs(is);
-                        if (is.getItem().isDamageable()) {
-                            lines.add("[" + is.getDisplayName() + "]" + ": " + size);
-                        } else if (ids.length > 0) {
-                            final StringBuilder sb = new StringBuilder();
-                            for (final int j : ids) {
-                                sb.append(OreDictionary.getOreName(j)).append(", ");
-                            }
-                            lines.add("[{" + sb.substring(0, sb.length() - 2) + "}]" + ": " + key.formatAmount(size, AmountFormat.FULL));
-                        }
+                        // The configured item's own name, for every case.
+                        //
+                        // This used to print the ore-dictionary names of a non-damageable item instead -
+                        // "[{dyeBlack, dye}]" for an ink sac - which was both unreadable and misleading:
+                        // a fuzzy partition matches through AEKey.fuzzyEquals, which for items means "same
+                        // item, damage ignored". It has nothing to do with the ore dictionary, so those
+                        // names described a grouping the cell does not actually use.
+                        //
+                        // It also had no else branch, so a non-damageable item with no ore-dictionary
+                        // entry at all printed no line whatsoever.
+                        lines.add("[" + is.getDisplayName() + "]" + ": " + key.formatAmount(size, AmountFormat.FULL));
                     }
                 }
             }

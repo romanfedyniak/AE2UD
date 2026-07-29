@@ -46,7 +46,12 @@ public class FluidSorters {
 
     public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
     {
-        final int cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
+        int cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
+
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
@@ -58,12 +63,25 @@ public class FluidSorters {
             cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
         }
 
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
     public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
     {
-        final int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
+        int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
+
+        if (cmp == 0) {
+            cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
+        }
+
+        if (cmp == 0) {
+            cmp = identityTieBreak(o1.getKey(), o2.getKey());
+        }
+
         return applyDirection(cmp);
     };
 
@@ -73,6 +91,15 @@ public class FluidSorters {
 
     public static void setDirection(final SortDir direction) {
         Direction = direction;
+    }
+
+    /**
+     * See {@code ItemSorters.identityTieBreak}: without a total order, tying rows fall back to the backing
+     * map's iteration order and visibly swap places whenever an unrelated row is added or removed.
+     */
+    private static int identityTieBreak(final AEKey a, final AEKey b) {
+        final int cmp = String.valueOf(a.getId()).compareTo(String.valueOf(b.getId()));
+        return cmp != 0 ? cmp : Integer.compare(a.hashCode(), b.hashCode());
     }
 
     private static int applyDirection(int cmp) {
