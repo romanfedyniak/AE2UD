@@ -41,6 +41,7 @@ now answerable rather than a matter of opinion.
 | `2f1818b92` | — | per-type fuzzy documented; the formation-plane filter trap documented |
 | `e1ce42413` | 6 | `integration/modules` (7 files), the HEI swap, and the 26 fixes the first compile exposed |
 | `6b7caf5e0` | — | first in-game launch: creative cell was being claimed by the wrong cell handler |
+| `78e79e257` | — | second launch: the generic stack wrapper had no model |
 
 ## Where the work stands
 
@@ -134,12 +135,16 @@ silently.
 
 ### Still not delivered from wave 4's own brief
 
-- `appeng.items.misc.WrappedGenericStack` still has **no client-side model or texture**, so a wrapped
-  non-item key in a slot renders as a missing texture. The precedent to follow is
-  `FluidDummyItem`/`FluidDummyItemRendering`: GUI code draws the wrapped content's own icon rather than
-  giving the placeholder item a texture of its own.
-- The `AEKeyType` button icons from wave 2 are still placeholders, and nothing in `appeng.client` calls
-  `AEKeyType`'s button-texture accessors yet — there is currently no consumer at all.
+- ~~`appeng.items.misc.WrappedGenericStack` has no client-side model~~ — **done in `78e79e257`**, after the
+  second in-game launch logged a missing model for `wrapped_generic_stack#inventory`. It follows
+  `FluidDummyItem`'s three pieces exactly (built-in `IModel`, dispatching baked model,
+  `ItemRenderingCustomizer`), and what to draw is decided by the key type rather than by the renderer: a
+  fluid key draws its own still texture, an item key its own model, anything else
+  `AEKeyType.getButtonIcon()`.
+- The `AEKeyType` button icons from wave 2 are still placeholder vanilla items (a chest, a water bucket),
+  but they are **no longer unused**: the wrapper's model is their first consumer, so a new key type now gets
+  a working placeholder icon out of the accessor it already had to implement. The button *texture* accessor
+  still has no caller.
 - The generic half of the multi-type filter GUI *is* done: every slot, repo and render path in
   `appeng.client` is now generic over `AEKey`/`GenericStack`, so once wave 5 registers the fluid
   strategies the same terminal shows fluid rows with no further client change.
