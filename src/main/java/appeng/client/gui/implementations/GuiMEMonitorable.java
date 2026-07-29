@@ -167,6 +167,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (!this.delayedUpdate) {
             this.repo.updateView();
             this.setScrollBar();
+        } else {
+            // Shift is held over an ME slot: keep the rows where they are so a burst of shift-clicks stays
+            // on one item, but let the counts move. Freezing both is what made a shift-extraction look like
+            // it had not happened until the key was released.
+            this.repo.refreshViewAmounts();
         }
     }
 
@@ -512,6 +517,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (!this.delayedUpdate) {
             this.repo.updateView();
             this.setScrollBar();
+        } else {
+            this.repo.refreshViewAmounts();
         }
         super.updateScreen();
     }

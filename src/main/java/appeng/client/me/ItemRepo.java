@@ -208,6 +208,36 @@ public class ItemRepo {
         return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
     }
 
+    /**
+     * Refreshes the amounts of the rows already on screen, in place, without re-filtering or re-sorting.
+     * <p>
+     * This is what a terminal does while the player holds shift over an ME slot: the row must not move,
+     * or a series of shift-clicks lands on whatever slid under the cursor, but the count still has to
+     * count down. {@link #updateView()} cannot be used for that - it rebuilds and re-sorts - and doing
+     * nothing at all leaves the view holding the {@link GridInventoryEntry} objects from before the
+     * change, since they are immutable and only the map behind them was updated.
+     * <p>
+     * A row whose key has disappeared entirely is zeroed rather than removed, for the same reason: it
+     * would shift every row after it.
+     */
+    public void refreshViewAmounts() {
+        final Enum viewMode = this.sortSrc.getSortDisplay();
+
+        for (int i = 0; i < this.view.size(); i++) {
+            final GridInventoryEntry shown = this.view.get(i);
+            final GridInventoryEntry current = this.entries.get(shown.getWhat());
+
+            if (current == null) {
+                this.view.set(i, new GridInventoryEntry(shown.getWhat(), 0, 0, false));
+            } else if (viewMode == ViewItems.CRAFTABLE) {
+                // Matches addEntry's zero-copy: this view shows what can be made, not what is stocked.
+                this.view.set(i, current.withStoredAmount(0));
+            } else {
+                this.view.set(i, current);
+            }
+        }
+    }
+
     private void addEntry(GridInventoryEntry entry, Enum viewMode) {
 
         final boolean needsZeroCopy = viewMode == ViewItems.CRAFTABLE;
