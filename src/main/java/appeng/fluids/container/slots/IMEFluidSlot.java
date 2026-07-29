@@ -19,16 +19,31 @@
 package appeng.fluids.container.slots;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
+
+import javax.annotation.Nullable;
 
 
 /**
+ * A slot that draws a fluid rather than an item.
+ * <p/>
+ * {@code IAEFluidStack getAEFluidStack()} became {@code GenericStack getGenericStack()} in wave 5's
+ * prerequisites - the exact rename {@code appeng.util.inv.ItemSlot} already got in wave 1a
+ * ({@code getAEItemStack()} -> {@code getGenericStack()}, CONTRACT.md §9 wave 1a). Nothing else about the
+ * interface changed.
+ * <p/>
+ * Already committed against this shape in wave 4, do not change them: {@code appeng.client.me.SlotFluidME}
+ * implements it, and {@code appeng.client.gui.AEBaseGui#drawSlot} calls it and then pattern-matches
+ * {@code stack.what() instanceof AEFluidKey} to get the sprite. A {@code null} return means "empty, or
+ * the terminal has no power" - the caller draws nothing.
+ *
  * @author yueh
  * @version rv6
  * @since rv6
  */
 public interface IMEFluidSlot {
-    IAEFluidStack getAEFluidStack();
+    @Nullable
+    GenericStack getGenericStack();
 
     default boolean shouldRenderAsFluid() {
         return true;

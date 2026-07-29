@@ -2060,6 +2060,60 @@ whoever designs the actual multi-type GUI. (2) No file in `appeng.client` calls 
 `AEItemKeyType`/`AEFluidKeyType` have no GUI consumer anywhere yet, so there was nothing in this wave's file
 list to wire up or replace; they remain exactly the placeholders STATUS.md already lists.
 
+### Wave 5 prerequisites — done by hand before the wave, do not redo
+
+Six files in `appeng.fluids` are already in the tree, migrated by hand. **Do not rewrite them.** They are the points where wave 5's agents meet each other, and the points where wave 4's *already committed* code reaches into `appeng.fluids` — so their shape is not a proposal, it is a constraint that committed code depends on. Read them, call them, and if one looks wrong, stop and report rather than changing it.
+
+```java
+// appeng.fluids.util.IAEFluidTank                          (agent 5-B implements; A, C, D all call it)
+void setFluidInSlot(int slot, @Nullable GenericStack fluid);   // was IAEFluidStack
+@Nullable GenericStack getFluidInSlot(int slot);               // was IAEFluidStack
+int getSlots();                                                // unchanged
+
+// appeng.fluids.container.IFluidSyncContainer               (agent 5-C implements)
+void receiveFluidSlots(Map<Integer, GenericStack> fluids);     // was Map<Integer, IAEFluidStack>
+
+// appeng.fluids.container.slots.IMEFluidSlot                (agent 5-C implements; 5-D implements it too)
+@Nullable GenericStack getGenericStack();                      // was IAEFluidStack getAEFluidStack()
+default boolean shouldRenderAsFluid();                         // unchanged
+
+// appeng.fluids.helper.FluidSyncHelper                      (agent 5-C owns; fully migrated already)
+void readPacket(Map<Integer, GenericStack> data);
+// sendFull/sendDiff(Iterable<IContainerListener>) unchanged
+
+// appeng.fluids.util.FluidSorters                           (agent 5-B owns; fully migrated already)
+static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME;  // was Comparator<IAEFluidStack>
+static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_MOD;
+static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_SIZE;
+static void setDirection(SortDir direction);                   // unchanged
+
+// appeng.fluids.client.render.FluidStackSizeRenderer        (agent 5-D owns; fully migrated already)
+void renderStackSize(FontRenderer fontRenderer, GenericStack stack, int xPos, int yPos);  // was IAEFluidStack
+```
+
+**An empty slot is `null`, exactly as it was.** `GenericStack` has no "empty" instance and `GenericStack.writeTag`/`readTag` already round-trip `null`. Do not invent an empty sentinel.
+
+**The key in these `GenericStack`s is not statically an `AEFluidKey`.** `GenericStack` is type-erased, so every implementor in `appeng.fluids` still holds fluids only, but code that needs the `FluidStack` back must pattern-match: `stack.what() instanceof AEFluidKey fk ? fk.toStack((int) stack.amount()) : null`.
+
+**`FluidSyncHelper.equalsSlot` is the inverse of the §9.1 hazard and is already correct.** The old code compared twice — `Objects.equals` (size-insensitive for `IAEFluidStack`) *and then* the stack sizes — precisely because an amount change had to count as a change. The record's `equals` already compares the amount, so the single `Objects.equals` preserves the old behaviour exactly. Do not "fix" it into a key-only comparison; a config slot whose amount changed would stop syncing.
+
+Two more shapes are pinned by committed wave-4 code but were **not** migrated by hand, because they are implementation-heavy and belong to one agent each. Their signatures are still fixed:
+
+```java
+// appeng.fluids.util.AEFluidInventory                       (agent 5-B; implements IAEFluidTank)
+AEFluidInventory(@Nullable IAEFluidInventory handler, int slots);              // 2-arg and
+AEFluidInventory(@Nullable IAEFluidInventory handler, int slots, int stackSize); // 3-arg ctors both stay
+void readFromNBT(NBTTagCompound data, String name);   // both still exist, both still keyed by name;
+void writeToNBT(NBTTagCompound data, String name);    // the per-slot payload becomes GenericStack.writeTag/readTag
+
+// appeng.fluids.container.ContainerFluidConfigurable        (agent 5-C)
+IAEFluidTank getFluidConfigInventory();               // return type unchanged, element type now GenericStack
+```
+
+Callers already committed against all of the above, in wave 4 — **read them before writing, they are the specification**: `appeng.container.implementations.ContainerFluidInterfaceConfigurationTerminal`, `appeng.client.me.ClientDCInternalFluidInv`, `appeng.client.me.SlotFluidME`, `appeng.client.me.FluidRepo`, `appeng.client.gui.AEBaseGui#drawSlot`, `appeng.core.sync.packets.PacketFluidSlot`, `appeng.core.sync.packets.PacketInventoryAction` (the `PLACE_JEI_GHOST_ITEM` branch), `appeng.parts.AEBasePart#readFromNBT/writeToNBT` and `appeng.tile.AEBaseTile#readFromNBT/writeToNBT`.
+
+**Three files in `appeng.fluids.util` are deletions, not migrations**: `AEFluidStack`, `FluidList` and `MeaningfulFluidIterator`. Their item-side counterparts (`AEItemStack`, `ItemList`, `MeaningfulItemIterator` in `appeng.util.item`) were deleted in wave 0; `AEFluidKey` and `KeyCounter` replace all six. Anything still importing them is a call site to migrate, not a reason to keep them.
+
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 
 **Every remaining wave must check this.** The old `IAEItemStack.equals()` **ignored the stack size** — it meant "the same item". `GenericStack` is a record, so its `equals()` compares **the amount as well**.

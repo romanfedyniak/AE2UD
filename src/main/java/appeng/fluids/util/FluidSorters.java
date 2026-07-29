@@ -20,13 +20,23 @@ package appeng.fluids.util;
 
 
 import appeng.api.config.SortDir;
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.AEKey;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.Comparator;
 
 
 /**
+ * Sorts entries of a {@code KeyCounter}, i.e. {@code Object2LongMap.Entry<AEKey>} pairs of a key and the
+ * amount currently stored under it. Exactly the retyping {@code appeng.util.ItemSorters} received in
+ * wave 1: the key half plays the role identity used to play, the {@code long} value plays the role the
+ * stack size used to play. The sort orders themselves are unchanged - name ascending, mod then name, and
+ * amount largest-first, each flipped by {@link #setDirection}.
+ * <p/>
+ * The only caller is {@code appeng.client.me.FluidRepo}, migrated in wave 4 and already written against
+ * this shape; it adapts its {@code GridInventoryEntry} rows into entries before comparing.
+ *
  * @author BrockWS
  * @version rv6 - 22/05/2018
  * @since rv6 22/05/2018
@@ -34,42 +44,27 @@ import java.util.Comparator;
 public class FluidSorters {
     private static SortDir Direction = SortDir.ASCENDING;
 
-    public static final Comparator<IAEFluidStack> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
     {
-        if (getDirection() == SortDir.ASCENDING) {
-            return Platform.getFluidDisplayName(o1).compareToIgnoreCase(Platform.getFluidDisplayName(o2));
-        }
-        return Platform.getFluidDisplayName(o2).compareToIgnoreCase(Platform.getFluidDisplayName(o1));
+        final int cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
+        return applyDirection(cmp);
     };
 
-    public static final Comparator<IAEFluidStack> CONFIG_BASED_SORT_BY_MOD = new Comparator<IAEFluidStack>() {
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_MOD = (o1, o2) ->
+    {
+        int cmp = Platform.getModId(o1.getKey()).compareToIgnoreCase(Platform.getModId(o2.getKey()));
 
-        @Override
-        public int compare(final IAEFluidStack o1, final IAEFluidStack o2) {
-            final AEFluidStack op1 = (AEFluidStack) o1;
-            final AEFluidStack op2 = (AEFluidStack) o2;
-
-            if (getDirection() == SortDir.ASCENDING) {
-                return this.secondarySort(Platform.getModId(op1).compareToIgnoreCase(Platform.getModId(op2)), o2, o1);
-            }
-            return this.secondarySort(Platform.getModId(op2).compareToIgnoreCase(Platform.getModId(op1)), o1, o2);
+        if (cmp == 0) {
+            cmp = Platform.getFluidDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getFluidDisplayName(o2.getKey()));
         }
 
-        private int secondarySort(final int compareToIgnoreCase, final IAEFluidStack o1, final IAEFluidStack o2) {
-            if (compareToIgnoreCase == 0) {
-                return Platform.getFluidDisplayName(o2).compareToIgnoreCase(Platform.getFluidDisplayName(o1));
-            }
-
-            return compareToIgnoreCase;
-        }
+        return applyDirection(cmp);
     };
 
-    public static final Comparator<IAEFluidStack> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
+    public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_SIZE = (o1, o2) ->
     {
-        if (getDirection() == SortDir.ASCENDING) {
-            return Long.compare(o2.getStackSize(), o1.getStackSize());
-        }
-        return Long.compare(o1.getStackSize(), o2.getStackSize());
+        final int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
+        return applyDirection(cmp);
     };
 
     private static SortDir getDirection() {
@@ -78,5 +73,12 @@ public class FluidSorters {
 
     public static void setDirection(final SortDir direction) {
         Direction = direction;
+    }
+
+    private static int applyDirection(int cmp) {
+        if (getDirection() == SortDir.ASCENDING) {
+            return cmp;
+        }
+        return -cmp;
     }
 }

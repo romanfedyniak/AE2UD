@@ -19,7 +19,7 @@
 package appeng.fluids.client.render;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AEConfig;
 import appeng.util.ISlimReadableNumberConverter;
 import appeng.util.IWideReadableNumberConverter;
@@ -46,8 +46,18 @@ public class FluidStackSizeRenderer {
     private static final ISlimReadableNumberConverter SLIM_CONVERTER = ReadableNumberConverter.INSTANCE;
     private static final IWideReadableNumberConverter WIDE_CONVERTER = ReadableNumberConverter.INSTANCE;
 
-    public void renderStackSize(FontRenderer fontRenderer, IAEFluidStack aeStack, int xPos, int yPos) {
-        if (aeStack != null) {
+    /**
+     * Draws the amount label over a fluid slot, in buckets.
+     * <p/>
+     * Retyped from {@code IAEFluidStack} to {@link GenericStack} - a straight replacement, not an added
+     * overload: the sole caller is {@code appeng.client.gui.AEBaseGui#drawSlot}, migrated in wave 4, and
+     * it already passes a {@code GenericStack}. Only the amount is read, so the key does not have to be
+     * an {@code AEFluidKey}; the caller has already established that it is before deciding to draw a
+     * fluid at all. The millibucket-to-bucket division below is unchanged, so anything measured in a
+     * different unit must not be routed here.
+     */
+    public void renderStackSize(FontRenderer fontRenderer, GenericStack stack, int xPos, int yPos) {
+        if (stack != null) {
             final float scaleFactor = AEConfig.instance().useTerminalUseLargeFont() ? 0.85f : 0.5f;
             final float inverseScaleFactor = 1.0f / scaleFactor;
             final int offset = AEConfig.instance().useTerminalUseLargeFont() ? 0 : -1;
@@ -55,8 +65,8 @@ public class FluidStackSizeRenderer {
             final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
             fontRenderer.setUnicodeFlag(false);
 
-            if (aeStack.getStackSize() > 0) {
-                final String stackSize = this.getToBeRenderedStackSize(aeStack.getStackSize());
+            if (stack.amount() > 0) {
+                final String stackSize = this.getToBeRenderedStackSize(stack.amount());
 
                 GlStateManager.disableLighting();
                 GlStateManager.disableDepth();
