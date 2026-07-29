@@ -16,6 +16,7 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEFluidKey;
 import appeng.helpers.InventoryAction;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
@@ -23,6 +24,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+import javax.annotation.Nullable;
 
 import java.awt.*;
 import java.io.IOException;
@@ -201,15 +204,33 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
         s.yPos = s.getY() + this.ySize - 78 - offsetPlayerSide;
     }
 
+    /**
+     * @return the key and amount a dragged HEI ingredient stands for, or null if it is neither an item nor
+     *         a fluid. Extracted so both pattern terminals answer identically.
+     */
+    @Nullable
+    private static GenericStack ghostPayloadOf(final Object ingredient) {
+        if (ingredient instanceof ItemStack stack) {
+            return stack.isEmpty() ? null : GenericStack.fromItemStack(stack);
+        }
+        if (ingredient instanceof FluidStack fluid) {
+            return fluid.amount <= 0 ? null : new GenericStack(AEFluidKey.of(fluid), fluid.amount);
+        }
+        return null;
+    }
+
     @Override
     public List<IGhostIngredientHandler.Target<?>> getPhantomTargets(Object ingredient) {
-        if (!(ingredient instanceof ItemStack)) {
+        // A fluid dragged out of HEI arrives as a FluidStack, not an ItemStack, and used to be refused
+        // outright. A bucket stays a bucket on purpose: a pattern slot holding a bucket usually means the
+        // recipe wants the bucket, so only an explicitly dragged fluid becomes a fluid.
+        final GenericStack payload = ghostPayloadOf(ingredient);
+        if (payload == null) {
             return Collections.emptyList();
         }
         List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
         for (Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof SlotFake) {
-                ItemStack itemStack = (ItemStack) ingredient;
                 IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
                     @Override
                     public Rectangle getArea() {
@@ -220,7 +241,7 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
                     public void accept(Object ingredient) {
                         final PacketInventoryAction p;
                         try {
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotFake) slot, GenericStack.fromItemStack(itemStack));
+                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotFake) slot, payload);
                             NetworkHandler.instance().sendToServer(p);
 
                         } catch (IOException e) {
