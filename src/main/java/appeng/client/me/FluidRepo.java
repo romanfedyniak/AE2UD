@@ -233,6 +233,18 @@ public class FluidRepo {
         }
 
         @Override
+        public Long getValue() {
+            // fastutil's Object2LongMap.Entry still extends Map.Entry<K, Long> in this version and does
+            // not default the boxed accessors, so both have to be spelled out. Nothing calls either.
+            return this.amount;
+        }
+
+        @Override
+        public Long setValue(final Long value) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public long setValue(final long value) {
             throw new UnsupportedOperationException();
         }

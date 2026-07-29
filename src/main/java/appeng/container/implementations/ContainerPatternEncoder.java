@@ -6,6 +6,7 @@ import appeng.api.definitions.IDefinitions;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;

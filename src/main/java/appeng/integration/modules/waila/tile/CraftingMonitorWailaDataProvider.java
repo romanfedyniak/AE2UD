@@ -19,7 +19,7 @@
 package appeng.integration.modules.waila.tile;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.core.localization.WailaText;
 import appeng.integration.modules.waila.BaseWailaDataProvider;
 import appeng.tile.crafting.TileCraftingMonitorTile;
@@ -53,10 +53,10 @@ public final class CraftingMonitorWailaDataProvider extends BaseWailaDataProvide
         final TileEntity te = accessor.getTileEntity();
         if (te instanceof TileCraftingMonitorTile) {
             final TileCraftingMonitorTile monitor = (TileCraftingMonitorTile) te;
-            final IAEItemStack displayStack = monitor.getJobProgress();
+            final GenericStack displayStack = monitor.getJobProgress();
 
             if (displayStack != null) {
-                final String currentCrafting = displayStack.asItemStackRepresentation().getDisplayName();
+                final String currentCrafting = displayStack.what().getDisplayName().getFormattedText();
 
                 currentToolTip.add(WailaText.Crafting.getLocal() + ": " + currentCrafting);
             }

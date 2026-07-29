@@ -215,7 +215,10 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
                     this.setUsedBytes(this.result.getByteTotal());
 
-                    final MEStorage items = grid.getCache(IStorageService.class).getInventory();
+                    // IGrid.getCache infers its type variable from the assignment target, so the service
+                    // has to land in a typed local before anything is called on it.
+                    final IStorageService storageService = grid.getCache(IStorageService.class);
+                    final MEStorage items = storageService.getInventory();
 
                     // A key can appear in only one of the two counters (e.g. fully on-hand needs no
                     // crafting, or fully missing-and-craftable has nothing "used" yet), so iterate the

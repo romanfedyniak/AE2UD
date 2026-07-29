@@ -139,6 +139,15 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
     }
 
+    /**
+     * The client-side inventory listing. The JEI integration reads it to decide which recipe ingredients
+     * the network can supply; it used to read {@code ContainerMEMonitorable.items}, which no longer
+     * exists because the listing now lives on the client only.
+     */
+    public ItemRepo getRepo() {
+        return this.repo;
+    }
+
     public void postUpdate(final List<GridInventoryEntry> list) {
         for (final GridInventoryEntry entry : list) {
             this.repo.postUpdate(entry);

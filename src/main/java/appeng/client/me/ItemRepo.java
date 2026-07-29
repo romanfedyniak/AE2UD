@@ -41,6 +41,8 @@ import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +114,15 @@ public class ItemRepo {
     public long getItemCount(final AEKey what) {
         final GridInventoryEntry e = this.entries.get(what);
         return e == null ? 0 : e.getStoredAmount();
+    }
+
+    /**
+     * Every row the server has sent, unfiltered and unsorted — {@link #getReferenceItem(int)} walks the
+     * search-filtered view instead. This is what the old {@code ContainerMEMonitorable.items} field gave
+     * the JEI integration; the client-side inventory now lives here rather than on the container.
+     */
+    public Collection<GridInventoryEntry> getAllEntries() {
+        return Collections.unmodifiableCollection(this.entries.values());
     }
 
     public void setViewCell(final ItemStack[] list) {
@@ -339,6 +350,18 @@ public class ItemRepo {
         @Override
         public long getLongValue() {
             return this.amount;
+        }
+
+        @Override
+        public Long getValue() {
+            // fastutil's Object2LongMap.Entry still extends Map.Entry<K, Long> in this version and does
+            // not default the boxed accessors, so both have to be spelled out. Nothing calls either.
+            return this.amount;
+        }
+
+        @Override
+        public Long setValue(final Long value) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

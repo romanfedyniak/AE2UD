@@ -580,7 +580,10 @@ dependencies {
 
     if (includeCommonDevEnvMods.toBoolean()) {
         if (!(modId.equals('jei'))) {
-            implementation 'mezz.jei:jei_1.12.2:4.16.1.302'
+            // HadEnoughItems, the CleanroomMC fork of JEI, from https://maven.cleanroommc.com. It keeps
+            // JEI's mod id and the mezz.jei package, so appeng.integration.modules.jei compiles against
+            // it unchanged; it is published with RetroFuturaGradle obfuscation variants, so no rfg.deobf.
+            implementation 'mezz:jei:4.32.0'
         }
         if (!(modId.equals('theoneprobe'))) {
             //noinspection DependencyNotationArgument

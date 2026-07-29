@@ -19,6 +19,7 @@
 package appeng.fluids.client.gui;
 
 
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.IConfigManager;
 import appeng.client.gui.implementations.GuiUpgradeable;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -104,7 +105,8 @@ public class GuiFluidInterface extends GuiUpgradeable implements IConfigManagerH
         for (GuiCustomSlot slot : this.guiSlots) {
             if (slot instanceof GuiFluidTank) {
                 if (this.isPointInRegion(slot.xPos(), slot.yPos(), slot.getWidth(), slot.getHeight(), xCoord, yCoord) && slot.canClick(this.mc.player)) {
-                    this.container.setTargetStack(((GuiFluidTank) slot).getFluidStack());
+                    final GenericStack clicked = ((GuiFluidTank) slot).getFluidStack();
+                    this.container.setTargetStack(clicked == null ? null : clicked.what());
                     slot.slotClicked(this.mc.player.inventory.getItemStack(), btn);
                     return;
                 }

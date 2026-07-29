@@ -21,9 +21,7 @@ package appeng.integration.modules.theoneprobe.part;
 
 import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.parts.IPart;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.stacks.GenericStack;
 import appeng.integration.modules.theoneprobe.TheOneProbeText;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
@@ -40,16 +38,14 @@ public class StorageMonitorInfoProvider implements IPartProbInfoProvider {
         if (part instanceof IPartStorageMonitor) {
             final IPartStorageMonitor monitor = (IPartStorageMonitor) part;
 
-            final IAEStack<?> displayed = monitor.getDisplayed();
+            final GenericStack displayed = monitor.getDisplayed();
             final boolean isLocked = monitor.isLocked();
 
-            // TODO: generalize
-            if (displayed instanceof IAEItemStack) {
-                final IAEItemStack ais = (IAEItemStack) displayed;
-                probeInfo.text(TheOneProbeText.SHOWING.getLocal() + ": " + ais.asItemStackRepresentation().getDisplayName());
-            } else if (displayed instanceof IAEFluidStack) {
-                final IAEFluidStack ais = (IAEFluidStack) displayed;
-                probeInfo.text(TheOneProbeText.SHOWING.getLocal() + ": " + ais.getFluid().getLocalizedName(ais.getFluidStack()));
+            // The old "TODO: generalize" is done: the branch on item-vs-fluid is gone, because every key
+            // type now answers getDisplayName() for itself. A monitor showing a key type this fork has
+            // never heard of names it correctly with no change here.
+            if (displayed != null) {
+                probeInfo.text(TheOneProbeText.SHOWING.getLocal() + ": " + displayed.what().getDisplayName().getFormattedText());
             }
 
             probeInfo.text(isLocked ? TheOneProbeText.LOCKED.getLocal() : TheOneProbeText.UNLOCKED.getLocal());

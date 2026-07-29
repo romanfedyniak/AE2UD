@@ -1,5 +1,6 @@
 package appeng.fluids.parts;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,7 +49,7 @@ public class PartFluidAnnihilationPlane extends PartAnnihilationPlane {
     @Override
     protected List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
             TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owner) {
-        return List.of(new FluidPickupStrategy(world, fromPos, fromSide, host, enchantments, owner));
+        return Collections.singletonList(new FluidPickupStrategy(world, fromPos, fromSide, host, enchantments, owner));
     }
 
     @Override

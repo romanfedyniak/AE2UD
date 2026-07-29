@@ -22,7 +22,6 @@ package appeng.me.storage;
 import javax.annotation.Nullable;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 import net.minecraft.item.ItemStack;
@@ -376,7 +375,7 @@ public class BasicCellInventory implements StorageCell {
 
     @Override
     public void getAvailableStacks(final KeyCounter out) {
-        for (final Object2LongMap.Entry<AEKey> entry : Object2LongMaps.fastIterable(this.getCellItems())) {
+        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
             out.add(entry.getKey(), entry.getLongValue());
         }
     }
@@ -395,7 +394,7 @@ public class BasicCellInventory implements StorageCell {
         final NBTTagList list = new NBTTagList();
         long itemCount = 0;
 
-        for (final Object2LongMap.Entry<AEKey> entry : Object2LongMaps.fastIterable(this.getCellItems())) {
+        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
             final long amount = entry.getLongValue();
             if (amount <= 0) {
                 continue;
@@ -474,7 +473,7 @@ public class BasicCellInventory implements StorageCell {
         this.storedItemTypes = this.getCellItems().size();
 
         long count = 0;
-        for (final Object2LongMap.Entry<AEKey> entry : Object2LongMaps.fastIterable(this.getCellItems())) {
+        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
             count += entry.getLongValue();
         }
         this.storedItemCount = count;

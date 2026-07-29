@@ -29,7 +29,7 @@ import appeng.api.implementations.items.IUpgradeModule;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
-import appeng.api.storage.ICellWorkbenchItem;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.features.IStackSrc;

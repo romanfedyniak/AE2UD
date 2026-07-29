@@ -11,6 +11,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 
 import appeng.api.behaviors.PlacementStrategy;
@@ -319,7 +320,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
 
     @Override
     public ITextComponent getDescription() {
-        return this.getItemStackRepresentation().getDisplayName();
+        return new TextComponentString(this.getItemStackRepresentation().getDisplayName());
     }
 
     /**

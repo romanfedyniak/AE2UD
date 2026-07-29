@@ -31,7 +31,8 @@ import appeng.api.implementations.items.ISpatialStorageCell;
 import appeng.api.implementations.items.IStorageComponent;
 import appeng.api.implementations.items.IUpgradeModule;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.api.storage.ICellWorkbenchItem;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
@@ -188,13 +189,13 @@ public class SlotRestrictedInput extends AppEngSlot {
             case SPATIAL_STORAGE_CELLS:
                 return i.getItem() instanceof ISpatialStorageCell && ((ISpatialStorageCell) i.getItem()).isSpatialStorage(i);
             case STORAGE_CELLS:
-                return AEApi.instance().registries().cell().isCellHandled(i);
+                return StorageCells.isCellHandled(i);
             case WORKBENCH_CELL:
                 return i.getItem() instanceof ICellWorkbenchItem && ((ICellWorkbenchItem) i.getItem()).isEditable(i);
             case STORAGE_COMPONENT:
                 return i.getItem() instanceof IStorageComponent && ((IStorageComponent) i.getItem()).isStorageComponent(i);
             case TRASH:
-                if (AEApi.instance().registries().cell().isCellHandled(i)) {
+                if (StorageCells.isCellHandled(i)) {
                     return false;
                 }
 
