@@ -336,7 +336,7 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     }
 
     /**
-     * Extension point: {@link PartIdentityAnnihilationPlane} overrides this to substitute its own
+     * Extension point: {@code PartFluidAnnihilationPlane} overrides this to substitute its own
      * always-silk-touch pickup strategy instead of the registered item one.
      * <p>
      * The plane itself is type-agnostic: it picks up whatever the registered strategies know how to
@@ -349,7 +349,7 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
 
     /**
      * @return the enchantments captured from the plane's item when it was placed. Exposed so
-     *         {@link PartIdentityAnnihilationPlane} can build its own pickup strategy with full
+     *         a subclass can build its own pickup strategy with full
      *         fidelity instead of the fortune/silk-touch-only view the frozen
      *         {@code PickupStrategy.Factory} would give it.
      */

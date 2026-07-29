@@ -480,7 +480,6 @@ item.appliedenergistics2.material.card_crafting.name=조합 카드
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME 소멸 평면
 item.appliedenergistics2.multi_part.fluid_annihilation_plane.name=ME 액체 소멸 평면
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=ME 확인 소멸 평면
 item.appliedenergistics2.multi_part.cable_anchor.name=케이블 앵커
 item.appliedenergistics2.multi_part.cable_covered.name=ME 차폐 케이블
 item.appliedenergistics2.multi_part.cable_glass.name=ME 유리 케이블

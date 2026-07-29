@@ -522,7 +522,6 @@ item.appliedenergistics2.material.card_crafting.name=Карта крафта
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=МЭ Плоскость истребления
 item.appliedenergistics2.multi_part.fluid_annihilation_plane.name=МЭ Жидкостная плоскость истребления
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=МЭ ID плоскость истребления
 item.appliedenergistics2.multi_part.cable_anchor.name=Кабельный якорь
 item.appliedenergistics2.multi_part.cable_covered.name=МЭ Закрытый кабель
 item.appliedenergistics2.multi_part.cable_glass.name=МЭ Стеклянный кабель

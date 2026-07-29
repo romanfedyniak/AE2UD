@@ -144,8 +144,6 @@ public enum PartType {
 
     ANNIHILATION_PLANE(300, "annihilation_plane", EnumSet.of(AEFeature.ANNIHILATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartAnnihilationPlane.class),
 
-    IDENTITY_ANNIHILATION_PLANE(301, "identity_annihilation_plane", EnumSet.of(AEFeature.ANNIHILATION_PLANE, AEFeature.IDENTITY_ANNIHILATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartIdentityAnnihilationPlane.class),
-
     FLUID_ANNIHILATION_PLANE(302, "fluid_annihilation_plane", EnumSet.of(AEFeature.FLUID_ANNIHILATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartFluidAnnihilationPlane.class),
 
     FORMATION_PLANE(320, "formation_plane", EnumSet.of(AEFeature.FORMATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartFormationPlane.class),

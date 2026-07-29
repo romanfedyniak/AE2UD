@@ -59,7 +59,6 @@ public final class ApiParts implements IParts {
     private final IItemDefinition levelEmitter;
     private final IItemDefinition fluidLevelEmitter;
     private final IItemDefinition annihilationPlane;
-    private final IItemDefinition identityAnnihilationPlane;
     private final IItemDefinition fluidAnnihilationPlane;
     private final IItemDefinition formationPlane;
     private final IItemDefinition fluidFormationPlane;
@@ -120,7 +119,6 @@ public final class ApiParts implements IParts {
         this.levelEmitter = new DamagedItemDefinition("part.level_emitter", itemPart.createPart(PartType.LEVEL_EMITTER));
         this.fluidLevelEmitter = new DamagedItemDefinition("part.fluid_level_emitter", itemPart.createPart(PartType.FLUID_LEVEL_EMITTER));
         this.annihilationPlane = new DamagedItemDefinition("part.plane.annihilation", itemPart.createPart(PartType.ANNIHILATION_PLANE));
-        this.identityAnnihilationPlane = new DamagedItemDefinition("part.plane.annihiliation.identity", itemPart.createPart(PartType.IDENTITY_ANNIHILATION_PLANE));
         this.fluidAnnihilationPlane = new DamagedItemDefinition("part.plane.fluid_annihilation", itemPart.createPart(PartType.FLUID_ANNIHILATION_PLANE));
         this.formationPlane = new DamagedItemDefinition("part.plane.formation", itemPart.createPart(PartType.FORMATION_PLANE));
         this.fluidFormationPlane = new DamagedItemDefinition("part.plane.fluid_formation", itemPart.createPart(PartType.FLUID_FORMATION_PLANE));
@@ -267,11 +265,6 @@ public final class ApiParts implements IParts {
     @Override
     public IItemDefinition annihilationPlane() {
         return this.annihilationPlane;
-    }
-
-    @Override
-    public IItemDefinition identityAnnihilationPlane() {
-        return this.identityAnnihilationPlane;
     }
 
     @Override

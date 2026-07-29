@@ -452,7 +452,6 @@ waila.appliedenergistics2.p2p_output_one_input=已连接（输出端）- 1输入
 waila.appliedenergistics2.p2p_output_many_inputs=已连接（输出端）- §2%d§r输入
 waila.appliedenergistics2.P2POutput=已连接（输出端）
 waila.appliedenergistics2.EnchantedWith=已附魔：
-waila.appliedenergistics2.IdentityDeprecated=已弃用。 使用SHIFT + 右键来转换
 
 // TheOneProbe
 theoneprobe.appliedenergistics2.crafting=合成中：§2%1$s§r
@@ -558,7 +557,6 @@ item.appliedenergistics2.material.card_sticky.name=粘滞卡
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME破坏面板
 item.appliedenergistics2.multi_part.fluid_annihilation_plane.name=ME流体破坏面板
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=ME精准破坏面板
 item.appliedenergistics2.multi_part.cable_anchor.name=线缆锚
 item.appliedenergistics2.multi_part.cable_covered.name=ME包层线缆
 item.appliedenergistics2.multi_part.cable_glass.name=ME玻璃线缆

@@ -63,8 +63,8 @@ import appeng.util.Platform;
  * moved off the part and behind the frozen {@link PickupStrategy} contract.
  * <p>
  * {@code obtainBlockDrops}/{@code calculateEnergyUsage} stay {@code protected} (matching
- * AE2-original's own {@code ItemPickupStrategy}) because {@link IdentityItemPickupStrategy} needs to
- * override them, exactly like the pre-port {@code PartIdentityAnnihilationPlane} used to override
+ * AE2-original's own {@code ItemPickupStrategy}) because a subclass may need to
+ * override them, the way the removed identity plane's strategy used to override
  * them directly on the part.
  */
 class ItemPickupStrategy implements PickupStrategy {

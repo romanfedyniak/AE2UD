@@ -90,7 +90,6 @@ public enum AEFeature {
     FORMATION_PLANE("FormationPlane", Constants.CATEGORY_NETWORK_BUSES),
     FLUID_FORMATION_PLANE("FluidFormationPlane", Constants.CATEGORY_NETWORK_BUSES),
     ANNIHILATION_PLANE("AnnihilationPlane", Constants.CATEGORY_NETWORK_BUSES),
-    IDENTITY_ANNIHILATION_PLANE("IdentityAnnihilationPlane", Constants.CATEGORY_NETWORK_BUSES),
     FLUID_ANNIHILATION_PLANE("FluidAnnihilationPlane", Constants.CATEGORY_NETWORK_BUSES),
     IMPORT_BUS("ImportBus", Constants.CATEGORY_NETWORK_BUSES),
     FLUID_IMPORT_BUS("FluidImportBus", Constants.CATEGORY_NETWORK_BUSES),

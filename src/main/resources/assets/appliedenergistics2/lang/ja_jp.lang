@@ -532,7 +532,6 @@ item.appliedenergistics2.material.card_crafting.name=クラフティングカー
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME消滅プレーン
 item.appliedenergistics2.multi_part.fluid_annihilation_plane.name=ME液体消滅プレーン
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=ME同一性消滅プレーン
 item.appliedenergistics2.multi_part.cable_anchor.name=ケーブルアンカー
 item.appliedenergistics2.multi_part.cable_covered.name=MEカバーケーブル
 item.appliedenergistics2.multi_part.cable_glass.name=MEガラスケーブル

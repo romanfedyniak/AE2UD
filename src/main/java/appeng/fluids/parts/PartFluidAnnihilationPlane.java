@@ -28,7 +28,7 @@ import appeng.parts.automation.PlaneModels;
  * Now extends the already-migrated, type-erased {@link PartAnnihilationPlane} instead of duplicating its whole
  * box/connection/tick/entity-collision machinery (as the pre-port class did by extending {@code PartBasicState}
  * directly): that base class is entirely key-type-agnostic, so the only thing this class needs to change is which
- * {@link PickupStrategy} it builds, exactly like {@code appeng.parts.automation.PartIdentityAnnihilationPlane}
+ * {@link PickupStrategy} it builds, the way the removed identity annihilation plane
  * substitutes its own strategy for the plain item one. Since {@link FluidPickupStrategy#canPickUpEntity} always
  * returns false, the base class's entity-collision handling (item-only) simply never matches here, matching the
  * pre-port class's lack of an {@code onEntityCollision} override.

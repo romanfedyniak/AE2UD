@@ -451,7 +451,6 @@ waila.appliedenergistics2.p2p_output_one_input=Linked (Output Side) - 1 Input
 waila.appliedenergistics2.p2p_output_many_inputs=Linked (Output Side) - §2%d§r Inputs
 waila.appliedenergistics2.P2POutput=Linked (Output Side)
 waila.appliedenergistics2.EnchantedWith=Enchanted with:
-waila.appliedenergistics2.IdentityDeprecated=Deprecated. Convert with SHIFT + RIGHT-CLICK
 
 // TheOneProbe
 theoneprobe.appliedenergistics2.crafting=Crafting: §2%1$s§r
@@ -557,7 +556,6 @@ item.appliedenergistics2.material.card_sticky.name=Sticky Card
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME Annihilation Plane
 item.appliedenergistics2.multi_part.fluid_annihilation_plane.name=ME Fluid Annihilation Plane
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=ME Identity Annihilation Plane
 item.appliedenergistics2.multi_part.cable_anchor.name=Cable Anchor
 item.appliedenergistics2.multi_part.cable_covered.name=ME Covered Cable
 item.appliedenergistics2.multi_part.cable_glass.name=ME Glass Cable

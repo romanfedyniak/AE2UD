@@ -70,8 +70,6 @@ public class ItemPartRendering extends ItemRenderingCustomizer {
         ResourceLocation annihilationPlaneOnTexture = new ResourceLocation(AppEng.MOD_ID, "parts/annihilation_plane_on");
         ResourceLocation fluidAnnihilationPlaneTexture = new ResourceLocation(AppEng.MOD_ID, "items/part/fluid_annihilation_plane");
         ResourceLocation fluidAnnihilationPlaneOnTexture = new ResourceLocation(AppEng.MOD_ID, "parts/fluid_annihilation_plane_on");
-        ResourceLocation identityAnnihilationPlaneTexture = new ResourceLocation(AppEng.MOD_ID, "items/part/identity_annihilation_plane");
-        ResourceLocation identityAnnihilationPlaneOnTexture = new ResourceLocation(AppEng.MOD_ID, "parts/identity_annihilation_plane_on");
         ResourceLocation formationPlaneTexture = new ResourceLocation(AppEng.MOD_ID, "items/part/formation_plane");
         ResourceLocation formationPlaneOnTexture = new ResourceLocation(AppEng.MOD_ID, "parts/formation_plane_on");
         ResourceLocation fluidFormationPlaneTexture = new ResourceLocation(AppEng.MOD_ID, "items/part/fluid_formation_plane");
@@ -97,14 +95,6 @@ public class ItemPartRendering extends ItemRenderingCustomizer {
             model = new PlaneModel(fluidAnnihilationPlaneOnTexture, sidesTexture, backTexture, connection);
             rendering.builtInModel("models/part/fluid_annihilation_plane_on_" + connection.getFilenameSuffix(), model);
             modelNames.add("part/fluid_annihilation_plane_on_" + connection.getFilenameSuffix());
-
-            model = new PlaneModel(identityAnnihilationPlaneTexture, sidesTexture, backTexture, connection);
-            rendering.builtInModel("models/part/identity_annihilation_plane_" + connection.getFilenameSuffix(), model);
-            modelNames.add("part/identity_annihilation_plane_" + connection.getFilenameSuffix());
-
-            model = new PlaneModel(identityAnnihilationPlaneOnTexture, sidesTexture, backTexture, connection);
-            rendering.builtInModel("models/part/identity_annihilation_plane_on_" + connection.getFilenameSuffix(), model);
-            modelNames.add("part/identity_annihilation_plane_on_" + connection.getFilenameSuffix());
 
             model = new PlaneModel(formationPlaneTexture, sidesTexture, backTexture, connection);
             rendering.builtInModel("models/part/formation_plane_" + connection.getFilenameSuffix(), model);
