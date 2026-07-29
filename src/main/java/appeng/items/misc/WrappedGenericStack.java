@@ -94,7 +94,11 @@ public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrap
     public String getItemStackDisplayName(final ItemStack stack) {
         final GenericStack wrapped = this.unwrap(stack);
         if (wrapped != null) {
-            return wrapped.what().getDisplayName().getFormattedText();
+            // Unformatted on purpose. ITextComponent.getFormattedText() appends a RESET code, and an
+            // item's display name is routinely concatenated into a larger, already-coloured line - the
+            // cell tooltip reads "[Lava]: 0B", where the reset turned everything after the name white.
+            // Vanilla item names are plain strings whose colour comes from the caller, and so is this one.
+            return wrapped.what().getDisplayName().getUnformattedText();
         }
         return super.getItemStackDisplayName(stack);
     }
@@ -107,7 +111,7 @@ public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrap
         // where the quantity belongs to the row being drawn and not to the stack. Only a wrapper that
         // genuinely carries an amount - a configured filter entry, say - gets the amount line.
         if (wrapped != null && wrapped.amount() > 0) {
-            lines.add(wrapped.what().getDisplayName().getFormattedText() + ": "
+            lines.add(wrapped.what().getDisplayName().getUnformattedText() + ": "
                     + wrapped.what().formatAmount(wrapped.amount(), AmountFormat.FULL));
         }
     }

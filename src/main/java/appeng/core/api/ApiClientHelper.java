@@ -119,7 +119,9 @@ public class ApiClientHelper implements IClientHelper {
             if (showAdvanced) {
                 for (final Object2LongMap.Entry<AEKey> entry : cellInventory.getAvailableStacks()) {
                     final AEKey key = entry.getKey();
-                    lines.add(key.getDisplayName().getFormattedText() + ": " + key.formatAmount(entry.getLongValue(), AmountFormat.FULL));
+                    // Unformatted: see WrappedGenericStack.getItemStackDisplayName - the trailing RESET
+                    // that getFormattedText() adds would recolour the rest of this line.
+                    lines.add(key.getDisplayName().getUnformattedText() + ": " + key.formatAmount(entry.getLongValue(), AmountFormat.FULL));
                 }
             }
         }
