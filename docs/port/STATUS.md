@@ -311,15 +311,31 @@ The standard ghost-drag path is untouched: `AEGuiHandler`, `IJEIGhostIngredients
   drag entirely when it returns true. It did not exist in JEI 4.16, which this code was written against; it
   arrived in HEI 4.30.2, so the wave 6 dependency swap is what made the proper fix available.
 
+### Second play-test pass — what it covered
+
+Confirmed working in game: processing patterns, Pattern Expansion Card, interface blocking mode, the fluid
+interface configuration terminal, the storage bus over external inventories (items and fluids at once), the
+ore-dictionary storage bus, every terminal variant, Magnet and Quantum Link cards, the item formation plane
+in both block and item modes with its filters, cell partitioning and the Fuzzy Card, and the cell workbench.
+
+Fixed from that pass: the world-unload crash (`820798123`), the unstable terminal sort and the
+ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects above.
+
 ### Still open
 
-- **Enhancements asked for during testing and delivered**: the completion toast names the crafted amount,
-  and the crafting status header shows elapsed time instead of a moving estimate.
+- **Missing feature, not a regression: fluids cannot be put into a pattern.** Verified against
+  `1e855f729` - neither `ContainerPatternEncoder` nor `ItemEncodedPattern` nor `ICraftingPatternDetails`
+  ever mentioned fluids, and the pattern slots are plain item `SlotFake`s. This falls out of the
+  fluid-decomposition phase for free: once pattern slots hold a `GenericStack`, any key type fits.
+- **Requested, not yet done: the Magnet Card should pick up into the network rather than the player's
+  inventory.** Owner approved it for whenever; it is a small change.
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
-  and did not exist pre-port either; it is believed to come from an addon. The data for one exists now that
-  `remainingItemCount` moves, if it is ever wanted.
-- **Untested so far**: patterns and interfaces (item, processing and fluid), P2P tunnels, spatial storage,
-  the ore-dictionary storage bus, and every terminal variant other than the wall terminal.
+  and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
+  exists now that `remainingItemCount` moves, if it is ever wanted.
+- **Untested**: P2P tunnels and spatial storage. Both were barely touched by the port.
+- **Removed by owner decision**: the Identity Annihilation Plane (`279b73791`), api definition included.
+  Efficiency and Unbreaking on the annihilation plane were considered for removal and deliberately kept -
+  they are the reason `PickupStrategy.Factory` carries an enchantment map at all (§8.4).
 
 ## How terminal live updates ended up working
 
