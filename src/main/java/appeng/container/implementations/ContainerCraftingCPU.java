@@ -78,6 +78,13 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
 
     @GuiSync(0)
     public long eta = -1;
+    /**
+     * Time the running job has actually taken. Synced separately from {@link #eta} because the crafting
+     * status screen shows elapsed time rather than a prediction - a prediction that kept moving as the
+     * job's own throughput changed was more distracting than useful.
+     */
+    @GuiSync(1)
+    public long elapsed = 0;
     private GuiCraftingCPU guiCraftingCPU;
 
     public ContainerCraftingCPU(final InventoryPlayer ip, final Object te) {
@@ -169,6 +176,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
                 final double startItems = this.getMonitor().getStartItemCount();
                 final long eta = (long) (elapsedTime / Math.max(1d, (startItems - remainingItems)) * remainingItems);
                 this.setEstimatedTime(eta);
+                this.elapsed = elapsedTime;
             }
             if (!this.trackedKeys.isEmpty()) {
                 try {

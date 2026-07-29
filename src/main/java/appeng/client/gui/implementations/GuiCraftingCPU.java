@@ -175,10 +175,12 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         String title = this.getGuiDisplayName(GuiText.CraftingStatus.getLocal());
 
-        if (this.craftingCpu.getEstimatedTime() > 0 && !this.visual.isEmpty()) {
-            final long etaInMilliseconds = TimeUnit.MILLISECONDS.convert(this.craftingCpu.getEstimatedTime(), TimeUnit.NANOSECONDS);
-            final String etaTimeText = DurationFormatUtils.formatDuration(etaInMilliseconds, GuiText.ETAFormat.getLocal());
-            title += " - " + etaTimeText;
+        // Elapsed, not remaining: how long this job has been running is a fact, while the estimate was a
+        // moving prediction derived from throughput so far.
+        if (this.craftingCpu.elapsed > 0 && !this.visual.isEmpty()) {
+            final long elapsedMilliseconds = TimeUnit.MILLISECONDS.convert(this.craftingCpu.elapsed, TimeUnit.NANOSECONDS);
+            final String elapsedText = DurationFormatUtils.formatDuration(elapsedMilliseconds, GuiText.ETAFormat.getLocal());
+            title += " - " + elapsedText;
         }
 
         this.fontRenderer.drawString(title, TITLE_LEFT_OFFSET, TITLE_TOP_OFFSET, TEXT_COLOR);

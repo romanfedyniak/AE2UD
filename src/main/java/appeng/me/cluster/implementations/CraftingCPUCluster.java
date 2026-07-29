@@ -105,6 +105,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      */
     private MECraftingInventory inventory = new MECraftingInventory();
     private GenericStack finalOutput;
+    /**
+     * How much the job was submitted for. {@link #finalOutput} counts down to zero as the job delivers, so
+     * by the time {@link #completeJob()} runs it no longer knows what was asked for.
+     */
+    private long requestedAmount;
     private boolean waiting = false;
     private KeyCounter waitingFor = new KeyCounter();
     private long availableStorage = 0;
@@ -265,6 +270,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.waiting = false;
         this.postChange(what, src);
         this.waitingFor.remove(what, used);
+        // The pre-port code called updateRemainingItemCount(what) here. Without it the counter stays at
+        // the job's starting value, so the crafting status tooltip reads "10 / 10" for the whole job and
+        // ContainerCraftingCPU's ETA divides by max(1, start - remaining) == 1, making the estimate
+        // meaningless as well.
+        this.remainingItemCount -= used;
         this.postCraftingStatusChange(what);
         this.markDirty();
 
@@ -348,11 +358,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         var player = AppEng.proxy.getPlayerByUUID(this.requestingPlayerUUID);
         if (player instanceof EntityPlayerMP playerMP) {
             try {
-                // The identity, not the remaining amount: by the time completeJob() calls this the final
-                // output has already been counted down to zero, and wrapping a zero-amount stack produced
-                // an empty ItemStack - the toast showed "Air".
+                // What was asked for, not what is left: finalOutput has been counted down to zero by the
+                // time completeJob() calls this, and wrapping a zero-amount stack produced an empty
+                // ItemStack - the toast used to show "Air".
+                final long amount = this.requestedAmount > 0 ? this.requestedAmount : 1;
                 NetworkHandler.instance().sendTo(
-                        new PacketCraftingToast(new GenericStack(this.finalOutput.what(), 1), cancelled), playerMP);
+                        new PacketCraftingToast(new GenericStack(this.finalOutput.what(), amount), cancelled), playerMP);
             } catch (IOException ignored) {}
         }
     }
@@ -798,6 +809,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             ((CraftingJob) job).getTree().setJob(ci, this, src);
             if (ci.commit(src)) {
                 this.finalOutput = job.getOutput();
+                this.requestedAmount = this.finalOutput == null ? 0 : this.finalOutput.amount();
                 this.waiting = false;
                 this.isComplete = false;
 
@@ -1034,6 +1046,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         data.setTag("waitingFor", this.writeKeyCounter(this.waitingFor));
 
         data.setLong("elapsedTime", this.getElapsedTime());
+        data.setLong("requestedAmount", this.requestedAmount);
         data.setLong("startItemCount", this.getStartItemCount());
         data.setLong("remainingItemCount", this.getRemainingItemCount());
 
@@ -1123,6 +1136,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.lastTime = System.nanoTime();
         this.elapsedTime = data.getLong("elapsedTime");
+        this.requestedAmount = data.getLong("requestedAmount");
         this.startItemCount = data.getLong("startItemCount");
         this.remainingItemCount = data.getLong("remainingItemCount");
 

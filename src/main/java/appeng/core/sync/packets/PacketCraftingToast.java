@@ -1,5 +1,6 @@
 package appeng.core.sync.packets;
 
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.toasts.CraftingStatusToast;
 import appeng.core.AEConfig;
@@ -51,7 +52,10 @@ public class PacketCraftingToast extends AppEngPacket {
 
 	@SideOnly(Side.CLIENT)
 	private void doCraftingToast() {
-		Minecraft.getMinecraft().getToastGui().add(new CraftingStatusToast(GenericStack.wrapInItemStack(stack), cancelled));
+		final String label = stack.what().formatAmount(stack.amount(), AmountFormat.FULL)
+				+ " " + stack.what().getDisplayName().getFormattedText();
+		Minecraft.getMinecraft().getToastGui()
+				.add(new CraftingStatusToast(stack.what().wrapForDisplayOrFilter(), label, cancelled));
 	}
 
 	@Override

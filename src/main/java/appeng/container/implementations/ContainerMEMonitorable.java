@@ -78,6 +78,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -464,9 +465,17 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
                 final Set<AEKey> craftables = this.computeCraftables();
 
-                for (final var entry : this.monitor.getAvailableStacks()) {
-                    final AEKey what = entry.getKey();
-                    final GridInventoryEntry send = new GridInventoryEntry(what, entry.getLongValue(), 0, craftables.contains(what));
+                // The union, not just what is in stock. A key the network can craft but does not hold has
+                // no entry in getAvailableStacks(), and the constructor already seeded previousCraftables,
+                // so collectChanges() sees no *change* to report either - the row would never be sent at
+                // all, and the terminal would only ever show craftables that happened to be stocked once
+                // while it was open.
+                final KeyCounter stored = this.monitor.getAvailableStacks();
+                final Set<AEKey> keys = new LinkedHashSet<>(stored.keySet());
+                keys.addAll(craftables);
+
+                for (final AEKey what : keys) {
+                    final GridInventoryEntry send = new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what));
                     try {
                         piu.appendItem(send);
                     } catch (final BufferOverflowException boe) {

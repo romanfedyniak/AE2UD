@@ -13,12 +13,19 @@ import org.jetbrains.annotations.NotNull;
 @SideOnly(Side.CLIENT)
 public class CraftingStatusToast implements IToast {
 	private final ItemStack itemStack;
+	private final String label;
 	private final boolean cancelled;
 	private long firstDrawTime;
 	private boolean newDisplay;
 
-	public CraftingStatusToast(@NotNull ItemStack itemStack, boolean cancelled) {
+	/**
+	 * @param itemStack what to draw as the icon
+	 * @param label     amount and name, already formatted by the key's own type - a fluid job reads
+	 *                  "1B Water", not "1000 Water"
+	 */
+	public CraftingStatusToast(@NotNull ItemStack itemStack, @NotNull String label, boolean cancelled) {
 		this.itemStack = itemStack;
+		this.label = label;
 		this.cancelled = cancelled;
 	}
 
@@ -41,7 +48,7 @@ public class CraftingStatusToast implements IToast {
 		// Text
 		var statusText = cancelled ? GuiText.CraftingToastCancelled : GuiText.CraftingToastDone;
 		fontRenderer.drawString(statusText.getLocal(), 30, 7, -11534256);
-		fontRenderer.drawString(itemStack.getDisplayName(), 30, 18, -16777216);
+		fontRenderer.drawString(this.label, 30, 18, -16777216);
 
 		// Item
 		RenderHelper.enableGUIStandardItemLighting();
