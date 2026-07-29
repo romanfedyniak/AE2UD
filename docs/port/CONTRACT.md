@@ -604,7 +604,13 @@ Must pass **before** wave 1 starts. It is the only automatic check in the whole 
 | 3    | `appeng.parts`, `appeng.items`, `appeng.recipes`                                                                |   ~25 | §9 extended                        |
 | 4    | `appeng.core.sync`, `appeng.container`, `appeng.client` — including the **multi-type filter GUI**                |   ~49 | §9 extended                        |
 | 5    | `appeng.fluids` — the whole package                                                                             |    35 | §9 extended                        |
-| 6    | `appeng.integration` (plus the switch to HEI, §8.2)                                                             |   ~34 | **green build** + manual in-game test |
+| 6    | `appeng.integration` (plus the switch to HEI, §8.2)                                                             |     7 | **green build** ✔ + manual in-game test |
+
+**All seven waves are done and `gradlew build` is green.** The file counts above were the plan; the actual
+counts are in `STATUS.md`'s commit table. Wave 6 came in at 7 files rather than ~34 because the earlier waves
+had already covered the rest of `appeng.integration` — but its 7 files were the smallest part of it, exactly
+as predicted: the first real compile turned up 26 errors spread across waves 1–5. The one thing still
+outstanding from this table is the **manual in-game test**.
 
 The order is not arbitrary. `crafting`/`tile`/`helpers` (wave 2) are what the parts depend on. `fluids` is deliberately pushed to the **end**: by wave 5 both the generic-part pattern and the multi-type GUI pattern will exist for it to mirror, and under the v1 plan that package is only mechanically translated anyway (decomposing `appeng.fluids.*` into the generic model is a post-v1 phase).
 
@@ -2826,6 +2832,54 @@ with `gradlew compileApiJava` after finishing (green, as it was before this wave
 
 **Mandatory deleted-symbol scan, run over `appeng.fluids.parts`, `appeng.fluids.items` and
 `appeng.fluids.registries` after finishing:** prints nothing.
+
+### Wave 6 — `appeng.integration.modules`, the HEI swap, and the first green build (done)
+
+Seven files, no agents — the wave was small enough to do by hand, and the build was the actual work.
+
+**The five easy ones lost a branch rather than gaining one.** `theoneprobe.part.StorageMonitorInfoProvider`,
+`waila.part.StorageMonitorWailaDataProvider`, `theoneprobe.tile.CraftingMonitorInfoProvider` and
+`waila.tile.CraftingMonitorWailaDataProvider` all carried a `// TODO: generalize` over an
+`instanceof IAEItemStack … else if instanceof IAEFluidStack` pair. `IPartStorageMonitor.getDisplayed()` and
+`TileCraftingMonitorTile.getJobProgress()` now return `GenericStack`, and every key type answers
+`getDisplayName()` for itself, so both branches collapse into `displayed.what().getDisplayName()`. A monitor
+showing a key type this fork has never heard of names it correctly with no change to these files. Where the
+probe has to draw an item it uses `wrapForDisplayOrFilter()`, but takes the *name* from the key, so a fluid
+job reads as the fluid and not as the placeholder item.
+
+`bogosorter.InventoryBogoSortModule.COMPARATOR` is now
+`Comparator<Object2LongMap.Entry<AEKey>>`, the same shape as everything in `appeng.util.ItemSorters`, and hands
+bogosorter `AEKey.wrapForDisplayOrFilter()`. Keys of a non-item type all look alike to bogosorter and compare
+equal; the terminal's sort is stable, so they keep their relative order rather than being shuffled. Ordering
+them properly is bogosorter's call, not ours — it has no notion of a fluid.
+
+**`appeng.integration.modules.jei.AvailableItems` is new, and `KeyCounter` deliberately does not replace it.**
+`CraftableCallBack` and `JEIMissingItem` shared an `IItemList<IAEItemStack>` for "what can the terminal
+supply". A `KeyCounter` cannot stand in, for two reasons that both matter here:
+
+- it stores no craftable flag — keys carry none either (§8.3), which is why `GridInventoryEntry` exists;
+- `add`/`set` treat an amount of zero as absence and drop the key, while **an entry with amount zero and
+  craftable true is exactly what paints an ingredient slot blue instead of red**.
+
+`AvailableItems` keeps both fields per key and indexes by `AEKey.getPrimaryKey()`, so fuzzy lookup scans one
+item's variants rather than the network. `used` *is* a plain amount count and did become a `KeyCounter`; the
+old `usedStack == null || ext > usedStack` pair collapses to one comparison because `KeyCounter.get` answers 0
+for an absent key.
+
+**Two additions outside the file list, both forced by where the data now lives.**
+`ItemRepo.getAllEntries()` and `GuiMEMonitorable.getRepo()`. The public
+`ContainerMEMonitorable.items` field is gone — the client-side listing lives in the screen's `ItemRepo`, which
+is the only place the craftable flag survives the trip from the server. `AvailableItems.merge(container)` reads
+it through `container.getGui()`, and contributes nothing rather than failing when no screen is attached.
+
+**`build.gradle`** now pulls `mezz:jei:4.32.0` (HadEnoughItems) from `https://maven.cleanroommc.com`, which was
+already a declared repository. HEI keeps JEI's mod id and the `mezz.jei` package, and publishes
+RetroFuturaGradle obfuscation variants, so no `rfg.deobf` wrapper and not one import changed — including the
+internal `mezz.jei.gui.*` classes `JEIMissingItem` reaches into.
+
+**What the first real compile cost: 26 errors, none of them in wave 6's files.** They are listed in
+`STATUS.md` under "What the first green build cost". `gradlew build` is green, tests included, and the
+reobfuscated jar builds.
 
 ## 9.1 Standing hazard: `GenericStack.equals()` is not `IAEItemStack.equals()`
 

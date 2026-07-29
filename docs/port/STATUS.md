@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated after
-wave 5, 2026-07-29.
+wave 6, 2026-07-29.
 
 Branch: `feature/generic-storage`.
 
@@ -12,13 +12,16 @@ the type-erased `AEKey` / `AEKeyType` / `MEStorage` / `GenericStack` / `KeyCount
 modern upstream AE2, plus the strategy layer (`StackWorldBehaviors` + five strategy interfaces) that lets
 one bus class serve every registered key type.
 
-The migration is **big-bang**: `src/main` does not compile from wave 1 until wave 6. That is deliberate.
-The only gate that works during the migration is `gradlew compileApiJava` — `src/api` is a separate Gradle
-source set that compiles independently and must stay green at every commit.
+The migration was **big-bang**: `src/main` did not compile from wave 1 until wave 6. That was deliberate,
+and it is over — `gradlew build` is green. Throughout, the only gate that worked was `gradlew compileApiJava`
+(`src/api` is a separate Gradle source set that compiles independently), so `CONTRACT.md` stood in for the
+compiler. §4 is the frozen api surface; §9 is the class-by-class registry of what every wave produced.
+Anyone continuing this work reads §9 to find out what the code they are calling actually looks like — that
+does not stop being true now that the build works.
 
-Because there is no compiler feedback on `src/main`, `CONTRACT.md` replaces it. §4 is the frozen api
-surface; §9 is the class-by-class registry of what every wave produced. Anyone continuing this work reads
-§9 to find out what the code they are calling actually looks like.
+**What the big-bang approach actually cost is measured**, once, at the end: 26 compile errors across five
+waves' worth of code, listed under "What the first green build cost" below. Whether that is a good trade is
+now answerable rather than a matter of opinion.
 
 ## Commits so far
 
@@ -36,30 +39,32 @@ surface; §9 is the class-by-class registry of what every wave produced. Anyone 
 | `e85dcaf31` | — | wave 5 cross-agent surfaces pinned in the contract |
 | `5d757ea55` | 5 | `appeng.fluids` (38 files), plus the fluid strategy registrations |
 | `2f1818b92` | — | per-type fuzzy documented; the formation-plane filter trap documented |
+| `e1ce42413` | 6 | `integration/modules` (7 files), the HEI swap, and the 26 fixes the first compile exposed |
 
 ## Where the work stands
 
-Done: waves 0-5. **The whole of `appeng.fluids` is migrated**, and the deleted-symbol scan over
-`src/main/java/appeng` now returns nothing outside `integration/modules`.
+**All seven waves are done. `gradlew build` is green** — `src/main` compiles, the tests pass, and the
+reobfuscated jar builds. The migration phase is over; what is left is play-testing and the follow-up work
+listed below, not porting.
 
-Remaining:
+The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. One class is merely
+*named* `IMEInventoryDestination` and matches the scan pattern by accident; it is not work.
 
-| Wave | Packages | Files |
-|---|---|---:|
-| 6 | `integration/modules` 7, plus the HEI dependency swap and a green `gradlew build` | 7 |
-
-One class is merely *named* `IMEInventoryDestination` and matches the scan pattern by accident. It is not
-work.
+**Nothing in this port has been run in a game yet.** A green build says the types line up. It says nothing
+about whether a storage bus still stocks, whether the terminal still updates, or whether a fluid pattern
+still encodes. That is the next thing to do, and the "at-risk features" inventory in `CONTRACT.md` §10 is
+the list to walk.
 
 ## How to check where you are
 
-Two commands. Nothing else in this repo tells you the truth during the migration.
+Two commands. The first is now the real one; the second is what told the truth *during* the migration and
+is still the way to check a package is clean.
 
 ```sh
-# The only gate that works until wave 6. Must be green at every commit.
-./gradlew compileApiJava
+# The gate, now that main compiles. Was unusable from wave 1 to wave 6.
+./gradlew build
 
-# A wave is finished when this prints nothing for its packages.
+# A package is clean when this prints nothing for it. Prints nothing anywhere now.
 grep -rnE "\b(IAEStack|IAEItemStack|IAEFluidStack|IStorageChannel|IMEInventory|IMEInventoryHandler|IItemList|IItemContainer|IMEMonitor|IItemStorageChannel|IFluidStorageChannel|IStorageMonitorable|IStorageGrid|IStackWatcherHost|IBaseMonitor|ICellProvider|ICellContainer|ICellRegistry|ICellInventory|ICellInventoryHandler|IMEMonitorHandlerReceiver|AEItemStack|AEFluidStack|ItemList|FluidList)\b" \
   src/main/java/appeng/<package> --include=*.java | grep -vE ":[0-9]+:\s*(\*|//|/\*)"
 ```
@@ -184,23 +189,70 @@ the migration, so this is an inherited fork defect, not a port regression. Rule 
 mechanics; it does not oblige this port to repair old ones. Fixing it is a one-line addition whenever
 someone wants it.
 
-## Wave 6 — file list
+## Wave 6 — done, and what the green build cost
 
-`integration/modules`: `jei/CraftableCallBack`, `jei/JEIMissingItem`, `bogosorter/InventoryBogoSortModule`,
-`theoneprobe/part/StorageMonitorInfoProvider`, `theoneprobe/tile/CraftingMonitorInfoProvider`,
-`waila/part/StorageMonitorWailaDataProvider`, `waila/tile/CraftingMonitorWailaDataProvider`.
+Seven files, done by hand rather than by agents, plus the HEI swap. The prediction written here before the
+wave held exactly: **the seven files were the smallest part of it.**
 
-Then: swap the JEI dependency for HEI in `build.gradle:583` (see `CONTRACT.md` §8.2 — HEI is a drop-in
-CleanroomMC fork of JEI), and get `gradlew build` green.
+Five of the seven got *simpler*. The two storage-monitor and two crafting-monitor providers each carried a
+`// TODO: generalize` over an item-vs-fluid `instanceof` pair; both branches collapse into
+`displayed.what().getDisplayName()`, because every key type names itself. `InventoryBogoSortModule` became
+`Comparator<Object2LongMap.Entry<AEKey>>` like everything in `ItemSorters`.
 
-## Before starting wave 6 — read this
+The two JEI helpers were the real ones. Per-agent detail is in `CONTRACT.md` §9's Wave 6 entry; the part
+worth knowing here is why `appeng.integration.modules.jei.AvailableItems` had to be written instead of
+reusing `KeyCounter`: **a `KeyCounter` drops any key whose amount is zero, and a zero-amount craftable entry
+is exactly what paints a JEI ingredient slot blue instead of red.** It also carries no craftable flag. Where
+the old code merely counted amounts (`used`) a `KeyCounter` was the right answer and was used.
 
-Wave 6 is the first wave since wave 0 that ends with a **compiling build**. `gradlew compileApiJava` stops
-being the only gate; `gradlew build` becomes the real one, and it will surface every mistake the previous
-five waves made that no scan could catch. Budget for that: the seven `integration/modules` files are the
-smallest part of the wave.
+`build.gradle` now pulls `mezz:jei:4.32.0` — HadEnoughItems, from `https://maven.cleanroommc.com`, which was
+already a declared repository. Not one import changed, including the internal `mezz.jei.gui.*` classes
+`JEIMissingItem` reaches into.
 
-### How terminal live updates ended up working
+### What the first green build cost — 26 errors, none in wave 6's own files
+
+This is the part worth reading, because it is the evidence for what a scan-driven migration cannot catch.
+Every one of these compiled cleanly in the mind of the agent that wrote it and survived the deleted-symbol
+scan, the seam checks and the report verification.
+
+| What | Where | Why no scan found it |
+|---|---|---|
+| `ICellWorkbenchItem` moved to `appeng.api.storage.cells` in wave 0 | `SlotRestrictedInput`, `ItemMaterial` | the *name* is unchanged, only the package |
+| `AEApi.instance().registries().cell()` removed (§8, item 9) — now static `StorageCells` | `SlotRestrictedInput` ×2 | the scan lists deleted *types*, not deleted *methods* |
+| `List.of(…)` | `PartFluidAnnihilationPlane`, `PartIdentityAnnihilationPlane` | Jabel gives Java 17 **syntax**; the classpath is still Java 8, so Java 9 **APIs** are absent |
+| `Object2LongMaps.fastIterable(…)` | `BasicCellInventory` ×3 | copied from modern upstream, which ships a newer fastutil |
+| `Object2LongMap.Entry` needs the boxed `getValue`/`setValue` too | `ItemRepo`, `FluidRepo` | this fastutil still extends `Map.Entry<K, Long>` without defaults |
+| `grid.getCache(IStorageService.class).getInventory()` | `ContainerCraftConfirm` | `getCache` infers its type variable from the **assignment target**; chained, it infers `IGridCache` |
+| `setStackSize` called on an `AEKey` | `PacketCraftRequest` | an amount was pushed into a container field that no longer holds one |
+| `setTargetStack(GenericStack)` where an `AEKey` is wanted | `GuiFluidInterface` | third instance of the same slip; wave 5 fixed two others by hand |
+| `getDescription()` returning `String` | `PartAbstractFormationPlane` | `ITextComponent` is the new return type across `MEStorage` |
+| missing `IPartModel` / `AEKey` imports | `PartFluidLevelEmitter`, `ContainerPatternEncoder` | plain omissions, invisible without a compiler |
+
+The shape of the list is the lesson: **almost none of these are storage-model mistakes.** They are
+platform-version mismatches (Java 8 classpath, older fastutil), API surface moves that kept their names, and
+type-inference corners. A migration executed against a frozen contract instead of a compiler will produce
+exactly this residue, and it is cheap to fix once — but only once something actually compiles.
+
+## Not done yet — play-testing
+
+**A green build proves the types line up and nothing else.** No part of this port has been run in a game.
+`CONTRACT.md` §10's "Inventory of at-risk features" is the walk-through list; the four rule-6 violations
+recorded below were all caught by reading, which means the reading was good, not that the code is proven.
+
+Worth testing first, because they are where the most behaviour was rewritten with the least type-checking:
+
+1. **Terminal live updates**, both cases — see the section below. Case 2 in particular is a per-tick diff
+   with a copy hazard written into it.
+2. **The storage bus and the buses under a Fuzzy Card**, on items *and* fluids, since the fuzzy path became
+   per-key-type in wave 5 and the fluid buses now read a setting they had ignored since before the port.
+3. **The fluid formation plane's filter**, which is the one place a workaround round-trips through NBT to
+   dodge a frozen shape; if the tag naming ever drifts, the filter goes silently empty.
+4. **The JEI/HEI recipe transfer overlay** — missing/craftable highlighting and middle-click autocraft, the
+   only wave 6 code with real logic in it.
+5. **Save compatibility is deliberately broken.** Test on a new world; an old one is expected to lose cell
+   contents. This is the single sanctioned exception to rule 6.
+
+## How terminal live updates ended up working
 
 `CONTRACT.md` §10's two cases were both implemented in wave 4. Case 1 (real push) required one addition
 outside the wave's file list: `appeng.parts.reporting.AbstractPartTerminal` now implements
@@ -257,7 +309,8 @@ produces a specific, repeatable failure:
 
 1. *Read `CONTRACT.md` in full first.* §4 is the api surface, §9 is what earlier waves actually built.
 2. *`src/main` does not compile; that is expected.* Without this an agent burns its budget trying to make
-   the build pass and then "fixes" unrelated packages.
+   the build pass and then "fixes" unrelated packages. (No longer true after wave 6 — but if this method is
+   ever reused for another big-bang migration, it is the first thing to put back.)
 3. *Reference sources*, with paths — `AE2-original` for the reference implementation, `ae-gtnh` and
    `AE2FluidCraft-Rework-Unofficial` for 1.12.2-era API shapes.
 4. *Rule 6 in full, quoted, with the count of past violations.* Summarising it does not work; agents read
