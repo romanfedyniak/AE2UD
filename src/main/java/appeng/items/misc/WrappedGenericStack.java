@@ -103,7 +103,10 @@ public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrap
     @SideOnly(Side.CLIENT)
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         final GenericStack wrapped = this.unwrap(stack);
-        if (wrapped != null) {
+        // Amount zero means this is a pure display/filter placeholder (see AEKey.wrapForDisplayOrFilter),
+        // where the quantity belongs to the row being drawn and not to the stack. Only a wrapper that
+        // genuinely carries an amount - a configured filter entry, say - gets the amount line.
+        if (wrapped != null && wrapped.amount() > 0) {
             lines.add(wrapped.what().getDisplayName().getFormattedText() + ": "
                     + wrapped.what().formatAmount(wrapped.amount(), AmountFormat.FULL));
         }

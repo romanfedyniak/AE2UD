@@ -19,6 +19,7 @@
 package appeng.client.gui;
 
 
+import appeng.api.stacks.AmountFormat;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.me.SlotME;
 import appeng.container.slot.AppEngSlot;
@@ -60,9 +61,11 @@ public abstract class AEBaseMEGui extends AEBaseGui {
             }
 
             if (myStack != null) {
+                // Amounts go through the key's own formatter, not a bare number: a fluid row holds
+                // millibuckets and has to read "1B", not "1,000". Items format identically to before.
                 if (myStack.getStoredAmount() > 1) {
                     final String local = ButtonToolTips.ItemsStored.getLocal();
-                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getStoredAmount());
+                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getStoredAmount(), AmountFormat.FULL);
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(TextFormatting.GRAY + format);
@@ -70,7 +73,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
 
                 if (myStack.getRequestableAmount() > 0) {
                     final String local = ButtonToolTips.ItemsRequestable.getLocal();
-                    final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(myStack.getRequestableAmount());
+                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getRequestableAmount(), AmountFormat.FULL);
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(format);

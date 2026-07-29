@@ -26,7 +26,19 @@ import net.minecraftforge.fluids.FluidStack;
 public interface IAEFluidInventory {
     void onFluidInventoryChanged(final IAEFluidTank inv, final int slot);
 
+    /**
+     * <strong>This is the overload {@link AEFluidInventory} actually calls</strong>, so it must not stay a
+     * no-op by default: an implementor that only overrode the two-argument method above would never hear
+     * about a change at all. That was the case for {@code PartFluidFormationPlane},
+     * {@code PartFluidStorageBus} and {@code PartFluidLevelEmitter}, whose filters and watchers therefore
+     * only ever rebuilt on world load.
+     * <p>
+     * The mismatch predates the storage port ({@code git show 1e855f729}), where it was harmless because
+     * the affected parts re-read their config inventory directly on every rebuild. Once a part caches
+     * anything derived from the config, it stops being harmless.
+     */
     default void onFluidInventoryChanged(final IAEFluidTank inv, final int slot, InvOperation operation, FluidStack added, FluidStack removed) {
+        this.onFluidInventoryChanged(inv, slot);
     }
 
     default void onFluidInventoryChanged(final IAEFluidTank inv, FluidStack added, FluidStack removed) {

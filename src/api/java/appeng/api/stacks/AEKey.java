@@ -238,7 +238,11 @@ public abstract class AEKey {
      * a single filter GUI to accept any registered type.
      */
     public ItemStack wrapForDisplayOrFilter() {
-        return GenericStack.wrapInItemStack(this, 1);
+        // Amount zero, deliberately: this stack stands for an identity, never for a quantity. The real
+        // amount is drawn beside the slot and belongs to whatever row or filter the caller is showing.
+        // A placeholder amount of 1 leaked into tooltips as a wrong quantity - a terminal row for water
+        // read "Water: 0B", because one millibucket rounds to zero buckets.
+        return GenericStack.wrapInItemStack(this, 0);
     }
 
     /**

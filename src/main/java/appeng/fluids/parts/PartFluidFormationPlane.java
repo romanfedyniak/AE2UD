@@ -85,8 +85,15 @@ public class PartFluidFormationPlane extends PartAbstractFormationPlane implemen
         return AEKeyType.fluids();
     }
 
+    /**
+     * Refreshes the mirror before handing it out. {@code updateFilter()} is the only caller, and a stale
+     * mirror there is invisible: an empty partition list means "accept everything", so the plane would
+     * quietly place every fluid the network offered it. Syncing on read makes staleness impossible
+     * instead of relying on every mutation path remembering to push.
+     */
     @Override
     protected AppEngInternalAEInventory getConfigInventory() {
+        this.syncFilterView();
         return this.filterView;
     }
 

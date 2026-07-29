@@ -190,6 +190,23 @@ public class BasicCellInventory implements StorageCell {
         return !this.partitionList.isEmpty();
     }
 
+    /**
+     * A partitioned cell is preferred storage for whatever it is partitioned to. This is how the network
+     * fills partitioned cells before general-purpose ones, and it used to fall out of the old model for
+     * free: an {@code ICellInventoryHandler}'s own partition list <em>was</em> the cell's, so
+     * {@code isPrioritized} saw it. Here the two are separate - {@link MEInventoryHandler}'s list belongs
+     * to a storage bus - so the cell has to answer for itself or nothing ever asks it.
+     * <p>
+     * The Sticky Card makes the omission fatal rather than merely suboptimal: {@code NetworkStorage}'s
+     * sticky pass skips a sticky mount that does not claim the key, <em>and</em> the ordinary pass skips
+     * every sticky mount as well. A partitioned sticky cell that could not report interest therefore
+     * accepted nothing at all until something else had already put a matching stack in it.
+     */
+    @Override
+    public boolean isPreferredStorageFor(final AEKey what, final IActionSource source) {
+        return this.partitionListMode == IncludeExclude.WHITELIST && this.partitionList.isListed(what);
+    }
+
     public boolean isFuzzy() {
         return this.partitionList instanceof FuzzyPriorityList;
     }
