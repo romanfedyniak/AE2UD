@@ -135,6 +135,14 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
 
     /**
      * Sets every amount to zero while keeping the keys, so repeated scans do not have to reallocate.
+     * <p>
+     * <strong>This is not {@code IItemList.resetStatus()}, however much it looks like it.</strong> The old
+     * list's {@code isEmpty()} walked an iterator that skipped zero-size entries, so zeroing it made it
+     * report empty; {@link #isEmpty()} here counts <em>keys</em>, and this method keeps them. Any code
+     * that zeroes a counter and then asks whether it is empty wants {@link #clear()}. Getting it wrong is
+     * silent and durable: it cost the crafting CPU its release, so no second job could ever be submitted.
+     * <p>
+     * Use this only for a counter that is about to be refilled by the same scan that reads it.
      */
     public void reset() {
         for (Object2LongMap<AEKey> sub : this.byPrimary.values()) {

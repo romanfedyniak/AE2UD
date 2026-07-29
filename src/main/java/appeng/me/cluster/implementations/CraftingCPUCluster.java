@@ -323,7 +323,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // recipe for example, but only requested 1xbutton. We just ignore the rest since it will be dumped
         // back into the network inventory regardless. For this to work it's important that injectItems in this CPU
         // does not accept any further items if isComplete is true.
-        this.waitingFor.reset();
+        // clear(), not reset(): KeyCounter.reset() zeroes the amounts but KEEPS the keys, and
+        // KeyCounter.isEmpty() counts keys rather than amounts. The old IItemList.isEmpty() walked a
+        // meaningful iterator that skipped zero-size entries, so resetStatus() did empty it. With reset()
+        // here, isBusy() stayed true forever and the CPU was never released - no further job could be
+        // submitted until the crafting storage was broken and replaced.
+        this.waitingFor.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
@@ -343,7 +348,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         var player = AppEng.proxy.getPlayerByUUID(this.requestingPlayerUUID);
         if (player instanceof EntityPlayerMP playerMP) {
             try {
-                NetworkHandler.instance().sendTo(new PacketCraftingToast(this.finalOutput, cancelled), playerMP);
+                // The identity, not the remaining amount: by the time completeJob() calls this the final
+                // output has already been counted down to zero, and wrapping a zero-amount stack produced
+                // an empty ItemStack - the toast showed "Air".
+                NetworkHandler.instance().sendTo(
+                        new PacketCraftingToast(new GenericStack(this.finalOutput.what(), 1), cancelled), playerMP);
             } catch (IOException ignored) {}
         }
     }
@@ -481,7 +490,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.tasks.clear();
 
         final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
-        this.waitingFor.reset();
+        this.waitingFor.clear(); // see completeJob(): reset() keeps the keys and isBusy() counts keys
 
         notifyRequester(true);
         this.requestingPlayerUUID = null;
@@ -785,7 +794,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         final MECraftingInventory ci = new MECraftingInventory(networkStorage, true, false, false);
 
         try {
-            this.waitingFor.reset();
+            this.waitingFor.clear(); // see completeJob()
             ((CraftingJob) job).getTree().setJob(ci, this, src);
             if (ci.commit(src)) {
                 this.finalOutput = job.getOutput();
