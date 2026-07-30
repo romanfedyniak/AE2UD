@@ -115,9 +115,22 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         return this.myRange;
     }
 
+    /**
+     * The linked network's own inventory, not this wrapper.
+     * <p/>
+     * The wrapper's own {@link #insert}, {@link #extract} and {@link #getAvailableStacks} are pure
+     * delegations to the same object, so handing it out directly changes nothing about storage - but it
+     * does let a caller recognise that this terminal shows a <em>network</em> rather than one cell, which
+     * {@code ContainerMEMonitorable} decides by comparing against {@link IStorageService#getInventory()}.
+     * While this answered {@code this}, that comparison failed and the wireless terminal silently lost its
+     * craftable rows.
+     * <p/>
+     * Falls back to this wrapper when there is no link, so an unbound terminal still opens empty and is
+     * closed by the usual range check rather than failing in the container's constructor.
+     */
     @Override
     public MEStorage getInventory() {
-        return this;
+        return this.networkStorage != null ? this.networkStorage : this;
     }
 
     @Override

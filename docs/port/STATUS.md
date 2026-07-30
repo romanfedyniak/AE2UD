@@ -101,7 +101,7 @@ client 24), plus two prerequisites done by hand first because more than one agen
 Both are documented in `CONTRACT.md` §9's "Wave 4 prerequisites" subsection, along with the cross-agent
 signatures that were fixed up front. Per-agent detail is in §9's Wave 4a-4d entries.
 
-### Planned, not yet implemented — cheapen the case-2 terminal diff
+### Cheapen the case-2 terminal diff (done, awaiting a play-test)
 
 **The situation.** `ContainerMEMonitorable` splits on `host instanceof AbstractPartTerminal`: part-based
 terminals get real push (the part holds the `IStackWatcher` and relays `onStackChange` to attached
@@ -138,6 +138,45 @@ the table:
    on **both** paths, including the push path, because no craftable-flag watcher exists. Caching an
    immutable view inside `CraftingGridCache`, invalidated where that map is mutated, removes the per-tick
    allocation for every open terminal at once. Upstream has the same cost, so this is optional polish.
+
+**What was built, and where step 3 stopped.** Steps 1 and 2 are done. The lookup that answers "does this
+terminal show the network or one cell" is now `networkStorageService()`, which returns the service itself
+rather than a boolean, so the three callers that each re-did the grid-then-cache dance share one. On top of
+it sit two readers, and the pair is the whole guard against step 2's hazard:
+
+- `readAvailableStacks()` - **may hand back the service's own live counter.** For reading within the tick:
+  the initial full listing in `queueInventory`, and `getCachedAmount`.
+- `retainAvailableStacks()` - always this container's own object. Used by the two places that keep the
+  result: the constructor's seed and the case-2 diff. A cell read needs no copy, since
+  `MEStorage.getAvailableStacks()` already builds a fresh counter per call; only the network read is copied.
+
+Splitting the two was deliberate. One method plus a comment saying "copy this if you keep it" is exactly the
+shape of mistake §9.1 catalogues - it compiles, it runs, and the terminal silently stops updating.
+
+**And it uncovered a regression from `25d09eb03`, which is the more important half of this change.** The
+wireless terminal had **no craftable rows at all**, and had had none since that commit narrowed
+`computeCraftables()` from "attached to a grid" to `monitorsNetworkInventory()`. The identity test itself
+is right; what was wrong is that `WirelessTerminalGuiObject.getInventory()` answered `this` rather than the
+grid's inventory, so the comparison could never succeed and the wireless terminal was classified as
+cell-only. The javadoc added with that commit asserted the opposite - that the wireless terminal "hands
+back exactly that object" - which is exactly the kind of claim worth checking rather than believing.
+
+Fixed where it was wrong: `getInventory()` now returns `networkStorage`, falling back to `this` only when
+there is no link. The wrapper's `insert`/`extract`/`getAvailableStacks` are pure delegations to that same
+object, so nothing about storage changes - and note that until this, `monitorsNetworkInventory()` was false
+for the wireless terminal, so steps 1 and 2 above were a no-op on the one host they were written for.
+
+Worth keeping as a pattern: **narrowing a condition is a deletion, and it needs the same "who did this used
+to cover" audit that deleting a class does.** The security station was the case in mind and it was fixed;
+the wireless terminal was collateral and nothing failed loudly enough to notice.
+
+**Step 3 was not done, and needs an owner decision first.** The saving only lands for a caller passing
+`AEKeyFilter.all()`, which is what the terminal passes, and there is no way to recognise that filter:
+`AEKeyFilter.all()` returns a fresh `what -> true` lambda per call, so an identity test against it is
+relying on unspecified JVM lambda caching. The two ways out are a shared constant or a no-argument
+`ICraftingGrid.getCraftables()` - both edits to the frozen api, which is §7's call - or an `instanceof
+CraftingGridCache` in the container, which is the concrete-type test §9.1b exists to warn against. Left
+alone rather than picking one silently. It is polish either way; upstream pays the same cost.
 
 Nothing here changes behaviour a player can observe; it is purely how the same delta is computed.
 
