@@ -66,7 +66,7 @@ import java.util.List;
 
 public class ToolWirelessTerminal extends AEBasePoweredItem implements IWirelessTermHandler, IBauble {
 
-    int magnetTick;
+    private static final int MAGNET_INTERVAL = 5;
 
     public ToolWirelessTerminal() {
         super(AEConfig.instance().getWirelessTerminalBattery());
@@ -183,11 +183,12 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
 
     public void magnetLogic(ItemStack stack, World worldIn, Entity entityIn) {
         if (entityIn instanceof EntityPlayer player) {
-            this.magnetTick++;
-            if (magnetTick % 5 != 0) {
+            // An Item is a singleton, so a counter field would be shared by every player. The entity id
+            // offset gives each their own beat.
+            if ((worldIn.getTotalWorldTime() + entityIn.getEntityId()) % MAGNET_INTERVAL != 0) {
                 return;
             }
-            magnetTick = 0;
+
             if (!entityIn.isSneaking()) {
                 NBTTagCompound upgradeNBT = Platform.openNbtData(stack).getCompoundTag("upgrades");
                 ItemStackHandler siu = new ItemStackHandler(0);
