@@ -19,6 +19,7 @@
 package appeng.client.render;
 
 
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.AEConfig;
@@ -58,11 +59,18 @@ public class StackSizeRenderer {
      * The plain flavour: a bare amount with no craftable flag. Replaces the old call sites that built a
      * throwaway {@code AEItemStack.fromItemStack(...)} purely to carry a count (the drag-splitting preview
      * and the encoded-pattern output preview in {@link appeng.client.gui.AEBaseGui#drawSlot}).
+     * <p>
+     * A single item draws nothing, as it does anywhere in Minecraft. This is what keeps a filter, a plane or
+     * a cell workbench from labelling every configured item "1" - slots that carry no amount at all. One
+     * millibucket still draws, because for a type measured in thousands it is a real reading rather than the
+     * absence of one.
      */
     public void renderStackSize(FontRenderer fontRenderer, @Nullable GenericStack stack, int xPos, int yPos) {
-        if (stack != null) {
-            this.renderStackSize(fontRenderer, stack.amount(), false, xPos, yPos);
+        if (stack == null || (stack.amount() == 1 && stack.what() instanceof AEItemKey)) {
+            return;
         }
+
+        this.renderStackSize(fontRenderer, stack.amount(), false, xPos, yPos);
     }
 
     private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, int xPos, int yPos) {
