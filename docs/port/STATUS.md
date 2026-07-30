@@ -470,9 +470,26 @@ animation, so anything drawn wider would overlap the neighbouring toast and slid
 trimmed with `trimStringToWidth` plus an ellipsis instead — from the right, so the amount at the front of the
 label survives.
 
+### Stage 1 prerequisite — the formation plane is no longer per-type (done, awaiting a play-test)
+
+`PartAbstractFormationPlane` carried an abstract `getKeyType()` that `insert` rejected everything else
+against — per-type behaviour on the part, which is exactly what the owner ruled out in wave 5. It is gone,
+along with both overrides and the `what.getType() != AEKeyType.items()` check. `PlacementStrategyFacade`
+already routes each key to the strategy registered for *its* type and answers 0 when there is none, so the
+guard was doing nothing the facade did not already do — except block fluids from the item plane.
+
+`PLACE_BLOCK` is still passed to every strategy; the ones it makes no sense for ignore it, as
+`FluidPlacementStrategy` already did.
+
+The base class' javadoc claimed a plane's filter could only ever hold items, because
+`AppEngInternalAEInventory`'s item-handler surface built slot contents with `GenericStack.fromItemStack`.
+**Stage 0 already fixed that** and the javadoc was never updated — `toGenericStack` now unwraps a placeholder
+back into its key, so the plane's `SlotFakeTypeOnly` config takes any key type from the GUI. Corrected, since
+it is the reason `PartFluidFormationPlane` grew its two-inventory mirror in the first place.
+
 ### Then, in order
 
-1. **Stage 1** — drop the six legacy parts above, after generalising `PartFormationPlane`.
+1. **Stage 1** — drop the six legacy parts above. The formation plane prerequisite is done.
 2. **Stage 2** — replace `AEFluidInventory`/`AEFluidTank`/`IAEFluidTank` with the generic `GenericStack`
    config inventory (upstream calls it `ConfigInventory`). About 30 files; the largest mechanical step.
 3. **Stage 3** — the universal interface. `DualityFluidInterface` holds tanks, `DualityInterface` holds item

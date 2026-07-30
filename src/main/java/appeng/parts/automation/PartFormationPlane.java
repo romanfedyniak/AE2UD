@@ -38,7 +38,6 @@ import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.core.sync.GuiBridge;
 import appeng.items.parts.PartModels;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -62,11 +61,6 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.getConfigManager().registerSetting(Settings.PLACE_BLOCK, YesNo.YES);
         this.updateFilter();
-    }
-
-    @Override
-    protected AEKeyType getKeyType() {
-        return AEKeyType.items();
     }
 
     @Override
@@ -127,7 +121,7 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
 
     @Override
     public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
-        if (this.blocked || what == null || what.getType() != AEKeyType.items() || amount <= 0) {
+        if (this.blocked || what == null || amount <= 0) {
             return 0;
         }
 
@@ -135,6 +129,9 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
             return 0;
         }
 
+        // No key-type check: PlacementStrategyFacade answers 0 for a type with no registered strategy,
+        // and per-type behaviour belongs to the key type rather than to the part. PLACE_BLOCK is passed
+        // to every strategy; the ones it makes no sense for ignore it (FluidPlacementStrategy does).
         final boolean placeAsEntity = this.getConfigManager().getSetting(Settings.PLACE_BLOCK) != YesNo.YES;
 
         return this.getPlacementStrategies().placeInWorld(what, amount, mode, placeAsEntity);

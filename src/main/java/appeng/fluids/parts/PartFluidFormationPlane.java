@@ -80,11 +80,6 @@ public class PartFluidFormationPlane extends PartAbstractFormationPlane implemen
         this.updateFilter();
     }
 
-    @Override
-    protected AEKeyType getKeyType() {
-        return AEKeyType.fluids();
-    }
-
     /**
      * Refreshes the mirror before handing it out. {@code updateFilter()} is the only caller, and a stale
      * mirror there is invisible: an empty partition list means "accept everything", so the plane would

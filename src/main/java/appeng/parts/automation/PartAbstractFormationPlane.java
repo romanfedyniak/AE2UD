@@ -14,6 +14,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 
+import appeng.api.AEApi;
 import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.Actionable;
@@ -40,22 +41,16 @@ import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.util.prioritylist.IPartitionList;
 
 /**
- * Shared base of the formation planes (item, and -- once wave 5 adapts it -- fluid). Replaces the old
- * generic {@code PartAbstractFormationPlane<T extends IAEStack<T>>}, which modelled the plane as an
+ * Shared base of the formation planes. Replaces the old generic
+ * {@code PartAbstractFormationPlane<T extends IAEStack<T>>}, which modelled the plane as an
  * {@code IMEInventory<T>} for exactly one storage channel.
  * <p>
- * Under the new model {@link MEStorage} is not generic, so instead each concrete plane declares which
- * single {@link AEKeyType} it serves via {@link #getKeyType()} and this base rejects anything else in
- * {@link #insert}. AE2UD keeps item and fluid formation planes as separate part items/blocks (unlike
- * AE2-original, which merged them into one {@code FormationPlanePart} now that {@code MEStorage} is
- * type-erased); this base class is the shared skeleton both use, mirroring the pre-port split between
- * {@code PartAbstractFormationPlane} (shared) and {@code PartFormationPlane} (item-specific).
- * <p>
- * <b>Wave 5 note:</b> {@code appeng.fluids.parts.PartFluidFormationPlane} currently still extends the
- * old {@code PartAbstractFormationPlane<IAEFluidStack>}. It must be changed to extend this
- * (non-generic) class, implement {@link #getKeyType()} returning {@code AEKeyType.fluids()}, and
- * implement {@link #insert} using its own fluid placement logic (see {@link PartFormationPlane} for
- * the item-side template).
+ * A plane no longer serves one key type. {@link MEStorage} is type-erased, the filter holds
+ * {@link appeng.api.stacks.GenericStack}s, and {@link PlacementStrategyFacade} routes each key to the
+ * {@link PlacementStrategy} registered for <em>its</em> {@link AEKeyType} - so a plane places whatever
+ * the world can receive, and a key type an addon registers works here with no change. This base used to
+ * carry an abstract {@code getKeyType()} that {@link #insert} rejected everything else against, which
+ * put per-type behaviour on the part instead of on the key type.
  */
 public abstract class PartAbstractFormationPlane extends PartUpgradeable implements IStorageProvider, IPriorityHost, MEStorage {
 
@@ -74,29 +69,18 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
     }
 
     /**
-     * @return the single {@link AEKeyType} this plane instance places. Anything else is rejected by
-     *         {@link #insert}.
-     */
-    protected abstract AEKeyType getKeyType();
-
-    /**
-     * The plane's configured filter, as an {@link AppEngInternalAEInventory}. Its slots hold
-     * {@link appeng.api.stacks.GenericStack}s, so any {@link AEKeyType}'s keys can be <i>stored</i>
-     * there and {@link #updateFilter()} reads them back type-erased.
+     * The plane's configured filter. Its slots hold {@link appeng.api.stacks.GenericStack}s, so any
+     * {@link AEKeyType}'s keys can be stored there and {@link #updateFilter()} reads them back
+     * type-erased.
      * <p/>
-     * <b>But they cannot be put there through the {@link net.minecraftforge.items.IItemHandler}
-     * surface.</b> {@code AppEngInternalAEInventory.setStackInSlot}/{@code insertItem} build the slot
-     * content with {@code GenericStack.fromItemStack}, which always yields an
-     * {@link appeng.api.stacks.AEItemKey} - it does <b>not</b> unwrap a wrapped placeholder stack, so a
-     * key that arrived via {@code GenericStack.wrapInItemStack} comes back out as the placeholder item
-     * itself, not as the key it stood for. A plane whose filter is populated by item-handler writes can
-     * therefore only ever filter on items.
-     * <p/>
-     * Implementations for a non-item key type must populate this inventory some other way. The one in
-     * the tree, {@code appeng.fluids.parts.PartFluidFormationPlane}, keeps its real GUI-facing
-     * {@code AEFluidInventory} and mirrors it into a private instance of this class through
-     * {@code GenericStack.writeTag}/{@code readFromNBT}, both of which are type-erased. Getting this
-     * wrong is silent: the filter simply matches nothing and the plane places everything.
+     * This used to be true only of the NBT surface: {@code setStackInSlot}/{@code insertItem} built
+     * their slot content with {@code GenericStack.fromItemStack}, which can only yield an
+     * {@link appeng.api.stacks.AEItemKey}, so a filter populated through the
+     * {@link net.minecraftforge.items.IItemHandler} surface - i.e. through the GUI - could only ever
+     * hold items. The fluids phase' stage 0 fixed that at the source:
+     * {@code AppEngInternalAEInventory.toGenericStack} now unwraps a placeholder stack back into the key
+     * it stands for, so a plane's filter accepts any key type from the GUI like every other filter in
+     * the mod.
      */
     protected abstract AppEngInternalAEInventory getConfigInventory();
 
@@ -296,7 +280,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
 
     @Nullable
     private UUID resolveOwnerUuid(int playerId) {
-        var player = appeng.api.AEApi.instance().registries().players().findPlayer(playerId);
+        var player = AEApi.instance().registries().players().findPlayer(playerId);
         return player != null ? player.getGameProfile().getId() : null;
     }
 
