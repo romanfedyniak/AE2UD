@@ -585,14 +585,44 @@ a bucket is a normal item everywhere else. Same convention the legacy fluid term
 
 - `FILL_ENTIRE_ITEM` / `EMPTY_ENTIRE_ITEM` (shift to transfer a whole container rather than one unit). One
   unit per click, matching `AEKey.getAmountPerUnit()`, is what the legacy fluid terminal did.
-- Clicking a fluid row with an **empty hand** to pull an empty bucket out of the network and fill it.
-  Upstream has it; the legacy fluid terminal did not.
+- ~~Clicking a fluid row with an **empty hand** to pull an empty bucket out of the network and fill it.~~
+  **Done** after the owner asked for it. Upstream hardcodes `Items.BUCKET` into its terminal menu; here it is
+  `ContainerItemStrategy.getEmptyContainerFor(AEKey)`, so the terminal still does not know fluids exist and an
+  addon key type can offer its own container. The container is borrowed unpowered - it is a loan, not a
+  withdrawal - and goes straight back if the key turns out not to fit in it, which is also how a fluid that
+  no bucket accepts resolves itself with no special case.
 - Shift-clicking a filled container **out of the player inventory** to drain it into the network.
   `ContainerFluidTerminal.transferStackInSlot` did this, and it is the one place the universal terminal
   cannot copy it: on a fluids-only terminal, storing the bucket itself was not an option, whereas here
   shift-click already means "store this item" and must keep meaning that or a bucket becomes unstorable.
   Right-click still empties it. This is a conflict created by making the terminal universal, resolved in
   favour of the unambiguous reading — not a mechanic dropped.
+
+### Stage 1c — the fluid terminal is deleted (done, awaiting a play-test)
+
+Gone: `PartFluidTerminal` + its container and screen, `ToolWirelessFluidTerminal` + `ContainerWirelessFluidTerminal`
+/ `GuiWirelessFluidTerminal` and their base `ContainerMEPortableFluidCell` / `GuiMEPortableFluidCell`,
+`SlotFluidME`, `IMEFluidSlot`, `FluidStackSizeRenderer`, `PacketMEFluidInventoryUpdate`, the `PartType`,
+`AEFeature`, `GuiBridge`, `ApiParts`/`IParts`, `ApiItems`/`IItems` entries, the `Terminal` enum entry, the
+`WFT` keybinding, two recipes, the models, textures and lang.
+
+**The wireless fluid terminal was an item, and it is gone.** The ordinary wireless terminal is built on
+`ContainerMEMonitorable` → `AEBaseContainer`, so it lists fluids and now fills and empties containers exactly
+like the wired one. Calling this out because it is the one player-facing item removal in the phase.
+
+`AEBaseGui`'s dedicated fluid-slot rendering branch went with `IMEFluidSlot`: the generic terminal draws a
+fluid row through `SlotME` and the wrapped placeholder's own model, which is why fluids were already visible
+there before any of this.
+
+Two consequences worth knowing:
+
+- `TileChest.getGuiBridge()` picked a screen per key type and answered **null** for anything that was neither
+  items nor fluids - so an addon key type gave the chest no GUI at all. It now answers `GUI_ME` for every
+  type. `BasicFluidCellGuiHandler` likewise opens `GUI_ME`; it still has to exist, because `TileChest` only
+  opens a GUI when `StorageCells.getGuiHandler` answers for the cell's type. Whether that per-type registry
+  still earns its keep is a stage 3 question.
+- `PacketTargetFluidStack` is down to two dispatch targets, both interface screens. It follows the interface
+  in stage 3; `PacketTargetItemStack` already carries a bare `AEKey` of any type.
 
 ### Then, in order
 

@@ -66,7 +66,6 @@ public enum AEFeature {
     WIRELESS_ACCESS_TERMINAL("WirelessAccessTerminal", Constants.CATEGORY_TOOLS),
     WIRELESS_CRAFTING_TERMINAL("WirelessCraftingTerminal", Constants.CATEGORY_TOOLS),
     WIRELESS_PATTERN_TERMINAL("WirelessPatternTerminal", Constants.CATEGORY_TOOLS),
-    WIRELESS_FLUID_TERMINAL("WirelessFluidTerminal", Constants.CATEGORY_TOOLS),
     WIRELESS_INTERFACE_TERMINAL("WirelessInterfaceTerminal", Constants.CATEGORY_TOOLS),
 
     COLOR_APPLICATOR("ColorApplicator", Constants.CATEGORY_TOOLS),
@@ -81,7 +80,6 @@ public enum AEFeature {
     INTERFACE("Interface", Constants.CATEGORY_NETWORK_BUSES),
     FLUID_INTERFACE("FluidInterface", Constants.CATEGORY_NETWORK_BUSES),
     LEVEL_EMITTER("LevelEmitter", Constants.CATEGORY_NETWORK_BUSES),
-    FLUID_TERMINAL("FluidTerminal", Constants.CATEGORY_NETWORK_BUSES),
     CRAFTING_TERMINAL("CraftingTerminal", Constants.CATEGORY_NETWORK_BUSES),
     TERMINAL("Terminal", Constants.CATEGORY_NETWORK_BUSES),
     STORAGE_MONITOR("StorageMonitor", Constants.CATEGORY_NETWORK_BUSES),

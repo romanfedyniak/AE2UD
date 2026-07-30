@@ -473,7 +473,6 @@ final class Registration {
                 Upgrades.MAGNET.registerItem(id, 1);
             });
         }
-        items.wirelessFluidTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
         items.wirelessInterfaceTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
 
         // Charge Rates

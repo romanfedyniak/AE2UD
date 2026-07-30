@@ -730,13 +730,10 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     @Override
     public GuiBridge getGuiBridge() {
         this.updateHandler();
-        if (this.cellKeyType == AEKeyType.items()) {
-            return GuiBridge.GUI_ME;
-        }
-        if (this.cellKeyType == AEKeyType.fluids()) {
-            return GuiBridge.GUI_FLUID_TERMINAL;
-        }
-        return null;
+        // One terminal for every key type, so the chest no longer picks a screen per type. This used to
+        // answer null for anything that was neither items nor fluids, which meant a key type registered by
+        // an addon gave the chest no GUI at all.
+        return this.cellKeyType == null ? null : GuiBridge.GUI_ME;
     }
 
 }

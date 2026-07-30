@@ -505,7 +505,6 @@ item.appliedenergistics2.multi_part.inverted_toggle_bus.name=ME 반전된 토글
 item.appliedenergistics2.multi_part.toggle_bus.name=ME 토글 버스
 item.appliedenergistics2.multi_part.crafting_monitor.name=ME 조합 모니터
 item.appliedenergistics2.multi_part.interface_terminal.name=ME 인터페이스 터미널
-item.appliedenergistics2.multi_part.fluid_terminal.name=ME 액체 터미널
 item.appliedenergistics2.multi_part.invalid_type.name=비활성화된 아이템
 
 item.appliedenergistics2.spatial_storage_cell_128_cubed.name=128³ 시공 셀

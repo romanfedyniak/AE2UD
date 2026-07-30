@@ -81,7 +81,6 @@ public final class ApiItems implements IItems {
     private final IItemDefinition wirelessCraftingTerminal;
     private final IItemDefinition wirelessPatternTerminal;
     private final IItemDefinition wirelessInterfaceTerminal;
-    private final IItemDefinition wirelessFluidTerminal;
     private final IItemDefinition biometricCard;
     private final IItemDefinition chargedStaff;
     private final IItemDefinition massCannon;
@@ -186,7 +185,6 @@ public final class ApiItems implements IItems {
         this.wirelessTerminal = powerTools.item("wireless_terminal", ToolWirelessTerminal::new).addFeatures(AEFeature.WIRELESS_ACCESS_TERMINAL).build();
         this.wirelessCraftingTerminal = powerTools.item("wireless_crafting_terminal", ToolWirelessCraftingTerminal::new).addFeatures(AEFeature.WIRELESS_CRAFTING_TERMINAL).build();
         this.wirelessPatternTerminal = powerTools.item("wireless_pattern_terminal", ToolWirelessPatternTerminal::new).addFeatures(AEFeature.WIRELESS_PATTERN_TERMINAL).build();
-        this.wirelessFluidTerminal = powerTools.item("wireless_fluid_terminal", ToolWirelessFluidTerminal::new).addFeatures(AEFeature.WIRELESS_FLUID_TERMINAL).build();
         this.wirelessInterfaceTerminal = powerTools.item("wireless_interface_terminal",ToolWirelessInterfaceTerminal::new).addFeatures(AEFeature.WIRELESS_INTERFACE_TERMINAL).build();
 
         this.chargedStaff = powerTools.item("charged_staff", ToolChargedStaff::new).addFeatures(AEFeature.CHARGED_STAFF).build();
@@ -364,11 +362,6 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition wirelessCraftingTerminal() {
         return wirelessCraftingTerminal;
-    }
-
-    @Override
-    public IItemDefinition wirelessFluidTerminal() {
-        return wirelessFluidTerminal;
     }
 
     @Override

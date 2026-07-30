@@ -40,7 +40,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_ME_INVENTORY_UPDATE(PacketMEInventoryUpdate.class),
 
-        PACKET_ME_FLUID_INVENTORY_UPDATE(PacketMEFluidInventoryUpdate.class),
 
         PACKET_CONFIG_BUTTON(PacketConfigButton.class),
 

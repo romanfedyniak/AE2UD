@@ -585,7 +585,6 @@ item.appliedenergistics2.multi_part.crafting_monitor.name=ME Crafting Monitor
 item.appliedenergistics2.multi_part.interface_terminal.name=ME Interface Terminal
 item.appliedenergistics2.multi_part.interface_configuration_terminal.name=ME Interface Configuration Terminal
 item.appliedenergistics2.multi_part.fluid_interface_configuration_terminal.name=ME Fluid Interface Configuration Terminal
-item.appliedenergistics2.multi_part.fluid_terminal.name=ME Fluid Terminal
 item.appliedenergistics2.multi_part.invalid_type.name=Disabled Item
 
 item.appliedenergistics2.spatial_storage_cell_128_cubed.name=§d128³§r  Spatial Storage Cell
@@ -620,7 +619,6 @@ item.appliedenergistics2.wireless_terminal.name=Wireless Terminal
 item.appliedenergistics2.wireless_interface_terminal.name=Wireless Interface Terminal
 item.appliedenergistics2.wireless_crafting_terminal.name=Wireless Crafting Terminal
 item.appliedenergistics2.wireless_pattern_terminal.name=Wireless Pattern Terminal
-item.appliedenergistics2.wireless_fluid_terminal.name=Wireless Fluid Terminal
 item.appliedenergistics2.biometric_card.name=Biometric Card
 
 item.appliedenergistics2.debug_card.name=Dev.DebugCard
@@ -699,5 +697,4 @@ key.toggle_focus.desc=Toggle search box focus
 key.open_wireless_terminal.desc=Open Wireless Terminal
 key.open_wireless_crafting_terminal.desc=Open Wireless Crafting Terminal
 key.open_wireless_pattern_terminal.desc=Open Wireless Pattern Terminal
-key.open_wireless_fluid_terminal.desc=Open Wireless Fluid Terminal
 key.open_wireless_interface_terminal.desc=Open Wireless Interface Terminal

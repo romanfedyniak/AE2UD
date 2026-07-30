@@ -103,6 +103,18 @@ public final class ContainerItemStrategies {
     }
 
     /**
+     * @return the empty container the network could supply to carry {@code what} away, or
+     *         {@link ItemStack#EMPTY} if this key type has none.
+     */
+    public static ItemStack getEmptyContainerFor(@Nullable AEKey what) {
+        if (what == null) {
+            return ItemStack.EMPTY;
+        }
+        final ContainerItemStrategy strategy = strategies.get(what.getType());
+        return strategy == null ? ItemStack.EMPTY : strategy.getEmptyContainerFor(what);
+    }
+
+    /**
      * Opens an interaction context for a held container.
      *
      * @param type the key type the caller wants to move, or null to accept whichever strategy claims the stack -

@@ -494,7 +494,6 @@ item.appliedenergistics2.multi_part.inverted_toggle_bus.name=Barramento de Alter
 item.appliedenergistics2.multi_part.toggle_bus.name=Barramento de Alternância ME
 item.appliedenergistics2.multi_part.crafting_monitor.name=Monitor de Fabricação ME
 item.appliedenergistics2.multi_part.interface_terminal.name=Terminal de Interface ME
-item.appliedenergistics2.multi_part.fluid_terminal.name=Terminal ME de Fluidos
 item.appliedenergistics2.multi_part.invalid_type.name=Item Desabilitado
 
 item.appliedenergistics2.spatial_storage_cell_128_cubed.name=Célula de Armazenamento Espacial 128³

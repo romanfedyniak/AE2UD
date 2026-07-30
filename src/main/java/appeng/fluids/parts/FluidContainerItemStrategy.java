@@ -2,6 +2,7 @@ package appeng.fluids.parts;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
@@ -39,6 +40,17 @@ public class FluidContainerItemStrategy implements ContainerItemStrategy {
             return null;
         }
         return new GenericStack(AEFluidKey.of(contained), contained.amount);
+    }
+
+    @Override
+    public ItemStack getEmptyContainerFor(final AEKey what) {
+        if (!(what instanceof AEFluidKey)) {
+            return ItemStack.EMPTY;
+        }
+        // A plain vanilla bucket. Whether this particular fluid actually goes into one is not decided here:
+        // Forge's FluidBucketWrapper accepts water, lava and milk, a universal bucket accepts more, and a
+        // fluid that fits neither simply fails the fill - at which point the caller puts the bucket back.
+        return new ItemStack(Items.BUCKET);
     }
 
     @Nullable

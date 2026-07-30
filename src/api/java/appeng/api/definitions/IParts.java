@@ -117,6 +117,4 @@ public interface IParts {
 
     IItemDefinition conversionMonitor();
 
-    IItemDefinition fluidTerminal();
-
 }

@@ -81,7 +81,6 @@ public final class ApiParts implements IParts {
     private final IItemDefinition terminal;
     private final IItemDefinition storageMonitor;
     private final IItemDefinition conversionMonitor;
-    private final IItemDefinition fluidTerminal;
 
     public ApiParts(FeatureFactory registry, PartModels partModels) {
         final ItemPart itemPart = new ItemPart();
@@ -136,7 +135,6 @@ public final class ApiParts implements IParts {
         this.terminal = new DamagedItemDefinition("part.terminal", itemPart.createPart(PartType.TERMINAL));
         this.storageMonitor = new DamagedItemDefinition("part.monitor.storage", itemPart.createPart(PartType.STORAGE_MONITOR));
         this.conversionMonitor = new DamagedItemDefinition("part.monitor.conversion", itemPart.createPart(PartType.CONVERSION_MONITOR));
-        this.fluidTerminal = new DamagedItemDefinition("part.terminal.fluid", itemPart.createPart(PartType.FLUID_TERMINAL));
     }
 
     private static AEColoredItemDefinition constructColoredDefinition(final ItemPart target, final PartType type) {
@@ -370,11 +368,6 @@ public final class ApiParts implements IParts {
     @Override
     public IItemDefinition conversionMonitor() {
         return this.conversionMonitor;
-    }
-
-    @Override
-    public IItemDefinition fluidTerminal() {
-        return this.fluidTerminal;
     }
 
 }

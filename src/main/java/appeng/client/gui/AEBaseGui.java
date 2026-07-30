@@ -38,8 +38,6 @@ import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
-import appeng.fluids.client.render.FluidStackSizeRenderer;
-import appeng.fluids.container.slots.IMEFluidSlot;
 import appeng.helpers.InventoryAction;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
@@ -92,7 +90,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
     private final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
-    private final FluidStackSizeRenderer fluidStackSizeRenderer = new FluidStackSizeRenderer();
     private GuiScrollbar myScrollBar = null;
     private boolean disableShiftClick = false;
     private Stopwatch dbl_clickTimer = Stopwatch.createStarted();
@@ -517,9 +514,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     }
 
                     // A row the player cannot pick up by hand - a fluid - but can carry away in a container.
-                    // Left click fills what is held from the network.
-                    if (mouseButton == 0 && entry != null && ContainerItemStrategies.isKeySupported(entry.getWhat())
-                            && !player.inventory.getItemStack().isEmpty()) {
+                    // Left click fills what is held from the network; with an empty hand the server borrows
+                    // an empty container out of storage and fills that instead. Never overrides AUTO_CRAFT,
+                    // which is what an empty hand on a craftable-but-unstocked row already means.
+                    if (mouseButton == 0 && entry != null && action != InventoryAction.AUTO_CRAFT
+                            && ContainerItemStrategies.isKeySupported(entry.getWhat())) {
                         action = InventoryAction.FILL_ITEM;
                     } else if (mouseButton == 1 && !player.inventory.getItemStack().isEmpty()
                             && ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null) {
@@ -751,37 +750,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
             } catch (final Exception err) {
                 AELog.warn("[AppEng] AE prevented crash while drawing slot: " + err);
-            }
-
-            return;
-        } else if (s instanceof IMEFluidSlot && ((IMEFluidSlot) s).shouldRenderAsFluid()) {
-            final IMEFluidSlot slot = (IMEFluidSlot) s;
-            // NOTE for wave 5: IMEFluidSlot.getGenericStack() - see SlotFluidME's header comment for why
-            // this is written against the not-yet-renamed interface.
-            final GenericStack stack = slot.getGenericStack();
-            final AEFluidKey fluidKey = stack != null && stack.what() instanceof AEFluidKey fk ? fk : null;
-
-            if (fluidKey != null && this.isPowered()) {
-                GlStateManager.disableLighting();
-                GlStateManager.disableBlend();
-                final Fluid fluid = fluidKey.getFluid();
-                Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
-                final TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks().getAtlasSprite(fluid.getStill().toString());
-
-                // Set color for dynamic fluids
-                // Convert int color to RGB
-                float red = (fluid.getColor() >> 16 & 255) / 255.0F;
-                float green = (fluid.getColor() >> 8 & 255) / 255.0F;
-                float blue = (fluid.getColor() & 255) / 255.0F;
-                GlStateManager.color(red, green, blue);
-
-                this.drawTexturedModalRect(s.xPos, s.yPos, sprite, 16, 16);
-                GlStateManager.enableLighting();
-                GlStateManager.enableBlend();
-
-                this.fluidStackSizeRenderer.renderStackSize(this.fontRenderer, stack, s.xPos, s.yPos);
-            } else if (!this.isPowered()) {
-                drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
             }
 
             return;

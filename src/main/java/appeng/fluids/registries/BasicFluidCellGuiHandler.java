@@ -35,6 +35,11 @@ import net.minecraft.tileentity.TileEntity;
 /**
  * Registers through {@link appeng.api.storage.StorageCells#addCellGuiHandler}, the api-level registry that
  * replaced the deleted {@code ICellRegistry} (see CONTRACT.md, "Amendments made to the frozen API").
+ * <p>
+ * It opens the same screen the item handler does, now that one terminal serves every key type. The handler
+ * still has to exist: {@code TileChest} only opens a GUI when {@code StorageCells.getGuiHandler} answers for
+ * the cell's type, so dropping this would leave a fluid cell in an ME Chest unopenable. Whether the
+ * per-type handler registry still earns its keep is a question for stage 3.
  */
 public class BasicFluidCellGuiHandler implements ICellGuiHandler {
 
@@ -46,6 +51,6 @@ public class BasicFluidCellGuiHandler implements ICellGuiHandler {
     @Override
     public void openChestGui(final EntityPlayer player, final IChestOrDrive chest, final ICellHandler cellHandler,
             final StorageCell inv, final ItemStack is, final AEKeyType keyType) {
-        Platform.openGUI(player, (TileEntity) chest, AEPartLocation.fromFacing(chest.getUp()), GuiBridge.GUI_FLUID_TERMINAL);
+        Platform.openGUI(player, (TileEntity) chest, AEPartLocation.fromFacing(chest.getUp()), GuiBridge.GUI_ME);
     }
 }

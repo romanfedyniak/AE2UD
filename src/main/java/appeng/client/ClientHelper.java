@@ -321,8 +321,6 @@ public class ClientHelper extends ServerHelper {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_CRAFTING_TERMINAL));
                 } else if (k == WPT.getKeyBinding()) {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_PATTERN_TERMINAL));
-                } else if (k == WFT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_FLUID_TERMINAL));
                 } else if (k == WIT.getKeyBinding()) {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_INTERFACE_TERMINAL));
                 }

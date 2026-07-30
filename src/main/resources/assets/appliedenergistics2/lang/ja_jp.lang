@@ -561,7 +561,6 @@ item.appliedenergistics2.multi_part.crafting_monitor.name=MEクラフティン�
 item.appliedenergistics2.multi_part.interface_terminal.name=MEインターフェースターミナル
 item.appliedenergistics2.multi_part.interface_configuration_terminal.name=インターフェース設定用ターミナル
 item.appliedenergistics2.multi_part.fluid_interface_configuration_terminal.name=液体インターフェース設定用ターミナル
-item.appliedenergistics2.multi_part.fluid_terminal.name=ME液体ターミナル
 item.appliedenergistics2.multi_part.invalid_type.name=無効アイテム
 
 item.appliedenergistics2.spatial_storage_cell_128_cubed.name=§d128³§r ME空間ストレージセル
@@ -595,7 +594,6 @@ item.appliedenergistics2.color_applicator.name=カラーアプリケーター
 item.appliedenergistics2.wireless_terminal.name=無線アクセスターミナル
 item.appliedenergistics2.wireless_crafting_terminal.name=無線クラフティングターミナル
 item.appliedenergistics2.wireless_pattern_terminal.name=無線パターンターミナル
-item.appliedenergistics2.wireless_fluid_terminal.name=無線液体ターミナル
 item.appliedenergistics2.biometric_card.name=生体認証カード
 
 item.appliedenergistics2.debug_card.name=開発用.デバッグ用カード
@@ -674,4 +672,3 @@ key.toggle_focus.desc=検索ボックスの切り替え
 key.open_wireless_terminal.desc=無線ターミナルを開く
 key.open_wireless_crafting_terminal.desc=無線クラフティングターミナルを開く
 key.open_wireless_pattern_terminal.desc=無線パターンターミナルを開く
-key.open_wireless_fluid_terminal.desc=無線液体ターミナルを開く

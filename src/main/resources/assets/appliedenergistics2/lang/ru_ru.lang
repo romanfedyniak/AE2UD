@@ -551,7 +551,6 @@ item.appliedenergistics2.multi_part.crafting_monitor.name=МЭ Монитор к
 item.appliedenergistics2.multi_part.interface_terminal.name=МЭ Терминал интерфейсов
 item.appliedenergistics2.multi_part.interface_configuration_terminal.name=МЭ Терминал конфигурации интерфейсов
 item.appliedenergistics2.multi_part.fluid_interface_configuration_terminal.name=МЭ Терминал жидкостной конфигурации интерфейсов
-item.appliedenergistics2.multi_part.fluid_terminal.name=МЭ Жидкостный терминал
 item.appliedenergistics2.multi_part.invalid_type.name=Отключенный предмет
 
 item.appliedenergistics2.spatial_storage_cell_128_cubed.name=§d128³§r пространственная ячейка хранения
@@ -585,7 +584,6 @@ item.appliedenergistics2.color_applicator.name=Аппликатор цвета
 item.appliedenergistics2.wireless_terminal.name=Беспроводной терминал
 item.appliedenergistics2.wireless_crafting_terminal.name=Беспроводной терминал изготовления
 item.appliedenergistics2.wireless_pattern_terminal.name=Беспроводной терминал шаблонов
-item.appliedenergistics2.wireless_fluid_terminal.name=Беспроводной жидкостный терминал
 item.appliedenergistics2.biometric_card.name=Биометрическая карта
 
 item.appliedenergistics2.debug_card.name=Отладочная карта разработчика
@@ -664,4 +662,3 @@ key.toggle_focus.desc=Переключить фокус окна поиска
 key.open_wireless_terminal.desc=Открыть беспроводной терминал
 key.open_wireless_crafting_terminal.desc=Открыть беспроводной терминал изготовления
 key.open_wireless_pattern_terminal.desc=Открыть беспроводной терминал шаблонов
-key.open_wireless_fluid_terminal.desc=Открыть беспроводной жидкостный терминал

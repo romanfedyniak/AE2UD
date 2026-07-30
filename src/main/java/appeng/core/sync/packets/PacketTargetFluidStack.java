@@ -25,8 +25,6 @@ import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.fluids.container.ContainerFluidInterface;
-import appeng.fluids.container.ContainerFluidTerminal;
-import appeng.fluids.container.ContainerWirelessFluidTerminal;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
@@ -41,10 +39,12 @@ import javax.annotation.Nullable;
  * Tells a fluid-backed container which fluid the player targeted. Pinned signature:
  * {@code PacketTargetFluidStack(@Nullable AEKey what)} -- kept as a distinct class from
  * {@link PacketTargetItemStack} per CONTRACT.md's wave 4 prerequisites ("do not merge them"), even though
- * both now carry a bare {@link AEKey}. Dispatch targets are unchanged: {@code ContainerFluidTerminal},
- * {@code ContainerWirelessFluidTerminal}, {@code ContainerFluidInterface} (all wave 5,
- * {@code appeng.fluids.container} -- must implement {@code void setTargetStack(AEKey stack)}) and
- * {@code ContainerFluidInterfaceConfigurationTerminal} (wave 4-3, same signature).
+ * both now carry a bare {@link AEKey}. Two dispatch targets remain, both interface screens:
+ * {@code ContainerFluidInterface} and {@code ContainerFluidInterfaceConfigurationTerminal} (each must
+ * implement {@code void setTargetStack(AEKey stack)}). The fluid terminal and wireless fluid terminal were
+ * the other two, and went with the rest of the legacy fluid parts - the generic terminal targets a key
+ * through {@link PacketTargetItemStack} regardless of its type. This packet follows them once the
+ * interface is generalised in stage 3.
  */
 public class PacketTargetFluidStack extends AppEngPacket {
     private AEKey stack;
@@ -76,11 +76,7 @@ public class PacketTargetFluidStack extends AppEngPacket {
 
     @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        if (player.openContainer instanceof ContainerFluidTerminal) {
-            ((ContainerFluidTerminal) player.openContainer).setTargetStack(this.stack);
-        } else if (player.openContainer instanceof ContainerWirelessFluidTerminal) {
-            ((ContainerWirelessFluidTerminal) player.openContainer).setTargetStack(this.stack);
-        } else if (player.openContainer instanceof ContainerFluidInterface) {
+        if (player.openContainer instanceof ContainerFluidInterface) {
             ((ContainerFluidInterface) player.openContainer).setTargetStack(this.stack);
         } else if (player.openContainer instanceof ContainerFluidInterfaceConfigurationTerminal) {
             ((ContainerFluidInterfaceConfigurationTerminal) player.openContainer).setTargetStack(this.stack);

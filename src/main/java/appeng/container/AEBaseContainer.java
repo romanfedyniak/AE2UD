@@ -862,43 +862,76 @@ public abstract class AEBaseContainer extends Container {
         }
 
         final ItemStack held = player.inventory.getItemStack();
-        if (held.isEmpty()) {
-            return;
-        }
 
         if (action == InventoryAction.FILL_ITEM) {
             final AEKey what = this.clientRequestedTargetItem;
-            if (ContainerItemStrategies.isKeySupported(what)) {
+            if (!ContainerItemStrategies.isKeySupported(what)) {
+                return;
+            }
+
+            if (held.isEmpty()) {
+                this.fillBorrowedContainer(player, what);
+            } else {
                 this.fillHeldContainer(player, held, what);
             }
-        } else {
+        } else if (!held.isEmpty()) {
             this.emptyHeldContainer(player, held);
         }
     }
 
-    private void fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what) {
+    /**
+     * Clicking a key with an empty hand: borrow an empty container from the network, fill it, and hand it over -
+     * putting it straight back if this key turned out not to fit in it after all. Saves the player fetching a
+     * bucket first, which is the whole point of the interaction.
+     */
+    private void fillBorrowedContainer(final EntityPlayerMP player, final AEKey what) {
+        final ItemStack container = ContainerItemStrategies.getEmptyContainerFor(what);
+        if (container.isEmpty()) {
+            return;
+        }
+
+        final AEItemKey containerKey = AEItemKey.of(container);
+        if (containerKey == null) {
+            return;
+        }
+
+        // Unpowered on purpose: the container is a loan, not a withdrawal, and charging for it would mean
+        // charging again when it goes back. Upstream makes the same call.
+        if (this.getCellInventory().extract(containerKey, 1, Actionable.MODULATE, this.getActionSource()) < 1) {
+            return;
+        }
+
+        if (!this.fillHeldContainer(player, container, what)) {
+            this.getCellInventory().insert(containerKey, 1, Actionable.MODULATE, this.getActionSource());
+        }
+    }
+
+    /**
+     * @return true if anything was actually moved into the container.
+     */
+    private boolean fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what) {
         final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
         if (ctx == null) {
-            return;
+            return false;
         }
 
         // Room in the container first: asking the network for a bucket we cannot hold would charge power
         // for nothing.
         final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
         if (room <= 0) {
-            return;
+            return false;
         }
 
         final long available = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what, room,
                 this.getActionSource(), Actionable.SIMULATE);
         if (available <= 0) {
-            return;
+            return false;
         }
 
         final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what,
                 available, this.getActionSource());
         if (extracted <= 0) {
-            return;
+            return false;
         }
 
         final long inserted = ctx.insert(what, extracted, Actionable.MODULATE);
@@ -908,9 +941,12 @@ public abstract class AEBaseContainer extends Container {
             this.getCellInventory().insert(what, extracted - inserted, Actionable.MODULATE, this.getActionSource());
         }
 
-        if (inserted > 0) {
-            this.replaceHeldWith(player, held, ctx.getContainer());
+        if (inserted <= 0) {
+            return false;
         }
+
+        this.replaceHeldWith(player, held, ctx.getContainer());
+        return true;
     }
 
     private void emptyHeldContainer(final EntityPlayerMP player, final ItemStack held) {

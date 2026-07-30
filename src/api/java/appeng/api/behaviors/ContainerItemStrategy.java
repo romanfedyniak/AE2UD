@@ -68,6 +68,21 @@ public interface ContainerItemStrategy {
     Context openContext(ItemStack container);
 
     /**
+     * The empty container a terminal may borrow from the network when the player clicks this key with an empty
+     * hand - a bucket, for a fluid. The caller pulls one out of storage, fills it, and puts it back if the fill
+     * turned out to be impossible.
+     * <p>
+     * Upstream AE2 hardcodes {@code Items.BUCKET} into its terminal menu for this. Keeping it here instead is
+     * what stops the terminal from knowing that fluids exist - the same rule that put the fuzzy-range decision
+     * on {@code AEKeyType} rather than on the parts.
+     *
+     * @return {@link ItemStack#EMPTY} if this type has no such container, which is also the default.
+     */
+    default ItemStack getEmptyContainerFor(AEKey what) {
+        return ItemStack.EMPTY;
+    }
+
+    /**
      * One in-progress interaction with one container item. Not reusable across containers, and not stored: a
      * caller opens it, performs its transfers, reads {@link #getContainer()} and drops it.
      */
