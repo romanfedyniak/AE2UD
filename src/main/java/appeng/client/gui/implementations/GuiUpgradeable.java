@@ -270,7 +270,10 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                             if (finalFluidStack != null && !(dropsContainerItself() && !finalItemStack.isEmpty())) {
                                 p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                             } else if (!finalItemStack.isEmpty()) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(finalItemStack));
+                                // Resolve rather than read, per CONTRACT.md §9.1d. No path today hands HEI a
+                                // placeholder to drag - the ingredient list cannot contain one - so this is
+                                // the canonical reader as a default, not a fix for a known symptom.
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.resolveItemStack(finalItemStack));
                             }
                         } else {
                             if (finalFluidStack == null) {
