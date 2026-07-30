@@ -1,9 +1,12 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-07-30, mid-way through the `appeng.fluids` decomposition — **start at "Post-v1 phase" below.**
+2026-07-30, when the work landed on `main`.
 
-Branch: `feature/generic-storage`.
+**The port is done.** All seven waves, the `appeng.fluids` decomposition and the play-testing are
+finished; `feature/generic-storage` is merged. What is left is the follow-up list under "Still open",
+none of which is migration work. Read §9 of `CONTRACT.md` before calling into any of this — it is the
+class-by-class record of what each wave actually built, and the api it describes is the api that shipped.
 
 ## What this port is
 
@@ -61,16 +64,14 @@ listed below, not porting.
 The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. One class is merely
 *named* `IMEInventoryDestination` and matches the scan pattern by accident; it is not work.
 
-**All seven waves are committed and the port is play-tested.** Work has moved on to the post-v1
-`appeng.fluids` decomposition, which is in progress — its own section below is the place to resume.
+**All seven waves are committed, the post-v1 `appeng.fluids` decomposition is finished, and every entry in
+the `CONTRACT.md` §10 "at-risk features" inventory has been walked in game.** The last two - P2P tunnels
+and spatial storage - were cleared at the end; P2P turned up one defect, which is pre-existing and recorded
+under "Still open".
 
 The first play-test pass found nine defects, none of which any scan could have
 caught. See "In-game testing" below — the table is worth reading before writing more code, because three of
 the nine were the same kind of silent mistranslation and there are certainly more.
-
-Still unplayed: patterns and interfaces, P2P, spatial storage, the ore-dictionary storage bus, and every
-terminal variant except the wall terminal. The "at-risk features" inventory in `CONTRACT.md` §10 is the list
-to walk.
 
 ## How to check where you are
 
@@ -349,7 +350,8 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
   and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
   exists now that `remainingItemCount` moves, if it is ever wanted.
-- **Untested**: spatial storage. Barely touched by the port.
+- ~~**Untested**: P2P tunnels and spatial storage.~~ **Both play-tested and working.** P2P turned up one
+  defect, immediately below; spatial storage came through clean.
 - **Known limitation, owner decided to leave it: only one IC2 power P2P tunnel per cable bus works.**
   Found while play-testing P2P. Not a port regression - nothing in `appeng.parts.p2p` changed on this
   branch, and `PartP2PIC2Power` was last touched by a 2019 reformat.
