@@ -332,16 +332,20 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
   fluid-decomposition phase for free: once pattern slots hold a `GenericStack`, any key type fits.
 - **Requested, not yet done: the Magnet Card should pick up into the network rather than the player's
   inventory.** Owner approved it for whenever; it is a small change.
-- **Requested, not yet done: fill and empty a fluid container against the terminal.** Clicking a fluid row
-  while holding a bucket (or any `FLUID_HANDLER_ITEM_CAPABILITY` container) should extract into it, and
-  clicking with a full one should deposit its contents into the network. Today the terminal only *displays*
-  fluids — there is no way to move one in or out by hand, which makes a universal ME terminal look broken
-  even though storage, buses and cells all work.
-  Owner's instruction: **look at how ae-gtnh and modern upstream do it before writing anything** — both
-  already solve this and the interaction details (which button does which direction, what happens to the
-  emptied container, partial buckets) are worth copying rather than re-deriving. Related and already built:
-  the same capability lookup drives setting a *filter* from a held container (stage 0, `afba0e4e0` /
-  `53953f435`), so the button convention should match what those already do.
+- **Requested: fill and empty a fluid container against the *generic* terminal.** Clicking a fluid row while
+  holding a bucket (or any `FLUID_HANDLER_ITEM_CAPABILITY` container) should extract into it, and clicking
+  with a full one should deposit its contents into the network.
+  **This mechanic already exists — but only on the legacy fluid parts.** `ContainerFluidTerminal.doAction`
+  implements `InventoryAction.FILL_ITEM`/`EMPTY_ITEM` (LMB fills the held container, RMB empties it into the
+  network) and `transferStackInSlot` drains a shift-clicked container from the player inventory.
+  `ContainerMEPortableFluidCell` and `ContainerFluidInterface` carry the same three blocks. The generic
+  terminal has none of it: `AEBaseGui`'s `SlotME` branch never sends either action, and `EMPTY_ITEM` is
+  wired only for *fake* (filter) slots.
+  Owner's instruction: **look at how ae-gtnh and modern upstream do it before writing anything.** Modern
+  upstream's answer is a per-key-type `ContainerItemStrategy` (fill/extract/`getContainedStack`), which is
+  the right shape here too — it puts the behaviour on the key type rather than on the terminal, matching the
+  rule wave 5 settled. Copying `ContainerFluidTerminal`'s body into `ContainerMEMonitorable` would work and
+  would be the wrong shape.
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
   and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
   exists now that `remainingItemCount` moves, if it is ever wanted.
@@ -497,9 +501,26 @@ The base class' javadoc claimed a plane's filter could only ever hold items, bec
 back into its key, so the plane's `SlotFakeTypeOnly` config takes any key type from the GUI. Corrected, since
 it is the reason `PartFluidFormationPlane` grew its two-inventory mirror in the first place.
 
+### Stage 1 audit — what is actually safe to delete
+
+Done before deleting anything, because a deletion that quietly removes a mechanic is what rule 6 forbids.
+
+| Legacy part | Generic replacement covers it? |
+|---|---|
+| `PartFluidImportBus`, `PartFluidExportBus`, `PartSharedFluidBus` | **Yes** — play-tested, `59c5f29fd` |
+| `PartFluidFormationPlane` | **Yes** — play-tested, `6f32d9a16` |
+| `PartFluidAnnihilationPlane` | **Yes** — it only *narrows* `PartAnnihilationPlane` to the fluid strategy; the generic plane runs every registered pickup strategy, so it is a strict subset |
+| `PartFluidLevelEmitter` | **Yes** — `PartLevelEmitter` reads its key through `getAEStackInSlot`, already type-erased, and its config slot is a `SlotFakeTypeOnly`, which stage 0 taught to take any key |
+| `PartFluidStorageBus` | **Yes** — play-tested |
+| `PartFluidTerminal` | **No. Blocked.** It is the only terminal that can fill or empty a held fluid container (see "Still open"). Deleting it before that moves to the generic terminal would remove the sole way to get a fluid in or out of the network by hand |
+
+So stage 1 splits in two: everything above the terminal row can go now; the terminal waits on the
+container-interaction port. The same blocker applies to `ContainerMEPortableFluidCell` and
+`ContainerFluidInterface`, which carry copies of the same three code blocks.
+
 ### Then, in order
 
-1. **Stage 1** — drop the six legacy parts above. The formation plane prerequisite is done.
+1. **Stage 1** — drop the legacy parts the audit above clears. The formation plane prerequisite is done.
 2. **Stage 2** — replace `AEFluidInventory`/`AEFluidTank`/`IAEFluidTank` with the generic `GenericStack`
    config inventory (upstream calls it `ConfigInventory`). About 30 files; the largest mechanical step.
 3. **Stage 3** — the universal interface. `DualityFluidInterface` holds tanks, `DualityInterface` holds item
