@@ -36,8 +36,6 @@ import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.core.sync.network.NetworkHandler;
-import appeng.fluids.client.gui.widgets.GuiFluidSlot;
-import appeng.fluids.container.ContainerFluidConfigurable;
 import appeng.helpers.InventoryAction;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
@@ -136,8 +134,7 @@ public class PacketInventoryAction extends AppEngPacket {
             this.slot = ((SlotDisconnected) slot).getSlotIndex();
             this.id = ((SlotDisconnected) slot).getSlot().getId();
         } else {
-            this.slot = ((GuiFluidSlot) slot).getId();
-            this.id = 0;
+            throw new IllegalArgumentException("Not a slot this packet can address: " + slot);
         }
         this.slotItem = slotItem;
 
@@ -201,15 +198,7 @@ public class PacketInventoryAction extends AppEngPacket {
                     }
                 }
             } else if (this.action == InventoryAction.PLACE_JEI_GHOST_ITEM) {
-                if (sender.openContainer instanceof ContainerFluidConfigurable) {
-                    if (this.slotItem != null && this.slotItem.what() instanceof AEFluidKey fluidKey) {
-                        // Fluid config slots always default to a full bucket, regardless of the amount
-                        // JEI/HEI happened to be showing for the recipe being viewed.
-                        final GenericStack fluidStack = new GenericStack(fluidKey, AEFluidKey.AMOUNT_BUCKET);
-                        ((ContainerFluidConfigurable) sender.openContainer).getFluidConfigInventory().setFluidInSlot(this.slot, fluidStack);
-                        NetworkHandler.instance().sendToServer(new PacketFluidSlot(Collections.singletonMap(this.slot, fluidStack)));
-                    }
-                } else if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
+                if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
                     ConfigTracker inv = ((ContainerInterfaceConfigurationTerminal) sender.openContainer).getSlotByID(this.id);
                     final IItemHandler theSlot = new WrapperRangeItemHandler(inv.getServer(), 0, slot + 1);
 

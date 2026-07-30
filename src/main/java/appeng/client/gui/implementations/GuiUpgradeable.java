@@ -34,7 +34,6 @@ import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
 import appeng.core.sync.packets.PacketInventoryAction;
-import appeng.fluids.client.gui.widgets.GuiFluidSlot;
 import appeng.helpers.InventoryAction;
 import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartImportBus;
@@ -242,13 +241,6 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                 }
             }
         }
-        if (!this.getGuiSlots().isEmpty()) {
-            for (GuiCustomSlot slot : this.getGuiSlots()) {
-                if (slot instanceof GuiFluidSlot && fluidStack != null) {
-                    slots.add((IJEITargetSlot) slot);
-                }
-            }
-        }
         for (IJEITargetSlot slot : slots) {
             ItemStack finalItemStack = itemStack;
             FluidStack finalFluidStack = fluidStack;
@@ -258,8 +250,6 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                 public Rectangle getArea() {
                     if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
                         return new Rectangle(getGuiLeft() + ((SlotFake) slot).xPos, getGuiTop() + ((SlotFake) slot).yPos, 16, 16);
-                    } else if (slot instanceof GuiFluidSlot && ((GuiFluidSlot) slot).isSlotEnabled()) {
-                        return new Rectangle(getGuiLeft() + ((GuiFluidSlot) slot).xPos(), getGuiTop() + ((GuiFluidSlot) slot).yPos(), 16, 16);
                     }
                     return new Rectangle();
                 }

@@ -43,8 +43,6 @@ import appeng.container.AEBaseContainer;
 import appeng.container.ContainerNull;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.*;
-import appeng.fluids.container.*;
-import appeng.fluids.helper.IFluidInterfaceHost;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
@@ -118,8 +116,6 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_INTERFACE(ContainerInterface.class, IInterfaceHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_INTERFACE(ContainerFluidInterface.class, IFluidInterfaceHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
-
     GUI_BUS(ContainerUpgradeable.class, IUpgradeableHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
 
@@ -165,7 +161,6 @@ public enum GuiBridge implements IGuiHandler {
     GUI_CRAFTING_STATUS(ContainerCraftingStatus.class, ITerminalHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.CRAFT),
 
     GUI_INTERFACE_CONFIGURATION_TERMINAL(ContainerInterfaceConfigurationTerminal.class, PartInterfaceConfigurationTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
-    GUI_FLUID_INTERFACE_CONFIGURATION_TERMINAL(ContainerFluidInterfaceConfigurationTerminal.class, PartFluidInterfaceConfigurationTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_RENAMER(ContainerRenamer.class, ICustomNameObject.class, GuiHostType.WORLD, SecurityPermissions.BUILD);
 

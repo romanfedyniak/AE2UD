@@ -55,7 +55,6 @@ public final class ApiParts implements IParts {
     private final IItemDefinition importBus;
     private final IItemDefinition exportBus;
     private final IItemDefinition iface;
-    private final IItemDefinition fluidIface;
     private final IItemDefinition levelEmitter;
     private final IItemDefinition annihilationPlane;
     private final IItemDefinition formationPlane;
@@ -76,7 +75,6 @@ public final class ApiParts implements IParts {
     private final IItemDefinition patternTerminal;
     private final IItemDefinition expandedProcessingPatternTerminal;
     private final IItemDefinition interfaceConfigurationTerminal;
-    private final IItemDefinition fluidInterfaceConfigurationTerminal;
     private final IItemDefinition craftingTerminal;
     private final IItemDefinition terminal;
     private final IItemDefinition storageMonitor;
@@ -108,7 +106,6 @@ public final class ApiParts implements IParts {
         this.importBus = new DamagedItemDefinition("part.bus.import", itemPart.createPart(PartType.IMPORT_BUS));
         this.exportBus = new DamagedItemDefinition("part.bus.export", itemPart.createPart(PartType.EXPORT_BUS));
         this.iface = new DamagedItemDefinition("part.interface", itemPart.createPart(PartType.INTERFACE));
-        this.fluidIface = new DamagedItemDefinition("part.fluid_interface", itemPart.createPart(PartType.FLUID_INTERFACE));
         this.levelEmitter = new DamagedItemDefinition("part.level_emitter", itemPart.createPart(PartType.LEVEL_EMITTER));
         this.annihilationPlane = new DamagedItemDefinition("part.plane.annihilation", itemPart.createPart(PartType.ANNIHILATION_PLANE));
         this.formationPlane = new DamagedItemDefinition("part.plane.formation", itemPart.createPart(PartType.FORMATION_PLANE));
@@ -130,7 +127,6 @@ public final class ApiParts implements IParts {
         this.patternTerminal = new DamagedItemDefinition("part.terminal.pattern", itemPart.createPart(PartType.PATTERN_TERMINAL));
         this.expandedProcessingPatternTerminal = new DamagedItemDefinition("part.terminal.expanded_processing_pattern", itemPart.createPart(PartType.EXPANDED_PROCESSING_PATTERN_TERMINAL));
         this.interfaceConfigurationTerminal = new DamagedItemDefinition("part.terminal.interface_configuration_terminal", itemPart.createPart(PartType.INTERFACE_CONFIGURATION_TERMINAL));
-        this.fluidInterfaceConfigurationTerminal = new DamagedItemDefinition("part.terminal.fluid_interface_configuration_terminal", itemPart.createPart(PartType.FLUID_INTERFACE_CONFIGURATION_TERMINAL));
         this.craftingTerminal = new DamagedItemDefinition("part.terminal.crafting", itemPart.createPart(PartType.CRAFTING_TERMINAL));
         this.terminal = new DamagedItemDefinition("part.terminal", itemPart.createPart(PartType.TERMINAL));
         this.storageMonitor = new DamagedItemDefinition("part.monitor.storage", itemPart.createPart(PartType.STORAGE_MONITOR));
@@ -239,11 +235,6 @@ public final class ApiParts implements IParts {
     }
 
     @Override
-    public IItemDefinition fluidIface() {
-        return this.fluidIface;
-    }
-
-    @Override
     public IItemDefinition levelEmitter() {
         return this.levelEmitter;
     }
@@ -343,11 +334,6 @@ public final class ApiParts implements IParts {
     @Override
     public IItemDefinition interfaceConfigurationTerminal() {
         return this.interfaceConfigurationTerminal;
-    }
-
-    @Override
-    public IItemDefinition fluidInterfaceConfigurationTerminal() {
-        return this.fluidInterfaceConfigurationTerminal;
     }
 
     @Override

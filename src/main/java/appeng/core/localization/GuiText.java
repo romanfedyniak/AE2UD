@@ -42,7 +42,6 @@ public enum GuiText {
     Terminal,
 
     Interface,
-    FluidInterface,
     Config,
     StoredItems,
     StoredFluids,
@@ -176,7 +175,6 @@ public enum GuiText {
 
     InterfaceTerminal,
     InterfaceConfigurationTerminal,
-    FluidInterfaceConfigurationTerminal,
     NoCraftingCPUs,
     Clean,
     InvalidPattern,

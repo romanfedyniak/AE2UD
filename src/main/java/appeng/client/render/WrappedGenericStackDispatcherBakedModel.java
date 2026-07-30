@@ -50,7 +50,7 @@ import java.util.function.Function;
 
 /**
  * Draws {@link appeng.items.misc.WrappedGenericStack} as whatever it is wrapping, the way
- * {@link DummyFluidDispatcherBakedModel} does for the fluid-only placeholder it generalises. Without this the
+ * the deleted fluid-only placeholder's own model did. Without this the
  * wrapper has no model at all and every non-item key in a vanilla slot renders as a missing texture.
  * <p>
  * The choice of what to draw follows the same rule as everything else about a key type — <b>the type decides,

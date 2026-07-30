@@ -365,8 +365,6 @@ final class Registration {
         Upgrades.PATTERN_EXPANSION.registerItem(blocks.iface(), 3);
 
         // Fluid Interface
-        Upgrades.CAPACITY.registerItem(parts.fluidIface(), 2);
-        Upgrades.CAPACITY.registerItem(blocks.fluidIface(), 2);
 
         // IO Port!
         Upgrades.SPEED.registerItem(blocks.iOPort(), 3);

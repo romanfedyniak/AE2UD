@@ -65,8 +65,6 @@ public interface IParts {
 
     IItemDefinition iface();
 
-    IItemDefinition fluidIface();
-
     IItemDefinition levelEmitter();
 
     IItemDefinition annihilationPlane();
@@ -106,8 +104,6 @@ public interface IParts {
     IItemDefinition expandedProcessingPatternTerminal();
 
     IItemDefinition interfaceConfigurationTerminal();
-
-    IItemDefinition fluidInterfaceConfigurationTerminal();
 
     IItemDefinition craftingTerminal();
 

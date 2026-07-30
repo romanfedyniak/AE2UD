@@ -67,7 +67,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_TARGET_ITEM(PacketTargetItemStack.class),
 
-        PACKET_TARGET_FLUID(PacketTargetFluidStack.class),
 
         PACKET_CRAFTING_REQUEST(PacketCraftRequest.class),
 
@@ -77,7 +76,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_PAINTED_ENTITY(PacketPaintedEntity.class),
 
-        PACKET_FLUID_TANK(PacketFluidSlot.class),
 
         PACKET_INFORM_PLAYER(PacketInformPlayer.class),
 

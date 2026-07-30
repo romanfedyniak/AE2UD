@@ -25,7 +25,6 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import appeng.fluids.items.FluidDummyItem;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
@@ -84,22 +83,11 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
         if (stack.isEmpty()) {
             return null;
         }
-        final GenericStack unwrapped = GenericStack.unwrapItemStack(stack);
-        if (unwrapped != null) {
-            return unwrapped;
-        }
-
-        // The fluid-only placeholder predates GenericStack.Wrapper and is what the legacy fluid GUIs still
-        // hand out, so a fluid dragged from one of those into any filter would otherwise land as the
-        // placeholder item itself. Goes away with FluidDummyItem when appeng.fluids is decomposed.
-        if (stack.getItem() instanceof FluidDummyItem dummy) {
-            final FluidStack fluid = dummy.getFluidStack(stack);
-            if (fluid != null && fluid.amount > 0) {
-                return new GenericStack(AEFluidKey.of(fluid), fluid.amount);
-            }
-        }
-
-        return GenericStack.fromItemStack(stack);
+        // Exactly GenericStack.resolveItemStack now. It used to carry a second case for FluidDummyItem, the
+        // fluid-only placeholder that predated GenericStack.Wrapper - the legacy fluid GUIs handed those
+        // out, so a fluid dragged from one of them into a filter would otherwise have landed as the
+        // placeholder item. Those GUIs and that item are gone, and one placeholder is left.
+        return GenericStack.resolveItemStack(stack);
     }
 
     public GenericStack getAEStackInSlot(final int var1) {

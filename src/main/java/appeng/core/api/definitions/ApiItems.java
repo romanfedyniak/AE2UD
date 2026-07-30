@@ -35,8 +35,6 @@ import appeng.debug.ToolReplicatorCard;
 import appeng.entity.EntityGrowingCrystal;
 import appeng.entity.EntityIds;
 import appeng.fluids.items.BasicFluidStorageCell;
-import appeng.fluids.items.FluidDummyItem;
-import appeng.fluids.items.FluidDummyItemRendering;
 import appeng.hooks.DispenserBlockTool;
 import appeng.hooks.DispenserMatterCannon;
 import appeng.items.materials.MaterialType;
@@ -122,7 +120,6 @@ public final class ApiItems implements IItems {
     private final IItemDefinition toolDebugCard;
     private final IItemDefinition toolReplicatorCard;
 
-    private final IItemDefinition dummyFluidItem;
 
     private final IItemDefinition wrappedGenericStack;
 
@@ -269,7 +266,6 @@ public final class ApiItems implements IItems {
         this.toolDebugCard = debugTools.item("debug_card", ToolDebugCard::new).build();
         this.toolReplicatorCard = debugTools.item("debug_replicator_card", ToolReplicatorCard::new).build();
 
-        this.dummyFluidItem = registry.item("dummy_fluid_item", FluidDummyItem::new).rendering(new FluidDummyItemRendering()).build();
 
         // CONTRACT.md section 1.5 / section 8 item 3: the GenericStack.Wrapper implementation. Never shown, never
         // craftable, installed as the wrapper during Registration.initialize().
@@ -517,10 +513,6 @@ public final class ApiItems implements IItems {
 
     public IItemDefinition toolReplicatorCard() {
         return this.toolReplicatorCard;
-    }
-
-    public IItemDefinition dummyFluidItem() {
-        return this.dummyFluidItem;
     }
 
     public IItemDefinition wrappedGenericStack() {

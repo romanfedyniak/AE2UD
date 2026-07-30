@@ -837,7 +837,46 @@ from the dependency graph. Merged into one stage, sliced so the game stays playa
 
   What that leaves for 2e is the whole fluid interface orbit at once - the part, tile, block, duality,
   container, screen, *and* its configuration terminal - since they only exist to serve each other.
-- **2e** — delete the fluid interface orbit and the fluid inventory types with it.
+- **2e — the fluid interface orbit is deleted (done, awaiting a play-test).** The part, the tile, the block,
+  `DualityFluidInterface`, its container and screen, its configuration terminal (part, container, screen,
+  `ClientDCInternalFluidInv`), `FluidSyncHelper`, `IFluidSyncContainer`, `IConfigurableFluidInventory`,
+  `ContainerFluidConfigurable`, the `GuiFluidSlot`/`GuiFluidTank` widgets, `PacketFluidSlot`,
+  `PacketTargetFluidStack`, and the five fluid inventory types stage 2 was originally about -
+  `AEFluidInventory`, `AEFluidTank`, `AENetworkFluidInventory`, `IAEFluidInventory`, `IAEFluidTank`.
+  Plus the `PartType`, `AEFeature`, `GuiBridge`, `ApiParts`/`IParts`, `ApiBlocks`/`IBlocks` and `GuiText`
+  entries, the recipes, models, textures and lang.
+
+  Two removals worth calling out because they were not on the list:
+
+  - **`FluidDummyItem` and its renderer.** The fluid-only placeholder that predated `GenericStack.Wrapper`.
+    Nothing produced one any more - the legacy fluid GUIs were its only source - so it was a registered item
+    that could not exist. Deleting it collapses `AppEngInternalAEInventory.toGenericStack` to exactly
+    `GenericStack.resolveItemStack`: **one placeholder in the mod instead of two.**
+  - The memory-card branches in `AEBasePart`/`AEBaseTile` that read and wrote a fluid config, which had no
+    remaining implementor.
+
+  What is left of `appeng.fluids` is ten files, and none of them is a duplicate of anything: the six
+  strategies that make fluids a first-class key type, the fluid storage cell and its GUI handler, the cell's
+  config helper, and the sorters.
+
+  **Startup crash the play-test caught, and the sweep it prompted.** `_constants.json` - the recipe
+  constants file, not a recipe - still declared an `appliedenergistics2:fluid_interface` ingredient gated on
+  the `fluid_interface` feature, so `AEFeature.valueOf` threw during `loadConstants` and the game did not
+  start. Deleting a feature flag is not a Java-visible change: recipe JSON names it as a *string*, so the
+  compiler cannot see the reference and neither can a search for the enum constant, which is spelled
+  differently there (`fluid_interface`, uppercased at read time).
+
+  Swept for the whole phase afterwards, not just this one: every `"features"` condition in every recipe file
+  now names a flag that exists, and none of the ten removed part/item names appears anywhere in the assets.
+  Worth repeating before any future feature removal - **the assets are a second, untyped reference to the
+  enum, and `_constants.json` is the easiest one to miss because it is not a recipe.**
+
+## Stage 2 is done — what the phase actually removed
+
+`appeng.fluids` went from 55 files to 10. Everything deleted was a duplicate of something already generic;
+nothing that was deleted took a mechanic with it, and the two capabilities that only the fluid parts had -
+stocking a fluid in an interface, and filling a container by hand - are now on the generic ones and reach
+every registered key type rather than fluids alone.
 
 Note for 2b: our interface **holds** its stock rather than pushing it, same as upstream's `InterfaceLogic` -
 `getAdaptor(slot)` wraps a one-slot view of its own inventory, not the neighbour's. So the change is about
