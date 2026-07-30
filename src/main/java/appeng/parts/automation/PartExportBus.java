@@ -19,22 +19,41 @@
 package appeng.parts.automation;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+
+import appeng.api.behaviors.StackExportStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
+import appeng.api.config.Actionable;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.PowerMultiplier;
+import appeng.api.config.RedstoneMode;
+import appeng.api.config.SchedulingMode;
+import appeng.api.config.Settings;
+import appeng.api.config.Upgrades;
+import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -48,18 +67,22 @@ import appeng.me.helpers.MachineSource;
 import appeng.parts.PartModel;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.Vec3d;
+import appeng.util.prioritylist.IPartitionList;
 
 
+/**
+ * Moves the bus' configured keys from the network into the adjacent block. Like {@link PartImportBus},
+ * this class has no item-specific logic of its own -- {@link StackExportStrategy}s registered per
+ * {@code AEKeyType} (see {@link InitStackWorldBehaviors}) do the actual work of pushing content into
+ * the adjacent block.
+ * <p>
+ * The one exception is craft-on-demand: {@link MultiCraftingTracker#handleCrafting} still needs an
+ * {@link InventoryAdaptor} to pre-check whether the destination can even accept the crafted result
+ * before a job is started (see CONTRACT.md &sect;9, wave 1b's frozen shape for {@code appeng.helpers}).
+ * Autocrafting itself is still entirely item/{@link GenericStack}-based in this codebase (a
+ * deliberately out-of-scope alignment per CONTRACT.md &sect;4.4), so this is not a regression this
+ * wave introduced.
+ */
 public class PartExportBus extends PartSharedItemBus implements ICraftingRequester {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/export_bus_base");
 
@@ -74,9 +97,10 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
 
     private final MultiCraftingTracker craftingTracker = new MultiCraftingTracker(this, 9);
     private final IActionSource mySrc;
-    private long itemToSend = 1;
-    private boolean didSomething = false;
     private int nextSlot = 0;
+    private boolean didSomething = false;
+
+    private StackExportStrategy exportStrategy;
 
     @Reflected
     public PartExportBus(final ItemStack is) {
@@ -103,72 +127,105 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
         extra.setInteger("nextSlot", this.nextSlot);
     }
 
+    private StackExportStrategy getExportStrategy() {
+        if (this.exportStrategy == null) {
+            final var self = this.getHost().getTile();
+            final var fromPos = self.getPos().offset(this.getSide().getFacing());
+            final var fromSide = this.getSide().getFacing().getOpposite();
+            this.exportStrategy = new StackExportFacade(
+                    StackWorldBehaviors.createExportStrategies(self.getWorld(), fromPos, fromSide));
+        }
+        return this.exportStrategy;
+    }
+
     @Override
     protected TickRateModulation doBusWork() {
         if (!this.getProxy().isActive() || !this.canDoBusWork()) {
             return TickRateModulation.IDLE;
         }
 
-        this.itemToSend = this.calculateItemsToSend();
         this.didSomething = false;
 
+        final MEStorage internalStorage;
+        final IStorageService storageService;
+        final IEnergySource energy;
+        final ICraftingGrid cg;
         try {
-            final InventoryAdaptor destination = this.getHandler();
-            final IMEMonitor<IAEItemStack> inv = this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-            final IEnergyGrid energy = this.getProxy().getEnergy();
-            final ICraftingGrid cg = this.getProxy().getCrafting();
-            final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
-            final SchedulingMode schedulingMode = (SchedulingMode) this.getConfigManager().getSetting(Settings.SCHEDULING_MODE);
-
-            if (destination != null) {
-                int x = 0;
-
-                for (x = 0; x < this.availableSlots() && this.itemToSend > 0; x++) {
-                    final int slotToExport = this.getStartingSlot(schedulingMode, x);
-
-                    final IAEItemStack ais = this.getConfig().getAEStackInSlot(slotToExport);
-
-                    if (ais == null || this.itemToSend <= 0) {
-                        continue;
-                    }
-
-                    if (this.craftOnly()) {
-                        this.didSomething = this.craftingTracker.handleCrafting(slotToExport, this.itemToSend, ais, destination, this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.mySrc) || this.didSomething;
-                        continue;
-                    }
-
-                    final long before = this.itemToSend;
-
-                    if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
-                        for (final IAEItemStack o : ImmutableList.copyOf(inv.getStorageList().findFuzzy(ais, fzMode))) {
-                            if (o.getStackSize() > 0) {
-                                this.pushItemIntoTarget(destination, energy, inv, o);
-                                if (this.itemToSend <= 0) {
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        final IAEItemStack o = inv.getStorageList().findPrecise(ais);
-                        if (o != null && o.getStackSize() > 0) {
-                            this.pushItemIntoTarget(destination, energy, inv, o);
-                        }
-                    }
-
-                    if (this.itemToSend == before && this.isCraftingEnabled()) {
-                        this.didSomething = this.craftingTracker.handleCrafting(slotToExport, this.itemToSend, ais, destination, this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.mySrc) || this.didSomething;
-                    }
-                }
-
-                this.updateSchedulingMode(schedulingMode, x);
-            } else {
-                return TickRateModulation.SLEEP;
-            }
+            storageService = this.getProxy().getStorage();
+            internalStorage = storageService.getInventory();
+            energy = this.getProxy().getEnergy();
+            cg = this.getProxy().getCrafting();
         } catch (final GridAccessException e) {
-            // :P
+            return TickRateModulation.IDLE;
         }
 
-        return this.didSomething ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
+        final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
+        final SchedulingMode schedulingMode = (SchedulingMode) this.getConfigManager().getSetting(Settings.SCHEDULING_MODE);
+
+        final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.mySrc,
+                this.calculateItemsToSend(), IPartitionList.builder().build(), null);
+
+        int x;
+        for (x = 0; x < this.availableSlots() && context.hasOperationsLeft(); x++) {
+            final int slotToExport = this.getStartingSlot(schedulingMode, x);
+
+            final var configuredStack = this.getConfig().getAEStackInSlot(slotToExport);
+            if (configuredStack == null) {
+                continue;
+            }
+            final AEKey what = configuredStack.what();
+
+            if (this.craftOnly()) {
+                this.didSomething = this.attemptCrafting(context, cg, slotToExport, what) || this.didSomething;
+                continue;
+            }
+
+            final int before = context.getOperationsRemaining();
+
+            if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+                for (var fuzzyEntry : ImmutableList.copyOf(storageService.getCachedInventory().findFuzzy(what, fzMode))) {
+                    if (fuzzyEntry.getLongValue() > 0) {
+                        this.exportOne(context, fuzzyEntry.getKey());
+                        if (!context.hasOperationsLeft()) {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                this.exportOne(context, what);
+            }
+
+            if (context.getOperationsRemaining() == before && this.isCraftingEnabled()) {
+                this.didSomething = this.attemptCrafting(context, cg, slotToExport, what) || this.didSomething;
+            }
+        }
+
+        this.updateSchedulingMode(schedulingMode, x);
+
+        return this.didSomething || context.hasDoneWork() ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
+    }
+
+    private void exportOne(StackTransferContextImpl context, AEKey what) {
+        final long transferFactor = Math.max(1, what.getAmountPerOperation());
+        final long maxAmount = (long) context.getOperationsRemaining() * transferFactor;
+        final long moved = this.getExportStrategy().transfer(context, what, maxAmount);
+        if (moved > 0) {
+            context.reduceOperationsRemaining(Math.max(1, moved / transferFactor));
+            this.didSomething = true;
+        }
+    }
+
+    private boolean attemptCrafting(StackTransferContextImpl context, ICraftingGrid cg, int slotToExport, AEKey what) {
+        final InventoryAdaptor destination = this.getHandler();
+        if (destination == null) {
+            return false;
+        }
+        try {
+            return this.craftingTracker.handleCrafting(slotToExport, context.getOperationsRemaining(), what,
+                    destination, this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.mySrc);
+        } catch (final GridAccessException e) {
+            return false;
+        }
     }
 
     @Override
@@ -213,34 +270,20 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     }
 
     @Override
-    public IAEItemStack injectCraftedItems(final ICraftingLink link, final IAEItemStack items, final Actionable mode) {
-        final InventoryAdaptor d = this.getHandler();
-
+    public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
         try {
-            if (d != null && this.getProxy().isActive()) {
+            if (this.getProxy().isActive()) {
                 final IEnergyGrid energy = this.getProxy().getEnergy();
-                final double power = items.getStackSize();
+                final double power = items.amount();
 
                 if (energy.extractAEPower(power, mode, PowerMultiplier.CONFIG) > power - 0.01) {
-                    ItemStack inputStack = items.getCachedItemStack(items.getStackSize());
+                    final long inserted = this.getExportStrategy().push(items.what(), items.amount(), mode);
+                    final long remaining = items.amount() - inserted;
 
-                    ItemStack remaining;
-
-                    if (mode == Actionable.SIMULATE) {
-                        remaining = d.simulateAdd(inputStack);
-                        items.setCachedItemStack(inputStack);
-                    } else {
-                        remaining = d.addItems(inputStack);
-                        if (!remaining.isEmpty()) {
-                            items.setCachedItemStack(remaining);
-                        }
+                    if (remaining <= 0) {
+                        return null;
                     }
-
-                    if (remaining == inputStack) {
-                        return items;
-                    }
-
-                    return AEItemStack.fromItemStack(remaining);
+                    return new GenericStack(items.what(), remaining);
                 }
             }
         } catch (final GridAccessException e) {
@@ -255,55 +298,12 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
         this.craftingTracker.jobStateChange(link);
     }
 
-    @Override
-    protected boolean isSleeping() {
-        return this.getHandler() == null || super.isSleeping();
-    }
-
     private boolean craftOnly() {
         return this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
     }
 
     private boolean isCraftingEnabled() {
         return this.getInstalledUpgrades(Upgrades.CRAFTING) > 0;
-    }
-
-    private void pushItemIntoTarget(final InventoryAdaptor d, final IEnergyGrid energy, final IMEInventory<IAEItemStack> inv, IAEItemStack org) {
-        ItemStack inputStack = org.getCachedItemStack(org.getStackSize());
-
-        ItemStack remaining = d.simulateAdd(inputStack);
-
-        // Store the stack in the cache for next time.
-        if (!remaining.isEmpty()) {
-            org.setCachedItemStack(remaining);
-            if (remaining == inputStack) {
-                return;
-            }
-        }
-
-        final long canFit = Math.min(this.itemToSend, org.getStackSize() - remaining.getCount());
-
-        if (canFit > 0) {
-            IAEItemStack ais = org.copy();
-            ais.setStackSize(canFit);
-            final IAEItemStack itemsToAdd = Platform.poweredExtraction(energy, inv, ais, this.mySrc);
-
-            if (itemsToAdd != null) {
-                this.itemToSend -= itemsToAdd.getStackSize();
-
-                inputStack.setCount(Ints.saturatedCast(itemsToAdd.getStackSize()));
-
-                final ItemStack failed = d.addItems(inputStack);
-                if (!failed.isEmpty()) {
-                    ais.setStackSize(failed.getCount());
-                    inv.injectItems(ais, Actionable.MODULATE, this.mySrc);
-                } else {
-                    this.didSomething = true;
-                }
-            } else {
-                org.setCachedItemStack(inputStack);
-            }
-        }
     }
 
     private int getStartingSlot(final SchedulingMode schedulingMode, final int x) {

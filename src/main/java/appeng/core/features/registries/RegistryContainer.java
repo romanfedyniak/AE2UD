@@ -23,8 +23,6 @@ import appeng.api.features.*;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
 import appeng.api.parts.IPartModels;
-import appeng.api.storage.ICellRegistry;
-import appeng.core.features.registries.cell.CellRegistry;
 import appeng.core.features.registries.charger.ChargerRegistry;
 import appeng.core.features.registries.grinder.GrinderRecipeManager;
 import appeng.core.features.registries.inscriber.InscriberRegistry;
@@ -43,7 +41,6 @@ public class RegistryContainer implements IRegistryContainer {
     private final IGrinderRegistry grinder = new GrinderRecipeManager();
     private final IInscriberRegistry inscriber = new InscriberRegistry();
     private final IChargerRegistry charger = new ChargerRegistry();
-    private final ICellRegistry cell = new CellRegistry();
     private final ILocatableRegistry locatable = new LocatableRegistry();
     private final ISpecialComparisonRegistry comparison = new SpecialComparisonRegistry();
     private final IWirelessTermRegistry wireless = new WirelessRegistry();
@@ -73,11 +70,6 @@ public class RegistryContainer implements IRegistryContainer {
     @Override
     public IWirelessTermRegistry wireless() {
         return this.wireless;
-    }
-
-    @Override
-    public ICellRegistry cell() {
-        return this.cell;
     }
 
     @Override

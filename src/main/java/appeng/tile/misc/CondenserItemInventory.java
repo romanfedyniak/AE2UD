@@ -19,157 +19,79 @@
 package appeng.tile.misc;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.ticking.TickRateModulation;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IMEMonitorHandlerReceiver;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
-import appeng.me.helpers.BaseActionSource;
-import appeng.me.storage.ITickingMonitor;
-import appeng.util.item.AEItemStack;
-import appeng.util.item.ItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import net.minecraft.item.ItemStack;
-
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map.Entry;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 
 
-class CondenserItemInventory implements IMEMonitor<IAEItemStack>, ITickingMonitor {
-    private final HashMap<IMEMonitorHandlerReceiver<IAEItemStack>, Object> listeners = new HashMap<>();
+/**
+ * Exposes the condenser as a fake single-tile ME sub-network (see {@link TileCondenser.MEHandler}).
+ * <p/>
+ * Replaces the old pair of {@code CondenserItemInventory}/{@code CondenserVoidInventory}, one per storage channel:
+ * {@link MEStorage} is not generic any more, so a single instance now handles every key type. Items are backed by
+ * the condenser's actual output slot; anything else (fluids, an addon's key type) is voided, still contributing
+ * power via {@link AEKey#getAmountPerOperation()} (the renamed {@code IStorageChannel#transferFactor()}) exactly
+ * like the old {@code CondenserVoidInventory} did.
+ * <p/>
+ * No listener bookkeeping is needed any more either: whichever grid mounts this (through a storage bus) diffs its
+ * {@link #getAvailableStacks(KeyCounter)} snapshot itself, the same way {@code SecurityStationInventory} does.
+ */
+class CondenserItemInventory implements MEStorage {
+
     private final TileCondenser target;
-    private boolean hasChanged = true;
-    private final ItemList cachedList = new ItemList();
-    private IActionSource actionSource = new BaseActionSource();
-    private ItemList changeSet = new ItemList();
 
     CondenserItemInventory(final TileCondenser te) {
         this.target = te;
     }
 
     @Override
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable mode, final IActionSource src) {
-        if (mode == Actionable.MODULATE && input != null) {
-            this.target.addPower(input.getStackSize());
-        }
-        return null;
-    }
-
-    @Override
-    public IAEItemStack extractItems(final IAEItemStack request, final Actionable mode, final IActionSource src) {
-        AEItemStack ret = null;
-        ItemStack slotItem = this.target.getOutputSlot().getStackInSlot(0);
-        if (!slotItem.isEmpty() && request.isSameType(slotItem)) {
-            int count = (int) Math.min(request.getStackSize(), Integer.MAX_VALUE);
-            ret = AEItemStack.fromItemStack(this.target.getOutputSlot().extractItem(0, count, mode == Actionable.SIMULATE));
-        }
-        return ret;
-    }
-
-    @Override
-    public IItemList<IAEItemStack> getAvailableItems(final IItemList<IAEItemStack> out) {
-        if (!this.target.getOutputSlot().getStackInSlot(0).isEmpty()) {
-            out.add(AEItemStack.fromItemStack(this.target.getOutputSlot().getStackInSlot(0)));
-        }
-        return out;
-    }
-
-    @Override
-    public IItemList<IAEItemStack> getStorageList() {
-        if (this.hasChanged) {
-            this.hasChanged = false;
-            this.cachedList.resetStatus();
-            return this.getAvailableItems(this.cachedList);
-        }
-        return this.cachedList;
-    }
-
-    @Override
-    public IStorageChannel<IAEItemStack> getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    @Override
-    public AccessRestriction getAccess() {
-        return AccessRestriction.READ_WRITE;
-    }
-
-    @Override
-    public boolean isPrioritized(final IAEItemStack input) {
-        return false;
-    }
-
-    @Override
-    public boolean canAccept(final IAEItemStack input) {
-        return true;
-    }
-
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-
-    @Override
-    public int getSlot() {
-        return 0;
-    }
-
-    @Override
-    public boolean validForPass(final int i) {
-        return i == 2;
-    }
-
-    @Override
-    public void addListener(final IMEMonitorHandlerReceiver<IAEItemStack> l, final Object verificationToken) {
-        this.listeners.put(l, verificationToken);
-    }
-
-    @Override
-    public void removeListener(final IMEMonitorHandlerReceiver<IAEItemStack> l) {
-        this.listeners.remove(l);
-    }
-
-    public void updateOutput(ItemStack added, ItemStack removed) {
-        this.hasChanged = true;
-        if (!added.isEmpty()) {
-            this.changeSet.add(AEItemStack.fromItemStack(added));
-        }
-        if (!removed.isEmpty()) {
-            this.changeSet.add(AEItemStack.fromItemStack(removed).setStackSize(-removed.getCount()));
-        }
-    }
-
-    @Override
-    public TickRateModulation onTick() {
-        final ItemList currentChanges = this.changeSet;
-
-        if (currentChanges.isEmpty()) {
-            return TickRateModulation.IDLE;
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
+        if (amount <= 0) {
+            return 0;
         }
 
-        this.changeSet = new ItemList();
-        final Iterator<Entry<IMEMonitorHandlerReceiver<IAEItemStack>, Object>> i = this.listeners.entrySet().iterator();
-        while (i.hasNext()) {
-            final Entry<IMEMonitorHandlerReceiver<IAEItemStack>, Object> l = i.next();
-            final IMEMonitorHandlerReceiver<IAEItemStack> key = l.getKey();
-            if (key.isValid(l.getValue())) {
-                key.postChange(this, currentChanges, this.actionSource);
-            } else {
-                i.remove();
+        if (mode == Actionable.MODULATE) {
+            this.target.addPower(amount / (double) what.getAmountPerOperation());
+        }
+
+        return amount;
+    }
+
+    @Override
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
+        if (!(what instanceof AEItemKey itemKey) || amount <= 0) {
+            return 0;
+        }
+
+        final ItemStack slotItem = this.target.getOutputSlot().getStackInSlot(0);
+        if (slotItem.isEmpty() || !itemKey.matches(slotItem)) {
+            return 0;
+        }
+
+        final int count = (int) Math.min(amount, Integer.MAX_VALUE);
+        final ItemStack extracted = this.target.getOutputSlot().extractItem(0, count, mode == Actionable.SIMULATE);
+        return extracted.getCount();
+    }
+
+    @Override
+    public void getAvailableStacks(final KeyCounter out) {
+        final ItemStack stack = this.target.getOutputSlot().getStackInSlot(0);
+        if (!stack.isEmpty()) {
+            final AEItemKey key = AEItemKey.of(stack);
+            if (key != null) {
+                out.add(key, stack.getCount());
             }
         }
-
-        return TickRateModulation.URGENT;
     }
 
     @Override
-    public void setActionSource(IActionSource actionSource) {
-        this.actionSource = actionSource;
+    public ITextComponent getDescription() {
+        return new TextComponentString("Condenser");
     }
 }

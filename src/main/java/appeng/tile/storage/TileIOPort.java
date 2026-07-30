@@ -31,11 +31,13 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -67,9 +69,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import java.io.IOException;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 
 public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IConfigManagerHost, IGridTickable {
@@ -89,7 +89,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     private final IActionSource mySrc;
     private YesNo lastRedstoneState;
     private ItemStack currentCell;
-    private Map<IStorageChannel<?>, IMEInventory<?>> cachedInventories;
+    private StorageCell cachedCell;
 
     private boolean isActive = false;
 
@@ -314,22 +314,22 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                 if (!is.isEmpty()) {
                     boolean shouldMove = true;
 
-                    for (IStorageChannel<? extends IAEStack<?>> c : AEApi.instance().storage().storageChannels()) {
-                        if (itemsToMove > 0) {
-                            final IMEMonitor<? extends IAEStack<?>> network = this.getProxy().getStorage().getInventory(c);
-                            final IMEInventory<?> inv = this.getInv(is, c);
+                    if (itemsToMove > 0) {
+                        final MEStorage network = this.getProxy().getStorage().getInventory();
+                        final StorageCell inv = this.getInv(is);
 
-                            if (inv == null) {
-                                continue;
-                            }
+                        if (inv != null) {
+                            final AEKeyType keyType = is.getItem() instanceof IBasicCellItem basicCellItem
+                                    ? basicCellItem.getKeyType()
+                                    : AEKeyType.items();
 
                             if (this.manager.getSetting(Settings.OPERATION_MODE) == OperationMode.EMPTY) {
-                                itemsToMove = this.transferContents(energy, inv, network, itemsToMove, c);
+                                itemsToMove = this.transferContents(energy, inv, network, itemsToMove, keyType);
                             } else {
-                                itemsToMove = this.transferContents(energy, network, inv, itemsToMove, c);
+                                itemsToMove = this.transferContents(energy, network, inv, itemsToMove, keyType);
                             }
 
-                            shouldMove &= this.shouldMove(inv);
+                            shouldMove = this.shouldMove(inv);
 
                             if (itemsToMove > 0) {
                                 ret = TickRateModulation.IDLE;
@@ -359,65 +359,49 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         return this.upgrades.getInstalledUpgrades(u);
     }
 
-    private IMEInventory<?> getInv(final ItemStack is, final IStorageChannel<?> chan) {
+    /**
+     * A {@link StorageCell} is not tied to one channel any more, so unlike the old per-channel
+     * {@code Map<IStorageChannel<?>, IMEInventory<?>>} there is only ever a single cached cell to resolve here.
+     */
+    private StorageCell getInv(final ItemStack is) {
         if (this.currentCell != is) {
             this.currentCell = is;
-            this.cachedInventories = new IdentityHashMap<>();
-
-            for (IStorageChannel<? extends IAEStack<?>> c : AEApi.instance().storage().storageChannels()) {
-                this.cachedInventories.put(c, AEApi.instance().registries().cell().getCellInventory(is, null, c));
-            }
+            this.cachedCell = StorageCells.getCellInventory(is, null);
         }
 
-        return this.cachedInventories.get(chan);
+        return this.cachedCell;
     }
 
-    private long transferContents(final IEnergySource energy, final IMEInventory src, final IMEInventory destination, long itemsToMove, final IStorageChannel chan) {
-        final IItemList<? extends IAEStack> myList;
-        if (src instanceof IMEMonitor) {
-            myList = ((IMEMonitor) src).getStorageList();
-        } else {
-            myList = src.getAvailableItems(src.getChannel().createList());
-        }
+    private long transferContents(final IEnergySource energy, final MEStorage src, final MEStorage destination, long itemsToMove, final AEKeyType keyType) {
+        final KeyCounter myList = src.getAvailableStacks();
 
-        itemsToMove *= chan.transferFactor();
+        itemsToMove *= keyType.getAmountPerOperation();
 
         boolean didStuff;
 
         do {
             didStuff = false;
 
-            for (final IAEStack s : myList) {
-                final long totalStackSize = s.getStackSize();
+            for (final var entry : myList) {
+                final AEKey what = entry.getKey();
+                final long totalStackSize = entry.getLongValue();
                 if (totalStackSize > 0) {
-                    final IAEStack stack = destination.injectItems(s, Actionable.SIMULATE, this.mySrc);
+                    final long insertable = destination.insert(what, totalStackSize, Actionable.SIMULATE, this.mySrc);
 
-                    long possible = 0;
-                    if (stack == null) {
-                        possible = totalStackSize;
-                    } else {
-                        possible = totalStackSize - stack.getStackSize();
-                    }
+                    if (insertable > 0) {
+                        final long possibleBeforeExtract = Math.min(insertable, itemsToMove);
 
-                    if (possible > 0) {
-                        IAEStack injectable = s.copy();
+                        final long extracted = src.extract(what, possibleBeforeExtract, Actionable.MODULATE, this.mySrc);
+                        if (extracted > 0) {
+                            final long actuallyInserted = Platform.poweredInsert(energy, destination, what, extracted, this.mySrc);
+                            final long failed = extracted - actuallyInserted;
 
-                        possible = Math.min(possible, itemsToMove);
-                        injectable.setStackSize(possible);
-
-                        final IAEStack extracted = src.extractItems(injectable, Actionable.MODULATE, this.mySrc);
-                        if (extracted != null) {
-                            possible = extracted.getStackSize();
-                            extracted.setCraftable(false);
-                            final IAEStack failed = Platform.poweredInsert(energy, destination, extracted, this.mySrc);
-
-                            if (failed != null) {
-                                possible -= failed.getStackSize();
-                                src.injectItems(failed, Actionable.MODULATE, this.mySrc);
+                            if (failed > 0) {
+                                src.insert(what, failed, Actionable.MODULATE, this.mySrc);
                             }
 
-                            if (possible > 0) {
-                                itemsToMove -= possible;
+                            if (actuallyInserted > 0) {
+                                itemsToMove -= actuallyInserted;
                                 didStuff = true;
                             }
 
@@ -429,10 +413,10 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         }
         while (itemsToMove > 0 && didStuff);
 
-        return itemsToMove / chan.transferFactor();
+        return itemsToMove / keyType.getAmountPerOperation();
     }
 
-    private boolean shouldMove(final IMEInventory<?> inv) {
+    private boolean shouldMove(final MEStorage inv) {
         final FullnessMode fm = (FullnessMode) this.manager.getSetting(Settings.FULLNESS_MODE);
 
         if (inv != null) {
@@ -451,28 +435,20 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         return false;
     }
 
-    private boolean matches(final FullnessMode fm, final IMEInventory src) {
+    private boolean matches(final FullnessMode fm, final MEStorage src) {
         if (fm == FullnessMode.HALF) {
             return true;
         }
 
-        final IItemList<? extends IAEStack> myList;
-
-        if (src instanceof IMEMonitor) {
-            myList = ((IMEMonitor) src).getStorageList();
-        } else {
-            myList = src.getAvailableItems(src.getChannel().createList());
-        }
+        final KeyCounter myList = src.getAvailableStacks();
 
         if (fm == FullnessMode.EMPTY) {
             return myList.isEmpty();
         }
 
-        final IAEStack test = myList.getFirstItem();
+        final AEKey test = myList.getFirstKey();
         if (test != null) {
-            IAEStack testCopy = test.copy();
-            testCopy.setStackSize(1);
-            return src.injectItems(testCopy, Actionable.SIMULATE, this.mySrc) != null;
+            return src.insert(test, 1, Actionable.SIMULATE, this.mySrc) <= 0;
         }
         return false;
     }

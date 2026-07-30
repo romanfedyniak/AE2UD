@@ -23,37 +23,24 @@
 
 package appeng.api.networking.storage;
 
-
-import appeng.api.storage.data.IAEStack;
-
+import appeng.api.stacks.AEKey;
 
 /**
  * DO NOT IMPLEMENT.
- *
- * Will be injected when adding an {@link IStackWatcherHost} to a grid.
+ * <p>
+ * Handle for subscribing to changes of specific keys in the network. Injected when adding an
+ * {@link IStorageWatcherNode} to a grid.
  */
-public interface IStackWatcher
-{
-	/**
-	 * Add a specific {@link IAEStack} to watch.
-	 *
-	 * Supports multiple values, duplicate ones will not be added.
-	 *
-	 * @param stack
-	 * @return true, if successfully added.
-	 */
-	boolean add( IAEStack<?> stack );
+public interface IStackWatcher {
 
-	/**
-	 * Remove a specific {@link IAEStack} from the watcher.
-	 *
-	 * @param stack
-	 * @return true, if successfully removed.
-	 */
-	boolean remove( IAEStack<?> stack );
+    /**
+     * Subscribe to every change instead of a list of keys. Expensive; used by terminals.
+     */
+    void setWatchAll(boolean watchAll);
 
-	/**
-	 * Removes all watched stacks and resets the watcher to a clean state.
-	 */
-	void reset();
+    void add(AEKey key);
+
+    void remove(AEKey key);
+
+    void reset();
 }

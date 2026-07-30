@@ -24,7 +24,7 @@
 package appeng.api.networking.crafting;
 
 
-import appeng.api.storage.data.IAEStack;
+import appeng.api.stacks.AEKey;
 
 
 /**
@@ -42,7 +42,7 @@ public interface ICraftingWatcher
 	 * @param stack
 	 * @return true, if successfully added.
 	 */
-	boolean add( IAEStack<?> stack );
+	boolean add( AEKey stack );
 
 	/**
 	 * Remove a specific {@link IAEStack} from the watcher.
@@ -50,7 +50,7 @@ public interface ICraftingWatcher
 	 * @param stack
 	 * @return true, if successfully removed.
 	 */
-	boolean remove( IAEStack<?> stack );
+	boolean remove( AEKey stack );
 
 	/**
 	 * Removes all watched stacks and resets the watcher to a clean state.

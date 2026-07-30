@@ -26,8 +26,6 @@ import appeng.api.util.IConfigurableObject;
 import appeng.api.util.IOrientable;
 import appeng.core.AELog;
 import appeng.core.features.IStackSrc;
-import appeng.fluids.helper.IConfigurableFluidInventory;
-import appeng.fluids.util.AEFluidInventory;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IPriorityHost;
 import appeng.hooks.TickHandler;
@@ -337,17 +335,6 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
             }
         }
 
-        if (this instanceof IConfigurableFluidInventory) {
-            final IFluidHandler tank = ((IConfigurableFluidInventory) this).getFluidInventoryByName("config");
-            if (tank instanceof AEFluidInventory) {
-                final AEFluidInventory target = (AEFluidInventory) tank;
-                final AEFluidInventory tmp = new AEFluidInventory(null, target.getSlots());
-                tmp.readFromNBT(compound, "config");
-                for (int x = 0; x < tmp.getSlots(); x++) {
-                    target.setFluidInSlot(x, tmp.getFluidInSlot(x));
-                }
-            }
-        }
     }
 
     /**
@@ -399,12 +386,6 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
             }
         }
 
-        if (this instanceof IConfigurableFluidInventory) {
-            final IFluidHandler tank = ((IConfigurableFluidInventory) this).getFluidInventoryByName("config");
-            if (tank instanceof AEFluidInventory) {
-                ((AEFluidInventory) tank).writeToNBT(output, "config");
-            }
-        }
 
         return output.isEmpty()? null : output;
     }

@@ -19,23 +19,20 @@
 package appeng.items.storage;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Upgrades;
 import appeng.api.implementations.items.IUpgradeModule;
-import appeng.api.storage.ICellWorkbenchItem;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.AEKeyFilter;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
-import appeng.util.prioritylist.FuzzyPriorityList;
 import appeng.util.prioritylist.IPartitionList;
 import appeng.util.prioritylist.MergedPriorityList;
-import appeng.util.prioritylist.PrecisePriorityList;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
@@ -45,18 +42,39 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
         this.setMaxStackSize(1);
     }
 
-    public static IPartitionList<IAEItemStack> createFilter(final ItemStack[] list) {
-        IPartitionList<IAEItemStack> myPartitionList = null;
-
-        final MergedPriorityList<IAEItemStack> myMergedList = new MergedPriorityList<>();
+    /**
+     * Builds the combined filter for a set of view-cell slots (a terminal's or storage bus's view-cell
+     * inventory row).
+     * <p/>
+     * Replaces the old {@code IPartitionList<IAEItemStack>} return type. The return type is
+     * {@link AEKeyFilter} - the frozen, type-erased predicate over {@link AEKey} - rather than the
+     * {@code appeng.util.prioritylist.IPartitionList} used internally to build it, because a view cell
+     * must be able to filter keys of any registered {@link appeng.api.stacks.AEKeyType}, not just items,
+     * and {@code AEKeyFilter} is the api-level type meant for exactly that role (see its javadoc:
+     * "Replaces the various per-channel filter interfaces"). Internally the merge/fuzzy/inverter logic
+     * is unchanged - it is still built out of {@link IPartitionList}/{@link MergedPriorityList}, exactly
+     * as {@code appeng.me.storage.BasicCellInventory} builds a cell's own partition list - and the final
+     * result is exposed as an {@code AEKeyFilter} via a method reference ({@code list::isListed} already
+     * has the {@code (AEKey) -> boolean} shape {@code AEKeyFilter.matches} requires).
+     * <p/>
+     * <b>Never returns null.</b> If no view cell in {@code list} configures anything (including an empty
+     * or all-{@code null}/{@link ItemStack#EMPTY} array), this returns {@link AEKeyFilter#all()} - i.e.
+     * "no filtering" - which is the same behaviour the old null return produced at every call site
+     * ({@code if (filter != null && !filter.isListed(x)) skip}), just without forcing callers to
+     * null-check. {@code appeng.util.Platform.extractItemsByRecipe} now takes an {@code AEKeyFilter}
+     * parameter as well, so its two call sites ({@code SlotCraftingTerm} and
+     * {@code ContainerPatternEncoder}) pass this method's result straight in.
+     */
+    public static AEKeyFilter createFilter(final ItemStack[] list) {
+        MergedPriorityList myMergedList = null;
 
         for (final ItemStack currentViewCell : list) {
-            if (currentViewCell == null) {
+            if (currentViewCell == null || currentViewCell.isEmpty()) {
                 continue;
             }
 
-            if ((currentViewCell.getItem() instanceof ItemViewCell)) {
-                final IItemList<IAEItemStack> priorityList = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+            if (currentViewCell.getItem() instanceof ItemViewCell) {
+                final IPartitionList.Builder builder = IPartitionList.builder();
 
                 final ICellWorkbenchItem vc = (ICellWorkbenchItem) currentViewCell.getItem();
                 final IItemHandler upgrades = vc.getUpgradesInventory(currentViewCell);
@@ -84,26 +102,46 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
                     }
                 }
 
+                boolean any = false;
                 for (int x = 0; x < config.getSlots(); x++) {
                     final ItemStack is = config.getStackInSlot(x);
                     if (!is.isEmpty()) {
-                        priorityList.add(AEItemStack.fromItemStack(is));
+                        final AEKey key = keyOf(is);
+                        if (key != null) {
+                            builder.add(key);
+                            any = true;
+                        }
                     }
                 }
 
-                if (!priorityList.isEmpty()) {
-                    if (hasFuzzy) {
-                        myMergedList.addNewList(new FuzzyPriorityList<>(priorityList, fzMode), !hasInverter);
-                    } else {
-                        myMergedList.addNewList(new PrecisePriorityList<>(priorityList), !hasInverter);
-                    }
+                if (hasFuzzy) {
+                    builder.fuzzyMode(fzMode);
+                }
 
-                    myPartitionList = myMergedList;
+                if (any) {
+                    if (myMergedList == null) {
+                        myMergedList = new MergedPriorityList();
+                    }
+                    myMergedList.addNewList(builder.build(), !hasInverter);
                 }
             }
         }
 
-        return myPartitionList;
+        return myMergedList == null ? AEKeyFilter.all() : myMergedList::isListed;
+    }
+
+    /**
+     * Resolves a view-cell config slot's {@link ItemStack} back into the {@link AEKey} it stands for:
+     * the item itself for ordinary item stacks, or the wrapped key for a {@link GenericStack} placeholder
+     * (fluids and any other non-item type). Mirrors {@code appeng.core.api.ApiClientHelper#keyOf}, which
+     * does the same translation for the cell tooltip.
+     */
+    private static AEKey keyOf(final ItemStack is) {
+        if (GenericStack.isWrapped(is)) {
+            final GenericStack wrapped = GenericStack.unwrapItemStack(is);
+            return wrapped == null ? null : wrapped.what();
+        }
+        return AEItemKey.of(is);
     }
 
     @Override

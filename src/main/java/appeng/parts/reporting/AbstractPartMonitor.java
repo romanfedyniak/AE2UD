@@ -19,32 +19,24 @@
 package appeng.parts.reporting;
 
 
-import appeng.api.AEApi;
 import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
-import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStackWatcher;
-import appeng.api.networking.storage.IStackWatcherHost;
+import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.render.TesrRenderHelper;
 import appeng.core.localization.PlayerMessages;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.Reflected;
 import appeng.me.GridAccessException;
 import appeng.util.IWideReadableNumberConverter;
 import appeng.util.Platform;
 import appeng.util.ReadableNumberConverter;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -60,6 +52,7 @@ import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 
@@ -74,13 +67,17 @@ import java.io.IOException;
  * @version rv3
  * @since rv3
  */
-public abstract class AbstractPartMonitor extends AbstractPartDisplay implements IPartStorageMonitor, IStackWatcherHost {
+public abstract class AbstractPartMonitor extends AbstractPartDisplay implements IPartStorageMonitor, IStorageWatcherNode {
     private static final IWideReadableNumberConverter NUMBER_CONVERTER = ReadableNumberConverter.INSTANCE;
 
-    private IAEItemStack configuredItem;
-    private IAEFluidStack configuredFluid;
+    /**
+     * The one key this monitor watches, or null while unconfigured. Replaces the old split
+     * {@code configuredItem}/{@code configuredFluid} fields - both variants of {@code IAEStack} used to need their
+     * own field, but a single type-erased {@link AEKey} covers both (and any future type) uniformly.
+     */
+    @Nullable
+    private AEKey configuredKey;
     private long configuredAmount;
-    private String lastHumanReadableText;
     private boolean isLocked;
     private IStackWatcher myWatcher;
 
@@ -94,12 +91,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         super.readFromNBT(data);
 
         this.isLocked = data.getBoolean("isLocked");
-
-        final NBTTagCompound myItem = data.getCompoundTag("configuredItem");
-        this.configuredItem = AEItemStack.fromNBT(myItem);
-
-        final NBTTagCompound myFluid = data.getCompoundTag("configuredFluid");
-        this.configuredFluid = AEFluidStack.fromNBT(myFluid);
+        this.configuredKey = AEKey.fromTagGeneric(data.getCompoundTag("configuredKey"));
     }
 
     @Override
@@ -108,18 +100,11 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         data.setBoolean("isLocked", this.isLocked);
 
-        final NBTTagCompound myItem = new NBTTagCompound();
-        if (this.configuredItem != null) {
-            this.configuredItem.writeToNBT(myItem);
+        final NBTTagCompound keyTag = new NBTTagCompound();
+        if (this.configuredKey != null) {
+            this.configuredKey.toTagGeneric(keyTag);
         }
-        final NBTTagCompound myFluid = new NBTTagCompound();
-        if (this.configuredFluid != null) {
-            this.configuredFluid.writeToNBT(myFluid);
-        }
-
-        data.setTag("configuredItem", myItem);
-        data.setTag("configuredFluid", myFluid);
-
+        data.setTag("configuredKey", keyTag);
     }
 
     @Override
@@ -127,14 +112,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         super.writeToStream(data);
 
         data.writeBoolean(this.isLocked);
-        //is configured
-        data.writeBoolean(this.configuredItem != null);
-        data.writeBoolean(this.configuredFluid != null);
-        if (this.configuredItem != null) {
-            this.configuredItem.writeToPacket(data);
-        } else if (this.configuredFluid != null) {
-            this.configuredFluid.writeToPacket(data);
-        }
+        AEKey.writeOptionalKey(data, this.configuredKey);
     }
 
     @Override
@@ -142,22 +120,10 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         boolean needRedraw = super.readFromStream(data);
 
         final boolean isLocked = data.readBoolean();
-        needRedraw = this.isLocked != isLocked;
+        needRedraw |= this.isLocked != isLocked;
 
         this.isLocked = isLocked;
-
-        final boolean isItem = data.readBoolean();
-        final boolean isFluid = data.readBoolean();
-        if (isItem) {
-            this.configuredItem = AEItemStack.fromPacket(data);
-            this.configuredFluid = null;
-        } else if (isFluid) {
-            this.configuredFluid = AEFluidStack.fromPacket(data);
-            this.configuredItem = null;
-        } else {
-            this.configuredItem = null;
-            this.configuredFluid = null;
-        }
+        this.configuredKey = AEKey.readOptionalKey(data);
 
         return needRedraw;
     }
@@ -185,16 +151,12 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
                 fluidInTank = fluidHandlerItem.drain(Integer.MAX_VALUE, false);
             }
 
-            if (fluidInTank == null) {
-                this.configuredFluid = null;
-                if (!eq.isEmpty()) {
-                    this.configuredItem = AEItemStack.fromItemStack(eq).setStackSize(0);
-                } else {
-                    this.configuredItem = null;
-                }
-            } else if (fluidInTank.amount > 0) {
-                this.configuredFluid = AEFluidStack.fromFluidStack(fluidInTank).setStackSize(0);
-                this.configuredItem = null;
+            if (fluidInTank != null && fluidInTank.amount > 0) {
+                this.configuredKey = AEFluidKey.of(fluidInTank);
+            } else if (!eq.isEmpty()) {
+                this.configuredKey = AEItemKey.of(eq);
+            } else {
+                this.configuredKey = null;
             }
 
             this.configureWatchers();
@@ -232,49 +194,21 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
     }
 
     // update the system...
-    private void configureWatchers() {
+    protected void configureWatchers() {
         if (this.myWatcher != null) {
             this.myWatcher.reset();
         }
 
         try {
-            if (this.configuredItem != null) {
+            if (this.configuredKey != null) {
                 if (this.myWatcher != null) {
-                    this.myWatcher.add(this.configuredItem);
+                    this.myWatcher.add(this.configuredKey);
                 }
 
-                this.updateReportingValue(
-                        this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
-            } else if (this.configuredFluid != null) {
-                if (this.myWatcher != null) {
-                    this.myWatcher.add(this.configuredFluid);
-                }
-
-                this.updateReportingValue(
-                        this.getProxy().getStorage().getInventory(AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class)));
+                this.configuredAmount = this.getProxy().getStorage().getCachedInventory().get(this.configuredKey);
             }
         } catch (final GridAccessException e) {
             // >.>
-        }
-    }
-
-    private <T extends IAEStack<T>> void updateReportingValue(final IMEMonitor<T> monitor) {
-        if (this.configuredItem != null) {
-            final IAEItemStack result = (IAEItemStack) monitor.getStorageList().findPrecise((T) this.configuredItem);
-            if (result == null) {
-                this.configuredAmount = 0;
-            } else {
-                this.configuredAmount = result.getStackSize();
-            }
-            this.configuredItem.setStackSize(this.configuredAmount);
-        } else if (this.configuredFluid != null) {
-            final IAEFluidStack result = (IAEFluidStack) monitor.getStorageList().findPrecise((T) this.configuredFluid);
-            if (result == null) {
-                this.configuredAmount = 0;
-            } else {
-                this.configuredAmount = result.getStackSize();
-            }
-            this.configuredFluid.setStackSize(this.configuredAmount);
         }
     }
 
@@ -286,9 +220,9 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
             return;
         }
 
-        IAEStack<?> ais = this.getDisplayed();
+        final AEKey key = this.configuredKey;
 
-        if (ais == null) {
+        if (key == null) {
             return;
         }
 
@@ -299,10 +233,15 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         TesrRenderHelper.moveToFace(facing);
         TesrRenderHelper.rotateToFace(facing, this.getSpin());
-        if (ais instanceof IAEItemStack)
-            TesrRenderHelper.renderItem2dWithAmount((IAEItemStack) ais, 0.8f, 0.17f);
-        if (ais instanceof IAEFluidStack)
-            TesrRenderHelper.renderFluid2dWithAmount((IAEFluidStack) ais, 0.8f, 0.17f);
+        // NOTE for wave 4 (appeng.client.render is not this wave's scope): TesrRenderHelper still has the old
+        // (IAEItemStack)/(IAEFluidStack) signatures. These two calls are written against what it needs to become -
+        // (AEItemKey/AEFluidKey, long amount, float, float) - exactly like the other forward references CONTRACT.md
+        // §9 already lists as debt for the wave that owns the callee.
+        if (key instanceof AEItemKey itemKey) {
+            TesrRenderHelper.renderItem2dWithAmount(itemKey, this.configuredAmount, 0.8f, 0.17f);
+        } else if (key instanceof AEFluidKey fluidKey) {
+            TesrRenderHelper.renderFluid2dWithAmount(fluidKey, this.configuredAmount, 0.8f, 0.17f);
+        }
         GlStateManager.popMatrix();
 
     }
@@ -313,12 +252,18 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
     }
 
     @Override
-    public IAEStack<?> getDisplayed() {
-        if (this.configuredItem != null)
-            return this.configuredItem;
-        else if (this.configuredFluid != null)
-            return this.configuredFluid;
-        return null;
+    public GenericStack getDisplayed() {
+        return this.configuredKey == null ? null : new GenericStack(this.configuredKey, this.configuredAmount);
+    }
+
+    /**
+     * @return the raw key this monitor is configured for, or null. Used by subclasses (e.g.
+     *         {@link PartConversionMonitor}) that need the key itself rather than the key+amount pair
+     *         {@link #getDisplayed()} returns.
+     */
+    @Nullable
+    protected final AEKey getConfiguredKey() {
+        return this.configuredKey;
     }
 
     @Override
@@ -347,14 +292,8 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
     }
 
     @Override
-    public void onStackChange(IItemList<?> o, IAEStack<?> fullStack, IAEStack<?> diffStack, IActionSource src, IStorageChannel<?> chan) {
-        this.configuredAmount = fullStack.getStackSize();
-
-        if (this.configuredItem != null) {
-            this.configuredItem.setStackSize(this.configuredAmount);
-        } else if (this.configuredFluid != null) {
-            this.configuredFluid.setStackSize(this.configuredAmount);
-        }
+    public void onStackChange(final AEKey what, final long amount) {
+        this.configuredAmount = amount;
         this.getHost().markForUpdate();
     }
 

@@ -19,15 +19,17 @@
 package appeng.util.inv;
 
 
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.item.ItemStack;
 
 import java.util.Iterator;
 
 
 public final class IMEAdaptorIterator implements Iterator<ItemSlot> {
-    private final Iterator<IAEItemStack> stack;
+    private final Iterator<Object2LongMap.Entry<AEKey>> stack;
     private final ItemSlot slot = new ItemSlot();
     private final IMEAdaptor parent;
     private final int containerSize;
@@ -35,7 +37,7 @@ public final class IMEAdaptorIterator implements Iterator<ItemSlot> {
     private int offset = 0;
     private boolean hasNext;
 
-    public IMEAdaptorIterator(final IMEAdaptor parent, final IItemList<IAEItemStack> availableItems) {
+    public IMEAdaptorIterator(final IMEAdaptor parent, final KeyCounter availableItems) {
         this.stack = availableItems.iterator();
         this.containerSize = parent.getMaxSlots();
         this.parent = parent;
@@ -58,8 +60,8 @@ public final class IMEAdaptorIterator implements Iterator<ItemSlot> {
         }
 
         if (this.hasNext) {
-            final IAEItemStack item = this.stack.next();
-            this.slot.setAEItemStack(item);
+            final Object2LongMap.Entry<AEKey> entry = this.stack.next();
+            this.slot.setGenericStack(new GenericStack(entry.getKey(), entry.getLongValue()));
             return this.slot;
         }
 

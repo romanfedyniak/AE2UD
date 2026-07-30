@@ -22,7 +22,7 @@ package appeng.helpers;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
@@ -39,7 +39,7 @@ public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICr
 
     void saveChanges();
 
-    default void onStackReturnNetwork(IAEItemStack stack) {
+    default void onStackReturnNetwork(GenericStack stack) {
         getInterfaceDuality().onStackReturnedToNetwork(stack);
     }
 }

@@ -19,237 +19,171 @@
 package appeng.crafting;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInformPlayer;
-import appeng.util.inv.ItemListIgnoreCrafting;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.io.IOException;
 
 
-public class MECraftingInventory implements IMEInventory<IAEItemStack> {
+/**
+ * A crafting-local, layered view over a {@link MEStorage}: reads fall through to the wrapped
+ * {@code target} (a snapshot taken at construction time), while writes stay local until {@link
+ * #commit(IActionSource)} pushes them back out. This replaces the old {@code IMEInventory<IAEItemStack>}
+ * implementation of the same class; the two source-typed constructors it used to have
+ * ({@code IMEInventory<IAEItemStack>} and {@code IMEMonitor<IAEItemStack>} + {@code IActionSource})
+ * collapse into one {@link MEStorage}-based constructor now that both source interfaces are gone
+ * (see CONTRACT.md §9).
+ */
+public class MECraftingInventory implements MEStorage {
 
-    private final MECraftingInventory par;
-
-    private final IMEInventory<IAEItemStack> target;
-    private final IItemList<IAEItemStack> localCache;
+    private final MEStorage target;
+    private final KeyCounter localCache;
 
     private final boolean logExtracted;
-    private final IItemList<IAEItemStack> extractedCache;
+    private final KeyCounter extractedCache;
 
     private final boolean logInjections;
-    private final IItemList<IAEItemStack> injectedCache;
+    private final KeyCounter injectedCache;
 
     private final boolean logMissing;
-    private final IItemList<IAEItemStack> missingCache;
+    private final KeyCounter missingCache;
 
+    /**
+     * An empty, unbacked inventory. {@link #commit(IActionSource)} is a no-op success on one of these,
+     * mirroring the old no-arg constructor (used as the initial/idle state of a crafting CPU's job
+     * inventory before a job is running).
+     */
     public MECraftingInventory() {
-        this.localCache = new ItemListIgnoreCrafting<>(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
-        this.extractedCache = null;
-        this.injectedCache = null;
-        this.missingCache = null;
+        this.target = null;
+        this.localCache = new KeyCounter();
         this.logExtracted = false;
         this.logInjections = false;
         this.logMissing = false;
-        this.target = null;
-        this.par = null;
+        this.extractedCache = null;
+        this.injectedCache = null;
+        this.missingCache = null;
     }
 
-    public MECraftingInventory(final MECraftingInventory parent) {
-        this.target = parent;
-        this.logExtracted = parent.logExtracted;
-        this.logInjections = parent.logInjections;
-        this.logMissing = parent.logMissing;
-
-        if (this.logMissing) {
-            this.missingCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.missingCache = null;
-        }
-
-        if (this.logExtracted) {
-            this.extractedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.extractedCache = null;
-        }
-
-        if (this.logInjections) {
-            this.injectedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.injectedCache = null;
-        }
-
-        this.localCache = this.target.getAvailableItems(new ItemListIgnoreCrafting<>(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList()));
-
-        this.par = parent;
-    }
-
-    public MECraftingInventory(final IMEMonitor<IAEItemStack> target, final IActionSource src, final boolean logExtracted, final boolean logInjections, final boolean logMissing) {
+    /**
+     * The general constructor. Replaces both old source-typed constructors
+     * ({@code IMEInventory<IAEItemStack>, boolean, boolean, boolean} and
+     * {@code IMEMonitor<IAEItemStack>, IActionSource, boolean, boolean, boolean}) — both source types
+     * collapsed into {@link MEStorage}, and the extra {@code IActionSource} disappeared since it was
+     * only ever used to simulate-extract a snapshot, which {@link MEStorage#getAvailableStacks()}
+     * already gives us directly.
+     */
+    public MECraftingInventory(final MEStorage target, final boolean logExtracted, final boolean logInjections, final boolean logMissing) {
         this.target = target;
         this.logExtracted = logExtracted;
         this.logInjections = logInjections;
         this.logMissing = logMissing;
 
-        if (logMissing) {
-            this.missingCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.missingCache = null;
-        }
+        this.missingCache = logMissing ? new KeyCounter() : null;
+        this.extractedCache = logExtracted ? new KeyCounter() : null;
+        this.injectedCache = logInjections ? new KeyCounter() : null;
 
-        if (logExtracted) {
-            this.extractedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.extractedCache = null;
-        }
-
-        if (logInjections) {
-            this.injectedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.injectedCache = null;
-        }
-
-        this.localCache = new ItemListIgnoreCrafting<>(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
-        for (final IAEItemStack is : target.getStorageList()) {
-            this.localCache.add(target.extractItems(is, Actionable.SIMULATE, src));
-        }
-
-        this.par = null;
+        this.localCache = target.getAvailableStacks();
     }
 
-    public MECraftingInventory(final IMEInventory<IAEItemStack> target, final boolean logExtracted, final boolean logInjections, final boolean logMissing) {
-        this.target = target;
-        this.logExtracted = logExtracted;
-        this.logInjections = logInjections;
-        this.logMissing = logMissing;
-
-        if (logMissing) {
-            this.missingCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.missingCache = null;
-        }
-
-        if (logExtracted) {
-            this.extractedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.extractedCache = null;
-        }
-
-        if (logInjections) {
-            this.injectedCache = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        } else {
-            this.injectedCache = null;
-        }
-
-        this.localCache = target.getAvailableItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
-        this.par = null;
-    }
-
-    public MECraftingInventory(final IItemList<IAEItemStack> itemList) {
-        this.localCache = new ItemListIgnoreCrafting<>(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
+    /**
+     * Was {@code MECraftingInventory(IItemList<IAEItemStack>)}. Builds a detached, uncommittable
+     * inventory (like the no-arg constructor) seeded from an existing snapshot.
+     */
+    public MECraftingInventory(final KeyCounter counter) {
         this.target = null;
+        this.localCache = new KeyCounter();
+        this.localCache.addAll(counter);
         this.logExtracted = false;
         this.logInjections = false;
         this.logMissing = false;
         this.missingCache = null;
         this.extractedCache = null;
         this.injectedCache = null;
-
-        for (IAEItemStack iaeItemStack : itemList) {
-            this.localCache.add(iaeItemStack);
-        }
-
-        this.par = null;
     }
 
     @Override
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable mode, final IActionSource src) {
-        if (input == null) {
-            return null;
+    public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (what == null || amount <= 0) {
+            return 0;
         }
 
         if (mode == Actionable.MODULATE) {
             if (this.logInjections) {
-                this.injectedCache.add(input);
+                this.injectedCache.add(what, amount);
             }
-            this.localCache.add(input);
+            this.localCache.add(what, amount);
         }
 
-        return null;
+        return amount;
     }
 
     @Override
-    public IAEItemStack extractItems(final IAEItemStack request, final Actionable mode, final IActionSource src) {
-        if (request == null) {
-            return null;
+    public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+        if (what == null || amount <= 0) {
+            return 0;
         }
 
-        final IAEItemStack list = this.localCache.findPrecise(request);
-        if (list == null || list.getStackSize() == 0) {
-            return null;
+        final long available = this.localCache.get(what);
+        if (available <= 0) {
+            return 0;
         }
 
-        if (list.getStackSize() >= request.getStackSize()) {
-            if (mode == Actionable.MODULATE) {
-                list.decStackSize(request.getStackSize());
-                if (this.logExtracted) {
-                    this.extractedCache.add(request);
-                }
-            }
-
-            return request;
-        }
-
-        final IAEItemStack ret = request.copy();
-        ret.setStackSize(list.getStackSize());
+        final long extracted = Math.min(available, amount);
 
         if (mode == Actionable.MODULATE) {
-            list.reset();
+            this.localCache.remove(what, extracted);
             if (this.logExtracted) {
-                this.extractedCache.add(ret);
+                this.extractedCache.add(what, extracted);
             }
         }
 
-        return ret;
+        return extracted;
     }
 
     @Override
-    public IItemList<IAEItemStack> getAvailableItems(final IItemList<IAEItemStack> out) {
-        for (final IAEItemStack is : this.localCache) {
-            out.add(is);
+    public void getAvailableStacks(final KeyCounter out) {
+        for (final var entry : this.localCache) {
+            out.add(entry.getKey(), entry.getLongValue());
         }
-
-        return out;
     }
 
-    @Override
-    public IStorageChannel getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
-    }
-
-    public IItemList<IAEItemStack> getItemList() {
+    public KeyCounter getItemList() {
         return this.localCache;
     }
 
+    /**
+     * Pushes everything logged in {@link #injectedCache}/{@link #extractedCache} back onto
+     * {@link #target}, rolling back on any partial failure. Mirrors the old {@code commit} exactly,
+     * translated from stack-mutation to plain {@code long} bookkeeping.
+     */
     public boolean commit(final IActionSource src) {
-        final IItemList<IAEItemStack> added = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        final IItemList<IAEItemStack> pulled = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+        if (this.target == null) {
+            return true;
+        }
+
+        final KeyCounter added = new KeyCounter();
+        final KeyCounter pulled = new KeyCounter();
         boolean failed = false;
 
         if (this.logInjections) {
-            for (final IAEItemStack inject : this.injectedCache) {
-                IAEItemStack result = null;
-                added.add(result = this.target.injectItems(inject, Actionable.MODULATE, src));
+            for (final var entry : this.injectedCache) {
+                final AEKey what = entry.getKey();
+                final long amount = entry.getLongValue();
+                if (amount <= 0) {
+                    continue;
+                }
 
-                if (result != null) {
+                final long inserted = this.target.insert(what, amount, Actionable.MODULATE, src);
+                added.add(what, inserted);
+
+                if (inserted != amount) {
                     failed = true;
                     break;
                 }
@@ -257,25 +191,31 @@ public class MECraftingInventory implements IMEInventory<IAEItemStack> {
         }
 
         if (failed) {
-            for (final IAEItemStack is : added) {
-                this.target.extractItems(is, Actionable.MODULATE, src);
+            for (final var entry : added) {
+                this.target.extract(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, src);
             }
 
             return false;
         }
 
         if (this.logExtracted) {
-            for (final IAEItemStack extra : this.extractedCache) {
-                IAEItemStack result = null;
-                pulled.add(result = this.target.extractItems(extra, Actionable.MODULATE, src));
+            for (final var entry : this.extractedCache) {
+                final AEKey what = entry.getKey();
+                final long amount = entry.getLongValue();
+                if (amount <= 0) {
+                    continue;
+                }
 
-                if (result == null || result.getStackSize() != extra.getStackSize()) {
+                final long extracted = this.target.extract(what, amount, Actionable.MODULATE, src);
+                pulled.add(what, extracted);
+
+                if (extracted != amount) {
                     if (src.player().isPresent()) {
                         try {
-                            if (result == null) {
-                                NetworkHandler.instance().sendTo(new PacketInformPlayer(extra, null, PacketInformPlayer.InfoType.NO_ITEMS_EXTRACTED), (EntityPlayerMP) src.player().get());
+                            if (extracted <= 0) {
+                                NetworkHandler.instance().sendTo(new PacketInformPlayer(new GenericStack(what, amount), null, PacketInformPlayer.InfoType.NO_ITEMS_EXTRACTED), (EntityPlayerMP) src.player().get());
                             } else {
-                                NetworkHandler.instance().sendTo(new PacketInformPlayer(extra, result, PacketInformPlayer.InfoType.PARTIAL_ITEM_EXTRACTION), (EntityPlayerMP) src.player().get());
+                                NetworkHandler.instance().sendTo(new PacketInformPlayer(new GenericStack(what, amount), new GenericStack(what, extracted), PacketInformPlayer.InfoType.PARTIAL_ITEM_EXTRACTION), (EntityPlayerMP) src.player().get());
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -287,34 +227,26 @@ public class MECraftingInventory implements IMEInventory<IAEItemStack> {
         }
 
         if (failed) {
-            for (final IAEItemStack is : added) {
-                this.target.extractItems(is, Actionable.MODULATE, src);
+            for (final var entry : added) {
+                this.target.extract(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, src);
             }
 
-            for (final IAEItemStack is : pulled) {
-                this.target.injectItems(is, Actionable.MODULATE, src);
+            for (final var entry : pulled) {
+                this.target.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, src);
             }
 
             return false;
         }
 
-        if (this.logMissing && this.par != null) {
-            for (final IAEItemStack extra : this.missingCache) {
-                this.par.addMissing(extra);
-            }
-        }
-
         return true;
     }
 
-    private void addMissing(final IAEItemStack extra) {
-        this.missingCache.add(extra);
-    }
-
-    void ignore(final IAEItemStack what) {
-        final IAEItemStack list = this.localCache.findPrecise(what);
-        if (list != null) {
-            list.setStackSize(0);
-        }
+    /**
+     * Zeroes out {@code what} in the local cache without removing the key, exactly like the old
+     * {@code list.setStackSize(0)} did. Used by {@link CraftingJob} to make sure the job's own output
+     * doesn't get "found" as already-available in its own simulation inventory.
+     */
+    void ignore(final AEKey what) {
+        this.localCache.set(what, 0);
     }
 }

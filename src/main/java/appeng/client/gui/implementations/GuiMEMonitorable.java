@@ -26,7 +26,7 @@ import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.implementations.tiles.IMEChest;
 import appeng.api.implementations.tiles.IViewCellStorage;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.ActionKey;
@@ -139,9 +139,18 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
     }
 
-    public void postUpdate(final List<IAEItemStack> list) {
-        for (final IAEItemStack is : list) {
-            this.repo.postUpdate(is);
+    /**
+     * The client-side inventory listing. The JEI integration reads it to decide which recipe ingredients
+     * the network can supply; it used to read {@code ContainerMEMonitorable.items}, which no longer
+     * exists because the listing now lives on the client only.
+     */
+    public ItemRepo getRepo() {
+        return this.repo;
+    }
+
+    public void postUpdate(final List<GridInventoryEntry> list) {
+        for (final GridInventoryEntry entry : list) {
+            this.repo.postUpdate(entry);
         }
 
         if (isShiftKeyDown()) {
@@ -158,6 +167,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (!this.delayedUpdate) {
             this.repo.updateView();
             this.setScrollBar();
+        } else {
+            // Shift is held over an ME slot: keep the rows where they are so a burst of shift-clicks stays
+            // on one item, but let the counts move. Freezing both is what made a shift-extraction look like
+            // it had not happened until the key was released.
+            this.repo.refreshViewAmounts();
         }
     }
 
@@ -443,6 +457,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchField != null && this.searchField.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
 
         if (!this.checkHotbarKeys(key)) {
@@ -503,6 +522,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (!this.delayedUpdate) {
             this.repo.updateView();
             this.setScrollBar();
+        } else {
+            this.repo.refreshViewAmounts();
         }
         super.updateScreen();
     }

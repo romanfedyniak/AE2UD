@@ -24,7 +24,7 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.IUpgradeableCellContainer;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
@@ -264,18 +264,18 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
                     this.setSubstitute(details.canSubstitute());
 
                     for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
-                        final IAEItemStack item = details.getInputs()[x];
-                        ItemHandlerUtil.setStackInSlot(this.crafting, x, item == null ? ItemStack.EMPTY : item.createItemStack());
+                        final GenericStack item = details.getInputs()[x];
+                        ItemHandlerUtil.setStackInSlot(this.crafting, x, GenericStack.wrapInItemStack(item));
                     }
 
                     for (int x = 0; x < this.output.getSlots(); x++) {
-                        final IAEItemStack item;
+                        final GenericStack item;
                         if (x < details.getOutputs().length) {
                             item = details.getOutputs()[x];
                         } else {
                             item = null;
                         }
-                        this.output.setStackInSlot(x, item == null ? ItemStack.EMPTY : item.createItemStack());
+                        this.output.setStackInSlot(x, GenericStack.wrapInItemStack(item));
                     }
                 }
             }

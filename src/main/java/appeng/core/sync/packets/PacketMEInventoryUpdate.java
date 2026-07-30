@@ -19,15 +19,14 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.storage.data.IAEItemStack;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.implementations.ContainerCraftingCPU;
 import appeng.container.implementations.ContainerMEMonitorable;
 import appeng.container.implementations.ContainerNetworkStatus;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
@@ -55,7 +54,7 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
 
     // input.
     @Nullable
-    private final List<IAEItemStack> list;
+    private final List<GridInventoryEntry> list;
     // output...
     private final byte ref;
 
@@ -98,7 +97,7 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
             }
 
             while (uncompressed.readableBytes() > 0) {
-                this.list.add(AEItemStack.fromPacket(uncompressed));
+                this.list.add(GridInventoryEntry.fromPacket(uncompressed));
             }
         }
 
@@ -165,7 +164,7 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
         return null;
     }
 
-    public void appendItem(final IAEItemStack is) throws IOException, BufferOverflowException {
+    public void appendItem(final GridInventoryEntry is) throws IOException, BufferOverflowException {
         final ByteBuf tmp = Unpooled.buffer(OPERATION_BYTE_LIMIT);
         is.writeToPacket(tmp);
 

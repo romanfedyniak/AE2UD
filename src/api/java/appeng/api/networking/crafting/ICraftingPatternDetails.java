@@ -29,7 +29,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 import appeng.api.implementations.ICraftingPatternItem;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 
 import java.util.Collections;
 import java.util.List;
@@ -65,37 +66,37 @@ public interface ICraftingPatternDetails
 	/**
 	 * @return a list of the inputs, will include nulls.
 	 */
-	IAEItemStack[] getInputs();
+	GenericStack[] getInputs();
 
 	/**
 	 * @return a list of the inputs, will be clean
 	 */
-	IAEItemStack[] getCondensedInputs();
+	GenericStack[] getCondensedInputs();
 
 	/**
 	 * @return a list of the outputs, will be clean
 	 */
-	IAEItemStack[] getCondensedOutputs();
+	GenericStack[] getCondensedOutputs();
 
 	/**
 	 * The primary output of this pattern. The pattern will only be used to craft the primary output; the others are
 	 * just byproducts.
 	 */
-	default IAEItemStack getPrimaryOutput() {
+	default GenericStack getPrimaryOutput() {
 		return getOutputs()[0];
 	}
 
 	/**
 	 * @return a list of the outputs, will include nulls.
 	 */
-	IAEItemStack[] getOutputs();
+	GenericStack[] getOutputs();
 
 	/**
 	 * @return if this pattern is enabled to support substitutions.
 	 */
 	boolean canSubstitute();
 
-	default List<IAEItemStack> getSubstituteInputs( int slot )
+	default List<GenericStack> getSubstituteInputs( int slot )
 	{
 		return Collections.emptyList();
 	}

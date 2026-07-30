@@ -42,8 +42,7 @@ public enum WailaText {
 
     Contains,
     Channels,
-    EnchantedWith,
-    IdentityDeprecated;
+    EnchantedWith;
 
     private final String root;
 

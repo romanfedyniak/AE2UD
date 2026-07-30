@@ -36,17 +36,25 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.pathing.IPathingGrid;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.networking.spatial.ISpatialCache;
-import appeng.api.networking.storage.IStorageGrid;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.ITickManager;
 import appeng.bootstrap.ICriterionTriggerRegistry;
 import appeng.bootstrap.IModelRegistry;
 import appeng.bootstrap.components.*;
 import appeng.capabilities.Capabilities;
 import appeng.core.features.AEFeature;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.StorageCells;
+import appeng.core.api.AEFluidKeyType;
+import appeng.core.api.AEItemKeyType;
 import appeng.core.features.registries.P2PTunnelRegistry;
 import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.BasicItemCellGuiHandler;
 import appeng.core.features.registries.cell.CreativeCellHandler;
+import appeng.parts.automation.InitStackWorldBehaviors;
+import appeng.parts.misc.InitExternalStorageStrategies;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.stats.AdvancementTriggers;
@@ -102,6 +110,7 @@ import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.registries.IForgeRegistry;
+import net.minecraftforge.registries.RegistryBuilder;
 
 import javax.annotation.Nonnull;
 import java.io.File;
@@ -202,16 +211,27 @@ final class Registration {
         gcr.registerGridCache(ITickManager.class, TickManagerCache.class);
         gcr.registerGridCache(IEnergyGrid.class, EnergyGridCache.class);
         gcr.registerGridCache(IPathingGrid.class, PathGridCache.class);
-        gcr.registerGridCache(IStorageGrid.class, GridStorageCache.class);
+        gcr.registerGridCache(IStorageService.class, GridStorageCache.class);
         gcr.registerGridCache(P2PCache.class, P2PCache.class);
         gcr.registerGridCache(ISpatialCache.class, SpatialPylonCache.class);
         gcr.registerGridCache(ISecurityGrid.class, SecurityCache.class);
         gcr.registerGridCache(ICraftingGrid.class, CraftingGridCache.class);
 
-        registries.cell().addCellHandler(new BasicCellHandler());
-        registries.cell().addCellHandler(new CreativeCellHandler());
-        registries.cell().addCellGuiHandler(new BasicItemCellGuiHandler());
-        registries.cell().addCellGuiHandler(new BasicFluidCellGuiHandler());
+        StorageCells.addCellHandler(new BasicCellHandler());
+        StorageCells.addCellHandler(new CreativeCellHandler());
+        StorageCells.addCellGuiHandler(new BasicItemCellGuiHandler());
+        StorageCells.addCellGuiHandler(new BasicFluidCellGuiHandler());
+
+        // Install the GenericStack.Wrapper implementation (CONTRACT.md §8 item 3, §8.1 item 2) before anything
+        // below - or anything running later during init - can call a non-item key's wrapForDisplayOrFilter().
+        definitions.items().wrappedGenericStack().maybeItem()
+                .ifPresent(item -> GenericStack.setWrapper((GenericStack.Wrapper) item));
+
+        // Wave 3: register the item strategies for the world-interaction (import/export/placement/pickup) and
+        // external-storage behaviour layers (CONTRACT.md §3). Must run after the AEKeyType registry is populated,
+        // which happens in newRegistry() (RegistryEvent.NewRegistry) - long before this FMLInitializationEvent.
+        InitStackWorldBehaviors.register();
+        InitExternalStorageStrategies.register();
 
         api.definitions().materials().matterBall().maybeStack(1).ifPresent(ammoStack ->
         {
@@ -223,6 +243,24 @@ final class Registration {
         PartItemPredicate.register();
         Stats.register();
         this.advancementTriggers = new AdvancementTriggers(new CriterionTrigggerRegistry());
+    }
+
+    /**
+     * Creates the {@link AEKeyType} Forge registry and registers the two built-in types under it, before any item
+     * registration happens (CONTRACT.md §1.3). {@link RegistryEvent.NewRegistry} fires once, before every
+     * {@code RegistryEvent.Register<T>} (including {@link Item}'s), so both the registry's existence and its
+     * built-in entries are guaranteed to be in place in time.
+     */
+    @SubscribeEvent
+    public void newRegistry(RegistryEvent.NewRegistry event) {
+        final IForgeRegistry<AEKeyType> registry = new RegistryBuilder<AEKeyType>()
+                .setName(AEKeyTypes.REGISTRY_NAME)
+                .setIDRange(0, Integer.MAX_VALUE - 1)
+                .setType(AEKeyType.class)
+                .create();
+
+        registry.register(new AEItemKeyType());
+        registry.register(new AEFluidKeyType());
     }
 
     @SubscribeEvent
@@ -327,8 +365,6 @@ final class Registration {
         Upgrades.PATTERN_EXPANSION.registerItem(blocks.iface(), 3);
 
         // Fluid Interface
-        Upgrades.CAPACITY.registerItem(parts.fluidIface(), 2);
-        Upgrades.CAPACITY.registerItem(blocks.fluidIface(), 2);
 
         // IO Port!
         Upgrades.SPEED.registerItem(blocks.iOPort(), 3);
@@ -345,9 +381,6 @@ final class Registration {
         Upgrades.SPEED.registerItem(parts.importBus(), 4);
 
         // Fluid Import Bus
-        Upgrades.CAPACITY.registerItem(parts.fluidImportBus(), 2);
-        Upgrades.REDSTONE.registerItem(parts.fluidImportBus(), 1);
-        Upgrades.SPEED.registerItem(parts.fluidImportBus(), 4);
 
         // Export Bus
         Upgrades.FUZZY.registerItem(parts.exportBus(), 1);
@@ -357,9 +390,6 @@ final class Registration {
         Upgrades.CRAFTING.registerItem(parts.exportBus(), 1);
 
         // Fluid Export Bus
-        Upgrades.CAPACITY.registerItem(parts.fluidExportBus(), 2);
-        Upgrades.REDSTONE.registerItem(parts.fluidExportBus(), 1);
-        Upgrades.SPEED.registerItem(parts.fluidExportBus(), 4);
 
         // Storage Cells
         Upgrades.FUZZY.registerItem(items.cell1k(), 1);
@@ -410,9 +440,6 @@ final class Registration {
         Upgrades.STICKY.registerItem(parts.oreDictStorageBus(), 1);
 
         // Storage Bus Fluids
-        Upgrades.INVERTER.registerItem(parts.fluidStorageBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.fluidStorageBus(), 5);
-        Upgrades.STICKY.registerItem(parts.fluidStorageBus(), 1);
 
         // Formation Plane
         Upgrades.FUZZY.registerItem(parts.formationPlane(), 1);
@@ -444,7 +471,6 @@ final class Registration {
                 Upgrades.MAGNET.registerItem(id, 1);
             });
         }
-        items.wirelessFluidTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
         items.wirelessInterfaceTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
 
         // Charge Rates

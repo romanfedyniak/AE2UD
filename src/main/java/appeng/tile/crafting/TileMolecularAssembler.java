@@ -33,11 +33,10 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageMonitorable;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.IStorageMonitorableAccessor;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -62,7 +61,6 @@ import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperChainedItemHandler;
 import appeng.util.inv.WrapperFilteredItemHandler;
 import appeng.util.inv.filter.IAEItemFilter;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -127,7 +125,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
                 IStorageMonitorableAccessor accessor = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, f.getOpposite());
 
                 if (accessor != null) {
-                    IStorageMonitorable inventory = accessor.getInventory(this.mySrc);
+                    MEStorage inventory = accessor.getInventory(this.mySrc);
                     if (inventory != null) {
                         capability = inventory;
                     }
@@ -184,7 +182,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
                 IStorageMonitorableAccessor accessor = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, updateFromFacing.getOpposite());
 
                 if (accessor != null) {
-                    IStorageMonitorable inventory = accessor.getInventory(this.mySrc);
+                    MEStorage inventory = accessor.getInventory(this.mySrc);
                     if (inventory != null) {
                         capability = inventory;
                     }
@@ -506,7 +504,11 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
                 try {
                     final TargetPoint where = new TargetPoint(this.world.provider.getDimension(), this.pos.getX(), this.pos.getY(), this.pos.getZ(), 32);
-                    final IAEItemStack item = AEItemStack.fromItemStack(output);
+                    // NOTE: PacketAssemblerAnimation is appeng.core.sync (wave 4), still on the deleted
+                    // IAEItemStack as of this migration. Passing a GenericStack here anticipates the same
+                    // IAEItemStack -> GenericStack move already made on TileCraftingMonitorTile#setJob; the
+                    // packet class itself must be updated in wave 4 to match, see migration report.
+                    final GenericStack item = GenericStack.fromItemStack(output);
                     NetworkHandler.instance().sendToAllAround(new PacketAssemblerAnimation(this.pos, (byte) speed, item), where);
                 } catch (final IOException e) {
                     // ;P
@@ -571,22 +573,20 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         }
 
         Object capability = neighbors.get(d);
-        if (capability instanceof IStorageMonitorable) {
+        if (capability instanceof MEStorage) {
             // Prioritize a handler to directly link to another ME network
-            IStorageMonitorable inventory = (IStorageMonitorable) capability;
-            IAEItemStack toInsert = AEItemStack.fromItemStack(output);
-            IMEMonitor<IAEItemStack> inv = inventory.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-            IAEItemStack remainder = inv.injectItems(toInsert, Actionable.SIMULATE, this.mySrc);
-            if (remainder == null) {
-                inv.injectItems(toInsert, Actionable.MODULATE, this.mySrc);
+            MEStorage inv = (MEStorage) capability;
+            AEItemKey what = AEItemKey.of(output);
+            long originAmt = output.getCount();
+            long inserted = inv.insert(what, originAmt, Actionable.MODULATE, this.mySrc);
+
+            if (inserted <= 0) {
+                return output;
+            } else if (inserted >= originAmt) {
                 return ItemStack.EMPTY;
             } else {
-                if (remainder.getStackSize() == toInsert.getStackSize()) {
-                    return output;
-                }
-                inv.injectItems(toInsert.setStackSize(toInsert.getStackSize() - remainder.getStackSize()), Actionable.MODULATE, this.mySrc);
                 this.saveChanges();
-                return remainder.createItemStack();
+                return what.toStack((int) (originAmt - inserted));
             }
         } else if (capability instanceof InventoryAdaptor) {
             InventoryAdaptor adaptor = (InventoryAdaptor) capability;

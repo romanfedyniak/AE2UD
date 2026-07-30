@@ -430,7 +430,6 @@ item.appliedenergistics2.material.sky_dust.name=Himmelssteinstaub
 item.appliedenergistics2.material.card_crafting.name=Fertigungskarte
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME-Annihilationsfeld
-item.appliedenergistics2.multi_part.identity_annihilation_plane.name=ME-Identitätsannihilationsfelds
 item.appliedenergistics2.multi_part.cable_anchor.name=Kabelanker
 item.appliedenergistics2.multi_part.cable_covered.name=Verdecktes ME-Kabel
 item.appliedenergistics2.multi_part.cable_glass.name=ME-Glaskabel

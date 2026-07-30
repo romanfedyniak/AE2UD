@@ -19,13 +19,21 @@
 package appeng.util.iterators;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 
 import java.util.Iterator;
 
 
-public final class AEInvIterator implements Iterator<IAEItemStack> {
+/**
+ * Iterates the slots of an {@link AppEngInternalAEInventory}, exposing each one as a
+ * {@link GenericStack} (key + amount) instead of the removed {@code IAEItemStack}.
+ * <p>
+ * NOTE: this assumes {@code AppEngInternalAEInventory#getAEStackInSlot(int)} is migrated (outside
+ * this agent's scope) to return {@link GenericStack} instead of {@code IAEItemStack}. See the
+ * migration report for details.
+ */
+public final class AEInvIterator implements Iterator<GenericStack> {
     private final AppEngInternalAEInventory inventory;
     private final int size;
 
@@ -42,8 +50,8 @@ public final class AEInvIterator implements Iterator<IAEItemStack> {
     }
 
     @Override
-    public IAEItemStack next() {
-        final IAEItemStack result = this.inventory.getAEStackInSlot(this.counter);
+    public GenericStack next() {
+        final GenericStack result = this.inventory.getAEStackInSlot(this.counter);
 
         this.counter++;
 

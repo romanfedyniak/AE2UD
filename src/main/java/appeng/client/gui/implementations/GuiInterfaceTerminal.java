@@ -19,11 +19,9 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
-import appeng.api.storage.channels.IItemStorageChannel;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -642,9 +640,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         for (int i = 0; i < tag.tagCount(); i++) {
             final ItemStack parsedItemStack = new ItemStack(tag.getCompoundTagAt(i));
             if (!parsedItemStack.isEmpty()) {
-                final String displayName = Platform
-                        .getItemDisplayName(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(parsedItemStack))
-                        .toLowerCase();
+                final String displayName = Platform.getItemDisplayName(parsedItemStack).toLowerCase();
 
                 for (String term : splitTerm) {
                     if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {

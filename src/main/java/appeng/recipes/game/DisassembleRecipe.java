@@ -21,10 +21,8 @@ package appeng.recipes.game;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.*;
-import appeng.api.storage.IMEInventory;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.StorageCell;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -91,17 +89,9 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
                 if (maybeCellOutput.isPresent()) {
                     ItemStack storageCellStack = maybeCellOutput.get();
                     // make sure the storage cell stackInSlot empty...
-                    final IMEInventory<IAEItemStack> cellInv = AEApi.instance()
-                            .registries()
-                            .cell()
-                            .getCellInventory(stackInSlot, null,
-                                    AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-                    if (cellInv != null) {
-                        final IItemList<IAEItemStack> list = cellInv
-                                .getAvailableItems(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList());
-                        if (!list.isEmpty()) {
-                            return ItemStack.EMPTY;
-                        }
+                    final StorageCell cellInv = StorageCells.getCellInventory(stackInSlot, null);
+                    if (cellInv != null && !cellInv.getAvailableStacks().isEmpty()) {
+                        return ItemStack.EMPTY;
                     }
 
                     output = storageCellStack;

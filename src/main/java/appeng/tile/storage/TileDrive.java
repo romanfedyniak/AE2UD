@@ -27,10 +27,13 @@ import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.*;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.CellState;
+import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -50,17 +53,13 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 
 import java.io.IOException;
-import java.util.*;
 
 
-public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPriorityHost {
+public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPriorityHost, ISaveProvider {
 
     private final AppEngCellInventory inv = new AppEngCellInventory(this, 10);
-    private final ICellHandler[] handlersBySlot = new ICellHandler[10];
-    private final DriveWatcher<IAEItemStack>[] invBySlot = new DriveWatcher[10];
+    private final DriveWatcher[] invBySlot = new DriveWatcher[10];
     private final IActionSource mySrc;
-    private boolean isCached = false;
-    private final Map<IStorageChannel<? extends IAEStack<?>>, List<IMEInventoryHandler>> inventoryHandlers;
     private int priority = 0;
     private boolean wasActive = false;
 
@@ -81,7 +80,6 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
         this.mySrc = new MachineSource(this);
         this.getProxy().setFlags(GridFlags.REQUIRE_CHANNEL);
         this.inv.setFilter(new CellValidInventoryFilter());
-        this.inventoryHandlers = new IdentityHashMap<>();
     }
 
     @Override
@@ -121,12 +119,32 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
             return (this.cellState >> (slot * 3)) & 0b111;
         }
 
-        final DriveWatcher handler = this.invBySlot[slot];
-        if (handler == null) {
+        final DriveWatcher watcher = this.invBySlot[slot];
+        if (watcher == null) {
             return 0;
         }
 
-        return handler.getStatus();
+        return cellStateToStatus(watcher.getStatus());
+    }
+
+    /**
+     * Maps the new {@link CellState} back onto the 0-4 scale {@link appeng.block.storage.DriveSlotState} and the
+     * client-side rendering still expect: 0 no cell, 1 online/has room, 2 types full, 3 full, 4 online but empty.
+     */
+    private static int cellStateToStatus(final CellState state) {
+        switch (state) {
+            case EMPTY:
+                return 4;
+            case NOT_EMPTY:
+                return 1;
+            case TYPES_FULL:
+                return 2;
+            case FULL:
+                return 3;
+            case ABSENT:
+            default:
+                return 0;
+        }
     }
 
     @Override
@@ -146,7 +164,6 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
     @Override
     public void readFromNBT(final NBTTagCompound data) {
         super.readFromNBT(data);
-        this.isCached = false;
         this.priority = data.getInteger("priority");
     }
 
@@ -209,75 +226,56 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
 
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removed, final ItemStack added) {
-        if (this.isCached) {
-            this.isCached = false; // recalculate the storage cell.
-            this.updateState();
-        }
-
         try {
             if (this.getProxy().isActive()) {
-                final IStorageGrid gs = this.getProxy().getStorage();
+                final IStorageService gs = this.getProxy().getStorage();
                 Platform.postChanges(gs, removed, added, this.mySrc);
             }
             this.getProxy().getGrid().postEvent(new MENetworkCellArrayUpdate());
         } catch (final GridAccessException ignored) {
         }
 
+        IStorageProvider.requestUpdate(this.getProxy().getNode());
+
         this.markForUpdate();
     }
 
-    private void updateState() {
-        if (!this.isCached) {
-            final Collection<IStorageChannel<? extends IAEStack<?>>> storageChannels = AEApi.instance().storage().storageChannels();
-            storageChannels.forEach(channel -> this.inventoryHandlers.put(channel, new ArrayList<>(10)));
+    /**
+     * Called back by the network whenever it (re)builds its storage: mounts every non-empty, recognised cell in
+     * this drive, watching each one so the slot's status light and blink animation keep working, exactly as the
+     * old per-channel {@code getCellArray} used to.
+     */
+    @Override
+    public void mountInventories(final IStorageMounts storageMounts) {
+        double power = 2.0;
 
-            double power = 2.0;
+        for (int x = 0; x < this.inv.getSlots(); x++) {
+            final ItemStack is = this.inv.getStackInSlot(x);
+            this.invBySlot[x] = null;
 
-            for (int x = 0; x < this.inv.getSlots(); x++) {
-                final ItemStack is = this.inv.getStackInSlot(x);
-                this.invBySlot[x] = null;
-                this.handlersBySlot[x] = null;
+            if (!is.isEmpty()) {
+                final StorageCell cell = StorageCells.getCellInventory(is, this);
 
-                if (!is.isEmpty()) {
-                    this.handlersBySlot[x] = AEApi.instance().registries().cell().getHandler(is);
+                if (cell != null) {
+                    this.inv.setHandler(x, cell);
+                    power += cell.getIdleDrain();
 
-                    if (this.handlersBySlot[x] != null) {
-                        for (IStorageChannel<? extends IAEStack<?>> channel : storageChannels) {
+                    final int slot = x;
+                    final DriveWatcher watcher = new DriveWatcher(cell, () -> this.blinkCell(slot));
+                    this.invBySlot[x] = watcher;
 
-                            ICellInventoryHandler cell = this.handlersBySlot[x].getCellInventory(is, this, channel);
-
-                            if (cell != null) {
-                                this.inv.setHandler(x, cell);
-                                power += this.handlersBySlot[x].cellIdleDrain(is, cell);
-
-                                final DriveWatcher<IAEItemStack> ih = new DriveWatcher(cell, is, this.handlersBySlot[x], this);
-                                ih.setPriority(this.priority);
-                                this.invBySlot[x] = ih;
-                                this.inventoryHandlers.get(channel).add(ih);
-
-                                break;
-                            }
-                        }
-                    }
+                    storageMounts.mount(watcher, this.priority);
                 }
             }
-
-            this.getProxy().setIdlePowerUsage(power);
-
-            this.isCached = true;
         }
+
+        this.getProxy().setIdlePowerUsage(power);
     }
 
     @Override
     public void onReady() {
         super.onReady();
-        this.updateState();
-    }
-
-    @Override
-    public List<IMEInventoryHandler> getCellArray(final IStorageChannel channel) {
-        this.updateState();
-        return this.inventoryHandlers.get(channel);
+        IStorageProvider.requestUpdate(this.getProxy().getNode());
     }
 
     @Override
@@ -290,8 +288,7 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
         this.priority = newValue;
         this.saveChanges();
 
-        this.isCached = false; // recalculate the storage cell.
-        this.updateState();
+        IStorageProvider.requestUpdate(this.getProxy().getNode());
 
         try {
             this.getProxy().getGrid().postEvent(new MENetworkCellArrayUpdate());
@@ -300,16 +297,15 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
         }
     }
 
-    @Override
+    /**
+     * No longer an {@code @Override}: {@code blinkCell} lived on the old {@code ICellContainer}, which
+     * {@link IStorageProvider} does not carry forward. Called directly by the {@link DriveWatcher}s this tile
+     * creates in {@link #mountInventories(IStorageMounts)}.
+     */
     public void blinkCell(final int slot) {
         this.blinking |= (1 << slot);
 
         this.recalculateDisplay();
-    }
-
-    @Override
-    public void saveChanges(final ICellInventory<?> cellInventory) {
-        this.world.markChunkDirty(this.pos, this);
     }
 
     private class CellValidInventoryFilter implements IAEItemFilter {
@@ -321,7 +317,7 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
 
         @Override
         public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
-            return !stack.isEmpty() && AEApi.instance().registries().cell().isCellHandled(stack);
+            return !stack.isEmpty() && StorageCells.isCellHandled(stack);
         }
 
     }

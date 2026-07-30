@@ -19,18 +19,18 @@
 package appeng.crafting;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 
 
 public class CraftingCalculationFailure extends RuntimeException {
 
     private static final long serialVersionUID = 654603652836724823L;
 
-    private final IAEItemStack missing;
+    private final GenericStack missing;
 
-    public CraftingCalculationFailure(final IAEItemStack what, final long howMany) {
+    public CraftingCalculationFailure(final AEKey what, final long howMany) {
         super("this should have been caught!");
-        this.missing = what.copy();
-        this.missing.setStackSize(howMany);
+        this.missing = new GenericStack(what, howMany);
     }
 }

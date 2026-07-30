@@ -19,8 +19,8 @@
 package appeng.client.render;
 
 
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
 import appeng.util.IWideReadableNumberConverter;
 import appeng.util.ReadableNumberConverter;
 import net.minecraft.client.Minecraft;
@@ -162,13 +162,13 @@ public class TesrRenderHelper {
      *
      * @param spacing Specifies how far apart the item and the item stack amount are rendered.
      */
-    public static void renderItem2dWithAmount(IAEItemStack itemStack, float itemScale, float spacing) {
-        final ItemStack renderStack = itemStack.asItemStackRepresentation();
+    public static void renderItem2dWithAmount(AEItemKey what, long amount, float itemScale, float spacing) {
+        // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
+        final ItemStack renderStack = what.toStack();
 
         TesrRenderHelper.renderItem2d(renderStack, itemScale);
 
-        final long stackSize = itemStack.getStackSize();
-        final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(stackSize);
+        final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(amount);
 
         // Render the item count
         final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
@@ -180,12 +180,12 @@ public class TesrRenderHelper {
 
     }
 
-    public static void renderFluid2dWithAmount(IAEFluidStack fluidStack, float scale, float spacing) {
-        final FluidStack renderStack = fluidStack.getFluidStack();
+    public static void renderFluid2dWithAmount(AEFluidKey what, long amount, float scale, float spacing) {
+        final FluidStack renderStack = what.toStack((int) Math.min(amount, Integer.MAX_VALUE));
 
         TesrRenderHelper.renderFluid2d(renderStack, scale);
 
-        final long stackSize = fluidStack.getStackSize() / 1000;
+        final long stackSize = amount / 1000;
         final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(stackSize) + "B";
 
         // Render the item count

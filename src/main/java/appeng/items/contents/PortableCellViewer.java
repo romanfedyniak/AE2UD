@@ -19,38 +19,60 @@
 package appeng.items.contents;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.implementations.items.IAEItemPowerStorage;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.IConfigManager;
 import appeng.container.interfaces.IInventorySlotAware;
-import appeng.me.helpers.MEMonitorHandler;
+import appeng.me.storage.DelegatingMEInventory;
+import appeng.me.storage.NullInventory;
 import appeng.util.ConfigManager;
 import appeng.util.Platform;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
-import java.util.Collections;
 
-
-public class PortableCellViewer extends MEMonitorHandler<IAEItemStack> implements IPortableCell, IInventorySlotAware {
+/**
+ * The portable cell's own inventory/config view: {@link IPortableCell} is {@code ITerminalHost & MEStorage &
+ * IEnergySource & IGuiItemObject}, and since {@link StorageCell} is itself an {@link MEStorage}, this class
+ * only needs to forward storage calls to the cell it wraps - exactly like {@code appeng.helpers
+ * .WirelessTerminalGuiObject} (wave 2) forwards to its network storage - rather than layering a monitor on
+ * top of it as the old {@code MEMonitorHandler<IAEItemStack>}-based version did.
+ * <p/>
+ * <b>Live-update note (CONTRACT.md §10, "Third case"):</b> the old {@code injectItems}/{@code extractItems}
+ * overrides here called {@code notifyListenersOfChange} to push deltas to whatever GUI/monitor was watching
+ * this object. That mechanism (the {@code IMEMonitor}/{@code MEMonitorHandler} listener layer) no longer
+ * exists, and CONTRACT.md §10 explicitly defers its replacement to wave 4 ("Portable cell / view-only cell
+ * terminals ... There is no replacement yet ... Wave 4 needs a small push interface on this path"). Per
+ * rule 2 this class does not invent one; it matches the precedent wave 2 already set in
+ * {@code WirelessTerminalGuiObject}, which forwards {@code insert}/{@code extract} with no notification
+ * step either. Reads still work; only client-side live refresh of an open portable-cell terminal is
+ * pending wave 4's design.
+ */
+public class PortableCellViewer extends DelegatingMEInventory implements IPortableCell, IInventorySlotAware {
 
     private final ItemStack target;
     private final IAEItemPowerStorage ips;
     private final int inventorySlot;
 
     public PortableCellViewer(final ItemStack is, final int slot) {
-        super(AEApi.instance().registries().cell().getCellInventory(is, null, AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)));
+        super(resolveCellInventory(is));
         this.ips = (IAEItemPowerStorage) is.getItem();
         this.target = is;
         this.inventorySlot = slot;
+    }
+
+    /**
+     * @return the item's own {@link StorageCell}, or a permanently-empty {@link NullInventory} if {@code is}
+     *         does not (currently) resolve to one, so the constructor stays total instead of throwing - the
+     *         same fallback {@code TileChest}/{@code TileDrive} use when a cell slot is unresolvable.
+     */
+    private static MEStorage resolveCellInventory(final ItemStack is) {
+        final StorageCell cell = StorageCells.getCellInventory(is, null);
+        return cell != null ? cell : NullInventory.of();
     }
 
     @Override
@@ -75,35 +97,8 @@ public class PortableCellViewer extends MEMonitorHandler<IAEItemStack> implement
     }
 
     @Override
-    public IAEItemStack injectItems(IAEItemStack input, Actionable mode, IActionSource src) {
-        final long size = input.getStackSize();
-
-        final IAEItemStack injected = super.injectItems(input, mode, src);
-
-        if (mode == Actionable.MODULATE && (injected == null || injected.getStackSize() != size)) {
-            this.notifyListenersOfChange(Collections.singletonList(input.copy().setStackSize(input.getStackSize() - (injected == null ? 0 : injected.getStackSize()))), null);
-        }
-
-        return injected;
-    }
-
-    @Override
-    public IAEItemStack extractItems(IAEItemStack request, Actionable mode, IActionSource src) {
-        final IAEItemStack extractable = super.extractItems(request, mode, src);
-
-        if (mode == Actionable.MODULATE && extractable != null) {
-            this.notifyListenersOfChange(Collections.singletonList(request.copy().setStackSize(-extractable.getStackSize())), null);
-        }
-
-        return extractable;
-    }
-
-    @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-            return (IMEMonitor<T>) this;
-        }
-        return null;
+    public MEStorage getInventory() {
+        return this;
     }
 
     @Override

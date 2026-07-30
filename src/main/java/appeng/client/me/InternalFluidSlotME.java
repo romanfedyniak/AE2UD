@@ -19,7 +19,7 @@
 package appeng.client.me;
 
 
-import appeng.api.storage.data.IAEFluidStack;
+import appeng.container.me.GridInventoryEntry;
 
 
 /**
@@ -41,7 +41,7 @@ public class InternalFluidSlotME {
         this.yPos = displayY;
     }
 
-    IAEFluidStack getAEStack() {
+    GridInventoryEntry getEntry() {
         return this.repo.getReferenceFluid(this.offset);
     }
 

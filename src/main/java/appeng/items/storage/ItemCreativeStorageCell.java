@@ -19,12 +19,11 @@
 package appeng.items.storage;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.ICellWorkbenchItem;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.channels.IItemStorageChannel;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.ICellWorkbenchItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import net.minecraft.client.util.ITooltipFlag;
@@ -37,6 +36,25 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.List;
 
 
+/**
+ * The creative storage cell. It is an {@link ICellWorkbenchItem} and deliberately <strong>not</strong> an
+ * {@link appeng.api.storage.cells.IBasicCellItem}, matching upstream's {@code CreativeCellItem} and the
+ * pre-port class.
+ * <p/>
+ * <strong>Do not widen it to {@code IBasicCellItem} again.</strong> That was tried, to let
+ * {@code TileChest}/{@code TileIOPort} read {@code getKeyType()} off the item, and it crashed the client on
+ * startup. {@code StorageCells.getCellInventory} returns the first handler whose {@code isCell} accepts the
+ * stack, {@code BasicCellHandler} is registered before {@code CreativeCellHandler}, and
+ * {@code BasicCellInventory.isCell} is exactly "is an {@code IBasicCellItem}" - so widening the interface
+ * silently moved the creative cell from {@link appeng.me.storage.CreativeCellInventory} to
+ * {@code BasicCellInventory}, which then dereferenced this class's null upgrades inventory.
+ * <p/>
+ * Nothing was gained by it either: both call sites already fall back to {@link AEKeyType#items()} for an
+ * item that declares no key type, and items is the right answer for this cell. The unreachable
+ * {@code getBytes}/{@code getBytesPerType}/{@code getTotalTypes}/{@code getIdleDrain} overrides that existed
+ * only to satisfy the wider interface are gone with it; {@code CreativeCellInventory} never did byte or type
+ * accounting.
+ */
 public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenchItem {
 
     public ItemCreativeStorageCell() {
@@ -71,13 +89,9 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
     @SideOnly(Side.CLIENT)
     @Override
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
-        final IMEInventoryHandler<?> inventory = AEApi.instance()
-                .registries()
-                .cell()
-                .getCellInventory(stack, null,
-                        AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+        final StorageCell inventory = StorageCells.getCellInventory(stack, null);
 
-        if (inventory instanceof ICellInventoryHandler) {
+        if (inventory != null) {
             final CellConfig cc = new CellConfig(stack);
 
             for (final ItemStack is : cc) {

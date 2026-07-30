@@ -22,6 +22,8 @@ package appeng.integration.modules.jei;
 import appeng.container.implementations.ContainerCraftingTerm;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerWirelessCraftingTerminal;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.core.AELog;
@@ -41,6 +43,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -155,6 +158,14 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             slotIndex++;
         }
 
+        // Fluid ingredients live in their own IGuiIngredientGroup, which the item loop above never sees -
+        // which is why "Move Items" silently skipped every fluid in a recipe. Only the pattern terminal can
+        // take them: its matrix slots are fake, so they can hold a wrapped key. A real crafting matrix
+        // cannot, and a placeholder pushed into one would be an item that does not exist.
+        if (container instanceof ContainerPatternEncoder) {
+            this.transferFluids(container, recipeLayout, recipe, outputs);
+        }
+
         recipe.setTag("outputs", outputs);
 
         try {
@@ -164,5 +175,55 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         return null;
+    }
+
+    /**
+     * Writes the layout's fluid ingredients into the recipe alongside the items: inputs into whichever matrix
+     * slots the item pass left empty, outputs appended to the output list. Each one travels as the same
+     * wrapped placeholder {@code ItemStack} the pattern slots already store, so the server needs no new case -
+     * {@code AppEngInternalAEInventory} unwraps it back into a key on the way in.
+     */
+    private void transferFluids(final T container, final IRecipeLayout recipeLayout, final NBTTagCompound recipe,
+            final NBTTagList outputs) {
+        final Map<Integer, ? extends IGuiIngredient<FluidStack>> fluids = recipeLayout.getFluidStacks().getGuiIngredients();
+        if (fluids.isEmpty()) {
+            return;
+        }
+
+        // Matrix slots the item pass did not claim, in slot order.
+        final List<Integer> freeSlots = new ArrayList<>();
+        for (final Slot slot : container.inventorySlots) {
+            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
+                if (!recipe.hasKey("#" + slot.getSlotIndex())) {
+                    freeSlots.add(slot.getSlotIndex());
+                }
+            }
+        }
+
+        int nextFree = 0;
+        for (final IGuiIngredient<FluidStack> ingredient : fluids.values()) {
+            final FluidStack displayed = ingredient.getDisplayedIngredient();
+            if (displayed == null || displayed.amount <= 0) {
+                continue;
+            }
+
+            final ItemStack wrapped = GenericStack.wrapInItemStack(AEFluidKey.of(displayed), displayed.amount);
+            if (wrapped.isEmpty()) {
+                continue;
+            }
+
+            if (ingredient.isInput()) {
+                if (nextFree >= freeSlots.size()) {
+                    // More fluid inputs than the pattern has room for; the rest are simply not transferred,
+                    // the same thing that happens to a recipe with more item inputs than slots.
+                    continue;
+                }
+                final NBTTagList tags = new NBTTagList();
+                tags.appendTag(stackToNBT(wrapped));
+                recipe.setTag("#" + freeSlots.get(nextFree++), tags);
+            } else {
+                outputs.appendTag(stackToNBT(wrapped));
+            }
+        }
     }
 }

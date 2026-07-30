@@ -19,7 +19,7 @@
 package appeng.integration.modules.theoneprobe.tile;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.integration.modules.theoneprobe.TheOneProbeText;
 import appeng.tile.AEBaseTile;
 import appeng.tile.crafting.TileCraftingMonitorTile;
@@ -39,12 +39,14 @@ public class CraftingMonitorInfoProvider implements ITileProbInfoProvider {
     public void addProbeInfo(AEBaseTile tile, ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
         if (tile instanceof TileCraftingMonitorTile) {
             final TileCraftingMonitorTile monitor = (TileCraftingMonitorTile) tile;
-            final IAEItemStack displayStack = monitor.getJobProgress();
+            final GenericStack displayStack = monitor.getJobProgress();
 
             if (displayStack != null) {
-                // TODO: check if OK
-                final ItemStack itemStack = displayStack.asItemStackRepresentation();
-                final String itemName = itemStack.getDisplayName();
+                // The probe can only draw an item, so a non-item job is shown through the generic wrapper
+                // item, exactly as the terminal shows it. The name comes from the key rather than from
+                // that wrapper, so a fluid job still reads as the fluid and not as the placeholder.
+                final ItemStack itemStack = displayStack.what().wrapForDisplayOrFilter();
+                final String itemName = displayStack.what().getDisplayName().getFormattedText();
                 final String formattedCrafting = String.format(TheOneProbeText.CRAFTING.getLocal(), itemName);
 
                 final IProbeInfo centerAlignedHorizontalLayout = probeInfo

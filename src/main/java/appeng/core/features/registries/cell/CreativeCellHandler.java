@@ -19,15 +19,15 @@
 package appeng.core.features.registries.cell;
 
 
-import appeng.api.AEApi;
-import appeng.api.storage.ICellHandler;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.ISaveProvider;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
+import javax.annotation.Nullable;
+
+import net.minecraft.item.ItemStack;
+
+import appeng.api.storage.cells.ICellHandler;
+import appeng.api.storage.cells.ISaveProvider;
+import appeng.api.storage.cells.StorageCell;
 import appeng.items.storage.ItemCreativeStorageCell;
 import appeng.me.storage.CreativeCellInventory;
-import net.minecraft.item.ItemStack;
 
 
 public final class CreativeCellHandler implements ICellHandler {
@@ -38,21 +38,13 @@ public final class CreativeCellHandler implements ICellHandler {
     }
 
     @Override
-    public ICellInventoryHandler getCellInventory(final ItemStack is, final ISaveProvider container, final IStorageChannel channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class) && !is.isEmpty() && is
-                .getItem() instanceof ItemCreativeStorageCell) {
-            return CreativeCellInventory.getCell(is);
+    @Nullable
+    public StorageCell getCellInventory(final ItemStack is, @Nullable final ISaveProvider host) {
+        if (is.isEmpty() || !(is.getItem() instanceof ItemCreativeStorageCell)) {
+            return null;
         }
-        return null;
+
+        return CreativeCellInventory.createInventory(is);
     }
 
-    @Override
-    public int getStatusForCell(final ItemStack is, final ICellInventoryHandler handler) {
-        return 2;
-    }
-
-    @Override
-    public double cellIdleDrain(final ItemStack is, final ICellInventoryHandler handler) {
-        return 0;
-    }
 }

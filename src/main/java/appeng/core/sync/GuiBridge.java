@@ -43,12 +43,6 @@ import appeng.container.AEBaseContainer;
 import appeng.container.ContainerNull;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.*;
-import appeng.fluids.container.*;
-import appeng.fluids.helper.IFluidInterfaceHost;
-import appeng.fluids.parts.PartFluidFormationPlane;
-import appeng.fluids.parts.PartFluidLevelEmitter;
-import appeng.fluids.parts.PartFluidStorageBus;
-import appeng.fluids.parts.PartSharedFluidBus;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
@@ -104,7 +98,6 @@ public enum GuiBridge implements IGuiHandler {
     GUI_WIRELESS_TERM(ContainerWirelessTerm.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_CRAFTING_TERMINAL(ContainerWirelessCraftingTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_PATTERN_TERMINAL(ContainerWirelessPatternTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
-    GUI_WIRELESS_FLUID_TERMINAL(ContainerWirelessFluidTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_INTERFACE_TERMINAL(ContainerWirelessInterfaceTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
 
     GUI_NETWORK_STATUS(ContainerNetworkStatus.class, INetworkTool.class, GuiHostType.ITEM, null),
@@ -123,11 +116,8 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_INTERFACE(ContainerInterface.class, IInterfaceHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_INTERFACE(ContainerFluidInterface.class, IFluidInterfaceHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
-
     GUI_BUS(ContainerUpgradeable.class, IUpgradeableHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_BUS_FLUID(ContainerFluidIO.class, PartSharedFluidBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_IOPORT(ContainerIOPort.class, TileIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -135,11 +125,9 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_OREDICTSTORAGEBUS(ContainerOreDictStorageBus.class, PartOreDicStorageBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_STORAGEBUS_FLUID(ContainerFluidStorageBus.class, PartFluidStorageBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_FORMATION_PLANE(ContainerFormationPlane.class, PartFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_FORMATION_PLANE(ContainerFluidFormationPlane.class, PartFluidFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_PRIORITY(ContainerPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -151,12 +139,10 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_EXPANDED_PROCESSING_PATTERN_TERMINAL(ContainerExpandedProcessingPatternTerm.class, PartExpandedProcessingPatternTerminal.class, GuiHostType.WORLD, SecurityPermissions.CRAFT),
 
-    GUI_FLUID_TERMINAL(ContainerFluidTerminal.class, ITerminalHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     // extends (Container/Gui) + Bus
     GUI_LEVEL_EMITTER(ContainerLevelEmitter.class, PartLevelEmitter.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_LEVEL_EMITTER(ContainerFluidLevelEmitter.class, PartFluidLevelEmitter.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_SPATIAL_IO_PORT(ContainerSpatialIOPort.class, TileSpatialIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -175,7 +161,6 @@ public enum GuiBridge implements IGuiHandler {
     GUI_CRAFTING_STATUS(ContainerCraftingStatus.class, ITerminalHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.CRAFT),
 
     GUI_INTERFACE_CONFIGURATION_TERMINAL(ContainerInterfaceConfigurationTerminal.class, PartInterfaceConfigurationTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
-    GUI_FLUID_INTERFACE_CONFIGURATION_TERMINAL(ContainerFluidInterfaceConfigurationTerminal.class, PartFluidInterfaceConfigurationTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_RENAMER(ContainerRenamer.class, ICustomNameObject.class, GuiHostType.WORLD, SecurityPermissions.BUILD);
 

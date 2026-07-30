@@ -19,40 +19,52 @@
 package appeng.client.me;
 
 
-import appeng.api.AEApi;
-import appeng.api.config.*;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.config.SearchBoxMode;
+import appeng.api.config.Settings;
+import appeng.api.config.SortOrder;
+import appeng.api.config.ViewItems;
+import appeng.api.config.YesNo;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.AEKeyFilter;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AEConfig;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.ItemSorters;
 import appeng.util.Platform;
-import appeng.util.prioritylist.IPartitionList;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 
 public class ItemRepo {
 
-    private final IItemList<IAEItemStack> list = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-    private List<IAEItemStack> view = new ArrayList<>();
+    /**
+     * Keyed by {@link GridInventoryEntry#getWhat()}. Replaces the old {@code IItemList<IAEItemStack>} -
+     * {@code AEKey.equals()} is already size-insensitive identity, so a plain map lookup/replace here is
+     * the correct translation of the old {@code list.findPrecise(is)} dance (see {@link #postUpdate}).
+     */
+    private final Map<AEKey, GridInventoryEntry> entries = new Object2ObjectOpenHashMap<>();
+    private List<GridInventoryEntry> view = new ArrayList<>();
     private final IScrollSource src;
     private final ISortSource sortSrc;
 
     private int rowSize = 9;
 
     private String searchString = "";
-    private IPartitionList<IAEItemStack> myPartitionList;
+    private AEKeyFilter myPartitionList;
     private String innerSearch = "";
     private boolean hasPower;
 
@@ -71,7 +83,7 @@ public class ItemRepo {
         this.sortSrc = sortSrc;
     }
 
-    public IAEItemStack getReferenceItem(int idx) {
+    public GridInventoryEntry getReferenceItem(int idx) {
         idx += this.src.getCurrentScroll() * this.rowSize;
 
         if (idx >= this.view.size()) {
@@ -84,22 +96,33 @@ public class ItemRepo {
         this.searchString = search == null ? "" : search;
     }
 
-    public void postUpdate(final IAEItemStack is) {
-        final IAEItemStack st = this.list.findPrecise(is);
-
-        if (st != null) {
-            st.reset();
-            st.add(is);
+    /**
+     * Replaces or removes the row for {@code entry.getWhat()}. {@link GridInventoryEntry#isMeaningful()}
+     * false is the server telling us the row is gone - the old code expressed the same "gone" state as a
+     * zero-and-craftable-false stack it left in the list; here we just drop the key.
+     */
+    public void postUpdate(final GridInventoryEntry entry) {
+        if (!entry.isMeaningful()) {
+            this.entries.remove(entry.getWhat());
         } else {
-            this.list.add(is);
+            this.entries.put(entry.getWhat(), entry);
         }
 
         changed = true;
     }
 
-    public long getItemCount(final IAEItemStack is) {
-        IAEItemStack st = this.list.findPrecise(is);
-        return st == null ? 0 : st.getStackSize();
+    public long getItemCount(final AEKey what) {
+        final GridInventoryEntry e = this.entries.get(what);
+        return e == null ? 0 : e.getStoredAmount();
+    }
+
+    /**
+     * Every row the server has sent, unfiltered and unsorted — {@link #getReferenceItem(int)} walks the
+     * search-filtered view instead. This is what the old {@code ContainerMEMonitorable.items} field gave
+     * the JEI integration; the client-side inventory now lives here rather than on the container.
+     */
+    public Collection<GridInventoryEntry> getAllEntries() {
+        return Collections.unmodifiableCollection(this.entries.values());
     }
 
     public void setViewCell(final ItemStack[] list) {
@@ -153,18 +176,18 @@ public class ItemRepo {
             ItemSorters.setDirection((appeng.api.config.SortDir) sortDir);
             ItemSorters.init();
 
-            Comparator<IAEItemStack> c = getComparator(sortBy);
+            final Comparator<GridInventoryEntry> c = getComparator(sortBy);
 
-            for (IAEItemStack is : this.list) {
-                addIAE(is, viewMode);
+            for (final GridInventoryEntry entry : this.entries.values()) {
+                addEntry(entry, viewMode);
             }
 
             view.sort(c);
         }
     }
 
-    private static Comparator<IAEItemStack> getComparator(Enum sortBy) {
-        Comparator<IAEItemStack> c;
+    private static Comparator<GridInventoryEntry> getComparator(Enum sortBy) {
+        final Comparator<Object2LongMap.Entry<AEKey>> c;
 
         if (sortBy == SortOrder.MOD) {
             c = ItemSorters.CONFIG_BASED_SORT_BY_MOD;
@@ -179,10 +202,43 @@ public class ItemRepo {
         } else {
             c = ItemSorters.CONFIG_BASED_SORT_BY_NAME;
         }
-        return c;
+
+        // ItemSorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
+        // this repo holds GridInventoryEntry rows instead, so adapt rather than touching the wave 1 file.
+        return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
     }
 
-    private void addIAE(IAEItemStack is, Enum viewMode) {
+    /**
+     * Refreshes the amounts of the rows already on screen, in place, without re-filtering or re-sorting.
+     * <p>
+     * This is what a terminal does while the player holds shift over an ME slot: the row must not move,
+     * or a series of shift-clicks lands on whatever slid under the cursor, but the count still has to
+     * count down. {@link #updateView()} cannot be used for that - it rebuilds and re-sorts - and doing
+     * nothing at all leaves the view holding the {@link GridInventoryEntry} objects from before the
+     * change, since they are immutable and only the map behind them was updated.
+     * <p>
+     * A row whose key has disappeared entirely is zeroed rather than removed, for the same reason: it
+     * would shift every row after it.
+     */
+    public void refreshViewAmounts() {
+        final Enum viewMode = this.sortSrc.getSortDisplay();
+
+        for (int i = 0; i < this.view.size(); i++) {
+            final GridInventoryEntry shown = this.view.get(i);
+            final GridInventoryEntry current = this.entries.get(shown.getWhat());
+
+            if (current == null) {
+                this.view.set(i, new GridInventoryEntry(shown.getWhat(), 0, 0, false));
+            } else if (viewMode == ViewItems.CRAFTABLE) {
+                // Matches addEntry's zero-copy: this view shows what can be made, not what is stocked.
+                this.view.set(i, current.withStoredAmount(0));
+            } else {
+                this.view.set(i, current);
+            }
+        }
+    }
+
+    private void addEntry(GridInventoryEntry entry, Enum viewMode) {
 
         final boolean needsZeroCopy = viewMode == ViewItems.CRAFTABLE;
 
@@ -208,20 +264,20 @@ public class ItemRepo {
         }
 
         if (this.myPartitionList != null) {
-            if (!this.myPartitionList.isListed(is)) {
+            if (!this.myPartitionList.matches(entry.getWhat())) {
                 return;
             }
         }
 
-        if (viewMode == ViewItems.CRAFTABLE && !is.isCraftable()) {
+        if (viewMode == ViewItems.CRAFTABLE && !entry.isCraftable()) {
             return;
         }
 
-        if (viewMode == ViewItems.STORED && is.getStackSize() == 0) {
+        if (viewMode == ViewItems.STORED && entry.getStoredAmount() == 0) {
             return;
         }
 
-        final String dspName = (searchMod ? Platform.getModId(is) : Platform.getItemDisplayName(is)).toLowerCase();
+        final String dspName = (searchMod ? Platform.getModId(entry.getWhat()) : Platform.getItemDisplayName(entry.getWhat())).toLowerCase();
         boolean foundMatchingItemStack = true;
 
         for (String term : innerSearch.split(" ")) {
@@ -238,7 +294,7 @@ public class ItemRepo {
         }
 
         if (terminalSearchToolTips && !foundMatchingItemStack) {
-            final List<String> tooltip = Platform.getTooltip(is);
+            final List<String> tooltip = Platform.getTooltip(entry.getWhat());
             for (final String line : tooltip) {
                 if (m.matcher(line).find()) {
                     foundMatchingItemStack = true;
@@ -249,10 +305,9 @@ public class ItemRepo {
 
         if (foundMatchingItemStack) {
             if (needsZeroCopy) {
-                is = is.copy();
-                is.setStackSize(0);
+                entry = entry.withStoredAmount(0);
             }
-            this.view.add(is);
+            this.view.add(entry);
         }
     }
 
@@ -264,8 +319,18 @@ public class ItemRepo {
         return this.view.size();
     }
 
+    /**
+     * Zeroes every row (stored/requestable amounts and the craftable flag) but keeps the keys - the exact
+     * semantics of the old {@code IItemList.resetStatus()} (which called {@code IAEStack.reset()} on every
+     * element in place), used by {@code GuiNetworkStatus} to blank the machine list before a full repopulate.
+     * Deliberately not a full {@code Map.clear()} - see {@link #postUpdate} for the "remove the row
+     * entirely" case.
+     */
     public void clear() {
-        this.list.resetStatus();
+        for (final Map.Entry<AEKey, GridInventoryEntry> e : this.entries.entrySet()) {
+            e.setValue(new GridInventoryEntry(e.getKey(), 0, 0, false));
+        }
+        this.changed = true;
     }
 
     public boolean hasPower() {
@@ -292,7 +357,46 @@ public class ItemRepo {
         this.searchString = searchString;
     }
 
-    public IItemList<IAEItemStack> getList() {
-        return list;
+    /**
+     * Minimal adapter so {@link appeng.util.ItemSorters}'s {@code Object2LongMap.Entry<AEKey>}-shaped
+     * comparators (built for iterating a {@link appeng.api.stacks.KeyCounter}) can also compare the
+     * {@link GridInventoryEntry} rows this repo actually holds, without touching the wave 1 file that
+     * defines them.
+     */
+    private static final class KeyAmountEntry implements Object2LongMap.Entry<AEKey> {
+        private final AEKey key;
+        private final long amount;
+
+        KeyAmountEntry(final AEKey key, final long amount) {
+            this.key = key;
+            this.amount = amount;
+        }
+
+        @Override
+        public AEKey getKey() {
+            return this.key;
+        }
+
+        @Override
+        public long getLongValue() {
+            return this.amount;
+        }
+
+        @Override
+        public Long getValue() {
+            // fastutil's Object2LongMap.Entry still extends Map.Entry<K, Long> in this version and does
+            // not default the boxed accessors, so both have to be spelled out. Nothing calls either.
+            return this.amount;
+        }
+
+        @Override
+        public Long setValue(final Long value) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long setValue(final long value) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

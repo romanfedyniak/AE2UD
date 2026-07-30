@@ -1,18 +1,18 @@
 package appeng.util.prioritylist;
 
-import appeng.api.storage.data.IAEStack;
-import appeng.util.item.AEItemStack;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.util.item.OreDictFilterMatcher;
 import appeng.util.item.OreDictFilterMatcher.MatchRule;
 import appeng.util.item.OreHelper;
 import appeng.util.item.OreReference;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
-
-public class OreDictPriorityList<T extends IAEStack<T>> implements IPartitionList<T> {
+public class OreDictPriorityList implements IPartitionList {
     private final Set<Integer> oreIDs;
     private final boolean matchesEmptyOreDict;
 
@@ -22,8 +22,12 @@ public class OreDictPriorityList<T extends IAEStack<T>> implements IPartitionLis
     }
 
     @Override
-    public boolean isListed(final T input) {
-        OreReference or = ((AEItemStack) input).getOre().orElse(null);
+    public boolean isListed(final AEKey input) {
+        if (!(input instanceof AEItemKey itemKey)) {
+            return matchesEmptyOreDict;
+        }
+
+        OreReference or = OreHelper.INSTANCE.getOre(itemKey.getReadOnlyStack()).orElse(null);
         if (or == null) return matchesEmptyOreDict;
 
         for (Integer oreID : or.getOres()) {
@@ -40,8 +44,8 @@ public class OreDictPriorityList<T extends IAEStack<T>> implements IPartitionLis
     }
 
     @Override
-    public Iterable<T> getItems() {
-        return new ArrayList<>();
+    public Iterable<AEKey> getItems() {
+        return Collections.emptyList();
     }
 
 }

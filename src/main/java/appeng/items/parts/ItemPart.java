@@ -143,14 +143,6 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
             return EnumActionResult.FAIL;
         }
 
-        if (player.isSneaking() && typeByStack == PartType.IDENTITY_ANNIHILATION_PLANE) {
-            ItemStack newPlane = new ItemStack(this, heldItem.getCount(), PartType.ANNIHILATION_PLANE.getBaseDamage());
-            newPlane.addEnchantment(Enchantments.SILK_TOUCH,1);
-
-            player.setHeldItem(hand, newPlane);
-            return EnumActionResult.SUCCESS;
-        }
-
         return AEApi.instance().partHelper().placeBus(player.getHeldItem(hand), pos, side, player, hand, w);
     }
 
@@ -202,10 +194,6 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
             else {
                 lines.add(GuiText.IncreasedEnergyUseFromEnchants.getLocal());
             }
-        }
-
-        if (getTypeByStack(stack) == PartType.IDENTITY_ANNIHILATION_PLANE) {
-            lines.add(GuiText.Deprecated.getLocal());
         }
     }
 
@@ -284,9 +272,7 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
     @Override
     public String getUnlocalizedGroupName(final Set<ItemStack> others, final ItemStack is) {
         boolean importBus = false;
-        boolean importBusFluids = false;
         boolean exportBus = false;
-        boolean exportBusFluids = false;
         boolean group = false;
 
         final PartType u = this.getTypeByStack(is);
@@ -301,20 +287,8 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
                             group = true;
                         }
                         break;
-                    case FLUID_IMPORT_BUS:
-                        importBusFluids = true;
-                        if (u == pt) {
-                            group = true;
-                        }
-                        break;
                     case EXPORT_BUS:
                         exportBus = true;
-                        if (u == pt) {
-                            group = true;
-                        }
-                        break;
-                    case FLUID_EXPORT_BUS:
-                        exportBusFluids = true;
                         if (u == pt) {
                             group = true;
                         }
@@ -326,9 +300,6 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
 
         if (group && importBus && exportBus && (u == PartType.IMPORT_BUS || u == PartType.EXPORT_BUS)) {
             return GuiText.IOBuses.getUnlocalized();
-        }
-        if (group && importBusFluids && exportBusFluids && (u == PartType.FLUID_IMPORT_BUS || u == PartType.FLUID_EXPORT_BUS)) {
-            return GuiText.IOBusesFluids.getUnlocalized();
         }
 
         return null;

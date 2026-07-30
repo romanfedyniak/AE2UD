@@ -1,12 +1,12 @@
 package appeng.core.sync.packets;
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.toasts.CraftingStatusToast;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
@@ -16,23 +16,28 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.io.IOException;
 
+/**
+ * The crafting-completion / cancellation toast (fork-specific, no upstream equivalent -- CONTRACT.md §10).
+ * Pinned signature: {@code PacketCraftingToast(GenericStack stack, boolean cancelled)}, called by
+ * {@code CraftingCPUCluster} (wave 2).
+ */
 public class PacketCraftingToast extends AppEngPacket {
-	private final IAEItemStack stack;
+	private final GenericStack stack;
 	private final boolean cancelled;
 
-	public PacketCraftingToast(final ByteBuf stream) {
-		this.stack = AEItemStack.fromPacket(stream);
+	public PacketCraftingToast(final ByteBuf stream) throws IOException {
+		this.stack = GenericStack.readBuffer(stream);
 		this.cancelled = stream.readBoolean();
 	}
 
-	public PacketCraftingToast(IAEItemStack stack, boolean cancelled) throws IOException {
+	public PacketCraftingToast(GenericStack stack, boolean cancelled) throws IOException {
 		this.stack = stack;
 		this.cancelled = cancelled;
 
 		final ByteBuf data = Unpooled.buffer();
 
 		data.writeInt(this.getPacketID());
-		stack.writeToPacket(data);
+		GenericStack.writeBuffer(stack, data);
 		data.writeBoolean(cancelled);
 
 		this.configureWrite(data);
@@ -47,7 +52,10 @@ public class PacketCraftingToast extends AppEngPacket {
 
 	@SideOnly(Side.CLIENT)
 	private void doCraftingToast() {
-		Minecraft.getMinecraft().getToastGui().add(new CraftingStatusToast(stack.asItemStackRepresentation(), cancelled));
+		final String label = stack.what().formatAmount(stack.amount(), AmountFormat.FULL)
+				+ " " + stack.what().getDisplayName().getFormattedText();
+		Minecraft.getMinecraft().getToastGui()
+				.add(new CraftingStatusToast(stack.what().wrapForDisplayOrFilter(), label, cancelled));
 	}
 
 	@Override

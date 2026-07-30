@@ -21,9 +21,7 @@ package appeng.integration.modules.waila.part;
 
 import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.parts.IPart;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.stacks.GenericStack;
 import appeng.core.localization.WailaText;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -54,16 +52,14 @@ public final class StorageMonitorWailaDataProvider extends BasePartWailaDataProv
         if (part instanceof IPartStorageMonitor) {
             final IPartStorageMonitor monitor = (IPartStorageMonitor) part;
 
-            final IAEStack<?> displayed = monitor.getDisplayed();
+            final GenericStack displayed = monitor.getDisplayed();
             final boolean isLocked = monitor.isLocked();
 
-            // TODO: generalize
-            if (displayed instanceof IAEItemStack) {
-                final IAEItemStack ais = (IAEItemStack) displayed;
-                currentToolTip.add(WailaText.Showing.getLocal() + ": " + ais.asItemStackRepresentation().getDisplayName());
-            } else if (displayed instanceof IAEFluidStack) {
-                final IAEFluidStack ais = (IAEFluidStack) displayed;
-                currentToolTip.add(WailaText.Showing.getLocal() + ": " + ais.getFluid().getLocalizedName(ais.getFluidStack()));
+            // The old "TODO: generalize" is done: the branch on item-vs-fluid is gone, because every key
+            // type now answers getDisplayName() for itself. A monitor showing a key type this fork has
+            // never heard of names it correctly with no change here.
+            if (displayed != null) {
+                currentToolTip.add(WailaText.Showing.getLocal() + ": " + displayed.what().getDisplayName().getFormattedText());
             }
 
             currentToolTip.add((isLocked) ? WailaText.Locked.getLocal() : WailaText.Unlocked.getLocal());

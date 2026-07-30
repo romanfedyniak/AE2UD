@@ -19,18 +19,18 @@
 package appeng.me.storage;
 
 
-import appeng.api.config.StorageFilter;
-import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 
 
+/**
+ * Implemented by {@link appeng.api.storage.MEStorage} that need to periodically re-scan whatever they wrap (an
+ * adjacent inventory, a fluid tank) to detect changes made outside of {@code insert}/{@code extract}.
+ * <p/>
+ * The old {@code setActionSource}/{@code setMode} members are gone: per-object listener bookkeeping was removed
+ * along with {@code IMEMonitor} - the network's storage service now diffs its cached amounts itself and notifies
+ * {@code IStorageWatcherNode}s directly.
+ */
 public interface ITickingMonitor {
 
     TickRateModulation onTick();
-
-    void setActionSource(IActionSource actionSource);
-
-    default void setMode(StorageFilter setting) {
-
-    }
 }

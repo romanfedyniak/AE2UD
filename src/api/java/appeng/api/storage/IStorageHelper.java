@@ -23,9 +23,6 @@
 
 package appeng.api.storage;
 
-
-import java.util.Collection;
-
 import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
@@ -36,97 +33,41 @@ import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
 
+/**
+ * Assorted storage helpers.
+ * <p>
+ * Note this no longer registers storage channels: key types are Forge registry entries now, see
+ * {@link appeng.api.stacks.AEKeyTypes}.
+ */
+public interface IStorageHelper {
 
-public interface IStorageHelper
-{
+    /**
+     * Loads a crafting link from NBT.
+     */
+    ICraftingLink loadCraftingLink(NBTTagCompound data, ICraftingRequester req);
 
-	/**
-	 * Register a new storage channel.
-	 * 
-	 * AE2 already provides native channels for {@link IAEItemStack} and {@link IAEFluidStack}.
-	 * 
-	 * Each {@link IAEStack} subtype can only have a single factory instance. Overwriting is not intended.
-	 * Each subtype should be a direct one, this might be enforced at any time.
-	 * 
-	 * Channel class and factory instance can be used interchangeable as identifier. In most cases the factory instance
-	 * is used as key as having direct access the methods is more beneficial compared to being forced to query the
-	 * registry each time.
-	 * 
-	 * Caching the factory instance in a field or local variable is perfectly for performance reasons. But do not use
-	 * any AE2 internal field as they can change randomly between releases.
-	 * 
-	 * @param channel The channel type, must be a subtype of {@link IStorageChannel}
-	 * @param factory An instance implementing the channel, must be be an instance of channel
-	 */
-	@Nonnull
-	<T extends IAEStack<T>, C extends IStorageChannel<T>> void registerStorageChannel( @Nonnull Class<C> channel, @Nonnull C factory );
+    /**
+     * Extracts, charging the network for the work.
+     *
+     * @return how much was extracted.
+     */
+    long poweredExtraction(@Nonnull IEnergySource energy, @Nonnull MEStorage inv, @Nonnull AEKey request, long amount,
+            @Nonnull IActionSource src, @Nonnull Actionable mode);
 
-	/**
-	 * Fetch the factory instance for a specific storage channel.
-	 * 
-	 * Channel must be a direct subtype of {@link IStorageChannel}.
-	 * 
-	 * @throws NullPointerException when fetching an unregistered channel.
-	 * @param channel The channel type
-	 * @return the factory instance
-	 */
-	@Nonnull
-	<T extends IAEStack<T>, C extends IStorageChannel<T>> C getStorageChannel( @Nonnull Class<C> channel );
+    /**
+     * Inserts, charging the network for the work.
+     *
+     * @return how much was inserted.
+     */
+    long poweredInsert(@Nonnull IEnergySource energy, @Nonnull MEStorage inv, @Nonnull AEKey input, long amount,
+            @Nonnull IActionSource src, @Nonnull Actionable mode);
 
-	/**
-	 * An unmodifiable collection of all registered factory instance.
-	 * 
-	 * This is mainly used as helper to let storage grids construct their internal storage for each type.
-	 */
-	@Nonnull
-	Collection<IStorageChannel<? extends IAEStack<?>>> storageChannels();
-
-	/**
-	 * load a crafting link from nbt data.
-	 *
-	 * @param data to be loaded data
-	 *
-	 * @return crafting link
-	 */
-	ICraftingLink loadCraftingLink( NBTTagCompound data, ICraftingRequester req );
-
-	/**
-	 * Extracts items from a {@link IMEInventory} respecting power requirements.
-	 * 
-	 * @param energy Energy source.
-	 * @param inv Inventory to extract from.
-	 * @param request Requested item and count.
-	 * @param src Action source.
-	 * @param mode Simulate or modulate
-	 * @return extracted items or {@code null} of nothing was extracted.
-	 */
-	<T extends IAEStack<T>> T poweredExtraction( final IEnergySource energy, final IMEInventory<T> inv, final T request, final IActionSource src, final Actionable mode );
-
-	/**
-	 * Inserts items into a {@link IMEInventory} respecting power requirements.
-	 * 
-	 * @param energy Energy source.
-	 * @param inv Inventory to insert into.
-	 * @param request Items to insert.
-	 * @param src Action source.
-	 * @param mode Simulate or modulate
-	 * @return items not inserted or {@code null} if everything was inserted.
-	 */
-	<T extends IAEStack<T>> T poweredInsert( final IEnergySource energy, final IMEInventory<T> inv, final T input, final IActionSource src, final Actionable mode );
-
-	/**
-	 * Posts alteration of stored items to the provided {@link IStorageGrid}.
-	 * This can be used by cell containers to notify the grid of storage cell changes.
-	 * 
-	 * @param gs the storage grid.
-	 * @param removedCell the removed cell itemstack
-	 * @param addedCell the added cell itemstack
-	 * @param src the action source
-	 */
-	void postChanges( @Nonnull final IStorageGrid gs, @Nonnull final ItemStack removedCell, @Nonnull final ItemStack addedCell, @Nonnull final IActionSource src );
+    /**
+     * Posts the difference between a removed and an added cell to the network's listeners.
+     */
+    void postChanges(@Nonnull IStorageService gs, @Nonnull ItemStack removedCell, @Nonnull ItemStack addedCell,
+            @Nonnull IActionSource src);
 }

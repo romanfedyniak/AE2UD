@@ -19,7 +19,6 @@
 package appeng.crafting;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
@@ -30,14 +29,13 @@ import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.util.DimensionalCoord;
 import appeng.core.AELog;
 import appeng.hooks.TickHandler;
-import appeng.me.cache.GridStorageCache;
 import com.google.common.base.Stopwatch;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.world.World;
@@ -52,8 +50,8 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     private final MECraftingInventory original;
     private final World world;
-    private final IItemList<IAEItemStack> crafting = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-    private final IItemList<IAEItemStack> missing = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    private final KeyCounter crafting = new KeyCounter();
+    private final KeyCounter missing = new KeyCounter();
 
     private final HashMap<String, TwoIntegers> opsAndMultiplier = new HashMap<>();
     private final Object monitor = new Object();
@@ -61,7 +59,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
     private final Stopwatch craftingTreeWatch = Stopwatch.createUnstarted();
     private final ICraftingGrid cc;
     private CraftingTreeNode tree;
-    private final IAEItemStack output;
+    private final GenericStack output;
     private boolean simulate = false;
     private MECraftingInventory availableCheck;
     private long bytes = 0;
@@ -76,48 +74,45 @@ public class CraftingJob implements Runnable, ICraftingJob {
         return w;
     }
 
-    public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final IAEItemStack what, final ICraftingCallback callback) {
+    public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingCallback callback) {
         this.world = this.wrapWorld(w);
-        this.output = what.copy();
+        this.output = what;
         this.actionSrc = actionSrc;
 
         this.callback = callback;
 
         this.cc = grid.getCache(ICraftingGrid.class);
-        final GridStorageCache sg = grid.getCache(IStorageGrid.class);
-        this.original = new MECraftingInventory(sg.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).getStorageList());
+        final IStorageService sg = grid.getCache(IStorageService.class);
+        this.original = new MECraftingInventory(sg.getCachedInventory());
 
         this.setTree(this.getCraftingTree(cc, what));
         this.availableCheck = null;
     }
 
-    private CraftingTreeNode getCraftingTree(final ICraftingGrid cc, final IAEItemStack what) {
-        return new CraftingTreeNode(cc, this, what, null, -1, 0);
+    private CraftingTreeNode getCraftingTree(final ICraftingGrid cc, final GenericStack what) {
+        return new CraftingTreeNode(cc, this, what.what(), null, -1, 0);
     }
 
-    void refund(final IAEItemStack o) {
-        this.availableCheck.injectItems(o, Actionable.MODULATE, this.actionSrc);
+    void refund(final AEKey what, final long amount) {
+        this.availableCheck.insert(what, amount, Actionable.MODULATE, this.actionSrc);
     }
 
-    IAEItemStack checkUse(final IAEItemStack available) {
-        return this.availableCheck.extractItems(available, Actionable.MODULATE, this.actionSrc);
+    long checkUse(final AEKey what, final long amount) {
+        return this.availableCheck.extract(what, amount, Actionable.MODULATE, this.actionSrc);
     }
 
-    IAEItemStack checkAvailable(final IAEItemStack available) {
-        return this.availableCheck.extractItems(available, Actionable.SIMULATE, this.actionSrc);
+    long checkAvailable(final AEKey what, final long amount) {
+        return this.availableCheck.extract(what, amount, Actionable.SIMULATE, this.actionSrc);
     }
 
-    void addTask(IAEItemStack what, final long crafts, final ICraftingPatternDetails details, final int depth) {
-        if (crafts > 0) {
-            what = what.copy();
-            what.setStackSize(what.getStackSize() * crafts);
-            this.crafting.add(what);
+    void addTask(final AEKey what, final long amount, final ICraftingPatternDetails details, final int depth) {
+        if (amount > 0) {
+            this.crafting.add(what, amount);
         }
     }
 
-    void addMissing(IAEItemStack what) {
-        what = what.copy();
-        this.missing.add(what);
+    void addMissing(final AEKey what, final long amount) {
+        this.missing.add(what, amount);
     }
 
     @Override
@@ -128,11 +123,11 @@ public class CraftingJob implements Runnable, ICraftingJob {
                 this.handlePausing();
 
                 final MECraftingInventory craftingInventory = new MECraftingInventory(this.original, true, false, true);
-                craftingInventory.ignore(this.output);
+                craftingInventory.ignore(this.output.what());
 
                 this.availableCheck = new MECraftingInventory(this.original, false, false, false);
                 craftingTreeWatch.reset().start();
-                this.getTree().request(craftingInventory, this.output.getStackSize(), this.actionSrc);
+                this.getTree().request(craftingInventory, this.output.amount(), this.actionSrc);
                 craftingTreeWatch.stop();
                 this.getTree().dive(this);
 
@@ -152,12 +147,12 @@ public class CraftingJob implements Runnable, ICraftingJob {
                 try {
                     if (actionSrc.player().isPresent()) {
                         final MECraftingInventory craftingInventory = new MECraftingInventory(this.original, true, false, true);
-                        craftingInventory.ignore(this.output);
+                        craftingInventory.ignore(this.output.what());
 
                         this.getTree().setSimulate();
                         this.availableCheck = new MECraftingInventory(this.original, false, false, false);
                         craftingTreeWatch.reset().start();
-                        this.getTree().request(craftingInventory, this.output.getStackSize(), this.actionSrc);
+                        this.getTree().request(craftingInventory, this.output.amount(), this.actionSrc);
                         craftingTreeWatch.stop();
                         this.getTree().dive(this);
 
@@ -255,14 +250,38 @@ public class CraftingJob implements Runnable, ICraftingJob {
     }
 
     @Override
-    public void populatePlan(final IItemList<IAEItemStack> plan) {
+    public void populatePlan(final KeyCounter plan) {
+        if (this.getTree() == null) {
+            return;
+        }
+
+        final KeyCounter used = new KeyCounter();
+        final KeyCounter requestable = new KeyCounter();
+        this.getTree().getPlan(used, requestable);
+
+        plan.addAll(used);
+        plan.addAll(requestable);
+    }
+
+    /**
+     * Same information as {@link #populatePlan(KeyCounter)}, but kept as two separate counters
+     * instead of merged into one. {@link ICraftingJob#populatePlan(KeyCounter)} (frozen API) only has
+     * room for a single {@link KeyCounter} argument, so it cannot carry both "already have this many
+     * in storage / missing" and "this many will be produced by crafting" for the same key the way the
+     * old {@code IAEItemStack}, with its independent {@code stackSize}/{@code countRequestable}
+     * fields, used to. Calling {@link #populatePlan(KeyCounter)} still works (it merges the two here),
+     * but a caller that needs the old split - e.g. the crafting confirmation GUI, which sent the two
+     * numbers to the client as two different packets - must call this overload directly on the
+     * concrete {@link CraftingJob} instead of through the interface.
+     */
+    public void populatePlan(final KeyCounter used, final KeyCounter requestable) {
         if (this.getTree() != null) {
-            this.getTree().getPlan(plan);
+            this.getTree().getPlan(used, requestable);
         }
     }
 
     @Override
-    public IAEItemStack getOutput() {
+    public GenericStack getOutput() {
         return this.output;
     }
 

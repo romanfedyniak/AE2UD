@@ -23,7 +23,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import net.minecraft.nbt.NBTTagCompound;
 
 
@@ -151,7 +151,11 @@ public class CraftingLink implements ICraftingLink {
         }
     }
 
-    public IAEItemStack injectItems(final IAEItemStack input, final Actionable mode) {
+    /**
+     * Was {@code IAEItemStack injectItems(IAEItemStack, Actionable)}. Forwards a completed (or
+     * partially completed) portion of the crafting job to whatever requested it.
+     */
+    public GenericStack injectItems(final GenericStack input, final Actionable mode) {
         if (this.tie == null || this.tie.getRequest() == null || this.tie.getRequest().getRequester() == null) {
             return input;
         }

@@ -3,7 +3,7 @@ package appeng.parts.reporting;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.core.sync.GuiBridge;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
@@ -65,18 +65,18 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
                     this.setSubstitution(details.canSubstitute());
 
                     for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
-                        final IAEItemStack item = details.getInputs()[x];
-                        this.crafting.setStackInSlot(x, item == null ? ItemStack.EMPTY : item.createItemStack());
+                        final GenericStack item = details.getInputs()[x];
+                        this.crafting.setStackInSlot(x, item == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(item));
                     }
 
                     for (int x = 0; x < this.output.getSlots(); x++) {
-                        final IAEItemStack item;
+                        final GenericStack item;
                         if (x < details.getOutputs().length) {
                             item = details.getOutputs()[x];
                         } else {
                             item = null;
                         }
-                        this.output.setStackInSlot(x, item == null ? ItemStack.EMPTY : item.createItemStack());
+                        this.output.setStackInSlot(x, item == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(item));
                     }
                 }
             }

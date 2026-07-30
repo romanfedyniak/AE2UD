@@ -27,7 +27,13 @@ package appeng.api.storage;
 import appeng.api.util.IConfigurableObject;
 
 
-public interface ITerminalHost extends IStorageMonitorable, IConfigurableObject
+public interface ITerminalHost extends IConfigurableObject
 {
+
+	/**
+	 * The inventory this terminal shows. It covers every registered key type, so one terminal can
+	 * display items, fluids and anything an addon registers.
+	 */
+	MEStorage getInventory();
 
 }

@@ -19,16 +19,20 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
-import appeng.api.storage.channels.IItemStorageChannel;
+import appeng.api.stacks.AEFluidKey;
+import appeng.core.AELog;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import javax.annotation.Nullable;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.localization.GuiText;
@@ -39,7 +43,6 @@ import appeng.helpers.InventoryAction;
 import appeng.parts.reporting.PartInterfaceConfigurationTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import com.google.common.collect.HashMultimap;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
@@ -266,6 +269,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchFieldInputs != null && this.searchFieldInputs.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (character == ' ' && this.searchFieldInputs.getText().isEmpty() && this.searchFieldInputs.isFocused()) {
@@ -397,9 +405,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         boolean foundMatchingItemStack = false;
 
-        final String displayName = Platform
-                .getItemDisplayName(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(itemStack))
-                .toLowerCase();
+        final String displayName = Platform.getItemDisplayName(itemStack).toLowerCase();
 
         for (String term : searchTerm.split(" ")) {
             if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
@@ -449,6 +455,41 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         return this.names.size() + this.byId.size();
     }
 
+    /**
+     * What HEI handed over, as a key: an ordinary item, the fluid inside a dragged container, or a fluid
+     * dragged straight from the ingredient list.
+     */
+    @Nullable
+    private static GenericStack asGenericStack(final Object ingredient) {
+        if (ingredient instanceof FluidStack fluidStack) {
+            // A dragged fluid has no container to fall back to, so the button does not come into it.
+            return new GenericStack(AEFluidKey.of(fluidStack), fluidStack.amount);
+        }
+        if (ingredient instanceof ItemStack itemStack && !itemStack.isEmpty()) {
+            if (!dropsContainerItself()) {
+                final FluidStack contained = FluidUtil.getFluidContained(itemStack);
+                if (contained != null && contained.amount > 0) {
+                    return new GenericStack(AEFluidKey.of(contained), contained.amount);
+                }
+            }
+            return GenericStack.resolveItemStack(itemStack);
+        }
+        return null;
+    }
+
+    /**
+     * @return true if the drop being handled right now came from the right mouse button, meaning the
+     *         container item itself is wanted rather than its contents - the same rule as clicking a config
+     *         slot by hand, and the same one {@code GuiUpgradeable} follows for filter slots.
+     *         <p>
+     *         HEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
+     *         It is accurate here because {@code accept} runs synchronously inside the click that ends the
+     *         drag, while that button is still down.
+     */
+    private static boolean dropsContainerItself() {
+        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
+    }
+
     private ClientDCInternalInv getById(final long id, final long sortBy, final String string) {
         ClientDCInternalInv o = this.byId.get(id);
 
@@ -462,13 +503,23 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public List<IGhostIngredientHandler.Target<?>> getPhantomTargets(Object ingredient) {
-        if (!(ingredient instanceof ItemStack)) {
+        // An interface's config holds any key type, so a fluid dragged out of HEI is a valid target here -
+        // it just arrives as a FluidStack rather than an ItemStack. Wrapped into a placeholder, the rest of
+        // the path is unchanged: the packet already carries a GenericStack and the config unwraps it.
+        //
+        // Deliberately not resolved here. HEI asks for targets when the drag *starts* and calls accept when
+        // it ends, and which of a container's two readings the player wants is decided by the button held at
+        // the end - so resolving at this point pinned the answer before the question was asked, and a
+        // right-drag still produced the contents.
+        if (!(ingredient instanceof ItemStack) && !(ingredient instanceof FluidStack)) {
+            return Collections.emptyList();
+        }
+        if (ingredient instanceof ItemStack stack && stack.isEmpty()) {
             return Collections.emptyList();
         }
         List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
         for (Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof SlotDisconnected) {
-                ItemStack itemStack = (ItemStack) ingredient;
                 IGhostIngredientHandler.Target<Object> target = new IGhostIngredientHandler.Target<Object>() {
                     @Override
                     public Rectangle getArea() {
@@ -477,13 +528,15 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
                     @Override
                     public void accept(Object ingredient) {
-                        final PacketInventoryAction p;
+                        final GenericStack dragged = asGenericStack(ingredient);
+                        if (dragged == null) {
+                            return;
+                        }
                         try {
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, AEItemStack.fromItemStack(itemStack));
-                            NetworkHandler.instance().sendToServer(p);
-
+                            NetworkHandler.instance().sendToServer(
+                                    new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotDisconnected) slot, dragged));
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            AELog.debug(e);
                         }
                     }
                 };

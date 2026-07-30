@@ -19,7 +19,7 @@
 package appeng.util.item;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -91,9 +91,9 @@ public class OreHelper {
         return Optional.ofNullable(this.references.get(ir));
     }
 
-    boolean sameOre(final AEItemStack aeItemStack, final IAEItemStack is) {
-        final OreReference a = aeItemStack.getOre().orElse(null);
-        final OreReference b = ((AEItemStack) is).getOre().orElse(null);
+    public boolean sameOre(final AEItemKey itemKey, final AEItemKey other) {
+        final OreReference a = this.getOre(itemKey.getReadOnlyStack()).orElse(null);
+        final OreReference b = this.getOre(other.getReadOnlyStack()).orElse(null);
 
         return this.sameOre(a, b);
     }
@@ -117,8 +117,8 @@ public class OreHelper {
         return false;
     }
 
-    boolean sameOre(final AEItemStack aeItemStack, final ItemStack o) {
-        return aeItemStack.getOre().map(a -> {
+    public boolean sameOre(final AEItemKey itemKey, final ItemStack o) {
+        return this.getOre(itemKey.getReadOnlyStack()).map(a -> {
             for (final String oreName : a.getEquivalents()) {
                 for (final ItemStack oreItem : this.oreDictCache.getUnchecked(oreName)) {
                     if (OreDictionary.itemMatches(oreItem, o, false)) {

@@ -19,8 +19,9 @@
 package appeng.client.gui;
 
 
-import appeng.api.storage.data.IAEFluidStack;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.ITooltip;
@@ -29,6 +30,7 @@ import appeng.client.me.SlotDisconnected;
 import appeng.client.me.SlotME;
 import appeng.client.render.StackSizeRenderer;
 import appeng.container.AEBaseContainer;
+import appeng.container.me.GridInventoryEntry;
 import appeng.container.slot.*;
 import appeng.container.slot.AppEngSlot.hasCalculatedValidness;
 import appeng.core.AELog;
@@ -36,12 +38,9 @@ import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
-import appeng.fluids.client.render.FluidStackSizeRenderer;
-import appeng.fluids.container.slots.IMEFluidSlot;
 import appeng.helpers.InventoryAction;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
@@ -91,27 +90,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
     private final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
-    private final FluidStackSizeRenderer fluidStackSizeRenderer = new FluidStackSizeRenderer();
     private GuiScrollbar myScrollBar = null;
     private boolean disableShiftClick = false;
     private Stopwatch dbl_clickTimer = Stopwatch.createStarted();
     private ItemStack dbl_whichItem = ItemStack.EMPTY;
     private Slot bl_clicked;
-    private Stopwatch lastClicked = Stopwatch.createStarted();
-    private List<IGhostIngredientHandler.Target<Object>> hoveredIngredientTargets = new ArrayList<>();
-    private Object bookmarkedIngredient;
-    private boolean isDraggingJeiGhostItem;
     private boolean haltDragging = false;
-
-    public void setJeiGhostItem(boolean jeiGhostItem) {
-        isJeiGhostItem = jeiGhostItem;
-    }
-
-    private boolean isJeiGhostItem;
-
-    public Object getBookmarkedIngredient() {
-        return bookmarkedIngredient;
-    }
 
     public List<GuiCustomSlot> getGuiSlots() {
         return guiSlots;
@@ -155,6 +139,17 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
     }
 
+    /**
+     * Whether a text field on this screen currently has the keyboard.
+     * <p>
+     * Anything that reads a raw key press before the screen does has to ask this first, or typing a letter
+     * into a search box triggers whatever that letter is bound to. HEI's own handler makes the same check
+     * for its own field; a screen with a field of ours has to answer for it.
+     */
+    public boolean isTextFieldFocused() {
+        return false;
+    }
+
     private List<Slot> getInventorySlots() {
         return this.inventorySlots.inventorySlots;
     }
@@ -190,9 +185,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
         }
         GlStateManager.enableDepth();
-        if (Platform.isModLoaded("jei")) {
-            bookmarkedJEIghostItem(mouseX, mouseY);
-        }
         GlStateManager.disableDepth();
     }
 
@@ -200,48 +192,18 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         return Collections.emptyList();
     }
 
-    @Optional.Method(modid = "jei")
-    void bookmarkedJEIghostItem(final int mouseX, final int mouseY) {
-        if (!isJeiGhostItem) {
-            bookmarkedIngredient = runtime.getBookmarkOverlay().getIngredientUnderMouse();
+    /**
+     * @return true if the stack on the cursor holds a fluid, i.e. clicking a filter slot with it should set
+     *         the filter to that fluid rather than to the container item.
+     */
+    private boolean holdsFluidContainer() {
+        final ItemStack held = this.mc.player.inventory.getItemStack();
+        if (held.isEmpty()) {
+            return false;
         }
 
-        if (bookmarkedIngredient != null) {
-            hoveredIngredientTargets = aeGuiHandler.getTargets(this, bookmarkedIngredient, false);
-            ItemStack dragItem = ItemStack.EMPTY;
-            if (hoveredIngredientTargets.size() > 0) {
-                if (isShiftKeyDown() && Mouse.isButtonDown(0) && this.lastClicked.elapsed(TimeUnit.MILLISECONDS) > 200) {
-                    this.lastClicked = Stopwatch.createStarted();
-                    aeGuiHandler.getTargets(this, bookmarkedIngredient, true);
-                } else if (Mouse.isButtonDown(0) && this.lastClicked.elapsed(TimeUnit.MILLISECONDS) > 200) {
-                    this.lastClicked = Stopwatch.createStarted();
-                    if (bookmarkedIngredient instanceof ItemStack) {
-                        dragItem = ((ItemStack) bookmarkedIngredient);
-                    } else if (bookmarkedIngredient instanceof FluidStack) {
-                        dragItem = FluidUtil.getFilledBucket(((FluidStack) bookmarkedIngredient));
-                    }
-                    mc.player.inventory.setItemStack(dragItem.copy());
-                    this.isJeiGhostItem = true;
-                }
-                drawTargets(mouseX, mouseY);
-            }
-        }
-    }
-
-    private void drawTargets(int mouseX, int mouseY) {
-        GlStateManager.disableLighting();
-        for (IGhostIngredientHandler.Target target : hoveredIngredientTargets) {
-            Rectangle area = target.getArea();
-            Color color;
-            if (area.contains(mouseX, mouseY)) {
-                color = new Color(76, 201, 25, 128);
-            } else {
-                color = new Color(19, 201, 10, 64);
-            }
-            Gui.drawRect(area.x, area.y, area.x + area.width, area.y + area.height, color.getRGB());
-        }
-        GlStateManager.color(1f, 1f, 1f, 1f);
-        GlStateManager.enableDepth();
+        final FluidStack fluid = FluidUtil.getFluidContained(held);
+        return fluid != null && fluid.amount > 0;
     }
 
     protected void drawGuiSlot(GuiCustomSlot slot, int mouseX, int mouseY, float partialTicks) {
@@ -435,36 +397,37 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
         final EntityPlayer player = Minecraft.getMinecraft().player;
 
-        if (this.isJeiGhostItem && isDraggingJeiGhostItem) {
-            for (IGhostIngredientHandler.Target target : hoveredIngredientTargets) {
-                Rectangle area = target.getArea();
-                final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
-                final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        // A slot holding real stock of a key the player cannot pick up - an interface's fluid. Left click
+        // fills what is held from that slot, right click empties into it; same convention as a terminal row.
+        // Anything else falls through to the ordinary item handling, so the item slots are untouched.
+        if (slot instanceof SlotGenericStorage && clickType == ClickType.PICKUP && !player.inventory.getItemStack().isEmpty()) {
+            final GenericStack held = GenericStack.resolveItemStack(player.inventory.getItemStack());
+            final boolean holdsContainer = ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null;
+            final GenericStack inSlot = GenericStack.unwrapItemStack(slot.getStack());
 
-                if (area.contains(x, y)) {
-                    target.accept(bookmarkedIngredient);
-                    break;
-                }
+            if (mouseButton == 0 && inSlot != null && ContainerItemStrategies.isKeySupported(inSlot.what())) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.FILL_ITEM, slotIdx, 0));
+                return;
             }
-            this.isJeiGhostItem = false;
-            this.isDraggingJeiGhostItem = false;
+            if (mouseButton == 1 && holdsContainer && held != null) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.EMPTY_ITEM, slotIdx, 0));
+                return;
+            }
+        }
 
-            ItemStack dragItem = ItemStack.EMPTY;
-            if (runtime.getBookmarkOverlay().getIngredientUnderMouse() != null) {
-                bookmarkedJEIghostItem(Mouse.getX(), this.mc.displayHeight - Mouse.getY());
-                if (bookmarkedIngredient instanceof ItemStack) {
-                    dragItem = ((ItemStack) bookmarkedIngredient);
-                } else if (bookmarkedIngredient instanceof FluidStack) {
-                    dragItem = FluidUtil.getFilledBucket(((FluidStack) bookmarkedIngredient));
-                }
-                mc.player.inventory.setItemStack(dragItem.copy());
-                this.isJeiGhostItem = true;
-            } else {
-                mc.player.inventory.setItemStack(dragItem);
-            }
-        } else if (slot instanceof SlotFake) {
+        if (slot instanceof SlotFake) {
             final InventoryAction action;
-            action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
+            if (mouseButton == 1) {
+                action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
+            } else if (holdsFluidContainer()) {
+                // Left-clicking a filter slot with a bucket or tank in hand sets the filter to the FLUID it
+                // holds, not to the container. Right click still places the container itself, so an item
+                // filter can still be set to a bucket - that is the only way to tell the two apart, since a
+                // bucket is a perfectly ordinary item everywhere else.
+                action = InventoryAction.EMPTY_ITEM;
+            } else {
+                action = InventoryAction.PICKUP_OR_SET_DOWN;
+            }
 
             if (this.drag_click.size() > 1) {
                 return;
@@ -506,9 +469,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         if (Keyboard.isKeyDown(Keyboard.KEY_SPACE)) {
             if (this.enableSpaceClicking()) {
-                IAEItemStack stack = null;
+                GridInventoryEntry entry = null;
                 if (slot instanceof SlotME) {
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
                 }
 
                 int slotNum = this.getInventorySlots().size();
@@ -517,7 +480,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     slotNum = slot.slotNumber;
                 }
 
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(stack);
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry == null ? null : entry.getWhat());
                 final PacketInventoryAction p = new PacketInventoryAction(InventoryAction.MOVE_REGION, slotNum, 0);
                 NetworkHandler.instance().sendToServer(p);
                 return;
@@ -535,6 +498,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 case PICKUP: // pickup / set-down.
                     if (mouseButton == 1) {
                         action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
+                    } else if (holdsFluidContainer()) {
+                        // Left click configures this slot to what the held container *holds*; right click
+                        // still places the container itself. Same rule a SlotFake has followed since stage
+                        // 0 - the config terminal writes into the very same config inventory, it just
+                        // reaches it through a different slot type and so was missed.
+                        action = InventoryAction.EMPTY_ITEM;
                     } else {
                         action = InventoryAction.PICKUP_OR_SET_DOWN;
                     }
@@ -565,33 +534,48 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         if (slot instanceof SlotME) {
             InventoryAction action = null;
-            IAEItemStack stack = null;
+            GridInventoryEntry entry = null;
 
             switch (clickType) {
                 case PICKUP: // pickup / set-down.
                     action = (mouseButton == 1) ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
 
-                    if (stack != null
+                    if (entry != null
                             && action == InventoryAction.PICKUP_OR_SET_DOWN
-                            && (stack.getStackSize() == 0 || GuiScreen.isAltKeyDown())
+                            && (entry.getStoredAmount() == 0 || GuiScreen.isAltKeyDown())
                             && player.inventory.getItemStack().isEmpty()) {
                         action = InventoryAction.AUTO_CRAFT;
+                    }
+
+                    // A row the player cannot pick up by hand - a fluid - but can carry away in a container.
+                    // Left click fills what is held from the network; with an empty hand the server borrows
+                    // an empty container out of storage and fills that instead. Never overrides AUTO_CRAFT,
+                    // which is what an empty hand on a craftable-but-unstocked row already means.
+                    if (mouseButton == 0 && entry != null && action != InventoryAction.AUTO_CRAFT
+                            && ContainerItemStrategies.isKeySupported(entry.getWhat())) {
+                        action = InventoryAction.FILL_ITEM;
+                    } else if (mouseButton == 1 && !player.inventory.getItemStack().isEmpty()
+                            && ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null) {
+                        // Right click empties a held container into the network. Gated on the held item
+                        // actually containing something, so right-clicking with an ordinary stack still
+                        // places a single item as it always did - a bucket is a normal item everywhere else.
+                        action = InventoryAction.EMPTY_ITEM;
                     }
 
                     break;
                 case QUICK_MOVE:
                     action = (mouseButton == 1) ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
-                    stack = ((SlotME) slot).getAEStack();
+                    entry = ((SlotME) slot).getEntry();
                     break;
 
                 case CLONE: // creative dupe:
 
-                    stack = ((SlotME) slot).getAEStack();
-                    if (stack != null && stack.isCraftable()) {
+                    entry = ((SlotME) slot).getEntry();
+                    if (entry != null && entry.isCraftable()) {
                         action = InventoryAction.AUTO_CRAFT;
                     } else if (player.capabilities.isCreativeMode) {
-                        final IAEItemStack slotItem = ((SlotME) slot).getAEStack();
+                        final GridInventoryEntry slotItem = ((SlotME) slot).getEntry();
                         if (slotItem != null) {
                             action = InventoryAction.CREATIVE_DUPLICATE;
                         }
@@ -603,7 +587,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
 
             if (action != null) {
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(stack);
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry == null ? null : entry.getWhat());
                 final PacketInventoryAction p = new PacketInventoryAction(action, this.getInventorySlots().size(), 0);
                 NetworkHandler.instance().sendToServer(p);
             }
@@ -636,11 +620,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
 
             this.disableShiftClick = false;
-        }
-
-        if (clickType == ClickType.PICKUP && isJeiGhostItem && !isDraggingJeiGhostItem) {
-            this.isDraggingJeiGhostItem = true;
-            return;
         }
 
         super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
@@ -716,9 +695,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected void mouseWheelEvent(final int x, final int y, final int wheel) {
         final Slot slot = this.getSlot(x, y);
         if (slot instanceof SlotME) {
-            final IAEItemStack item = ((SlotME) slot).getAEStack();
-            if (item != null) {
-                ((AEBaseContainer) this.inventorySlots).setTargetStack(item);
+            final GridInventoryEntry entry = ((SlotME) slot).getEntry();
+            if (entry != null) {
+                ((AEBaseContainer) this.inventorySlots).setTargetStack(entry.getWhat());
                 final InventoryAction direction = wheel > 0 ? InventoryAction.ROLL_DOWN : InventoryAction.ROLL_UP;
                 final int times = Math.abs(wheel);
                 final int inventorySize = this.getInventorySlots().size();
@@ -728,17 +707,21 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 }
             }
         }
-        if (slot instanceof SlotFake) {
+        if (slot instanceof SlotFake || slot instanceof SlotDisconnected) {
             final ItemStack stack = slot.getStack();
             if (stack != ItemStack.EMPTY) {
-                final PacketInventoryAction p;
+                final InventoryAction direction;
                 if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
-                    InventoryAction direction = wheel > 0 ? InventoryAction.DOUBLE : InventoryAction.HALVE;
-                    p = new PacketInventoryAction(direction, slot.slotNumber, 0);
+                    direction = wheel > 0 ? InventoryAction.DOUBLE : InventoryAction.HALVE;
                 } else {
-                    InventoryAction direction = wheel > 0 ? InventoryAction.PLACE_SINGLE : InventoryAction.PICKUP_SINGLE;
-                    p = new PacketInventoryAction(direction, slot.slotNumber, 0);
+                    direction = wheel > 0 ? InventoryAction.PLACE_SINGLE : InventoryAction.PICKUP_SINGLE;
                 }
+
+                // A disconnected slot belongs to a remote interface, so it is addressed by that interface's
+                // id and its own index - not by a slot number in this container.
+                final PacketInventoryAction p = slot instanceof SlotDisconnected disconnected
+                        ? new PacketInventoryAction(direction, slot.getSlotIndex(), disconnected.getSlot().getId())
+                        : new PacketInventoryAction(direction, slot.slotNumber, 0);
                 NetworkHandler.instance().sendToServer(p);
             }
         }
@@ -802,38 +785,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 // Annoying but easier than trying to splice into render item
                 super.drawSlot(new Size1Slot((SlotME) s));
 
-                this.stackSizeRenderer.renderStackSize(this.fontRenderer, ((SlotME) s).getAEStack(), s.xPos, s.yPos);
+                this.stackSizeRenderer.renderStackSize(this.fontRenderer, ((SlotME) s).getEntry(), s.xPos, s.yPos);
 
             } catch (final Exception err) {
                 AELog.warn("[AppEng] AE prevented crash while drawing slot: " + err);
-            }
-
-            return;
-        } else if (s instanceof IMEFluidSlot && ((IMEFluidSlot) s).shouldRenderAsFluid()) {
-            final IMEFluidSlot slot = (IMEFluidSlot) s;
-            final IAEFluidStack fs = slot.getAEFluidStack();
-
-            if (fs != null && this.isPowered()) {
-                GlStateManager.disableLighting();
-                GlStateManager.disableBlend();
-                final Fluid fluid = fs.getFluid();
-                Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
-                final TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks().getAtlasSprite(fluid.getStill().toString());
-
-                // Set color for dynamic fluids
-                // Convert int color to RGB
-                float red = (fluid.getColor() >> 16 & 255) / 255.0F;
-                float green = (fluid.getColor() >> 8 & 255) / 255.0F;
-                float blue = (fluid.getColor() & 255) / 255.0F;
-                GlStateManager.color(red, green, blue);
-
-                this.drawTexturedModalRect(s.xPos, s.yPos, sprite, 16, 16);
-                GlStateManager.enableLighting();
-                GlStateManager.enableBlend();
-
-                this.fluidStackSizeRenderer.renderStackSize(this.fontRenderer, fs, s.xPos, s.yPos);
-            } else if (!this.isPowered()) {
-                drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
             }
 
             return;
@@ -927,7 +882,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                             super.drawSlot(s);
 
                             if (isShiftKeyDown()) {
-                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, AEItemStack.fromItemStack(out), s.xPos, s.yPos);
+                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.fromItemStack(out), s.xPos, s.yPos);
                             } else {
                                 super.drawSlot(s);
                             }
@@ -989,7 +944,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     }
 
                     this.dragSplitting = wasDragSplitting;
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, AEItemStack.fromItemStack(stackInSlot), s.xPos, s.yPos);
+                    // Resolve, not fromItemStack: the latter reads a placeholder as the ordinary item it is -
+                    // one WrappedGenericStack - so a slot holding a bucket of water drew "1" for "1000".
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer,
+                            GenericStack.resolveItemStack(stackInSlot), s.xPos, s.yPos);
 
                     return;
                 } else {

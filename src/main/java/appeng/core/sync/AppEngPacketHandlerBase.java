@@ -40,7 +40,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_ME_INVENTORY_UPDATE(PacketMEInventoryUpdate.class),
 
-        PACKET_ME_FLUID_INVENTORY_UPDATE(PacketMEFluidInventoryUpdate.class),
 
         PACKET_CONFIG_BUTTON(PacketConfigButton.class),
 
@@ -68,7 +67,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_TARGET_ITEM(PacketTargetItemStack.class),
 
-        PACKET_TARGET_FLUID(PacketTargetFluidStack.class),
 
         PACKET_CRAFTING_REQUEST(PacketCraftRequest.class),
 
@@ -78,7 +76,6 @@ public class AppEngPacketHandlerBase {
 
         PACKET_PAINTED_ENTITY(PacketPaintedEntity.class),
 
-        PACKET_FLUID_TANK(PacketFluidSlot.class),
 
         PACKET_INFORM_PLAYER(PacketInformPlayer.class),
 

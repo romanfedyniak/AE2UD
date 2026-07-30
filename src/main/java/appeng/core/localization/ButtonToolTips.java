@@ -174,6 +174,8 @@ public enum ButtonToolTips {
 
     // Used in the tooltips of the items in the terminal, when moused over
     ItemsStored,
+    AmountStored,
+    AmountRequestable,
     ItemsRequestable,
     ItemsCraftable,
 

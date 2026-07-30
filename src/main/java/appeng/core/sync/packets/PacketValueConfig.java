@@ -29,8 +29,6 @@ import appeng.container.AEBaseContainer;
 import appeng.container.implementations.*;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.fluids.container.ContainerFluidLevelEmitter;
-import appeng.fluids.container.ContainerFluidStorageBus;
 import appeng.helpers.IMouseWheelItem;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -126,9 +124,6 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("LevelEmitter.Value") && c instanceof ContainerLevelEmitter) {
             final ContainerLevelEmitter lvc = (ContainerLevelEmitter) c;
             lvc.setLevel(Long.parseLong(this.Value), player);
-        } else if (this.Name.equals("FluidLevelEmitter.Value") && c instanceof ContainerFluidLevelEmitter) {
-            final ContainerFluidLevelEmitter lvc = (ContainerFluidLevelEmitter) c;
-            lvc.setLevel(Long.parseLong(this.Value), player);
         } else if (this.Name.startsWith("PatternTerminal.")) {
             if (c instanceof ContainerPatternEncoder) {
                 final ContainerPatternEncoder cpt = (ContainerPatternEncoder) c;
@@ -165,8 +160,6 @@ public class PacketValueConfig extends AppEngPacket {
                 if (this.Value.equals("Partition")) {
                     if (c instanceof ContainerStorageBus) {
                         ((ContainerStorageBus) c).partition();
-                    } else if (c instanceof ContainerFluidStorageBus) {
-                        ((ContainerFluidStorageBus) c).partition();
                     } else if (c instanceof ContainerOreDictStorageBus) {
                         ((ContainerOreDictStorageBus) c).partition();
                         ((ContainerOreDictStorageBus) c).sendRegex();
@@ -174,8 +167,6 @@ public class PacketValueConfig extends AppEngPacket {
                 } else if (this.Value.equals("Clear")) {
                     if (c instanceof ContainerStorageBus) {
                         ((ContainerStorageBus) c).clear();
-                    } else if (c instanceof ContainerFluidStorageBus) {
-                        ((ContainerFluidStorageBus) c).clear();
                     }
                 }
             }

@@ -30,9 +30,6 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.parts.*;
 import appeng.api.util.*;
 import appeng.core.sync.GuiBridge;
-import appeng.fluids.helper.IConfigurableFluidInventory;
-import appeng.fluids.parts.PartFluidLevelEmitter;
-import appeng.fluids.util.AEFluidInventory;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IPriorityHost;
 import appeng.items.parts.ItemPart;
@@ -341,21 +338,6 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             }
         }
 
-        if (this instanceof IConfigurableFluidInventory) {
-            final IFluidHandler tank = ((IConfigurableFluidInventory) this).getFluidInventoryByName("config");
-            if (tank instanceof AEFluidInventory) {
-                final AEFluidInventory target = (AEFluidInventory) tank;
-                final AEFluidInventory tmp = new AEFluidInventory(null, target.getSlots());
-                tmp.readFromNBT(compound, "config");
-                for (int x = 0; x < tmp.getSlots(); x++) {
-                    target.setFluidInSlot(x, tmp.getFluidInSlot(x));
-                }
-            }
-            if (this instanceof PartFluidLevelEmitter) {
-                final PartFluidLevelEmitter partFluidLevelEmitter = (PartFluidLevelEmitter) this;
-                partFluidLevelEmitter.setReportingValue(compound.getLong("reportingValue"));
-            }
-        }
     }
 
     /**
@@ -401,16 +383,6 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             }
         }
 
-        if (this instanceof IConfigurableFluidInventory) {
-            final IFluidHandler tank = ((IConfigurableFluidInventory) this).getFluidInventoryByName("config");
-            if (tank instanceof AEFluidInventory) {
-                ((AEFluidInventory) tank).writeToNBT(output, "config");
-            }
-            if (this instanceof PartFluidLevelEmitter) {
-                final PartFluidLevelEmitter partFluidLevelEmitter = (PartFluidLevelEmitter) this;
-                output.setLong("reportingValue", partFluidLevelEmitter.getReportingValue());
-            }
-        }
 
         return output;
     }

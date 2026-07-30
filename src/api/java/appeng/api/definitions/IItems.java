@@ -69,8 +69,6 @@ public interface IItems {
 
 	IItemDefinition wirelessInterfaceTerminal();
 
-	IItemDefinition wirelessFluidTerminal();
-
 	IItemDefinition biometricCard();
 
 	IItemDefinition chargedStaff();

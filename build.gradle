@@ -558,6 +558,14 @@ dependencies {
             transitive = false // We only care about the 1 annotation class
         }
         testCompileOnly "me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0"
+
+        // allow Jabel to work in the api source set as well; it is our own code now, and the
+        // storage API uses records. Jabel still emits Java 8 bytecode, so addons compiling against
+        // the published api jar are unaffected.
+        apiAnnotationProcessor "com.github.bsideup.jabel:jabel-javac-plugin:1.0.1"
+        apiCompileOnly("com.github.bsideup.jabel:jabel-javac-plugin:1.0.1") {
+            transitive = false // We only care about the 1 annotation class
+        }
     }
 
     compileOnlyApi 'org.jetbrains:annotations:24.1.0'
@@ -572,7 +580,10 @@ dependencies {
 
     if (includeCommonDevEnvMods.toBoolean()) {
         if (!(modId.equals('jei'))) {
-            implementation 'mezz.jei:jei_1.12.2:4.16.1.302'
+            // HadEnoughItems, the CleanroomMC fork of JEI, from https://maven.cleanroommc.com. It keeps
+            // JEI's mod id and the mezz.jei package, so appeng.integration.modules.jei compiles against
+            // it unchanged; it is published with RetroFuturaGradle obfuscation variants, so no rfg.deobf.
+            implementation 'mezz:jei:4.32.0'
         }
         if (!(modId.equals('theoneprobe'))) {
             //noinspection DependencyNotationArgument

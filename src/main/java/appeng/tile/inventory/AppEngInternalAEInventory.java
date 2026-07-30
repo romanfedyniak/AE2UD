@@ -19,14 +19,16 @@
 package appeng.tile.inventory;
 
 
-import appeng.api.AEApi;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.behaviors.GenericSlotCapacities;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
-import appeng.util.item.AEItemStack;
 import appeng.util.iterators.AEInvIterator;
 import appeng.util.iterators.InvIterator;
 import net.minecraft.item.ItemStack;
@@ -34,13 +36,16 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
 
+import net.minecraftforge.fluids.FluidStack;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 
 
 public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterable<ItemStack> {
     private final IAEAppEngInventory te;
-    private final IAEItemStack[] inv;
+    private final GenericStack[] inv;
     private final int size;
     private int maxStack;
     private boolean dirtyFlag = false;
@@ -49,21 +54,43 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
         this.te = te;
         this.size = s;
         this.maxStack = 64;
-        this.inv = new IAEItemStack[s];
+        this.inv = new GenericStack[s];
     }
 
     public AppEngInternalAEInventory(final IAEAppEngInventory te, final int s, int stackSize) {
         this.te = te;
         this.size = s;
         this.maxStack = stackSize;
-        this.inv = new IAEItemStack[s];
+        this.inv = new GenericStack[s];
     }
 
     public void setMaxStackSize(final int s) {
         this.maxStack = s;
     }
 
-    public IAEItemStack getAEStackInSlot(final int var1) {
+    /**
+     * Reads a written stack back into the key it stands for.
+     * <p>
+     * <b>This is what makes a config inventory type-agnostic.</b> {@link GenericStack#fromItemStack} always
+     * yields an {@link AEItemKey} - it does not unwrap a placeholder - so writing through the
+     * {@code IItemHandler} surface used to be able to express item filters and nothing else, no matter what
+     * the slots themselves could hold. Every filter in the mod goes through this class, so every one of them
+     * was item-only: a storage bus could show fluids but not be partitioned to one, and the fluid formation
+     * plane needed a private NBT mirror to have a working filter at all.
+     */
+    @Nullable
+    public static GenericStack toGenericStack(final ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+        // Exactly GenericStack.resolveItemStack now. It used to carry a second case for FluidDummyItem, the
+        // fluid-only placeholder that predated GenericStack.Wrapper - the legacy fluid GUIs handed those
+        // out, so a fluid dragged from one of them into a filter would otherwise have landed as the
+        // placeholder item. Those GUIs and that item are gone, and one placeholder is left.
+        return GenericStack.resolveItemStack(stack);
+    }
+
+    public GenericStack getAEStackInSlot(final int var1) {
         return this.inv[var1];
     }
 
@@ -78,9 +105,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             try {
                 final NBTTagCompound c = new NBTTagCompound();
 
-                if (this.inv[x] != null) {
-                    this.inv[x].writeToNBT(c);
-                }
+                GenericStack.writeTag(c, this.inv[x]);
 
                 target.setTag("#" + x, c);
             } catch (final Exception ignored) {
@@ -101,7 +126,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
                 final NBTTagCompound c = target.getCompoundTag("#" + x);
 
                 if (c != null) {
-                    this.inv[x] = AEItemStack.fromNBT(c);
+                    this.inv[x] = GenericStack.readTag(c);
                 }
             } catch (final Exception e) {
                 AELog.debug(e);
@@ -120,11 +145,15 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
     @Override
     public ItemStack getStackInSlot(final int var1) {
-        if (this.inv[var1] == null) {
+        final GenericStack stack = this.inv[var1];
+        if (stack == null) {
             return ItemStack.EMPTY;
         }
 
-        return this.inv[var1].createItemStack();
+        // A non-item key comes back as the placeholder the GUI layer already understands, so the slot
+        // renders and can be picked up like any other. For an item key this is the stack itself, so the
+        // item case is unchanged.
+        return GenericStack.wrapInItemStack(stack);
     }
 
     @Override
@@ -152,11 +181,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
         if (!simulate) {
             if (existing.isEmpty()) {
-                this.inv[slot] = AEApi.instance()
-                        .storage()
-                        .getStorageChannel(IItemStorageChannel.class)
-                        .createStack(
-                                reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
+                this.inv[slot] = toGenericStack(reachedLimit ? ItemHandlerHelper.copyStackWithSize(stack, limit) : stack);
             } else {
                 existing.grow(reachedLimit ? limit : stack.getCount());
             }
@@ -190,14 +215,27 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
     @Override
     public void setStackInSlot(final int slot, final ItemStack newItemStack) {
+        final GenericStack previous = this.inv[slot];
         ItemStack oldStack = this.getStackInSlot(slot).copy();
-        this.inv[slot] = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(newItemStack);
+        this.inv[slot] = toGenericStack(newItemStack);
 
         if (this.te != null && Platform.isServer()) {
             ItemStack newStack = newItemStack.copy();
             InvOperation op = InvOperation.SET;
 
-            if (ItemStack.areItemsEqual(oldStack, newStack)) {
+            // The difference-of-counts dance below is only meaningful for real item stacks. A wrapped key
+            // is *always* one item whatever amount it stands for, so for two placeholders it computed a
+            // difference of zero and reported "nothing removed, nothing added" - and every listener that
+            // asks "did anything change?" answered no. That is why raising a fluid's configured amount in
+            // an ME Interface did nothing until the world was reloaded: the amount was stored, but the
+            // interface was never told to re-plan.
+            final boolean wrapped = GenericStack.isWrapped(oldStack) || GenericStack.isWrapped(newStack);
+
+            if (wrapped) {
+                if (java.util.Objects.equals(previous, this.inv[slot])) {
+                    return;
+                }
+            } else if (ItemStack.areItemsEqual(oldStack, newStack)) {
                 if (newStack.getCount() > oldStack.getCount()) {
                     newStack.shrink(oldStack.getCount());
                     oldStack = ItemStack.EMPTY;
@@ -210,6 +248,21 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             }
             this.fireOnChangeInventory(slot, op, oldStack, newStack);
         }
+    }
+
+    /**
+     * The largest amount of {@code what} a slot of this inventory may be configured to.
+     * <p>
+     * {@code maxStack} is expressed in items, because that is all this class could hold when it was written.
+     * Scaling it by the key type's own standard slot size keeps one rule for every type: an ME Interface's
+     * config allows eight standard slots' worth, which is 512 items and - by the same arithmetic - 32 buckets.
+     */
+    public long getMaxAmount(final AEKey what) {
+        if (what == null) {
+            return this.maxStack;
+        }
+        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
+        return Math.max(1, this.maxStack * GenericSlotCapacities.get(what) / standard);
     }
 
     private void fireOnChangeInventory(int slot, InvOperation op, ItemStack removed, ItemStack inserted) {
@@ -231,7 +284,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
         return new InvIterator(this);
     }
 
-    public Iterator<IAEItemStack> getNewAEIterator() {
+    public Iterator<GenericStack> getNewAEIterator() {
         return new AEInvIterator(this);
     }
 

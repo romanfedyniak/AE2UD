@@ -1,14 +1,11 @@
 package appeng.integration.modules.jei;
 
-import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IItemList;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.container.implementations.ContainerMEMonitorable;
-import appeng.helpers.IContainerCraftingPacket;
 import appeng.util.Platform;
-import appeng.util.item.AEItemStack;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
@@ -19,14 +16,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.translation.I18n;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 
 import javax.annotation.Nonnull;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static mezz.jei.api.recipe.transfer.IRecipeTransferError.Type.USER_FACING;
 
@@ -37,21 +34,29 @@ public class JEIMissingItem implements IRecipeTransferError {
     private final List<Integer> craftableSlots = new ArrayList<>();
     private final List<Integer> foundSlots = new ArrayList<>();
 
-    IItemList<IAEItemStack> available = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    /**
+     * What the terminal can supply. Was an {@code IItemList<IAEItemStack>}; see {@link AvailableItems}
+     * for why a {@link KeyCounter} cannot stand in for it.
+     */
+    AvailableItems available = new AvailableItems();
 
-    IItemList<IAEItemStack> used = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+    /**
+     * How much of each key this recipe has already claimed. This one <em>is</em> a plain amount count,
+     * so it is a {@link KeyCounter}. The old code compared against a possibly-null {@code IAEItemStack}
+     * and separately against its size; {@link KeyCounter#get} answers 0 for an absent key, so the two
+     * cases collapse into one comparison with no change in behaviour.
+     */
+    KeyCounter used = new KeyCounter();
 
     JEIMissingItem(Container container, @Nonnull IRecipeLayout recipeLayout) {
         if (container instanceof ContainerMEMonitorable) {
-            IItemList<IAEItemStack> ir = ((ContainerMEMonitorable) container).items;
-
-            IItemList<IAEItemStack> available = mergeInventories(ir, (ContainerMEMonitorable) container);
+            AvailableItems available = AvailableItems.merge((ContainerMEMonitorable) container);
 
             boolean found;
             this.errored = false;
-            recipeLayout.getItemStacks().addTooltipCallback(new CraftableCallBack(container, available));
+            recipeLayout.getItemStacks().addTooltipCallback(new CraftableCallBack((ContainerMEMonitorable) container));
 
-            IItemList<IAEItemStack> used = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+            KeyCounter used = new KeyCounter();
             for (IGuiIngredient<?> i : recipeLayout.getItemStacks().getGuiIngredients().values()) {
                 found = false;
                 if (i.isInput() && !i.getAllIngredients().isEmpty()) {
@@ -60,28 +65,27 @@ public class JEIMissingItem implements IRecipeTransferError {
                         if (allIngredient instanceof ItemStack) {
                             ItemStack stack = (ItemStack) allIngredient;
                             if (!stack.isEmpty()) {
-                                IAEItemStack search = AEItemStack.fromItemStack(stack);
+                                AEItemKey search = AEItemKey.of(stack);
                                 if (stack.getItem().isDamageable() || Platform.isGTDamageableItem(stack.getItem())) {
-                                    Collection<IAEItemStack> fuzzy = available.findFuzzy(search, FuzzyMode.IGNORE_ALL);
+                                    Collection<AvailableItems.Entry> fuzzy = available.findFuzzy(search, FuzzyMode.IGNORE_ALL);
                                     if (!fuzzy.isEmpty()) {
-                                        for (IAEItemStack itemStack : fuzzy) {
-                                            if (itemStack.getStackSize() > 0) {
+                                        for (AvailableItems.Entry entry : fuzzy) {
+                                            if (entry.amount() > 0) {
                                                 if (Platform.isGTDamageableItem(stack.getItem())) {
-                                                    if (!(stack.getMetadata() == itemStack.getDefinition().getMetadata())) {
+                                                    if (!(stack.getMetadata() == ((AEItemKey) entry.what()).getDamage())) {
                                                         continue;
                                                     }
                                                 }
                                                 found = true;
-                                                used.add(itemStack.copy().setStackSize(1));
+                                                used.add(entry.what(), 1);
                                             }
                                         }
                                     }
                                 } else {
-                                    IAEItemStack ext = available.findPrecise(search);
+                                    AvailableItems.Entry ext = available.findPrecise(search);
                                     if (ext != null) {
-                                        IAEItemStack usedStack = used.findPrecise(ext);
-                                        if (ext.getStackSize() > 0 && (usedStack == null || ext.getStackSize() > usedStack.getStackSize())) {
-                                            used.add(ext.copy().setStackSize(1));
+                                        if (ext.amount() > 0 && ext.amount() > used.get(ext.what())) {
+                                            used.add(ext.what(), 1);
                                             found = true;
                                         }
                                     }
@@ -110,7 +114,6 @@ public class JEIMissingItem implements IRecipeTransferError {
     public void showError(Minecraft minecraft, int mouseX, int mouseY, @Nonnull IRecipeLayout recipeLayout, int recipeX, int recipeY) {
         Container c = minecraft.player.openContainer;
         if (c instanceof ContainerMEMonitorable container) {
-            IItemList<IAEItemStack> ir = ((ContainerMEMonitorable) c).items;
             boolean found = false;
             boolean foundAny = false;
             boolean craftable = false;
@@ -120,7 +123,7 @@ public class JEIMissingItem implements IRecipeTransferError {
 
             if (System.currentTimeMillis() - lastUpdate > 1000) {
                 lastUpdate = System.currentTimeMillis();
-                available = mergeInventories(ir, container);
+                available = AvailableItems.merge(container);
                 this.foundSlots.clear();
                 this.craftableSlots.clear();
             } else {
@@ -138,51 +141,53 @@ public class JEIMissingItem implements IRecipeTransferError {
                 }
                 return;
             }
-            this.used.resetStatus();
+            this.used.reset();
 
             for (IGuiIngredient<?> i : recipeLayout.getItemStacks().getGuiIngredients().values()) {
                 found = false;
                 craftable = false;
-                IItemList<IAEItemStack> valid = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
+                // Was an IItemList used purely as an ordered set of "stacks worth showing in this slot":
+                // everything put in it had size 1, and resetStatus() below zeroed it so the render pass
+                // skipped it. A LinkedHashSet says the same thing without the sizes.
+                Set<AEKey> valid = new LinkedHashSet<>();
                 if (i.isInput()) {
                     List<?> allIngredients = i.getAllIngredients();
                     for (Object allIngredient : allIngredients) {
                         if (allIngredient instanceof ItemStack stack) {
                             if (!stack.isEmpty()) {
-                                IAEItemStack search = AEItemStack.fromItemStack(stack);
+                                AEItemKey search = AEItemKey.of(stack);
                                 if (stack.getItem().isDamageable() || Platform.isGTDamageableItem(stack.getItem())) {
-                                    Collection<IAEItemStack> fuzzy = available.findFuzzy(search, FuzzyMode.IGNORE_ALL);
+                                    Collection<AvailableItems.Entry> fuzzy = available.findFuzzy(search, FuzzyMode.IGNORE_ALL);
                                     if (!fuzzy.isEmpty()) {
-                                        for (IAEItemStack itemStack : fuzzy) {
-                                            if (itemStack.getStackSize() > 0) {
+                                        for (AvailableItems.Entry entry : fuzzy) {
+                                            if (entry.amount() > 0) {
                                                 if (Platform.isGTDamageableItem(stack.getItem())) {
-                                                    if (!(stack.getMetadata() == itemStack.getDefinition().getMetadata())) {
+                                                    if (!(stack.getMetadata() == ((AEItemKey) entry.what()).getDamage())) {
                                                         continue;
                                                     }
                                                 }
                                                 found = true;
-                                                used.add(itemStack.copy().setStackSize(1));
-                                                valid.add(itemStack.copy().setStackSize(1));
+                                                used.add(entry.what(), 1);
+                                                valid.add(entry.what());
                                             } else {
-                                                if (itemStack.isCraftable()) {
+                                                if (entry.craftable()) {
                                                     craftable = true;
                                                 }
                                             }
                                         }
                                     }
                                 } else {
-                                    IAEItemStack ext = available.findPrecise(search);
+                                    AvailableItems.Entry ext = available.findPrecise(search);
                                     if (ext != null) {
-                                        IAEItemStack usedStack = used.findPrecise(ext);
-                                        if (ext.getStackSize() > 0 && (usedStack == null || usedStack.getStackSize() < ext.getStackSize())) {
-                                            used.add(ext.copy().setStackSize(1));
+                                        if (ext.amount() > 0 && used.get(ext.what()) < ext.amount()) {
+                                            used.add(ext.what(), 1);
                                             if (craftable) {
-                                                valid.resetStatus();
+                                                valid.clear();
                                             }
-                                            valid.add(ext.copy().setStackSize(1));
+                                            valid.add(ext.what());
                                             found = true;
-                                        } else if (ext.isCraftable()) {
-                                            valid.add(ext.copy().setStackSize(1));
+                                        } else if (ext.craftable()) {
+                                            valid.add(ext.what());
                                             craftable = true;
                                         }
                                     }
@@ -197,13 +202,13 @@ public class JEIMissingItem implements IRecipeTransferError {
                         continue;
                     }
                     ArrayList<ItemStack> validStacks = new ArrayList<>();
-                    valid.forEach(v -> {
-                        if (v.getStackSize() > 0) {
-                            ItemStack validStack = v.createItemStack();
-                            validStack.setCount(1);
-                            validStacks.add(validStack);
-                        }
-                    });
+                    for (AEKey v : valid) {
+                        // JEI can only be handed item stacks, so a non-item key shows through the same
+                        // wrapper item the terminal uses for it.
+                        ItemStack validStack = v.wrapForDisplayOrFilter().copy();
+                        validStack.setCount(1);
+                        validStacks.add(validStack);
+                    }
                     if (!found) {
                         if (craftable) {
                             i.drawHighlight(minecraft, new Color(0.0f, 0.0f, 1.0f, 0.4f), recipeX, recipeY);
@@ -240,26 +245,6 @@ public class JEIMissingItem implements IRecipeTransferError {
                 TooltipRenderer.drawHoveringText(minecraft, tooltipLines, mouseX, mouseY);
             }
         }
-    }
-
-    IItemList<IAEItemStack> mergeInventories(IItemList<IAEItemStack> repo, ContainerMEMonitorable containerCraftingTerm) {
-        IItemList<IAEItemStack> itemList = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createList();
-        for (IAEItemStack i : repo) {
-            itemList.addStorage(i);
-        }
-
-        PlayerMainInvWrapper invWrapper = new PlayerMainInvWrapper(containerCraftingTerm.getPlayerInv());
-        for (int i = 0; i < invWrapper.getSlots(); i++) {
-            itemList.addStorage(AEItemStack.fromItemStack(invWrapper.getStackInSlot(i)));
-        }
-
-        if (containerCraftingTerm instanceof IContainerCraftingPacket) {
-            IItemHandler itemHandler = ((IContainerCraftingPacket) containerCraftingTerm).getInventoryByName("crafting");
-            for (int i = 0; i < itemHandler.getSlots(); i++) {
-                itemList.addStorage(AEItemStack.fromItemStack(itemHandler.getStackInSlot(i)));
-            }
-        }
-        return itemList;
     }
 
     public boolean errored() {

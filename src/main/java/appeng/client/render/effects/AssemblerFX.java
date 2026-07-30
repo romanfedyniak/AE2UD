@@ -19,7 +19,7 @@
 package appeng.client.render.effects;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.client.EffectType;
 import appeng.core.AppEng;
 import appeng.entity.EntityFloatingItem;
@@ -37,13 +37,15 @@ public class AssemblerFX extends Particle implements ICanDie {
     private final float speed;
     private float time = 0;
 
-    public AssemblerFX(final World w, final double x, final double y, final double z, final double r, final double g, final double b, final float speed, final IAEItemStack is) {
+    public AssemblerFX(final World w, final double x, final double y, final double z, final double r, final double g, final double b, final float speed, final GenericStack is) {
         super(w, x, y, z, r, g, b);
         this.motionX = 0;
         this.motionY = 0;
         this.motionZ = 0;
         this.speed = speed;
-        final ItemStack displayItem = is.asItemStackRepresentation();
+        // GenericStack.wrapInItemStack handles both AEItemKey (the real item) and any other registered key
+        // type (through the WrappedGenericStack placeholder) - was IAEItemStack.asItemStackRepresentation().
+        final ItemStack displayItem = GenericStack.wrapInItemStack(is);
         this.fi = new EntityFloatingItem(this, w, x, y, z, displayItem);
         w.spawnEntity(this.fi);
         this.particleMaxAge = (int) Math.ceil(Math.max(1, 100.0f / speed)) + 2;

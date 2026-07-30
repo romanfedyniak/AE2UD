@@ -20,6 +20,9 @@ package appeng.container;
 
 
 import appeng.api.AEApi;
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.GenericSlotCapacities;
+import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.definitions.IItemDefinition;
@@ -32,9 +35,12 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.MEStorage;
 import appeng.client.me.SlotME;
 import appeng.container.guisync.GuiSync;
 import appeng.container.guisync.SyncData;
@@ -52,8 +58,8 @@ import appeng.me.helpers.PlayerSource;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
+import appeng.util.inv.GenericStackInv;
 import appeng.util.inv.WrapperCursorItemHandler;
-import appeng.util.item.AEItemStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -64,6 +70,10 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import org.jetbrains.annotations.NotNull;
 
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -83,11 +93,11 @@ public abstract class AEBaseContainer extends Container {
     private boolean isContainerValid = true;
     private String customName;
     private ContainerOpenContext openContext;
-    private IMEInventoryHandler<IAEItemStack> cellInv;
+    private MEStorage cellInv;
     private IEnergySource powerSrc;
     private boolean sentCustomName;
     private int ticksSinceCheck = 900;
-    private IAEItemStack clientRequestedTargetItem = null;
+    private AEKey clientRequestedTargetItem = null;
 
     public AEBaseContainer(final InventoryPlayer ip, final TileEntity myTile, final IPart myPart) {
         this(ip, myTile, myPart, null);
@@ -146,24 +156,27 @@ public abstract class AEBaseContainer extends Container {
         this.prepareSync();
     }
 
-    public IAEItemStack getTargetStack() {
+    @Nullable
+    public AEKey getTargetStack() {
         return this.clientRequestedTargetItem;
     }
 
-    public void setTargetStack(final IAEItemStack stack) {
+    public void setTargetStack(@Nullable final AEKey stack) {
         // client doesn't need to re-send, makes for lower overhead rapid packets.
         if (Platform.isClient()) {
             if (stack == null && this.clientRequestedTargetItem == null) {
                 return;
             }
-            if (stack != null && stack.isSameType(this.clientRequestedTargetItem)) {
+            // AEKey carries no amount (unlike GenericStack, see CONTRACT.md §9.1), so a plain equals() is
+            // already the size-insensitive identity check the old isSameType() was.
+            if (stack != null && stack.equals(this.clientRequestedTargetItem)) {
                 return;
             }
 
-            NetworkHandler.instance().sendToServer(new PacketTargetItemStack((AEItemStack) stack));
+            NetworkHandler.instance().sendToServer(new PacketTargetItemStack(stack));
         }
 
-        this.clientRequestedTargetItem = stack == null ? null : stack.copy();
+        this.clientRequestedTargetItem = stack;
     }
 
     public IActionSource getActionSource() {
@@ -505,6 +518,25 @@ public abstract class AEBaseContainer extends Container {
         return ((AppEngSlot) s).isDraggable();
     }
 
+    /**
+     * @return what the given stack holds, as a key and an amount, or null if it holds nothing this mod can
+     *         name. A fluid container reports its fluid; everything else reports nothing, including an
+     *         already-wrapped placeholder, which is handled by the ordinary path.
+     */
+    @Nullable
+    private static GenericStack containedStackOf(final ItemStack stack) {
+        if (stack.isEmpty()) {
+            return null;
+        }
+
+        final FluidStack fluid = FluidUtil.getFluidContained(stack);
+        if (fluid != null && fluid.amount > 0) {
+            return new GenericStack(AEFluidKey.of(fluid), fluid.amount);
+        }
+
+        return null;
+    }
+
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slot, final long id) {
         if (slot >= 0 && slot < this.inventorySlots.size()) {
             final Slot s = this.getSlot(slot);
@@ -520,8 +552,28 @@ public abstract class AEBaseContainer extends Container {
                 }
             }
 
+            // Filling or emptying a held container against a stocked slot, rather than against the network.
+            // Upstream does the same for any slot backed by a generic inventory; here it is what lets a
+            // bucket be filled from an interface's fluid slot, which is otherwise unreachable - the slot
+            // rightly refuses to hand the key over as an item.
+            if (s instanceof SlotGenericStorage genericSlot
+                    && (action == InventoryAction.FILL_ITEM || action == InventoryAction.EMPTY_ITEM)) {
+                this.handleSlotContainerItemAction(player, genericSlot, action);
+                return;
+            }
+
             if (s instanceof SlotFake) {
                 final ItemStack hand = player.inventory.getItemStack();
+
+                // A wrapped key carries its amount in NBT, not in the ItemStack's count - a placeholder is
+                // always exactly one item and cannot stack. Every amount-changing case below works on
+                // getCount(), so on a fluid they grew a number nothing reads while the configured amount
+                // stayed put, and the slot ended up claiming a stack size the wrapper is not allowed to
+                // have. Handled here instead, in the key type's own unit.
+                final GenericStack wrapped = GenericStack.unwrapItemStack(s.getStack());
+                if (wrapped != null && this.adjustWrappedAmount(s, wrapped, action, hand)) {
+                    return;
+                }
 
                 switch (action) {
                     case PICKUP_OR_SET_DOWN:
@@ -557,7 +609,9 @@ public abstract class AEBaseContainer extends Container {
                             if (hand.isEmpty()) {
                                 is.setCount(Math.max(1, is.getCount() - 1));
                             } else if (hand.isItemEqual(is)) {
-                                is.setCount(Math.min(is.getMaxStackSize(), is.getCount() + 1));
+                                // Up to what the slot holds, not the item's own stack size: a config slot is
+                                // a number rather than a stack, and this one stopped at 64 in a slot of 512.
+                                is.setCount((int) Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
                             } else {
                                 is = hand.copy();
                                 is.setCount(1);
@@ -583,6 +637,23 @@ public abstract class AEBaseContainer extends Container {
                             s.putStack(doubled);
                         }
                         break;
+                    case EMPTY_ITEM: {
+                        // Set the filter to what the held item *contains* rather than to the item.
+                        // Backported from upstream's InventoryAction.EMPTY_ITEM on fake slots; it is the
+                        // only way to express a fluid filter by hand, since a bucket dropped into a slot
+                        // is otherwise just a bucket. Fluids are the only container type this fork knows;
+                        // a future key type would extend the lookup here rather than the slot.
+                        final GenericStack contained = containedStackOf(hand);
+                        if (contained != null) {
+                            // Clicking the same contents again adds another helping, like clicking the same
+                            // item again does.
+                            final GenericStack current = GenericStack.unwrapItemStack(s.getStack());
+                            final long already = current != null && current.what().equals(contained.what()) ? current.amount() : 0;
+                            s.putStack(GenericStack.wrapInItemStack(contained.what(),
+                                    Math.min(this.maxAmountIn(s, contained.what()), already + contained.amount())));
+                        }
+                        break;
+                    }
                     case CREATIVE_DUPLICATE:
                     case MOVE_REGION:
                     case SHIFT_CLICK:
@@ -608,8 +679,22 @@ public abstract class AEBaseContainer extends Container {
             return;
         }
 
-        // get target item.
-        final IAEItemStack slotItem = this.clientRequestedTargetItem;
+        // Filling or emptying a held container against the network. Handled before the item-only switch
+        // below, because these are the two actions whose whole point is a key type the player's inventory
+        // cannot hold directly.
+        if (action == InventoryAction.FILL_ITEM || action == InventoryAction.EMPTY_ITEM) {
+            this.handleContainerItemAction(player, action);
+            return;
+        }
+
+        // Get the targeted key. AEKey carries no amount, so `slotItemKey` is identity only, exactly as the
+        // pinned AEBaseContainer#getTargetStack() javadoc says ("only identity + display were ever read").
+        // The whole switch below is inherently item-only (it moves stacks into/out of the player's vanilla
+        // inventory, which cannot hold anything else), matching what the pre-migration code already did for
+        // every one of these actions -- mirrors upstream MEStorageMenu#handleNetworkInteraction's own
+        // `if (!(clickedKey instanceof AEItemKey clickedItem)) return;` guard for the identical action set.
+        final AEKey slotItem = this.clientRequestedTargetItem;
+        final AEItemKey slotItemKey = slotItem instanceof AEItemKey ? (AEItemKey) slotItem : null;
 
         switch (action) {
             case SHIFT_CLICK:
@@ -617,23 +702,16 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
-                    IAEItemStack ais = slotItem.copy();
-                    ItemStack myItem = ais.createItemStack();
-
-                    ais.setStackSize(myItem.getMaxStackSize());
-
+                if (slotItemKey != null) {
                     final InventoryAdaptor adp = InventoryAdaptor.getAdaptor(player);
-                    myItem.setCount((int) ais.getStackSize());
+                    ItemStack myItem = slotItemKey.toStack(slotItemKey.getMaxStackSize());
                     myItem = adp.simulateAdd(myItem);
 
-                    if (!myItem.isEmpty()) {
-                        ais.setStackSize(ais.getStackSize() - myItem.getCount());
-                    }
+                    final long toExtract = slotItemKey.getMaxStackSize() - myItem.getCount();
 
-                    ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais != null) {
-                        adp.addItems(ais.createItemStack());
+                    final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
+                    if (extracted > 0) {
+                        adp.addItems(slotItemKey.toStack((int) extracted));
                     }
                 }
                 break;
@@ -642,21 +720,21 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                final int releaseQty = 1;
                 final ItemStack isg = player.inventory.getItemStack();
 
-                if (!isg.isEmpty() && releaseQty > 0) {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(isg);
-                    ais.setStackSize(1);
-                    final IAEItemStack extracted = ais.copy();
+                if (!isg.isEmpty()) {
+                    final AEItemKey what = AEItemKey.of(isg);
 
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais == null) {
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, 1, this.getActionSource());
+                    if (inserted > 0) {
                         final InventoryAdaptor ia = new AdaptorItemHandler(new WrapperCursorItemHandler(player.inventory));
 
-                        final ItemStack fail = ia.removeItems(1, extracted.getDefinition(), null);
-                        if (fail.isEmpty()) {
-                            this.getCellInventory().extractItems(extracted, Actionable.MODULATE, this.getActionSource());
+                        // Take the 1 unit we just committed to the network off the cursor. removeItems()
+                        // returns what it actually removed (not a "failure"): an empty result here means the
+                        // cursor could not actually give up 1 unit after all, so the insert is rolled back.
+                        final ItemStack removed = ia.removeItems(1, what.getReadOnlyStack(), null);
+                        if (removed.isEmpty()) {
+                            this.getCellInventory().extract(what, 1, Actionable.MODULATE, this.getActionSource());
                         }
 
                         this.updateHeld(player);
@@ -670,29 +748,27 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
-                    int liftQty = 1;
+                if (slotItemKey != null) {
+                    boolean canLift = true;
                     final ItemStack item = player.inventory.getItemStack();
 
                     if (!item.isEmpty()) {
                         if (item.getCount() >= item.getMaxStackSize()) {
-                            liftQty = 0;
+                            canLift = false;
                         }
-                        if (!Platform.itemComparisons().isSameItem(slotItem.getDefinition(), item)) {
-                            liftQty = 0;
+                        if (!slotItemKey.matches(item)) {
+                            canLift = false;
                         }
                     }
 
-                    if (liftQty > 0) {
-                        IAEItemStack ais = slotItem.copy();
-                        ais.setStackSize(1);
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
+                    if (canLift) {
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, 1, this.getActionSource());
+                        if (extracted > 0) {
                             final InventoryAdaptor ia = new AdaptorItemHandler(new WrapperCursorItemHandler(player.inventory));
 
-                            final ItemStack fail = ia.addItems(ais.createItemStack());
+                            final ItemStack fail = ia.addItems(slotItemKey.toStack((int) extracted));
                             if (!fail.isEmpty()) {
-                                this.getCellInventory().injectItems(ais, Actionable.MODULATE, this.getActionSource());
+                                this.getCellInventory().insert(slotItemKey, extracted, Actionable.MODULATE, this.getActionSource());
                             }
 
                             this.updateHeld(player);
@@ -706,22 +782,22 @@ public abstract class AEBaseContainer extends Container {
                 }
 
                 if (player.inventory.getItemStack().isEmpty()) {
-                    if (slotItem != null) {
-                        IAEItemStack ais = slotItem.copy();
-                        ais.setStackSize(ais.getDefinition().getMaxStackSize());
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
-                            player.inventory.setItemStack(ais.createItemStack());
+                    if (slotItemKey != null) {
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, slotItemKey.getMaxStackSize(), this.getActionSource());
+                        if (extracted > 0) {
+                            player.inventory.setItemStack(slotItemKey.toStack((int) extracted));
                         } else {
                             player.inventory.setItemStack(ItemStack.EMPTY);
                         }
                         this.updateHeld(player);
                     }
                 } else {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(player.inventory.getItemStack());
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais != null) {
-                        player.inventory.setItemStack(ais.createItemStack());
+                    final ItemStack held = player.inventory.getItemStack();
+                    final AEItemKey what = AEItemKey.of(held);
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, held.getCount(), this.getActionSource());
+                    final long remaining = held.getCount() - inserted;
+                    if (remaining > 0) {
+                        player.inventory.setItemStack(what.toStack((int) remaining));
                     } else {
                         player.inventory.setItemStack(ItemStack.EMPTY);
                     }
@@ -735,30 +811,27 @@ public abstract class AEBaseContainer extends Container {
                 }
 
                 if (player.inventory.getItemStack().isEmpty()) {
-                    if (slotItem != null) {
-                        IAEItemStack ais = slotItem.copy();
-                        final long maxSize = ais.getDefinition().getMaxStackSize();
-                        ais.setStackSize(maxSize);
-                        ais = this.getCellInventory().extractItems(ais, Actionable.SIMULATE, this.getActionSource());
+                    if (slotItemKey != null) {
+                        final long maxSize = slotItemKey.getMaxStackSize();
+                        final long simulated = this.getCellInventory().extract(slotItemKey, maxSize, Actionable.SIMULATE, this.getActionSource());
 
-                        if (ais != null) {
-                            final long stackSize = Math.min(maxSize, ais.getStackSize());
-                            ais.setStackSize((stackSize + 1) >> 1);
-                            ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
+                        long extracted = 0;
+                        if (simulated > 0) {
+                            final long half = (Math.min(maxSize, simulated) + 1) >> 1;
+                            extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, half, this.getActionSource());
                         }
 
-                        if (ais != null) {
-                            player.inventory.setItemStack(ais.createItemStack());
+                        if (extracted > 0) {
+                            player.inventory.setItemStack(slotItemKey.toStack((int) extracted));
                         } else {
                             player.inventory.setItemStack(ItemStack.EMPTY);
                         }
                         this.updateHeld(player);
                     }
                 } else {
-                    IAEItemStack ais = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(player.inventory.getItemStack());
-                    ais.setStackSize(1);
-                    ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                    if (ais == null) {
+                    final AEItemKey what = AEItemKey.of(player.inventory.getItemStack());
+                    final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, 1, this.getActionSource());
+                    if (inserted > 0) {
                         final ItemStack is = player.inventory.getItemStack();
                         is.setCount(is.getCount() - 1);
                         if (is.getCount() <= 0) {
@@ -770,10 +843,8 @@ public abstract class AEBaseContainer extends Container {
 
                 break;
             case CREATIVE_DUPLICATE:
-                if (player.capabilities.isCreativeMode && slotItem != null) {
-                    final ItemStack is = slotItem.createItemStack();
-                    is.setCount(is.getMaxStackSize());
-                    player.inventory.setItemStack(is);
+                if (player.capabilities.isCreativeMode && slotItemKey != null) {
+                    player.inventory.setItemStack(slotItemKey.toStack(slotItemKey.getMaxStackSize()));
                     this.updateHeld(player);
                 }
                 break;
@@ -783,25 +854,18 @@ public abstract class AEBaseContainer extends Container {
                     return;
                 }
 
-                if (slotItem != null) {
+                if (slotItemKey != null) {
                     final int playerInv = 9 * 4;
                     for (int slotNum = 0; slotNum < playerInv; slotNum++) {
-                        IAEItemStack ais = slotItem.copy();
-                        ItemStack myItem = ais.createItemStack();
-
-                        ais.setStackSize(myItem.getMaxStackSize());
-
                         final InventoryAdaptor adp = InventoryAdaptor.getAdaptor(player);
-                        myItem.setCount((int) ais.getStackSize());
+                        ItemStack myItem = slotItemKey.toStack(slotItemKey.getMaxStackSize());
                         myItem = adp.simulateAdd(myItem);
 
-                        if (!myItem.isEmpty()) {
-                            ais.setStackSize(ais.getStackSize() - myItem.getCount());
-                        }
+                        final long toExtract = slotItemKey.getMaxStackSize() - myItem.getCount();
 
-                        ais = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), ais, this.getActionSource());
-                        if (ais != null) {
-                            adp.addItems(ais.createItemStack());
+                        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
+                        if (extracted > 0) {
+                            adp.addItems(slotItemKey.toStack((int) extracted));
                         } else {
                             return;
                         }
@@ -814,12 +878,319 @@ public abstract class AEBaseContainer extends Container {
         }
     }
 
+    /**
+     * Applies an amount-changing fake-slot action to a wrapped key, stepping by the key type's own unit - a
+     * bucket per notch for fluids, since a millibucket per notch would mean a thousand notches to fill one.
+     * Ctrl (halve/double) is what reaches the amounts in between, which is how the 40mB of a processing
+     * recipe gets configured.
+     *
+     * @return true if the action was consumed here; false to let the ordinary item path run, which is what
+     *         happens when the player is placing a different key rather than adjusting this one.
+     */
+    private boolean adjustWrappedAmount(final Slot s, final GenericStack current, final InventoryAction action,
+            final ItemStack hand) {
+        if (!hand.isEmpty() && action != InventoryAction.HALVE && action != InventoryAction.DOUBLE) {
+            // Holding something means the player is placing a different key, not tuning this one.
+            return false;
+        }
+
+        final long adjusted = adjustAmount(current.amount(), current.what().getAmountPerUnit(), action);
+        if (adjusted < 0) {
+            return false;
+        }
+
+        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.min(this.maxAmountIn(s, current.what()), adjusted)));
+        return true;
+    }
+
+    /**
+     * Steps a wrapped key's amount for one of the amount-changing slot actions, in the key type's own unit -
+     * a bucket per notch for fluids, since a millibucket per notch would be a thousand notches to fill one.
+     * Ctrl (halve/double) is what reaches the amounts in between.
+     * <p>
+     * Shared because the interface configuration terminal carries its own copy of the fake-slot actions,
+     * working on {@code ItemStack} counts, and a wrapped key has no count to work on - it is always exactly
+     * one item whatever amount it stands for.
+     *
+     * @return the new amount, or -1 if this action does not change one.
+     */
+    public static long adjustAmount(final long current, final int amountPerUnit, final InventoryAction action) {
+        final long unit = Math.max(1, amountPerUnit);
+        long amount = current;
+
+        switch (action) {
+            case PLACE_SINGLE:
+                // To the next whole unit, not one unit further along. Scrolling up from a hand-tuned 1mB
+                // should read 1B, not 1001mB.
+                amount = (amount / unit + 1) * unit;
+                break;
+            case PICKUP_SINGLE:
+            case SPLIT_OR_PLACE_SINGLE:
+                // Down to the previous whole unit, so an off-grid amount snaps back onto it first.
+                amount = amount % unit == 0 ? amount - unit : amount / unit * unit;
+                break;
+            case HALVE:
+                amount /= 2;
+                break;
+            case DOUBLE:
+                // Guard the overflow the item path gets for free from its stack limit.
+                amount = amount > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : amount * 2;
+                break;
+            default:
+                return -1;
+        }
+
+        // Never empties the slot, matching the item path: PICKUP_SINGLE on a count of one leaves the one.
+        // The floor is a single base unit rather than a whole unit, because a pattern may legitimately ask
+        // for less than a bucket.
+        return Math.max(1, amount);
+    }
+
+    /**
+     * Fills the held container from one slot of a generic inventory, or empties it into that slot. The
+     * network is not involved: this moves what the slot itself is holding, which is what makes an
+     * interface's stock reachable by hand.
+     */
+    private void handleSlotContainerItemAction(final EntityPlayerMP player, final SlotGenericStorage slot,
+            final InventoryAction action) {
+        final ItemStack held = player.inventory.getItemStack();
+        if (held.isEmpty()) {
+            return;
+        }
+
+        final GenericStackInv inv = slot.getGenericInv();
+        final int index = slot.getGenericSlot();
+
+        if (action == InventoryAction.FILL_ITEM) {
+            final AEKey what = inv.getKey(index);
+            if (!ContainerItemStrategies.isKeySupported(what)) {
+                return;
+            }
+
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
+            if (ctx == null) {
+                return;
+            }
+
+            final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+            final long available = inv.extract(index, what, room, Actionable.SIMULATE);
+            if (available <= 0) {
+                return;
+            }
+
+            final long moved = ctx.insert(what, available, Actionable.MODULATE);
+            if (moved > 0) {
+                inv.extract(index, what, moved, Actionable.MODULATE);
+                this.replaceHeldWith(player, held, ctx.getContainer());
+            }
+            return;
+        }
+
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+        if (ctx == null) {
+            return;
+        }
+
+        final GenericStack content = ctx.getExtractableContent();
+        if (content == null) {
+            return;
+        }
+
+        final AEKey what = content.what();
+        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        final long room = inv.insert(index, what, drainable, Actionable.SIMULATE);
+        if (room <= 0) {
+            return;
+        }
+
+        final long drained = ctx.extract(what, room, Actionable.MODULATE);
+        if (drained > 0) {
+            inv.insert(index, what, drained, Actionable.MODULATE);
+            this.replaceHeldWith(player, held, ctx.getContainer());
+        }
+    }
+
+    /**
+     * The ceiling for an amount typed into a fake slot, in the key's own units.
+     * <p>
+     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports - so it is
+     * scaled by the key type's standard slot size to mean the same thing for any type. An ME Interface's
+     * config allows 512 items and, by the same arithmetic, 32 buckets. A filter slot has a limit of one and
+     * therefore no meaningful ceiling, so those are left unbounded.
+     */
+    private long maxAmountIn(final Slot s, final AEKey what) {
+        final int slotLimit = s.getSlotStackLimit();
+        if (slotLimit <= 1) {
+            return Long.MAX_VALUE;
+        }
+
+        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
+        return Math.max(1, slotLimit * GenericSlotCapacities.get(what) / standard);
+    }
+
+    /**
+     * Fills the held container from the network, or empties it into the network, through the
+     * {@link ContainerItemStrategy} registered for the key type involved. One unit per click - a bucket for
+     * fluids - matching {@link AEKey#getAmountPerUnit()}.
+     * <p>
+     * Replaces the three near-identical copies of this dance that lived in the fluid-only containers. Nothing
+     * here mentions fluids: a key type that registers a strategy gets the interaction for free.
+     */
+    private void handleContainerItemAction(final EntityPlayerMP player, final InventoryAction action) {
+        if (this.getPowerSource() == null || this.getCellInventory() == null) {
+            return;
+        }
+
+        final ItemStack held = player.inventory.getItemStack();
+
+        if (action == InventoryAction.FILL_ITEM) {
+            final AEKey what = this.clientRequestedTargetItem;
+            if (!ContainerItemStrategies.isKeySupported(what)) {
+                return;
+            }
+
+            if (held.isEmpty()) {
+                this.fillBorrowedContainer(player, what);
+            } else {
+                this.fillHeldContainer(player, held, what);
+            }
+        } else if (!held.isEmpty()) {
+            this.emptyHeldContainer(player, held);
+        }
+    }
+
+    /**
+     * Clicking a key with an empty hand: borrow an empty container from the network, fill it, and hand it over -
+     * putting it straight back if this key turned out not to fit in it after all. Saves the player fetching a
+     * bucket first, which is the whole point of the interaction.
+     */
+    private void fillBorrowedContainer(final EntityPlayerMP player, final AEKey what) {
+        final ItemStack container = ContainerItemStrategies.getEmptyContainerFor(what);
+        if (container.isEmpty()) {
+            return;
+        }
+
+        final AEItemKey containerKey = AEItemKey.of(container);
+        if (containerKey == null) {
+            return;
+        }
+
+        // Unpowered on purpose: the container is a loan, not a withdrawal, and charging for it would mean
+        // charging again when it goes back. Upstream makes the same call.
+        if (this.getCellInventory().extract(containerKey, 1, Actionable.MODULATE, this.getActionSource()) < 1) {
+            return;
+        }
+
+        if (!this.fillHeldContainer(player, container, what)) {
+            this.getCellInventory().insert(containerKey, 1, Actionable.MODULATE, this.getActionSource());
+        }
+    }
+
+    /**
+     * @return true if anything was actually moved into the container.
+     */
+    private boolean fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what) {
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
+        if (ctx == null) {
+            return false;
+        }
+
+        // Room in the container first: asking the network for a bucket we cannot hold would charge power
+        // for nothing.
+        final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        if (room <= 0) {
+            return false;
+        }
+
+        final long available = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what, room,
+                this.getActionSource(), Actionable.SIMULATE);
+        if (available <= 0) {
+            return false;
+        }
+
+        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what,
+                available, this.getActionSource());
+        if (extracted <= 0) {
+            return false;
+        }
+
+        final long inserted = ctx.insert(what, extracted, Actionable.MODULATE);
+        if (inserted < extracted) {
+            // Put back whatever the container refused rather than voiding it, the same leniency the
+            // import strategies use.
+            this.getCellInventory().insert(what, extracted - inserted, Actionable.MODULATE, this.getActionSource());
+        }
+
+        if (inserted <= 0) {
+            return false;
+        }
+
+        this.replaceHeldWith(player, held, ctx.getContainer());
+        return true;
+    }
+
+    private void emptyHeldContainer(final EntityPlayerMP player, final ItemStack held) {
+        // No key type asked for: the container decides what comes out of it.
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+        if (ctx == null) {
+            return;
+        }
+
+        final GenericStack content = ctx.getExtractableContent();
+        if (content == null) {
+            return;
+        }
+
+        final AEKey what = content.what();
+        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        if (drainable <= 0) {
+            return;
+        }
+
+        final long storable = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drainable,
+                this.getActionSource(), Actionable.SIMULATE);
+        if (storable <= 0) {
+            return;
+        }
+
+        final long drained = ctx.extract(what, storable, Actionable.MODULATE);
+        if (drained <= 0) {
+            return;
+        }
+
+        final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drained,
+                this.getActionSource());
+        if (inserted < drained) {
+            // The network took less than the simulation promised; hand the rest back to the container.
+            ctx.insert(what, drained - inserted, Actionable.MODULATE);
+        }
+
+        this.replaceHeldWith(player, held, ctx.getContainer());
+    }
+
+    /**
+     * Swaps one container out of the held stack for its filled/emptied result. The strategy worked on a copy of
+     * size one, so a held stack of several buckets keeps the rest in hand and the changed one goes to the
+     * inventory - or on the floor if there is no room.
+     */
+    private void replaceHeldWith(final EntityPlayerMP player, final ItemStack held, final ItemStack result) {
+        if (held.getCount() <= 1) {
+            player.inventory.setItemStack(result);
+        } else {
+            held.shrink(1);
+            if (!player.inventory.addItemStackToInventory(result)) {
+                player.dropItem(result, false);
+            }
+        }
+        this.updateHeld(player);
+    }
+
     protected void updateHeld(final EntityPlayerMP p) {
         if (Platform.isServer()) {
             try {
                 NetworkHandler.instance()
                         .sendTo(
-                                new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, AEItemStack.fromItemStack(p.inventory.getItemStack())),
+                                new PacketInventoryAction(InventoryAction.UPDATE_HAND, 0, GenericStack.fromItemStack(p.inventory.getItemStack())),
                                 p);
             } catch (final IOException e) {
                 AELog.debug(e);
@@ -835,13 +1206,19 @@ public abstract class AEBaseContainer extends Container {
         if (this.getPowerSource() == null || this.getCellInventory() == null) {
             return input;
         }
-        final IAEItemStack ais = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(),
-                AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(input),
-                this.getActionSource());
-        if (ais == null) {
+
+        final AEItemKey what = AEItemKey.of(input);
+        if (what == null) {
+            return input;
+        }
+
+        final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, input.getCount(), this.getActionSource());
+        final long remaining = input.getCount() - inserted;
+
+        if (remaining <= 0) {
             return ItemStack.EMPTY;
         }
-        return ais.createItemStack();
+        return what.toStack((int) remaining);
     }
 
     private void updateSlot(final Slot clickSlot) {
@@ -1024,11 +1401,11 @@ public abstract class AEBaseContainer extends Container {
         return true;
     }
 
-    public IMEInventoryHandler<IAEItemStack> getCellInventory() {
+    public MEStorage getCellInventory() {
         return this.cellInv;
     }
 
-    public void setCellInventory(final IMEInventoryHandler<IAEItemStack> cellInv) {
+    public void setCellInventory(final MEStorage cellInv) {
         this.cellInv = cellInv;
     }
 

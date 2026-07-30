@@ -24,6 +24,7 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.stacks.GenericStack;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.container.implementations.ContainerCraftConfirm;
@@ -82,12 +83,15 @@ public class PacketCraftRequest extends AppEngPacket {
                     return;
                 }
 
-                cca.getItemToCraft().setStackSize(this.amount);
+                // The amount used to be pushed back into the container's stack (setStackSize) and the
+                // stack passed on. An AEKey carries no amount, so the pair is built here instead; the
+                // container keeps holding just the key it was opened with.
+                final GenericStack toCraft = new GenericStack(cca.getItemToCraft(), this.amount);
 
                 Future<ICraftingJob> futureJob = null;
                 try {
                     final ICraftingGrid cg = g.getCache(ICraftingGrid.class);
-                    futureJob = cg.beginCraftingJob(cca.getWorld(), cca.getGrid(), cca.getActionSrc(), cca.getItemToCraft(), null);
+                    futureJob = cg.beginCraftingJob(cca.getWorld(), cca.getGrid(), cca.getActionSrc(), toCraft, null);
 
                     final ContainerOpenContext context = cca.getOpenContext();
                     if (context != null) {

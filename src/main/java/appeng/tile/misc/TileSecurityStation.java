@@ -33,17 +33,13 @@ import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.events.MENetworkSecurityChange;
 import appeng.api.networking.security.ISecurityProvider;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ITerminalHost;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.MEStorage;
 import appeng.api.util.*;
 import appeng.helpers.PlayerSecurityWrapper;
 import appeng.me.GridAccessException;
-import appeng.me.helpers.MEMonitorHandler;
 import appeng.me.storage.SecurityStationInventory;
 import appeng.tile.grid.AENetworkTile;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -53,7 +49,6 @@ import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
@@ -71,7 +66,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
-import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 
 public class TileSecurityStation extends AENetworkTile implements ITerminalHost, IAEAppEngInventory, ILocatable, IConfigManagerHost, ISecurityProvider, IColorableTile {
@@ -80,7 +74,6 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
     private final AppEngInternalInventory configSlot = new AppEngInternalInventory(this, 1);
     private final IConfigManager cm = new ConfigManager(this);
     private final SecurityStationInventory inventory = new SecurityStationInventory(this);
-    private final MEMonitorHandler<IAEItemStack> securityMonitor = new MEMonitorHandler<>(this.inventory);
     private long securityKey;
     private AEColor paintedColor = AEColor.TRANSPARENT;
     private boolean isActive = false;
@@ -111,12 +104,14 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
             drops.add(this.getConfigSlot().getStackInSlot(0));
         }
 
-        for (final IAEItemStack ais : this.inventory.getStoredItems()) {
-            drops.add(ais.createItemStack());
+        for (final var entry : this.inventory.getStoredItems()) {
+            if (entry.getKey() instanceof AEItemKey itemKey) {
+                drops.add(itemKey.toStack((int) Math.min(Integer.MAX_VALUE, entry.getLongValue())));
+            }
         }
     }
 
-    IMEInventoryHandler<IAEItemStack> getSecurityInventory() {
+    MEStorage getSecurityInventory() {
         return this.inventory;
     }
 
@@ -151,9 +146,9 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
         final NBTTagCompound storedItems = new NBTTagCompound();
 
         int offset = 0;
-        for (final IAEItemStack ais : this.inventory.getStoredItems()) {
+        for (final var entry : this.inventory.getStoredItems()) {
             final NBTTagCompound it = new NBTTagCompound();
-            ais.createItemStack().writeToNBT(it);
+            GenericStack.writeTag(it, new GenericStack(entry.getKey(), entry.getLongValue()));
             storedItems.setTag(String.valueOf(offset), it);
             offset++;
         }
@@ -176,8 +171,11 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
         final NBTTagCompound storedItems = data.getCompoundTag("storedItems");
         for (final Object key : storedItems.getKeySet()) {
             final NBTBase obj = storedItems.getTag((String) key);
-            if (obj instanceof NBTTagCompound) {
-                this.inventory.getStoredItems().add(AEItemStack.fromItemStack(stackFromNBT((NBTTagCompound) obj)));
+            if (obj instanceof NBTTagCompound tag) {
+                final GenericStack stack = GenericStack.readTag(tag);
+                if (stack != null && stack.what() instanceof AEItemKey itemKey) {
+                    this.inventory.getStoredItems().add(itemKey, stack.amount());
+                }
             }
         }
     }
@@ -239,12 +237,8 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
     }
 
     @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        if (channel == AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)) {
-            return (IMEMonitor<T>) this.securityMonitor;
-        }
-        return null;
-
+    public MEStorage getInventory() {
+        return this.inventory;
     }
 
     @Override
@@ -276,8 +270,11 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
         final IPlayerRegistry pr = AEApi.instance().registries().players();
 
         // read permissions
-        for (final IAEItemStack ais : this.inventory.getStoredItems()) {
-            final ItemStack is = ais.createItemStack();
+        for (final var entry : this.inventory.getStoredItems()) {
+            if (!(entry.getKey() instanceof AEItemKey itemKey)) {
+                continue;
+            }
+            final ItemStack is = itemKey.toStack((int) Math.min(Integer.MAX_VALUE, entry.getLongValue()));
             final Item i = is.getItem();
             if (i instanceof IBiometricCard) {
                 final IBiometricCard bc = (IBiometricCard) i;

@@ -19,7 +19,7 @@
 package appeng.client.me;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.container.me.GridInventoryEntry;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -35,9 +35,13 @@ public class SlotME extends SlotItemHandler {
         this.mySlot = me;
     }
 
-    public IAEItemStack getAEStack() {
+    /**
+     * The row this slot displays: the key, the stored/requestable amounts and the craftable flag. Replaces
+     * the old {@code getAEStack(): IAEItemStack}.
+     */
+    public GridInventoryEntry getEntry() {
         if (this.mySlot.hasPower()) {
-            return this.mySlot.getAEStack();
+            return this.mySlot.getEntry();
         }
         return null;
     }

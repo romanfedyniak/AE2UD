@@ -22,7 +22,7 @@ package appeng.items.misc;
 import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
@@ -140,30 +140,30 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         final boolean isCrafting = details.isCraftable();
         final boolean substitute = details.canSubstitute();
 
-        final IAEItemStack[] in = details.getCondensedInputs();
-        final IAEItemStack[] out = details.getCondensedOutputs();
+        final GenericStack[] in = details.getCondensedInputs();
+        final GenericStack[] out = details.getCondensedOutputs();
 
         final String label = (isCrafting ? GuiText.Crafts.getLocal() : GuiText.Creates.getLocal()) + ": ";
         final String and = ' ' + GuiText.And.getLocal() + ' ';
         final String with = GuiText.With.getLocal() + ": ";
 
         boolean first = true;
-        for (final IAEItemStack anOut : out) {
+        for (final GenericStack anOut : out) {
             if (anOut == null) {
                 continue;
             }
 
-            lines.add((first ? label : and) + anOut.getStackSize() + ' ' + Platform.getItemDisplayName(anOut));
+            lines.add((first ? label : and) + anOut.amount() + ' ' + Platform.getItemDisplayName(anOut.what()));
             first = false;
         }
 
         first = true;
-        for (final IAEItemStack anIn : in) {
+        for (final GenericStack anIn : in) {
             if (anIn == null) {
                 continue;
             }
 
-            lines.add((first ? with : and) + anIn.getStackSize() + ' ' + Platform.getItemDisplayName(anIn));
+            lines.add((first ? with : and) + anIn.amount() + ' ' + Platform.getItemDisplayName(anIn.what()));
             first = false;
         }
 
@@ -198,7 +198,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
 
         final ICraftingPatternDetails details = this.getPatternForItem(item, w);
 
-        out = details != null ? details.getOutputs()[0].createItemStack() : ItemStack.EMPTY;
+        out = details != null ? GenericStack.wrapInItemStack(details.getOutputs()[0]) : ItemStack.EMPTY;
 
         SIMPLE_CACHE.put(item, out);
         return out;

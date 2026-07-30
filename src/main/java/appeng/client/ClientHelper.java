@@ -28,7 +28,6 @@ import appeng.client.render.effects.*;
 import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
-import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.Api;
@@ -290,22 +289,6 @@ public class ClientHelper extends ServerHelper {
     }
 
     @SubscribeEvent
-    public void MouseClickEvent(final GuiScreenEvent.MouseInputEvent.Pre me) {
-        final Minecraft mc = Minecraft.getMinecraft();
-        if (mc.currentScreen instanceof IJEIGhostIngredients) {
-            AEBaseGui gui = ((AEBaseGui) mc.currentScreen);
-            Object ingredient = gui.getBookmarkedIngredient();
-            if (ingredient != null) {
-                if (GuiScreen.isShiftKeyDown()) {
-                    me.setCanceled(true);
-                } else if (Mouse.isButtonDown(0)) {
-                    me.setCanceled(true);
-                }
-            }
-        }
-    }
-
-    @SubscribeEvent
     public void wheelEvent(final MouseEvent me) {
         if (me.getDwheel() == 0) {
             return;
@@ -338,8 +321,6 @@ public class ClientHelper extends ServerHelper {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_CRAFTING_TERMINAL));
                 } else if (k == WPT.getKeyBinding()) {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_PATTERN_TERMINAL));
-                } else if (k == WFT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_FLUID_TERMINAL));
                 } else if (k == WIT.getKeyBinding()) {
                     NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_INTERFACE_TERMINAL));
                 }

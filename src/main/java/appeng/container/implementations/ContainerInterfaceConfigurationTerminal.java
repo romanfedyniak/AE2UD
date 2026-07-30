@@ -24,6 +24,10 @@ import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
+import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.container.AEBaseContainer;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompressedNBT;
@@ -177,6 +181,22 @@ public final class ContainerInterfaceConfigurationTerminal extends AEBaseContain
 
             ItemStack inSlot = theSlot.getStackInSlot(0);
 
+            // A wrapped key's amount lives in its NBT, not in the ItemStack's count - a placeholder is
+            // always exactly one item - so every count-based case below is a no-op on one. This terminal
+            // carries its own copy of the fake-slot actions rather than sharing AEBaseContainer's, which is
+            // why it needed the same treatment separately.
+            final GenericStack wrapped = GenericStack.unwrapItemStack(inSlot);
+            if (wrapped != null && !hasItemInHand) {
+                final long adjusted = AEBaseContainer.adjustAmount(wrapped.amount(),
+                        wrapped.what().getAmountPerUnit(), action);
+                if (adjusted >= 0) {
+                    final long max = ((AppEngInternalAEInventory) inv.getServer()).getMaxAmount(wrapped.what());
+                    ItemHandlerUtil.setStackInSlot(theSlot, 0,
+                            GenericStack.wrapInItemStack(wrapped.what(), Math.min(max, adjusted)));
+                    return;
+                }
+            }
+
             switch (action) {
                 case PICKUP_OR_SET_DOWN:
                     if (hasItemInHand) {
@@ -185,6 +205,23 @@ public final class ContainerInterfaceConfigurationTerminal extends AEBaseContain
                         ItemHandlerUtil.setStackInSlot(theSlot, 0, ItemStack.EMPTY);
                     }
                     break;
+                case EMPTY_ITEM: {
+                    // Configure the slot to what the held item *contains* rather than to the item itself.
+                    // Same convention as every other filter slot since stage 0: left click takes the
+                    // contents, right click still places the container, because a bucket is a perfectly
+                    // ordinary item everywhere else.
+                    final GenericStack contained = ContainerItemStrategies.getContainedStack(player.inventory.getItemStack());
+                    if (contained != null) {
+                        // Clicking the same contents again adds another helping, the way clicking the same
+                        // item again does, up to what the slot can hold.
+                        final GenericStack current = GenericStack.unwrapItemStack(inSlot);
+                        final long already = current != null && current.what().equals(contained.what()) ? current.amount() : 0;
+                        final long max = ((AppEngInternalAEInventory) inv.getServer()).getMaxAmount(contained.what());
+                        ItemHandlerUtil.setStackInSlot(theSlot, 0, GenericStack.wrapInItemStack(contained.what(),
+                                Math.min(max, already + contained.amount())));
+                    }
+                    break;
+                }
                 case PLACE_SINGLE:
                     if (inSlot.getCount() < inSlot.getMaxStackSize() * 8) {
                         inSlot.grow(1);
@@ -200,7 +237,15 @@ public final class ContainerInterfaceConfigurationTerminal extends AEBaseContain
                 case SPLIT_OR_PLACE_SINGLE:
                     if (hasItemInHand) {
                         if (ItemStack.areItemsEqual(inSlot, player.inventory.getItemStack()) && ItemStack.areItemStackTagsEqual(inSlot, player.inventory.getItemStack())) {
-                            inSlot.grow(1);
+                            // Up to what the slot holds, not to the item's own stack size. A config slot is
+                            // a number, not a stack: it was capped at 64 while the slot itself takes 512.
+                            final AEItemKey key = AEItemKey.of(inSlot);
+                            final long max = key == null
+                                    ? inSlot.getMaxStackSize()
+                                    : ((AppEngInternalAEInventory) inv.getServer()).getMaxAmount(key);
+                            if (inSlot.getCount() < max) {
+                                inSlot.grow(1);
+                            }
                             ItemHandlerUtil.setStackInSlot(theSlot, 0, inSlot.copy());
                         } else {
                             ItemStack configuredStack = player.inventory.getItemStack().copy();

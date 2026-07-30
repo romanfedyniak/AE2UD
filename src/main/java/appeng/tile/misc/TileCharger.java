@@ -30,7 +30,8 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -43,7 +44,7 @@ import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.filter.IAEItemFilter;
-import appeng.util.item.AEItemStack;
+import appeng.util.item.OreHelper;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -79,8 +80,10 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
     protected boolean readFromStream(final ByteBuf data) throws IOException {
         final boolean c = super.readFromStream(data);
         try {
-            final IAEItemStack item = AEItemStack.fromPacket(data);
-            final ItemStack is = item.createItemStack();
+            final GenericStack stack = GenericStack.readBuffer(data);
+            final ItemStack is = stack != null && stack.what() instanceof AEItemKey itemKey
+                    ? itemKey.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()))
+                    : ItemStack.EMPTY;
             this.inv.setStackInSlot(0, is);
         } catch (final Throwable t) {
             this.inv.setStackInSlot(0, ItemStack.EMPTY);
@@ -91,10 +94,7 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
     @Override
     protected void writeToStream(final ByteBuf data) throws IOException {
         super.writeToStream(data);
-        final AEItemStack is = AEItemStack.fromItemStack(this.inv.getStackInSlot(0));
-        if (is != null) {
-            is.writeToPacket(data);
-        }
+        GenericStack.writeBuffer(GenericStack.fromItemStack(this.inv.getStackInSlot(0)), data);
     }
 
     @Override
@@ -162,7 +162,7 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
             if (!held.isEmpty()) {
                 if (AEConfig.instance().isFeatureEnabled(AEFeature.CERTUS)) {
                     final IMaterials materials = AEApi.instance().definitions().materials();
-                    if (AEItemStack.fromItemStack(held).sameOre(AEItemStack.fromItemStack(materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY))) || Platform.isChargeable(held)) {
+                    if (OreHelper.INSTANCE.sameOre(AEItemKey.of(held), materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY)) || Platform.isChargeable(held)) {
                         held = player.inventory.decrStackSize(player.inventory.currentItem, 1);
                         this.inv.setStackInSlot(0, held);
                     }
@@ -219,7 +219,7 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
                         changed = true;
                     }
                 }
-            } else if (this.getInternalCurrentPower() > POWER_THRESHOLD && (materials.certusQuartzCrystal().isSameAs(myItem) || AEItemStack.fromItemStack(myItem).sameOre(AEItemStack.fromItemStack(materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY))))) {
+            } else if (this.getInternalCurrentPower() > POWER_THRESHOLD && (materials.certusQuartzCrystal().isSameAs(myItem) || OreHelper.INSTANCE.sameOre(AEItemKey.of(myItem), materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY)))) {
                 if (Platform.getRandomFloat() > 0.8f) // simulate wait
                 {
                     this.extractAEPower(this.getInternalMaxPower(), Actionable.MODULATE, PowerMultiplier.CONFIG);
@@ -255,7 +255,7 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
     private class ChargerInvFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(IItemHandler inv, final int i, final ItemStack itemstack) {
-            return AEItemStack.fromItemStack(itemstack).sameOre(AEItemStack.fromItemStack(AEApi.instance().definitions().materials().certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY))) || Platform.isChargeable(itemstack);
+            return OreHelper.INSTANCE.sameOre(AEItemKey.of(itemstack), AEApi.instance().definitions().materials().certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY)) || Platform.isChargeable(itemstack);
         }
 
         @Override

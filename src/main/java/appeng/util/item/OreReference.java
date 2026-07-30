@@ -19,7 +19,7 @@
 package appeng.util.item;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 
@@ -30,21 +30,21 @@ public class OreReference {
 
     private final List<String> otherOptions = new ArrayList<>();
     private final Set<Integer> ores = new HashSet<>();
-    private List<IAEItemStack> aeOtherOptions = null;
+    private List<AEItemKey> aeOtherOptions = null;
 
     Collection<String> getEquivalents() {
         return this.otherOptions;
     }
 
-    public List<IAEItemStack> getAEEquivalents() {
+    public List<AEItemKey> getAEEquivalents() {
         if (this.aeOtherOptions == null) {
             this.aeOtherOptions = new ArrayList<>(this.otherOptions.size());
 
-            // SUMMON AE STACKS!
+            // SUMMON AE KEYS!
             for (final String oreName : this.otherOptions) {
                 for (final ItemStack is : OreHelper.INSTANCE.getCachedOres(oreName)) {
                     if (is.getItem() != Items.AIR) {
-                        this.aeOtherOptions.add(AEItemStack.fromItemStack(is));
+                        this.aeOtherOptions.add(AEItemKey.of(is));
                     }
                 }
             }

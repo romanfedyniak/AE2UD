@@ -19,18 +19,18 @@
 package appeng.util.prioritylist;
 
 
-import appeng.api.storage.data.IAEStack;
-
 import java.util.ArrayList;
 import java.util.Collection;
 
+import appeng.api.stacks.AEKey;
 
-public final class MergedPriorityList<T extends IAEStack<T>> implements IPartitionList<T> {
 
-    private final Collection<IPartitionList<T>> positive = new ArrayList<>();
-    private final Collection<IPartitionList<T>> negative = new ArrayList<>();
+public final class MergedPriorityList implements IPartitionList {
 
-    public void addNewList(final IPartitionList<T> list, final boolean isWhitelist) {
+    private final Collection<IPartitionList> positive = new ArrayList<>();
+    private final Collection<IPartitionList> negative = new ArrayList<>();
+
+    public void addNewList(final IPartitionList list, final boolean isWhitelist) {
         if (isWhitelist) {
             this.positive.add(list);
         } else {
@@ -39,15 +39,15 @@ public final class MergedPriorityList<T extends IAEStack<T>> implements IPartiti
     }
 
     @Override
-    public boolean isListed(final T input) {
-        for (final IPartitionList<T> l : this.negative) {
+    public boolean isListed(final AEKey input) {
+        for (final IPartitionList l : this.negative) {
             if (l.isListed(input)) {
                 return false;
             }
         }
 
         if (!this.positive.isEmpty()) {
-            for (final IPartitionList<T> l : this.positive) {
+            for (final IPartitionList l : this.positive) {
                 if (l.isListed(input)) {
                     return true;
                 }
@@ -65,7 +65,7 @@ public final class MergedPriorityList<T extends IAEStack<T>> implements IPartiti
     }
 
     @Override
-    public Iterable<T> getItems() {
+    public Iterable<AEKey> getItems() {
         throw new UnsupportedOperationException();
     }
 }

@@ -19,28 +19,31 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.AEApi;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.container.implementations.ContainerPatternEncoder;
-import appeng.container.implementations.ContainerPatternTerm;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.items.IItemHandler;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 
+/**
+ * The pattern terminal's craft-from-pattern shift-click, carrying the 9-slot pattern (CONTRACT.md §10).
+ * Pinned signature: {@code PacketPatternSlot(IItemHandler pat, @Nullable GenericStack slotItem, boolean
+ * shift)} -- {@code pattern} is built from {@code pat}'s slots via {@link GenericStack#resolveItemStack}.
+ */
 public class PacketPatternSlot extends AppEngPacket {
 
-    public final IAEItemStack slotItem;
+    @Nullable
+    public final GenericStack slotItem;
 
-    public final IAEItemStack[] pattern = new IAEItemStack[9];
+    public final GenericStack[] pattern = new GenericStack[9];
 
     public final boolean shift;
 
@@ -49,25 +52,15 @@ public class PacketPatternSlot extends AppEngPacket {
 
         this.shift = stream.readBoolean();
 
-        this.slotItem = this.readItem(stream);
+        this.slotItem = GenericStack.readBuffer(stream);
 
         for (int x = 0; x < 9; x++) {
-            this.pattern[x] = this.readItem(stream);
+            this.pattern[x] = GenericStack.readBuffer(stream);
         }
-    }
-
-    private IAEItemStack readItem(final ByteBuf stream) throws IOException {
-        final boolean hasItem = stream.readBoolean();
-
-        if (hasItem) {
-            return AEItemStack.fromPacket(stream);
-        }
-
-        return null;
     }
 
     // api
-    public PacketPatternSlot(final IItemHandler pat, final IAEItemStack slotItem, final boolean shift) throws IOException {
+    public PacketPatternSlot(final IItemHandler pat, @Nullable final GenericStack slotItem, final boolean shift) throws IOException {
 
         this.slotItem = slotItem;
         this.shift = shift;
@@ -78,22 +71,13 @@ public class PacketPatternSlot extends AppEngPacket {
 
         data.writeBoolean(shift);
 
-        this.writeItem(slotItem, data);
+        GenericStack.writeBuffer(slotItem, data);
         for (int x = 0; x < 9; x++) {
-            this.pattern[x] = AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class).createStack(pat.getStackInSlot(x));
-            this.writeItem(this.pattern[x], data);
+            this.pattern[x] = GenericStack.resolveItemStack(pat.getStackInSlot(x));
+            GenericStack.writeBuffer(this.pattern[x], data);
         }
 
         this.configureWrite(data);
-    }
-
-    private void writeItem(final IAEItemStack slotItem, final ByteBuf data) throws IOException {
-        if (slotItem == null) {
-            data.writeBoolean(false);
-        } else {
-            data.writeBoolean(true);
-            slotItem.writeToPacket(data);
-        }
     }
 
     @Override

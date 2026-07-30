@@ -26,7 +26,9 @@ import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.util.InventoryAdaptor;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.item.ItemStack;
@@ -72,9 +74,9 @@ public class MultiCraftingTracker {
         }
     }
 
-    public boolean handleCrafting(final int x, final long itemToCraft, final IAEItemStack ais, final InventoryAdaptor d, final World w, final IGrid g, final ICraftingGrid cg, final IActionSource mySrc) {
-        if (ais != null) {
-            ItemStack inputStack = ais.createItemStack();
+    public boolean handleCrafting(final int x, final long itemToCraft, final AEKey what, final InventoryAdaptor d, final World w, final IGrid g, final ICraftingGrid cg, final IActionSource mySrc) {
+        if (what instanceof AEItemKey itemKey) {
+            ItemStack inputStack = itemKey.toStack((int) Math.min(itemToCraft, Integer.MAX_VALUE));
 
             ItemStack remaining = d.simulateAdd(inputStack);
 
@@ -109,10 +111,7 @@ public class MultiCraftingTracker {
                     }
                 } else {
                     if (this.getLink(x) == null) {
-                        final IAEItemStack aisC = ais.copy();
-                        aisC.setStackSize(itemToCraft);
-
-                        this.setJob(x, cg.beginCraftingJob(w, g, mySrc, aisC, null));
+                        this.setJob(x, cg.beginCraftingJob(w, g, mySrc, new GenericStack(what, itemToCraft), null));
                     }
                 }
             }

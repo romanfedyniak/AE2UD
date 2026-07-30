@@ -19,7 +19,6 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.SecurityPermissions;
@@ -28,13 +27,12 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.security.ISecurityGrid;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.container.implementations.ContainerExpandedProcessingPatternTerm;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.AEKeyFilter;
+import appeng.api.storage.MEStorage;
 import appeng.container.implementations.ContainerPatternEncoder;
-import appeng.container.implementations.ContainerPatternTerm;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.helpers.IContainerCraftingPacket;
@@ -43,10 +41,9 @@ import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.WrapperInvItemHandler;
-import appeng.util.item.AEItemStack;
-import appeng.util.prioritylist.IPartitionList;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
@@ -61,12 +58,26 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 
+/**
+ * Transfers a HEI/JEI recipe layout into the crafting terminal or the expanded processing pattern
+ * terminal (both implement {@link IContainerCraftingPacket}), pulling ingredients from the network (or,
+ * in preview mode, merely checking whether the network could supply/craft them).
+ * <p/>
+ * Ported from the {@code IAEItemStack}/{@code IMEMonitor}/{@code IStorageGrid}/{@code IPartitionList}
+ * model to {@code AEKey}/{@code MEStorage}/{@code IStorageService}/{@code AEKeyFilter}. The per-slot fill
+ * algorithm (exact match -> put away mismatched item -> extract by identity -> fuzzy-damage fallback ->
+ * player-inventory fallback -> preview-only placeholder) is unchanged; only the storage calls are ported.
+ * <p/>
+ * The old fuzzy fallback used {@code IMEMonitor#getStorageList()#findFuzzy}. Its replacement is the
+ * network's own live cache, {@link IStorageService#getCachedInventory()} (a {@code KeyCounter}), which is
+ * exactly the fuzzy-search entry point {@code CONTRACT.md} pointed wave 4 at -- nothing needed reporting
+ * here.
+ */
 public class PacketJEIRecipe extends AppEngPacket {
 
     private List<ItemStack[]> recipe;
@@ -143,7 +154,7 @@ public class PacketJEIRecipe extends AppEngPacket {
             return;
         }
 
-        final IStorageGrid inv = grid.getCache(IStorageGrid.class);
+        final IStorageService inv = grid.getCache(IStorageService.class);
         final IEnergyGrid energy = grid.getCache(IEnergyGrid.class);
         final ISecurityGrid security = grid.getCache(ISecurityGrid.class);
         final ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
@@ -151,8 +162,8 @@ public class PacketJEIRecipe extends AppEngPacket {
         final IItemHandler playerInventory = cct.getInventoryByName("player");
 
         if (inv != null && this.recipe != null && security != null) {
-            final IMEMonitor<IAEItemStack> storage = inv.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
-            final IPartitionList<IAEItemStack> filter = ItemViewCell.createFilter(cct.getViewCells());
+            final MEStorage storage = inv.getInventory();
+            final AEKeyFilter filter = ItemViewCell.createFilter(cct.getViewCells());
 
             for (int x = 0; x < craftMatrix.getSlots(); x++) {
                 ItemStack currentItem = craftMatrix.getStackInSlot(x);
@@ -174,10 +185,14 @@ public class PacketJEIRecipe extends AppEngPacket {
 
                     // put away old item
                     if (newItem != currentItem && security.hasPermission(player, SecurityPermissions.INJECT)) {
-                        final IAEItemStack in = AEItemStack.fromItemStack(currentItem);
-                        final IAEItemStack out = cct.useRealItems() ? Platform.poweredInsert(energy, storage, in, cct.getActionSource()) : null;
-                        if (out != null) {
-                            currentItem = out.createItemStack();
+                        final AEItemKey in = AEItemKey.of(currentItem);
+                        long insertedAmount = 0;
+                        if (cct.useRealItems() && in != null) {
+                            insertedAmount = Platform.poweredInsert(energy, storage, in, currentItem.getCount(), cct.getActionSource());
+                        }
+                        final long leftover = currentItem.getCount() - insertedAmount;
+                        if (cct.useRealItems() && in != null && leftover > 0) {
+                            currentItem = in.toStack((int) leftover);
                         } else {
                             currentItem = ItemStack.EMPTY;
                         }
@@ -187,49 +202,52 @@ public class PacketJEIRecipe extends AppEngPacket {
                 if (currentItem.isEmpty() && recipe.size() > x && recipe.get(x) != null) {
                     // for each variant
                     for (int y = 0; y < this.recipe.get(x).length && currentItem.isEmpty(); y++) {
-                        final IAEItemStack request = AEItemStack.fromItemStack(this.recipe.get(x)[y]);
+                        final AEItemKey request = AEItemKey.of(this.recipe.get(x)[y]);
                         if (request != null) {
                             // try ae
-                            if ((filter == null || filter.isListed(request)) && security.hasPermission(player, SecurityPermissions.EXTRACT)) {
-                                request.setStackSize(1);
-                                IAEItemStack out;
+                            if (filter.matches(request) && security.hasPermission(player, SecurityPermissions.EXTRACT)) {
+                                AEItemKey outKey = null;
 
                                 if (cct.useRealItems()) {
-                                    out = Platform.poweredExtraction(energy, storage, request, cct.getActionSource());
-                                    if (out == null) {
-                                        if (request.getItem().isDamageable() || Platform.isGTDamageableItem(request.getItem())) {
-                                            Collection<IAEItemStack> outList = inv.getInventory(AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class)).getStorageList().findFuzzy(request, FuzzyMode.IGNORE_ALL);
-                                            for (IAEItemStack is : outList) {
-                                                if (is.getStackSize() == 0) {
+                                    long extracted = Platform.poweredExtraction(energy, storage, request, 1, cct.getActionSource());
+                                    if (extracted > 0) {
+                                        outKey = request;
+                                    } else if (request.getItem().isDamageable() || Platform.isGTDamageableItem(request.getItem())) {
+                                        for (Object2LongMap.Entry<AEKey> entry : inv.getCachedInventory().findFuzzy(request, FuzzyMode.IGNORE_ALL)) {
+                                            if (!(entry.getKey() instanceof AEItemKey candidate)) {
+                                                continue;
+                                            }
+                                            if (entry.getLongValue() == 0) {
+                                                continue;
+                                            }
+                                            if (Platform.isGTDamageableItem(request.getItem())) {
+                                                if (candidate.getDamage() != request.getDamage()) {
                                                     continue;
                                                 }
-                                                if (Platform.isGTDamageableItem(request.getItem())) {
-                                                    if (!(is.getDefinition().getMetadata() == request.getDefinition().getMetadata())) {
-                                                        continue;
-                                                    }
-                                                }
-                                                out = Platform.poweredExtraction(energy, storage, is.copy().setStackSize(1), cct.getActionSource());
-                                                if (out != null) {
-                                                    break;
-                                                }
+                                            }
+                                            extracted = Platform.poweredExtraction(energy, storage, candidate, 1, cct.getActionSource());
+                                            if (extracted > 0) {
+                                                outKey = candidate;
+                                                break;
                                             }
                                         }
                                     }
                                 } else {
                                     // Query the crafting grid if there is a pattern providing the item
                                     if (!crafting.getCraftingFor(request, null, 0, null).isEmpty()) {
-                                        out = request;
+                                        outKey = request;
                                     } else {
                                         // Fall back using an existing item
-                                        out = storage.extractItems(request, Actionable.SIMULATE, cct.getActionSource());
+                                        long simulated = storage.extract(request, 1, Actionable.SIMULATE, cct.getActionSource());
+                                        if (simulated > 0) {
+                                            outKey = request;
+                                        }
                                     }
                                 }
 
-                                if (out != null) {
-                                    if (!cct.useRealItems()) {
-                                        out.setStackSize(recipe.get(x)[y].getCount());
-                                    }
-                                    currentItem = out.createItemStack();
+                                if (outKey != null) {
+                                    final int displayCount = cct.useRealItems() ? 1 : recipe.get(x)[y].getCount();
+                                    currentItem = outKey.toStack(displayCount);
                                 }
                             }
 

@@ -19,7 +19,8 @@
 package appeng.client.render;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
+import appeng.container.me.GridInventoryEntry;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.util.ISlimReadableNumberConverter;
@@ -28,6 +29,8 @@ import appeng.util.ReadableNumberConverter;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
+
+import javax.annotation.Nullable;
 
 
 /**
@@ -40,50 +43,70 @@ public class StackSizeRenderer {
     private static final ISlimReadableNumberConverter SLIM_CONVERTER = ReadableNumberConverter.INSTANCE;
     private static final IWideReadableNumberConverter WIDE_CONVERTER = ReadableNumberConverter.INSTANCE;
 
-    public void renderStackSize(FontRenderer fontRenderer, IAEItemStack aeStack, int xPos, int yPos) {
-        if (aeStack != null) {
-            final float scaleFactor = AEConfig.instance().useTerminalUseLargeFont() ? 0.85f : 0.5f;
-            final float inverseScaleFactor = 1.0f / scaleFactor;
-            final int offset = AEConfig.instance().useTerminalUseLargeFont() ? 0 : -1;
-
-            final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
-            fontRenderer.setUnicodeFlag(false);
-
-            if ((aeStack.getStackSize() == 0 || GuiScreen.isAltKeyDown()) && aeStack.isCraftable()) {
-                final String craftLabelText = AEConfig.instance().useTerminalUseLargeFont() ? GuiText.LargeFontCraft.getLocal() : GuiText.SmallFontCraft
-                        .getLocal();
-                GlStateManager.disableLighting();
-                GlStateManager.disableDepth();
-                GlStateManager.disableBlend();
-                GlStateManager.pushMatrix();
-                GlStateManager.scale(scaleFactor, scaleFactor, scaleFactor);
-                final int X = (int) (((float) xPos + offset + 16.0f - fontRenderer.getStringWidth(craftLabelText) * scaleFactor) * inverseScaleFactor);
-                final int Y = (int) (((float) yPos + offset + 16.0f - 7.0f * scaleFactor) * inverseScaleFactor);
-                fontRenderer.drawStringWithShadow(craftLabelText, X, Y, 16777215);
-                GlStateManager.popMatrix();
-                GlStateManager.enableLighting();
-                GlStateManager.enableDepth();
-                GlStateManager.enableBlend();
-            }
-            else if (aeStack.getStackSize() > 0) {
-                final String stackSize = this.getToBeRenderedStackSize(aeStack.getStackSize());
-
-                GlStateManager.disableLighting();
-                GlStateManager.disableDepth();
-                GlStateManager.disableBlend();
-                GlStateManager.pushMatrix();
-                GlStateManager.scale(scaleFactor, scaleFactor, scaleFactor);
-                final int X = (int) (((float) xPos + offset + 16.0f - fontRenderer.getStringWidth(stackSize) * scaleFactor) * inverseScaleFactor);
-                final int Y = (int) (((float) yPos + offset + 16.0f - 7.0f * scaleFactor) * inverseScaleFactor);
-                fontRenderer.drawStringWithShadow(stackSize, X, Y, 16777215);
-                GlStateManager.popMatrix();
-                GlStateManager.enableLighting();
-                GlStateManager.enableDepth();
-                GlStateManager.enableBlend();
-            }
-
-            fontRenderer.setUnicodeFlag(unicodeFlag);
+    /**
+     * The ME-slot flavour: carries the craftable flag alongside the amount. Replaces the old
+     * {@code renderStackSize(FontRenderer, IAEItemStack, int, int)} at the one call site that fed it a
+     * slot's live {@code IAEItemStack} ({@link appeng.client.gui.AEBaseGui#drawSlot}).
+     */
+    public void renderStackSize(FontRenderer fontRenderer, @Nullable GridInventoryEntry entry, int xPos, int yPos) {
+        if (entry != null) {
+            this.renderStackSize(fontRenderer, entry.getStoredAmount(), entry.isCraftable(), xPos, yPos);
         }
+    }
+
+    /**
+     * The plain flavour: a bare amount with no craftable flag. Replaces the old call sites that built a
+     * throwaway {@code AEItemStack.fromItemStack(...)} purely to carry a count (the drag-splitting preview
+     * and the encoded-pattern output preview in {@link appeng.client.gui.AEBaseGui#drawSlot}).
+     */
+    public void renderStackSize(FontRenderer fontRenderer, @Nullable GenericStack stack, int xPos, int yPos) {
+        if (stack != null) {
+            this.renderStackSize(fontRenderer, stack.amount(), false, xPos, yPos);
+        }
+    }
+
+    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, int xPos, int yPos) {
+        final float scaleFactor = AEConfig.instance().useTerminalUseLargeFont() ? 0.85f : 0.5f;
+        final float inverseScaleFactor = 1.0f / scaleFactor;
+        final int offset = AEConfig.instance().useTerminalUseLargeFont() ? 0 : -1;
+
+        final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
+        fontRenderer.setUnicodeFlag(false);
+
+        if ((amount == 0 || GuiScreen.isAltKeyDown()) && craftable) {
+            final String craftLabelText = AEConfig.instance().useTerminalUseLargeFont() ? GuiText.LargeFontCraft.getLocal() : GuiText.SmallFontCraft
+                    .getLocal();
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.disableBlend();
+            GlStateManager.pushMatrix();
+            GlStateManager.scale(scaleFactor, scaleFactor, scaleFactor);
+            final int X = (int) (((float) xPos + offset + 16.0f - fontRenderer.getStringWidth(craftLabelText) * scaleFactor) * inverseScaleFactor);
+            final int Y = (int) (((float) yPos + offset + 16.0f - 7.0f * scaleFactor) * inverseScaleFactor);
+            fontRenderer.drawStringWithShadow(craftLabelText, X, Y, 16777215);
+            GlStateManager.popMatrix();
+            GlStateManager.enableLighting();
+            GlStateManager.enableDepth();
+            GlStateManager.enableBlend();
+        }
+        else if (amount > 0) {
+            final String stackSize = this.getToBeRenderedStackSize(amount);
+
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.disableBlend();
+            GlStateManager.pushMatrix();
+            GlStateManager.scale(scaleFactor, scaleFactor, scaleFactor);
+            final int X = (int) (((float) xPos + offset + 16.0f - fontRenderer.getStringWidth(stackSize) * scaleFactor) * inverseScaleFactor);
+            final int Y = (int) (((float) yPos + offset + 16.0f - 7.0f * scaleFactor) * inverseScaleFactor);
+            fontRenderer.drawStringWithShadow(stackSize, X, Y, 16777215);
+            GlStateManager.popMatrix();
+            GlStateManager.enableLighting();
+            GlStateManager.enableDepth();
+            GlStateManager.enableBlend();
+        }
+
+        fontRenderer.setUnicodeFlag(unicodeFlag);
     }
 
     private String getToBeRenderedStackSize(final long originalSize) {

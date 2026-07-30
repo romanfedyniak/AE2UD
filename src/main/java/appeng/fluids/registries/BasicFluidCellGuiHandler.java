@@ -19,14 +19,11 @@
 package appeng.fluids.registries;
 
 
-import appeng.api.AEApi;
 import appeng.api.implementations.tiles.IChestOrDrive;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.ICellGuiHandler;
-import appeng.api.storage.ICellHandler;
-import appeng.api.storage.IMEInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IFluidStorageChannel;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.storage.cells.ICellHandler;
+import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEPartLocation;
 import appeng.core.sync.GuiBridge;
 import appeng.util.Platform;
@@ -35,15 +32,25 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 
 
+/**
+ * Registers through {@link appeng.api.storage.StorageCells#addCellGuiHandler}, the api-level registry that
+ * replaced the deleted {@code ICellRegistry} (see CONTRACT.md, "Amendments made to the frozen API").
+ * <p>
+ * It opens the same screen the item handler does, now that one terminal serves every key type. The handler
+ * still has to exist: {@code TileChest} only opens a GUI when {@code StorageCells.getGuiHandler} answers for
+ * the cell's type, so dropping this would leave a fluid cell in an ME Chest unopenable. Whether the
+ * per-type handler registry still earns its keep is a question for stage 3.
+ */
 public class BasicFluidCellGuiHandler implements ICellGuiHandler {
 
     @Override
-    public <T extends IAEStack<T>> boolean isHandlerFor(final IStorageChannel<T> channel) {
-        return channel == AEApi.instance().storage().getStorageChannel(IFluidStorageChannel.class);
+    public boolean isHandlerFor(final AEKeyType keyType) {
+        return keyType == AEKeyType.fluids();
     }
 
     @Override
-    public void openChestGui(final EntityPlayer player, final IChestOrDrive chest, final ICellHandler cellHandler, final IMEInventoryHandler inv, final ItemStack is, final IStorageChannel chan) {
-        Platform.openGUI(player, (TileEntity) chest, AEPartLocation.fromFacing(chest.getUp()), GuiBridge.GUI_FLUID_TERMINAL);
+    public void openChestGui(final EntityPlayer player, final IChestOrDrive chest, final ICellHandler cellHandler,
+            final StorageCell inv, final ItemStack is, final AEKeyType keyType) {
+        Platform.openGUI(player, (TileEntity) chest, AEPartLocation.fromFacing(chest.getUp()), GuiBridge.GUI_ME);
     }
 }

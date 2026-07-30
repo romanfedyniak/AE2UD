@@ -34,7 +34,7 @@ import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -222,7 +222,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
-    public void onStackReturnNetwork(IAEItemStack stack) {
+    public void onStackReturnNetwork(GenericStack stack) {
         this.duality.onStackReturnedToNetwork(stack);
     }
 
@@ -255,6 +255,12 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
+    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs) {
+        return this.duality.pushPattern(patternDetails, table, extraInputs);
+    }
+
+    @Override
     public boolean isBusy() {
         return this.duality.isBusy();
     }
@@ -275,7 +281,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
-    public IAEItemStack injectCraftedItems(final ICraftingLink link, final IAEItemStack items, final Actionable mode) {
+    public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
         return this.duality.injectCraftedItems(link, items, mode);
     }
 

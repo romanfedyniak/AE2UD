@@ -35,11 +35,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
-import appeng.api.storage.IMEMonitor;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.IStorageMonitorable;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
@@ -80,7 +76,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 
-public class PartInterface extends PartBasicState implements IGridTickable, IStorageMonitorable, IInventoryDestination, IInterfaceHost, IAEAppEngInventory, IPriorityHost {
+public class PartInterface extends PartBasicState implements IGridTickable, IInventoryDestination, IInterfaceHost, IAEAppEngInventory, IPriorityHost {
 
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/interface_base");
 
@@ -180,11 +176,6 @@ public class PartInterface extends PartBasicState implements IGridTickable, ISto
     }
 
     @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        return this.duality.getInventory(channel);
-    }
-
-    @Override
     public TickingRequest getTickingRequest(final IGridNode node) {
         return this.duality.getTickingRequest(node);
     }
@@ -197,11 +188,6 @@ public class PartInterface extends PartBasicState implements IGridTickable, ISto
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
         this.duality.onChangeInventory(inv, slot, mc, removedStack, newStack);
-    }
-
-    @Override
-    public void onStackReturnNetwork(IAEItemStack stack) {
-        this.duality.onStackReturnedToNetwork(stack);
     }
 
     @Override
@@ -225,6 +211,12 @@ public class PartInterface extends PartBasicState implements IGridTickable, ISto
     }
 
     @Override
+    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs) {
+        return this.duality.pushPattern(patternDetails, table, extraInputs);
+    }
+
+    @Override
     public boolean isBusy() {
         return this.duality.isBusy();
     }
@@ -240,7 +232,7 @@ public class PartInterface extends PartBasicState implements IGridTickable, ISto
     }
 
     @Override
-    public IAEItemStack injectCraftedItems(final ICraftingLink link, final IAEItemStack items, final Actionable mode) {
+    public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
         return this.duality.injectCraftedItems(link, items, mode);
     }
 

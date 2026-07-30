@@ -24,11 +24,11 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.implementations.items.IItemGroup;
-import appeng.api.implementations.items.IStorageCell;
-import appeng.api.storage.ICellInventoryHandler;
-import appeng.api.storage.IStorageChannel;
-import appeng.api.storage.channels.IItemStorageChannel;
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
@@ -54,7 +54,7 @@ import java.util.List;
 import java.util.Set;
 
 
-public class ToolPortableCell extends AEBasePoweredItem implements IStorageCell<IAEItemStack>, IGuiItem, IItemGroup {
+public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellItem, IGuiItem, IItemGroup {
     public ToolPortableCell() {
         super(AEConfig.instance().getPortableCellBattery());
     }
@@ -76,11 +76,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IStorageCell<
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
-        final ICellInventoryHandler<IAEItemStack> cdi = AEApi.instance()
-                .registries()
-                .cell()
-                .getCellInventory(stack, null,
-                        AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class));
+        final StorageCell cdi = StorageCells.getCellInventory(stack, null);
 
         AEApi.instance().client().addCellInformation(cdi, lines);
     }
@@ -101,7 +97,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IStorageCell<
     }
 
     @Override
-    public boolean isBlackListed(final ItemStack cellItem, final IAEItemStack requestedAddition) {
+    public boolean isBlackListed(final ItemStack cellItem, final AEKey requestedAddition) {
         return false;
     }
 
@@ -121,8 +117,8 @@ public class ToolPortableCell extends AEBasePoweredItem implements IStorageCell<
     }
 
     @Override
-    public IStorageChannel<IAEItemStack> getChannel() {
-        return AEApi.instance().storage().getStorageChannel(IItemStorageChannel.class);
+    public AEKeyType getKeyType() {
+        return AEKeyType.items();
     }
 
     @Override

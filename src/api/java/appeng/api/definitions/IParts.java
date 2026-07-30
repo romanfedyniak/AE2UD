@@ -65,13 +65,9 @@ public interface IParts {
 
     IItemDefinition iface();
 
-    IItemDefinition fluidIface();
-
     IItemDefinition levelEmitter();
 
     IItemDefinition annihilationPlane();
-
-    IItemDefinition identityAnnihilationPlane();
 
     IItemDefinition formationPlane();
 
@@ -109,8 +105,6 @@ public interface IParts {
 
     IItemDefinition interfaceConfigurationTerminal();
 
-    IItemDefinition fluidInterfaceConfigurationTerminal();
-
     IItemDefinition craftingTerminal();
 
     IItemDefinition terminal();
@@ -119,17 +113,4 @@ public interface IParts {
 
     IItemDefinition conversionMonitor();
 
-    IItemDefinition fluidTerminal();
-
-    IItemDefinition fluidImportBus();
-
-    IItemDefinition fluidExportBus();
-
-    IItemDefinition fluidStorageBus();
-
-    IItemDefinition fluidLevelEmitter();
-
-    IItemDefinition fluidAnnihilationPlane();
-
-    IItemDefinition fluidFormationnPlane();
 }

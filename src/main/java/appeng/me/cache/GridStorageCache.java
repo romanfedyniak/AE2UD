@@ -18,282 +18,321 @@
 
 package appeng.me.cache;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import appeng.api.AEApi;
-import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridHost;
-import appeng.api.networking.IGridNode;
-import appeng.api.networking.IGridStorage;
-import appeng.api.networking.events.MENetworkCellArrayUpdate;
-import appeng.api.networking.events.MENetworkEventSubscribe;
-import appeng.api.networking.security.IActionHost;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.security.ISecurityGrid;
-import appeng.api.networking.storage.IStackWatcher;
-import appeng.api.networking.storage.IStackWatcherHost;
-import appeng.api.networking.storage.IStorageGrid;
-import appeng.api.storage.*;
-import appeng.api.storage.data.IAEItemStack;
-import appeng.api.storage.data.IAEStack;
-import appeng.api.storage.data.IItemList;
-import appeng.me.helpers.BaseActionSource;
-import appeng.me.helpers.GenericInterestManager;
-import appeng.me.helpers.MachineSource;
-import appeng.me.storage.ItemWatcher;
-import appeng.me.storage.NetworkInventoryHandler;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 
-import java.util.*;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridCache;
+import appeng.api.networking.IGridHost;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.IGridStorage;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.networking.storage.IStorageWatcherNode;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
+import appeng.me.helpers.InterestManager;
+import appeng.me.helpers.StackWatcher;
+import appeng.me.storage.NetworkStorage;
 
-public class GridStorageCache implements IStorageGrid {
+/**
+ * The network's storage cache. Replaces the old {@code IStorageGrid} implementation.
+ * <p>
+ * Mirrors {@code appeng.me.service.StorageService} from AE2-original (1.20+), adapted to the 1.12.2
+ * {@link IGridCache} lifecycle (no {@code IGridServiceProvider}, node/machine pairs instead of
+ * node/savedData, no debug-dump hook).
+ */
+public class GridStorageCache implements IStorageService, IGridCache {
 
     private final IGrid myGrid;
-    private final HashSet<ICellProvider> activeCellProviders = new HashSet<>();
-    private final HashSet<ICellProvider> inactiveCellProviders = new HashSet<>();
-    private final SetMultimap<IAEStack, ItemWatcher> interests = HashMultimap.create();
-    private final GenericInterestManager<ItemWatcher> interestManager = new GenericInterestManager<>(this.interests);
-    private final HashMap<IGridNode, IStackWatcher> watchers = new HashMap<>();
-    private final Map<IStorageChannel<? extends IAEStack>, NetworkInventoryHandler<?>> storageNetworks;
-    private final Map<IStorageChannel<? extends IAEStack>, NetworkMonitor<?>> storageMonitors;
-    private int localDepth;
+
+    /**
+     * Tracks the storage service's state for each grid node that provides storage to the network.
+     */
+    private final Map<IGridNode, ProviderState> nodeProviders = new IdentityHashMap<>();
+    /**
+     * Tracks state for storage providers that are provided outside of the normal node lifecycle (e.g. a
+     * wireless terminal's cell).
+     */
+    private final List<ProviderState> globalProviders = new ArrayList<>();
+    private final SetMultimap<AEKey, StackWatcher<IStorageWatcherNode>> interests = HashMultimap.create();
+    private final InterestManager<StackWatcher<IStorageWatcherNode>> interestManager = new InterestManager<>(
+            this.interests);
+    private final NetworkStorage storage;
+    /**
+     * Publicly exposed cached available stacks.
+     */
+    private final KeyCounter cachedAvailableStacks = new KeyCounter();
+    /**
+     * Private cached amounts, to ensure that we send correct change notifications even if
+     * {@link #cachedAvailableStacks} is modified by mistake.
+     */
+    private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
+    private boolean cachedStacksNeedUpdate = true;
+    /**
+     * Tracks the stack watcher associated with a given grid node. Needed to clean up watchers when the node
+     * leaves the grid.
+     */
+    private final Map<IGridNode, StackWatcher<IStorageWatcherNode>> watchers = new IdentityHashMap<>();
 
     public GridStorageCache(final IGrid g) {
         this.myGrid = g;
-        this.storageNetworks = new IdentityHashMap<>();
-        this.storageMonitors = new IdentityHashMap<>();
-
-        AEApi.instance().storage().storageChannels().forEach(channel -> this.storageMonitors.put(channel, new NetworkMonitor<>(this, channel)));
+        this.storage = new NetworkStorage();
     }
 
     @Override
     public void onUpdateTick() {
-        this.storageMonitors.forEach((channel, monitor) -> monitor.onTick());
+        if (interestManager.isEmpty()) {
+            // lazily rebuild cache list
+            cachedStacksNeedUpdate = true;
+        } else {
+            // we need to rebuild the cache every tick to notify listeners
+            updateCachedStacks();
+        }
     }
 
-    @Override
-    public void removeNode(final IGridNode node, final IGridHost machine) {
-        if (machine instanceof ICellContainer) {
-            final ICellContainer cc = (ICellContainer) machine;
-            final CellChangeTracker tracker = new CellChangeTracker();
+    private void updateCachedStacks() {
+        cachedStacksNeedUpdate = false;
 
-            this.removeCellProvider(cc, tracker);
-            this.inactiveCellProviders.remove(cc);
-            cellUpdate(null);
+        cachedAvailableStacks.clear();
+        storage.getAvailableStacks(cachedAvailableStacks);
+        // clear() only clears the inner maps,
+        // so ensure that the outer map gets cleaned up too
+        cachedAvailableStacks.removeEmptySubmaps();
 
-            tracker.applyChanges();
-        }
-
-        if (machine instanceof IStackWatcherHost) {
-            final IStackWatcher myWatcher = this.watchers.get(node);
-
-            if (myWatcher != null) {
-                myWatcher.reset();
-                this.watchers.remove(node);
+        // Post watcher update for currently available stacks
+        for (var entry : cachedAvailableStacks) {
+            var what = entry.getKey();
+            var newAmount = entry.getLongValue();
+            if (newAmount != cachedAvailableAmounts.getLong(what)) {
+                postWatcherUpdate(what, newAmount);
             }
         }
+        // Post watcher update for removed stacks
+        for (var what : cachedAvailableAmounts.keySet()) {
+            var newAmount = cachedAvailableStacks.get(what);
+            if (newAmount == 0) {
+                postWatcherUpdate(what, newAmount);
+            }
+        }
+
+        // Update private amounts
+        cachedAvailableAmounts.clear();
+        for (var entry : cachedAvailableStacks) {
+            cachedAvailableAmounts.put(entry.getKey(), entry.getLongValue());
+        }
     }
 
+    private void postWatcherUpdate(AEKey what, long newAmount) {
+        for (var watcher : interestManager.get(what)) {
+            watcher.getHost().onStackChange(what, newAmount);
+        }
+        for (var watcher : interestManager.getAllStacksWatchers()) {
+            watcher.getHost().onStackChange(what, newAmount);
+        }
+    }
+
+    /**
+     * When a node joins the grid, we automatically register a provided {@link IStorageProvider} and/or
+     * {@link IStorageWatcherNode}.
+     */
     @Override
     public void addNode(final IGridNode node, final IGridHost machine) {
-        if (machine instanceof ICellContainer) {
-            final ICellContainer cc = (ICellContainer) machine;
-            this.inactiveCellProviders.add(cc);
+        if (machine instanceof IStorageProvider) {
+            final IStorageProvider storageProvider = (IStorageProvider) machine;
+            final ProviderState state = new ProviderState(storageProvider);
+            this.nodeProviders.put(node, state);
+            state.mount();
+        }
 
-            cellUpdate(null);
+        if (machine instanceof IStorageWatcherNode) {
+            final IStorageWatcherNode watcherNode = (IStorageWatcherNode) machine;
+            final StackWatcher<IStorageWatcherNode> watcher = new StackWatcher<>(interestManager, watcherNode);
+            this.watchers.put(node, watcher);
+            watcherNode.updateWatcher(watcher);
+        }
+    }
 
-            if (node.isActive()) {
-                final CellChangeTracker tracker = new CellChangeTracker();
+    /**
+     * When a node leaves the grid, we automatically unregister the previously registered
+     * {@link IStorageProvider} and/or {@link IStorageWatcherNode}.
+     */
+    @Override
+    public void removeNode(final IGridNode node, final IGridHost machine) {
+        final StackWatcher<IStorageWatcherNode> watcher = this.watchers.remove(node);
+        if (watcher != null) {
+            watcher.destroy();
+        }
 
-                this.addCellProvider(cc, tracker);
-                tracker.applyChanges();
+        final ProviderState providerState = this.nodeProviders.remove(node);
+        if (providerState != null) {
+            providerState.unmount();
+        }
+    }
+
+    @Override
+    public void onSplit(final IGridStorage destinationStorage) {
+        // nothing!
+    }
+
+    @Override
+    public void onJoin(final IGridStorage sourceStorage) {
+        // nothing!
+    }
+
+    @Override
+    public void populateGridStorage(final IGridStorage destinationStorage) {
+        // nothing!
+    }
+
+    @Override
+    public MEStorage getInventory() {
+        return storage;
+    }
+
+    @Override
+    public KeyCounter getCachedInventory() {
+        if (cachedStacksNeedUpdate) {
+            updateCachedStacks();
+        }
+        return cachedAvailableStacks;
+    }
+
+    @Override
+    public void addGlobalStorageProvider(IStorageProvider provider) {
+        for (var state : globalProviders) {
+            if (state.provider == provider) {
+                throw new IllegalArgumentException("Duplicate storage provider registration for " + provider);
             }
         }
 
-        if (machine instanceof IStackWatcherHost) {
-            final IStackWatcherHost swh = (IStackWatcherHost) machine;
-            final ItemWatcher iw = new ItemWatcher(this, swh);
-            this.watchers.put(node, iw);
-            swh.updateWatcher(iw);
+        var state = new ProviderState(provider);
+        this.globalProviders.add(state);
+        state.mount();
+    }
+
+    @Override
+    public void removeGlobalStorageProvider(IStorageProvider provider) {
+        var it = this.globalProviders.iterator();
+        while (it.hasNext()) {
+            var state = it.next();
+            if (state.provider == provider) {
+                it.remove();
+                state.unmount();
+            }
         }
     }
 
+    /**
+     * Re-mounts the inventories of the provider attached to this node, if it has one mounted yet.
+     * <p>
+     * <b>A node this cache has not seen is not an error here, unlike upstream, and the difference is
+     * structural rather than a matter of taste.</b> {@code Grid.add} walks its caches in order and
+     * {@code EnergyGridCache.addNode} posts {@code MENetworkPowerStatusChange} synchronously - so a part
+     * that reacts to a power change by asking for a re-mount (every formation plane does, through
+     * {@code PartAbstractFormationPlane.stateChanged}) can reach this method while its own node is still
+     * being propagated and before {@link #addNode} has registered it. Upstream has no such window: it
+     * neither posts that event from inside grid assembly nor re-mounts in response to one.
+     * <p>
+     * Nothing is lost by returning quietly. A node with no provider mounted yet will be mounted from
+     * scratch when {@link #addNode} reaches it, with whatever contents it has by then - which is exactly
+     * what the refresh would have produced. Throwing instead aborted world unload part-way through
+     * {@code MinecraftServer.stopServer}, which is a great deal worse than a skipped no-op.
+     */
     @Override
-    public void onSplit(final IGridStorage storageB) {
-
-    }
-
-    @Override
-    public void onJoin(final IGridStorage storageB) {
-
-    }
-
-    @Override
-    public void populateGridStorage(final IGridStorage storage) {
-
-    }
-
-    public <T extends IAEStack<T>> IMEInventoryHandler<T> getInventoryHandler(IStorageChannel<T> channel) {
-        return (IMEInventoryHandler<T>) this.storageNetworks.computeIfAbsent(channel, this::buildNetworkStorage);
-    }
-
-    @Override
-    public <T extends IAEStack<T>> IMEMonitor<T> getInventory(IStorageChannel<T> channel) {
-        return (IMEMonitor<T>) this.storageMonitors.get(channel);
-    }
-
-    private CellChangeTracker addCellProvider(final ICellProvider cc, final CellChangeTracker tracker) {
-        if (this.inactiveCellProviders.contains(cc)) {
-            this.inactiveCellProviders.remove(cc);
-            this.activeCellProviders.add(cc);
-
-            final IActionSource actionSrc = cc instanceof IActionHost ? new MachineSource((IActionHost) cc) : new BaseActionSource();
-
-            this.storageMonitors.forEach((channel, monitor) ->
-            {
-                for (final IMEInventoryHandler<?> h : cc.getCellArray(channel)) {
-                    tracker.postChanges(channel, 1, h, actionSrc);
-                }
-            });
-        }
-
-        return tracker;
-    }
-
-    private CellChangeTracker removeCellProvider(final ICellProvider cc, final CellChangeTracker tracker) {
-        if (this.activeCellProviders.contains(cc)) {
-            this.activeCellProviders.remove(cc);
-            this.inactiveCellProviders.add(cc);
-
-            final IActionSource actionSrc = cc instanceof IActionHost ? new MachineSource((IActionHost) cc) : new BaseActionSource();
-
-            this.storageMonitors.forEach((channel, monitor) ->
-            {
-                for (final IMEInventoryHandler<IAEItemStack> h : cc.getCellArray(channel)) {
-                    tracker.postChanges(channel, -1, h, actionSrc);
-                }
-            });
-        }
-
-        return tracker;
-    }
-
-    @MENetworkEventSubscribe
-    public void cellUpdate(final MENetworkCellArrayUpdate ev) {
-        if (localDepth > 0) {
+    public void refreshNodeStorageProvider(IGridNode node) {
+        var state = nodeProviders.get(node);
+        if (state == null) {
             return;
         }
-        localDepth++;
-        this.storageNetworks.clear();
-
-        final List<ICellProvider> ll = new ArrayList<ICellProvider>();
-        ll.addAll(this.inactiveCellProviders);
-        ll.addAll(this.activeCellProviders);
-
-        final CellChangeTracker tracker = new CellChangeTracker();
-
-        for (final ICellProvider cc : ll) {
-            boolean active = true;
-
-            if (cc instanceof IActionHost) {
-                final IGridNode node = ((IActionHost) cc).getActionableNode();
-                active = node != null && node.isActive();
-            }
-
-            if (active) {
-                this.addCellProvider(cc, tracker);
-            } else {
-                this.removeCellProvider(cc, tracker);
-            }
-        }
-        tracker.applyChanges();
-        localDepth--;
-        this.storageMonitors.forEach((channel, monitor) -> monitor.setForceUpdate(true));
+        state.update();
     }
 
-    private <T extends IAEStack<T>, C extends IStorageChannel<T>> void postChangesToNetwork(final C chan, final int upOrDown, final IItemList<T> availableItems, final IActionSource src) {
-        this.storageMonitors.get(chan).postChange(upOrDown > 0, (Iterable) availableItems, src);
-    }
-
-    private <T extends IAEStack<T>, C extends IStorageChannel<T>> NetworkInventoryHandler<T> buildNetworkStorage(final C chan) {
-        final SecurityCache security = this.getGrid().getCache(ISecurityGrid.class);
-
-        final NetworkInventoryHandler<T> storageNetwork = new NetworkInventoryHandler<>(chan, security);
-
-        for (final ICellProvider cc : this.activeCellProviders) {
-            for (final IMEInventoryHandler<T> h : cc.getCellArray(chan)) {
-                storageNetwork.addNewStorage(h);
+    @Override
+    public void refreshGlobalStorageProvider(IStorageProvider provider) {
+        for (var state : globalProviders) {
+            if (state.provider == provider) {
+                state.update();
+                return;
             }
         }
 
-        return storageNetwork;
+        throw new IllegalArgumentException("Storage provider " + provider + " is not part of this grid.");
     }
 
     @Override
-    public void postAlterationOfStoredItems(final IStorageChannel<?> chan, final Iterable<? extends IAEStack<?>> input, final IActionSource src) {
-        this.storageMonitors.get(chan).postChange(true, (Iterable) input, src);
-    }
-
-    @Override
-    public void postCraftablesChanges(IStorageChannel<?> chan, Iterable<? extends IAEStack<?>> input, IActionSource src) {
-        this.storageMonitors.get(chan).updateCraftables((Iterable) input, src);
-    }
-
-    @Override
-    public void registerCellProvider(final ICellProvider provider) {
-        this.inactiveCellProviders.add(provider);
-        this.addCellProvider(provider, new CellChangeTracker()).applyChanges();
-    }
-
-    @Override
-    public void unregisterCellProvider(final ICellProvider provider) {
-        this.removeCellProvider(provider, new CellChangeTracker()).applyChanges();
-        this.inactiveCellProviders.remove(provider);
-    }
-
-    public GenericInterestManager<ItemWatcher> getInterestManager() {
-        return this.interestManager;
+    public void invalidateCache() {
+        cachedStacksNeedUpdate = true;
     }
 
     IGrid getGrid() {
         return this.myGrid;
     }
 
-    private class CellChangeTrackerRecord<T extends IAEStack<T>> {
+    /**
+     * A {@link IStorageProvider}-specific mount table facade which allows the provider to easily
+     * mount/remount its storage.
+     */
+    private class ProviderState implements IStorageMounts {
+        private final IStorageProvider provider;
+        private final Set<MEStorage> inventories = new HashSet<>();
+        private boolean mounted;
 
-        final IStorageChannel<T> channel;
-        final int up_or_down;
-        final IItemList<T> list;
-        final IActionSource src;
-
-        public CellChangeTrackerRecord(final IStorageChannel<T> channel, final int i, final IMEInventoryHandler<T> h, final IActionSource actionSrc) {
-            this.channel = channel;
-            this.up_or_down = i;
-            this.src = actionSrc;
-
-            this.list = h.getAvailableItems(channel.createList());
+        ProviderState(final IStorageProvider provider) {
+            this.provider = provider;
         }
 
-        public void applyChanges() {
-            if (!this.list.isEmpty()) {
-                GridStorageCache.this.postChangesToNetwork(this.channel, this.up_or_down, this.list, this.src);
+        /**
+         * Performs the first mount operation on this storage provider, which does not assume any of the
+         * provider's inventories are currently mounted and need to be removed first.
+         */
+        private void mount() {
+            Preconditions.checkState(!mounted, "Can't mount a provider's inventories when it's already mounted");
+
+            mounted = true;
+            provider.mountInventories(this);
+        }
+
+        @Override
+        public void mount(MEStorage inventory, int priority) {
+            Preconditions.checkState(mounted, "Cannot use StorageMounts after the storage has been unmounted.");
+
+            if (!inventories.add(inventory)) {
+                throw new IllegalStateException("Cannot mount the same inventory twice.");
             }
-        }
-    }
 
-    private class CellChangeTracker<T extends IAEStack<T>> {
-
-        final List<CellChangeTrackerRecord<T>> data = new ArrayList<>();
-
-        public void postChanges(final IStorageChannel<T> channel, final int i, final IMEInventoryHandler<T> h, final IActionSource actionSrc) {
-            this.data.add(new CellChangeTrackerRecord<T>(channel, i, h, actionSrc));
+            // Mount this inventory into the network storage
+            storage.mount(priority, inventory);
         }
 
-        public void applyChanges() {
-            for (final CellChangeTrackerRecord<T> rec : this.data) {
-                rec.applyChanges();
+        void update() {
+            unmount();
+            mount();
+        }
+
+        void unmount() {
+            if (!mounted) {
+                return;
             }
+            mounted = false;
+
+            for (var inventory : inventories) {
+                storage.unmount(inventory);
+            }
+            inventories.clear();
         }
     }
 }

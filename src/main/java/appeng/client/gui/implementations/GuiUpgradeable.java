@@ -21,6 +21,8 @@ package appeng.client.gui.implementations;
 
 import appeng.api.config.*;
 import appeng.api.implementations.IUpgradeableHost;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -32,12 +34,9 @@ import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
 import appeng.core.sync.packets.PacketInventoryAction;
-import appeng.fluids.client.gui.widgets.GuiFluidSlot;
-import appeng.fluids.util.AEFluidStack;
 import appeng.helpers.InventoryAction;
 import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartImportBus;
-import appeng.util.item.AEItemStack;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -198,6 +197,18 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         }
     }
 
+    /**
+     * @return true if the drop that is being handled right now came from the right mouse button, meaning
+     *         the container item itself is wanted rather than its contents.
+     *         <p>
+     *         JEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
+     *         It is accurate here because {@code accept} runs synchronously inside the click that ends the
+     *         drag, while that button is still down.
+     */
+    private static boolean dropsContainerItself() {
+        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
+    }
+
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
         mapTargetSlot.clear();
@@ -221,14 +232,11 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         List<IJEITargetSlot> slots = new ArrayList<>();
         if (!this.inventorySlots.inventorySlots.isEmpty()) {
             for (Slot slot : this.inventorySlots.inventorySlots) {
-                if (slot instanceof SlotFake && (!itemStack.isEmpty() || this instanceof GuiCellWorkbench && fluidStack != null)) {
-                    slots.add((IJEITargetSlot) slot);
-                }
-            }
-        }
-        if (!this.getGuiSlots().isEmpty()) {
-            for (GuiCustomSlot slot : this.getGuiSlots()) {
-                if (slot instanceof GuiFluidSlot && fluidStack != null) {
+                // A filter slot is a valid drop target for a fluid too, not just for an item. This used to
+                // be allowed only in the cell workbench, because that was the one screen whose filter could
+                // express a fluid at all; every other filter silently offered no target, so a dragged fluid
+                // simply did nothing. Config inventories hold any key now, so the exception is the rule.
+                if (slot instanceof SlotFake && (!itemStack.isEmpty() || fluidStack != null)) {
                     slots.add((IJEITargetSlot) slot);
                 }
             }
@@ -242,8 +250,6 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                 public Rectangle getArea() {
                     if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
                         return new Rectangle(getGuiLeft() + ((SlotFake) slot).xPos, getGuiTop() + ((SlotFake) slot).yPos, 16, 16);
-                    } else if (slot instanceof GuiFluidSlot && ((GuiFluidSlot) slot).isSlotEnabled()) {
-                        return new Rectangle(getGuiLeft() + ((GuiFluidSlot) slot).xPos(), getGuiTop() + ((GuiFluidSlot) slot).yPos(), 16, 16);
                     }
                     return new Rectangle();
                 }
@@ -253,16 +259,26 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
                     PacketInventoryAction p = null;
                     try {
                         if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                            if (finalItemStack.isEmpty() && finalFluidStack != null) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(FluidUtil.getFilledBucket(finalFluidStack)));
+                            // Same rule as clicking a filter slot by hand: left button takes what the
+                            // container HOLDS, right button takes the container itself. A dragged fluid
+                            // has no container to fall back to, so it goes in either way.
+                            //
+                            // Both used to end up as a filled bucket, because a filter slot could only
+                            // ever express an item - and a bucket filter is a different thing, matching a
+                            // bucket in a chest rather than water in a tank, so it looked right and
+                            // quietly matched nothing.
+                            if (finalFluidStack != null && !(dropsContainerItself() && !finalItemStack.isEmpty())) {
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                             } else if (!finalItemStack.isEmpty()) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(finalItemStack));
+                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.fromItemStack(finalItemStack));
                             }
                         } else {
                             if (finalFluidStack == null) {
                                 return;
                             }
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, AEItemStack.fromItemStack(AEFluidStack.fromFluidStack(finalFluidStack).asItemStackRepresentation()));
+                            // The fluid key travels directly in the packet now - no more smuggling it
+                            // through a dummy item's NBT (AEFluidStack.fromFluidStack(...).asItemStackRepresentation()).
+                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
                         }
                         NetworkHandler.instance().sendToServer(p);
 

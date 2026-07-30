@@ -19,12 +19,11 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.storage.data.IAEItemStack;
+import appeng.api.stacks.GenericStack;
 import appeng.client.EffectType;
 import appeng.core.AppEng;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
-import appeng.util.item.AEItemStack;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
@@ -41,7 +40,7 @@ public class PacketAssemblerAnimation extends AppEngPacket {
     private final int y;
     private final int z;
     public final byte rate;
-    public final IAEItemStack is;
+    public final GenericStack is;
 
     // automatic.
     public PacketAssemblerAnimation(final ByteBuf stream) throws IOException {
@@ -49,11 +48,11 @@ public class PacketAssemblerAnimation extends AppEngPacket {
         this.y = stream.readInt();
         this.z = stream.readInt();
         this.rate = stream.readByte();
-        this.is = AEItemStack.fromPacket(stream);
+        this.is = GenericStack.readBuffer(stream);
     }
 
     // api
-    public PacketAssemblerAnimation(final BlockPos pos, final byte rate, final IAEItemStack is) throws IOException {
+    public PacketAssemblerAnimation(final BlockPos pos, final byte rate, final GenericStack is) throws IOException {
 
         final ByteBuf data = Unpooled.buffer();
 
@@ -62,7 +61,7 @@ public class PacketAssemblerAnimation extends AppEngPacket {
         data.writeInt(this.y = pos.getY());
         data.writeInt(this.z = pos.getZ());
         data.writeByte(this.rate = rate);
-        is.writeToPacket(data);
+        GenericStack.writeBuffer(is, data);
         this.is = is;
 
         this.configureWrite(data);
