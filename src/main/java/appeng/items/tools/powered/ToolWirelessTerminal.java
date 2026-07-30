@@ -22,14 +22,17 @@ package appeng.items.tools.powered;
 import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.util.IConfigManager;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
 import appeng.items.materials.ItemMaterial;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
+import appeng.me.helpers.PlayerSource;
 import appeng.util.ConfigManager;
 import appeng.util.Platform;
 import baubles.api.BaubleType;
@@ -39,11 +42,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.SoundEvents;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumHand;
+import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.translation.I18n;
@@ -54,6 +59,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.ItemStackHandler;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 @Optional.Interface(iface = "baubles.api.IBauble", modid = "baubles")
@@ -176,7 +182,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
     }
 
     public void magnetLogic(ItemStack stack, World worldIn, Entity entityIn) {
-        if (entityIn instanceof EntityPlayer) {
+        if (entityIn instanceof EntityPlayer player) {
             this.magnetTick++;
             if (magnetTick % 5 != 0) {
                 return;
@@ -209,6 +215,13 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                                         entityIn.posX + 5, entityIn.posY + 5, entityIn.posZ + 5
                                 ));
                         boolean emptyFilter = true;
+
+                        // Resolved on the first item actually worth moving, and reused for the rest of the
+                        // sweep: finding the network walks every wireless access point in the grid, which is
+                        // not worth doing on a tick that picks nothing up.
+                        WirelessTerminalGuiObject network = null;
+                        boolean triedNetwork = false;
+
                         for (EntityItem i : ei) {
                             if (i.isDead) {
                                 continue;
@@ -240,11 +253,18 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                                     }
                                 }
                             }
-                            if (emptyFilter) {
-                                teleportItem(i, entityIn);
-                            } else if (matched && !inverted) {
-                                teleportItem(i, entityIn);
-                            } else if (!matched && inverted) {
+
+                            final boolean wanted = emptyFilter || matched != inverted;
+                            if (!wanted) {
+                                continue;
+                            }
+
+                            if (!triedNetwork) {
+                                triedNetwork = true;
+                                network = this.openNetwork(stack, player);
+                            }
+
+                            if (!this.storeInNetwork(network, player, i)) {
                                 teleportItem(i, entityIn);
                             }
                         }
@@ -252,6 +272,56 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 }
             }
         }
+    }
+
+    /**
+     * The network this terminal is linked to, as seen from where the player is standing, or null when
+     * there is none within range of an access point. Picking up into the network is exactly as reachable
+     * as opening the terminal is; a magnet that worked anywhere would be storage without a wireless range.
+     */
+    @Nullable
+    private WirelessTerminalGuiObject openNetwork(final ItemStack stack, final EntityPlayer player) {
+        // The two slot arguments are only ever read back by a screen re-opened from this object, which the
+        // magnet never does.
+        final WirelessTerminalGuiObject terminal = new WirelessTerminalGuiObject(this, stack, player, player.world, 0, 0, 0);
+
+        return terminal.rangeCheck() ? terminal : null;
+    }
+
+    /**
+     * Stores a dropped item in the network rather than handing it to the player, charging the terminal's
+     * own battery for the work.
+     *
+     * @return true when the whole entity went in. A partial insert shrinks what is left and answers false,
+     *         so the remainder still reaches the player the way it always did.
+     */
+    private boolean storeInNetwork(@Nullable final WirelessTerminalGuiObject terminal, final EntityPlayer player, final EntityItem entity) {
+        if (terminal == null) {
+            return false;
+        }
+
+        final ItemStack stack = entity.getItem();
+        final AEItemKey what = AEItemKey.of(stack);
+        if (what == null) {
+            return false;
+        }
+
+        final long stored = Platform.poweredInsert(terminal, terminal.getInventory(), what, stack.getCount(), new PlayerSource(player, terminal));
+        if (stored <= 0) {
+            return false;
+        }
+
+        if (stored < stack.getCount()) {
+            stack.shrink((int) stored);
+            return false;
+        }
+
+        // Vanilla plays this when the player picks the entity up, and losing it would make a full magnet
+        // and a broken one sound the same.
+        player.world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ITEM_PICKUP,
+                SoundCategory.PLAYERS, 0.2f, ((itemRand.nextFloat() - itemRand.nextFloat()) * 0.7f + 1.0f) * 2.0f);
+        entity.setDead();
+        return true;
     }
 
     private void teleportItem(EntityItem i, Entity entityIn) {
