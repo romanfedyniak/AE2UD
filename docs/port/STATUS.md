@@ -1057,6 +1057,41 @@ repair in every case was to delete one copy rather than to patch it - `SlotFake.
 by both slot classes, `AEBaseContainer.adjustAmount` by both action switches. **When a fix has to be made
 twice, that is the bug.**
 
+### The audit those four bugs prompted — one axis done, two open
+
+Started 2026-07-31, after the fourth duplicated-rule bug. This is a deliberate sweep rather than a response
+to a report, so it is worth recording where it got to.
+
+**Axis 1 - §9.1d, raw `fromItemStack` where a placeholder can arrive. Done.** Fourteen call sites, twelve
+safe: they read real items out of vanilla inventories, which a wrapper never enters. Two were not, both
+fixed in `a4aad9a59`:
+
+- `AEBaseGui.drawSlot`'s encoded-pattern preview. `ItemEncodedPattern.getOutput()` returns
+  `wrapInItemStack(details.getOutputs()[0])`, so a fluid-output pattern arrives as a placeholder and the
+  shift preview sized the *placeholder*. Note how it hid: a placeholder's raw count is always 1, and
+  `74c19d6ab` had just stopped drawing counts of one - so a wrong number became no number, which reads as
+  "the feature does not work" rather than as a bug. **When something "just stops working", check whether a
+  display rule changed under it.**
+- `GuiUpgradeable`'s ghost-ingredient drop, changed to the canonical reader with no known symptom. There is
+  no path today that hands HEI a placeholder to drag; the ingredient list cannot contain one.
+
+Also settled while looking: `ItemSlot.getGenericStack()` reads raw and is **safe by design** - its only
+callers wrap a neighbour's `IItemHandler`, and the interface deliberately exposes `GenericStackItemHandler`,
+which hides non-item slots rather than handing out placeholders. That is what the three-views split in
+stage 2a bought.
+
+**Axis 2 - pairs of classes carrying one rule, not related by inheritance. Open.** The four known instances
+are tabled above. What to grep for: sibling slot classes overriding the same method, parallel `doAction`
+switches, and two code paths producing one piece of on-screen text.
+
+**Axis 3 - `instanceof AEItemKey` where every key type belongs. Open.** This shape has already produced two
+defects: `CraftingCPUCluster` destroying a fluid ingredient because the type test came *after* the
+extraction, and `DualityInterface.usePlan` silently doing nothing for a non-item key while `updatePlan`
+kept planning the work, so the interface never slept.
+
+Both open axes are blind sweeps rather than bug reports: expect findings, expect a lower hit rate, and
+expect each to need a play-test.
+
 ## Stage 2 is done — what the phase actually removed
 
 `appeng.fluids` went from 55 files to 10. Everything deleted was a duplicate of something already generic;
