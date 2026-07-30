@@ -552,6 +552,16 @@ public abstract class AEBaseContainer extends Container {
             if (s instanceof SlotFake) {
                 final ItemStack hand = player.inventory.getItemStack();
 
+                // A wrapped key carries its amount in NBT, not in the ItemStack's count - a placeholder is
+                // always exactly one item and cannot stack. Every amount-changing case below works on
+                // getCount(), so on a fluid they grew a number nothing reads while the configured amount
+                // stayed put, and the slot ended up claiming a stack size the wrapper is not allowed to
+                // have. Handled here instead, in the key type's own unit.
+                final GenericStack wrapped = GenericStack.unwrapItemStack(s.getStack());
+                if (wrapped != null && this.adjustWrappedAmount(s, wrapped, action, hand)) {
+                    return;
+                }
+
                 switch (action) {
                     case PICKUP_OR_SET_DOWN:
                         if (hand.isEmpty()) {
@@ -846,6 +856,52 @@ public abstract class AEBaseContainer extends Container {
             default:
                 break;
         }
+    }
+
+    /**
+     * Applies an amount-changing fake-slot action to a wrapped key, stepping by the key type's own unit - a
+     * bucket per notch for fluids, since a millibucket per notch would mean a thousand notches to fill one.
+     * Ctrl (halve/double) is what reaches the amounts in between, which is how the 40mB of a processing
+     * recipe gets configured.
+     *
+     * @return true if the action was consumed here; false to let the ordinary item path run, which is what
+     *         happens when the player is placing a different key rather than adjusting this one.
+     */
+    private boolean adjustWrappedAmount(final Slot s, final GenericStack current, final InventoryAction action,
+            final ItemStack hand) {
+        final long unit = Math.max(1, current.what().getAmountPerUnit());
+        long amount = current.amount();
+
+        switch (action) {
+            case PLACE_SINGLE:
+                if (!hand.isEmpty()) {
+                    return false;
+                }
+                amount += unit;
+                break;
+            case PICKUP_SINGLE:
+            case SPLIT_OR_PLACE_SINGLE:
+                if (!hand.isEmpty()) {
+                    return false;
+                }
+                amount -= unit;
+                break;
+            case HALVE:
+                amount /= 2;
+                break;
+            case DOUBLE:
+                // Guard the overflow the item path gets for free from its stack limit.
+                amount = amount > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : amount * 2;
+                break;
+            default:
+                return false;
+        }
+
+        // Never empties the slot, matching the item path: PICKUP_SINGLE on a count of one leaves the one.
+        // The floor is a single base unit rather than a whole unit, because a pattern may legitimately ask
+        // for less than a bucket.
+        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.max(1, amount)));
+        return true;
     }
 
     /**
