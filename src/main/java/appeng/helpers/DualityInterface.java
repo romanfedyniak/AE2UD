@@ -57,14 +57,13 @@ import appeng.me.GridAccessException;
 import appeng.me.helpers.AENetworkProxy;
 import appeng.me.helpers.IGridProxyable;
 import appeng.me.helpers.MachineSource;
-import appeng.me.storage.MEMonitorIInventory;
+import appeng.me.storage.GenericStackInvStorage;
 import appeng.me.storage.NullInventory;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.parts.misc.PartInterface;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
-import appeng.tile.inventory.AppEngNetworkInventory;
 import appeng.tile.networking.TileCableBus;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
@@ -95,6 +94,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -119,7 +119,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private final IActionSource interfaceRequestSource;
     private final ConfigManager cm = new ConfigManager(this);
     private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, NUMBER_OF_CONFIG_SLOTS, 512);
-    private final AppEngInternalInventory storage;
+    private final GenericStackInv storage;
+    /** The item face of {@link #storage}, for the neighbours and GUIs that speak {@code IItemHandler}. */
+    private final IItemHandlerModifiable storageItems;
     private final AppEngInternalInventory patterns = new AppEngInternalInventory(this, NUMBER_OF_PATTERN_SLOTS, 1);
     /** The network's storage, covering every registered key type. Swapped out as the grid connects/disconnects. */
     private MEStorage networkStorage = NullInventory.of();
@@ -157,7 +159,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
         final MachineSource actionSource = new MachineSource(this.iHost);
         this.mySource = actionSource;
-        this.storage = new AppEngNetworkInventory(this::getStorageGrid, this.mySource, this, NUMBER_OF_STORAGE_SLOTS, 512);
+        this.storage = new GenericStackInv(this::onStorageChanged, NUMBER_OF_STORAGE_SLOTS);
+        this.storageItems = new GenericStackItemHandler(this.storage);
 
         this.interfaceRequestSource = new InterfaceRequestSource(this.iHost);
     }
@@ -195,26 +198,36 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
         } else if (inv == this.patterns && (!removed.isEmpty() || !added.isEmpty())) {
             this.updateCraftingList();
-        } else if (inv == this.storage && slot >= 0) {
-            if (added != ItemStack.EMPTY){
-                iHost.onStackReturnNetwork(GenericStack.fromItemStack(added));
+        }
+    }
+
+    /**
+     * A slot of {@link #storage} changed. Re-plans that slot and wakes or sleeps the machine accordingly.
+     * <p>
+     * {@code slot < 0} means "the whole inventory was replaced", which is what a world load looks like.
+     */
+    private void onStorageChanged(final GenericStackInv inv, final int slot) {
+        final boolean had = this.hasWorkToDo();
+
+        if (slot < 0) {
+            for (int x = 0; x < NUMBER_OF_STORAGE_SLOTS; x++) {
+                this.updatePlan(x);
             }
-            final boolean had = this.hasWorkToDo();
-
+        } else {
             this.updatePlan(slot);
+        }
 
-            final boolean now = this.hasWorkToDo();
+        final boolean now = this.hasWorkToDo();
 
-            if (had != now) {
-                try {
-                    if (now) {
-                        this.gridProxy.getTick().alertDevice(this.gridProxy.getNode());
-                    } else {
-                        this.gridProxy.getTick().sleepDevice(this.gridProxy.getNode());
-                    }
-                } catch (final GridAccessException e) {
-                    // :P
+        if (had != now) {
+            try {
+                if (now) {
+                    this.gridProxy.getTick().alertDevice(this.gridProxy.getNode());
+                } else {
+                    this.gridProxy.getTick().sleepDevice(this.gridProxy.getNode());
                 }
+            } catch (final GridAccessException e) {
+                // :P
             }
         }
     }
@@ -484,50 +497,29 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             req = null;
         }
 
-        // This interface stocks items only; the universal one is stage 3 of the fluids decomposition. Until
-        // then a configured key of any other type counts as an empty slot rather than as work.
-        //
-        // It used to count as work: the config inventory became generic in stage 0, so a fluid can be put in
-        // the slot, updatePlan happily planned for it, and usePlan then fell through its `instanceof
-        // AEItemKey` guard and did nothing - leaving requireWork set forever, so hasWorkToDo() stayed true
-        // and the interface never went back to sleep. Nothing visible, just a machine ticking at its fastest
-        // rate for good.
-        if (req != null && !(req.what() instanceof AEItemKey)) {
-            req = null;
-        }
+        // Both sides are keys now, so this no longer has to ask what type anything is. The guard that used
+        // to sit here - "a non-item request counts as an empty slot" - was a stopgap for a storage that
+        // could only hold ItemStacks; usePlan is what still decides whether the work can actually be done.
+        final GenericStack stored = this.storage.getStack(slot);
 
-        final ItemStack stored = this.storage.getStackInSlot(slot);
-
-        if (req == null && !stored.isEmpty()) {
-            final AEItemKey storedKey = AEItemKey.of(stored);
-            this.requireWork[slot] = new GenericStack(storedKey, -stored.getCount());
-            return;
+        if (req == null && stored != null) {
+            this.requireWork[slot] = new GenericStack(stored.what(), -stored.amount());
         } else if (req != null) {
-            if (stored.isEmpty()) // need to add stuff!
-            {
+            if (stored == null) {
+                // Nothing stored: fetch the lot.
                 this.requireWork[slot] = req;
-                return;
-            } else if (req.what() instanceof AEItemKey reqKey && reqKey.matches(stored)) // same type and quantity  )!
-            {
-                if (req.amount() == stored.getCount()) {
-                    this.requireWork[slot] = null;
-                } else                                // same type ( qty different? )!
-                {
-                    this.requireWork[slot] = new GenericStack(req.what(), req.amount() - stored.getCount());
-                }
-                return;
-            } else
-            // Stored != null; dispose!
-            {
-                final AEItemKey storedKey = AEItemKey.of(stored);
-                this.requireWork[slot] = new GenericStack(storedKey, -stored.getCount());
-                return;
+            } else if (req.what().equals(stored.what())) {
+                // Right key, so only the amount can be wrong.
+                this.requireWork[slot] = req.amount() == stored.amount()
+                        ? null
+                        : new GenericStack(req.what(), req.amount() - stored.amount());
+            } else {
+                // Wrong key: put it back before fetching what was asked for.
+                this.requireWork[slot] = new GenericStack(stored.what(), -stored.amount());
             }
+        } else {
+            this.requireWork[slot] = null;
         }
-
-        // else
-
-        this.requireWork[slot] = null;
     }
 
     public void notifyNeighbors() {
@@ -635,7 +627,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     public IItemHandler getInternalInventory() {
-        return this.storage;
+        // Network-first, exactly as the old AppEngNetworkInventory was: something pushed into an interface
+        // belongs in the network, not in the interface's nine slots.
+        return new NetworkFirstItemHandler(this.storageItems, this::getStorageGrid, this.mySource);
     }
 
     @Override
@@ -804,25 +798,24 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             this.destination = this.gridProxy.getStorage().getInventory();
             final IEnergySource src = this.gridProxy.getEnergy();
 
-            if (itemStack.amount() < 0) {
-                final GenericStack toStore = new GenericStack(itemStack.what(), -itemStack.amount());
-                long diff = toStore.amount();
+            final AEKey what = itemStack.what();
 
-                // make sure strange things didn't happen...
-                // TODO: check if OK
-                final ItemStack canExtract = adaptor.simulateRemove((int) diff, ((AEItemKey) toStore.what()).toStack(), null);
-                if (canExtract.isEmpty()) {
+            if (itemStack.amount() < 0) {
+                // Unwanted: push it back into the network, then take it out of the slot. Straight slot
+                // operations now, where this used to go through an InventoryAdaptor and therefore could
+                // only ever move items.
+                final long toStore = -itemStack.amount();
+
+                if (this.storage.extract(x, what, toStore, Actionable.SIMULATE) <= 0) {
                     changed = true;
                     throw new GridAccessException();
                 }
 
-                final long insertedAmt = Platform.poweredInsert(src, this.destination, toStore.what(), toStore.amount(), this.interfaceRequestSource);
+                final long insertedAmt = Platform.poweredInsert(src, this.destination, what, toStore, this.interfaceRequestSource);
 
-                if (insertedAmt != 0) {
-                    // extract items!
+                if (insertedAmt > 0) {
                     changed = true;
-                    final ItemStack removed = adaptor.removeItems((int) insertedAmt, ItemStack.EMPTY, null);
-                    if (removed.isEmpty()) {
+                    if (this.storage.extract(x, what, insertedAmt, Actionable.MODULATE) != insertedAmt) {
                         throw new IllegalStateException("bad attempt at managing inventory. ( removeItems )");
                     }
                 }
@@ -830,27 +823,20 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
             if (this.craftingTracker.isBusy(x)) {
                 changed = this.handleCrafting(x, adaptor, itemStack) || changed;
-            } else if (itemStack.amount() > 0 && itemStack.what() instanceof AEItemKey itemKey) {
-                // make sure strange things didn't happen...
-
-                ItemStack inputStack = itemKey.toStack((int) Math.min(itemStack.amount(), Integer.MAX_VALUE));
-
-                ItemStack remaining = adaptor.simulateAdd(inputStack);
-
-                if (!remaining.isEmpty()) {
+            } else if (itemStack.amount() > 0) {
+                // Make sure the plan isn't stale: the slot must still have room for the whole amount.
+                if (this.storage.insert(x, what, itemStack.amount(), Actionable.SIMULATE) != itemStack.amount()) {
                     changed = true;
                     throw new GridAccessException();
                 }
 
-                final long acquired = Platform.poweredExtraction(src, this.destination, itemKey, itemStack.amount(), this.interfaceRequestSource);
+                final long acquired = Platform.poweredExtraction(src, this.destination, what, itemStack.amount(), this.interfaceRequestSource);
                 if (acquired > 0) {
                     changed = true;
-                    inputStack.setCount(Ints.saturatedCast(acquired));
-                    final ItemStack issue = adaptor.addItems(inputStack);
-                    if (!issue.isEmpty()) {
+                    if (this.storage.insert(x, what, acquired, Actionable.MODULATE) != acquired) {
                         throw new IllegalStateException("bad attempt at managing inventory. ( addItems )");
                     }
-                } else if (this.gridProxy.getCrafting().isCraftable(itemKey)) {
+                } else if (this.gridProxy.getCrafting().isCraftable(what)) {
                     changed = this.handleCrafting(x, adaptor, itemStack) || changed;
                 }
             }
@@ -868,7 +854,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     private InventoryAdaptor getAdaptor(final int slot) {
-        return new AdaptorItemHandler(((AppEngNetworkInventory) this.storage).getBufferWrapper(slot));
+        // Still item-shaped, because the crafting tracker delivers a finished craft through an
+        // InventoryAdaptor. Restricted to the one slot, as before.
+        return new AdaptorItemHandler(new WrapperRangeItemHandler(this.storageItems, slot, slot + 1));
     }
 
     private boolean handleCrafting(final int x, final InventoryAdaptor d, final GenericStack itemStack) {
@@ -939,7 +927,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     @Override
     public IItemHandler getInventoryByName(final String name) {
         if (name.equals("storage")) {
-            return this.storage;
+            return this.storageItems;
         }
 
         if (name.equals("patterns")) {
@@ -958,6 +946,14 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     public IItemHandler getStorage() {
+        return this.storageItems;
+    }
+
+    /**
+     * The stock itself, of every key type. {@link #getStorage()} is the item-only view kept for the GUIs and
+     * neighbours that speak {@code IItemHandler}.
+     */
+    public GenericStackInv getStorageInv() {
         return this.storage;
     }
 
@@ -1325,11 +1321,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
         }
 
-        for (final ItemStack is : this.storage) {
+        // Only the item slots can be dropped on the floor; a fluid has nowhere to land. The network keeps
+        // the rest, which is also what happens when a fluid interface is broken.
+        for (int slot = 0; slot < this.storageItems.getSlots(); slot++) {
+            ItemStack is = this.storageItems.getStackInSlot(slot);
             if (!is.isEmpty()) {
-                int maxStackSize = is.getMaxStackSize();
+                is = is.copy();
+                final int maxStackSize = is.getMaxStackSize();
                 while (is.getCount() > maxStackSize) {
-                    ItemStack portionedStack = is.copy();
+                    final ItemStack portionedStack = is.copy();
                     portionedStack.setCount(maxStackSize);
                     is.shrink(maxStackSize);
                     drops.add(portionedStack);
@@ -1498,7 +1498,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     @SuppressWarnings("unchecked")
     public <T> T getCapability(Capability<T> capabilityClass, EnumFacing facing) {
         if (capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
-            return (T) this.storage;
+            // The item *view*, never the inventory itself: a GenericStackInv is not an IItemHandler, and a
+            // vanilla hopper casts whatever this returns without asking.
+            return (T) this.getInternalInventory();
         } else if (capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
             return (T) this.accessor;
         }
@@ -1583,10 +1585,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
 
-    private class InterfaceInventory extends MEMonitorIInventory {
+    private class InterfaceInventory extends GenericStackInvStorage {
 
         public InterfaceInventory(final DualityInterface tileInterface) {
-            super(new AdaptorItemHandler(tileInterface.storage));
+            super(tileInterface.storage, tileInterface.getTermName());
         }
 
         @Override

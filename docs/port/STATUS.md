@@ -726,8 +726,25 @@ from the dependency graph. Merged into one stage, sliced so the game stays playa
   an interface must not be handed a `WrappedGenericStack` placeholder, and a pipe must not drain an item
   slot. That is also why this is a new class rather than a reuse of `AppEngInternalAEInventory`: that one
   exists to be edited in a GUI and hands out placeholders on purpose.
-- **2b** — switch `DualityInterface`'s `storage` to it, keeping the item-handler capability behaving exactly
-  as now. Test: an ordinary ME interface is unchanged.
+- **2b — the interface's stock is generic (done, awaiting a play-test).** `DualityInterface.storage` is a
+  `GenericStackInv` rather than an `AppEngInternalInventory`. What that let us delete is the point:
+  - `updatePlan` no longer asks what type anything is. It compared a `GenericStack` request against an
+    `ItemStack` in a slot, so every branch had to unwrap one side; both sides are keys now and the whole
+    method is four cases with no `instanceof` in them. The stopgap added last week - "a non-item request
+    counts as an empty slot, or the interface never sleeps" - is gone with it.
+  - `usePlan` moves stock with `storage.insert`/`storage.extract` on the slot instead of an
+    `InventoryAdaptor`, which could only ever carry items. It still holds rather than pushes, same as
+    upstream's `InterfaceLogic`.
+  - `InterfaceInventory`, the face the network sees, extends the new `GenericStackInvStorage` instead of
+    `MEMonitorIInventory`. The two priority guards on top of it are unchanged.
+  - `AppEngNetworkInventory` is deleted. Its one behaviour - something pushed into an interface goes to the
+    **network** first and only overflows into the nine slots - is now `NetworkFirstItemHandler`, wrapped
+    around the item view. That behaviour is fork-specific and had to survive verbatim.
+  - Breaking an interface drops the item slots only; a fluid has nowhere to land and stays in the network,
+    which is what breaking a fluid interface already did.
+
+  The crafting card still delivers through an `InventoryAdaptor` over a one-slot item view, so a *crafted*
+  non-item restock is still item-only. That is 2c's business, along with the fluid capability.
 - **2c** — expose the fluid-handler capability from the generic interface, so it stocks and serves fluids.
   Test: fluids stock in the normal ME interface, and a machine can drain them.
 - **2d** — generalise the interface configuration terminal (`FluidSyncHelper`, `PacketFluidSlot`,
