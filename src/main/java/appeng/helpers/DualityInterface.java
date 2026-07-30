@@ -41,7 +41,9 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMonitorableAccessor;
@@ -92,6 +94,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
@@ -107,6 +110,13 @@ import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 public class DualityInterface implements IGridTickable, MEStorage, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost {
     public static final int NUMBER_OF_STORAGE_SLOTS = 9;
+    /**
+     * An interface slot holds eight standard slots' worth, not one. That is where the fork's 512 items per
+     * slot came from - the deleted {@code AppEngInternalOversizedInventory} was constructed with
+     * {@code maxStack = 512}, eight times a stack - and applying the same multiple to every key type gives
+     * 32 buckets of fluid rather than the four a standard slot holds.
+     */
+    private static final long SLOT_CAPACITY_MULTIPLE = 8;
     public static final int NUMBER_OF_CONFIG_SLOTS = 9;
     public static final int NUMBER_OF_PATTERN_SLOTS = 36;
 
@@ -159,7 +169,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
         final MachineSource actionSource = new MachineSource(this.iHost);
         this.mySource = actionSource;
-        this.storage = new GenericStackInv(this::onStorageChanged, NUMBER_OF_STORAGE_SLOTS);
+        this.storage = new GenericStackInv(this::onStorageChanged, NUMBER_OF_STORAGE_SLOTS,
+                what -> SLOT_CAPACITY_MULTIPLE * GenericSlotCapacities.get(what));
         this.storageItems = new GenericStackItemHandler(this.storage);
 
         this.interfaceRequestSource = new InterfaceRequestSource(this.iHost);
@@ -189,7 +200,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return;
         }
 
-        if (inv == this.config && (!removed.isEmpty() || !added.isEmpty())) {
+        // Deliberately not gated on "something was actually added or removed": for a wrapped key both are
+        // one placeholder item, so a changed *amount* looks like no change at all from here.
+        if (inv == this.config) {
             boolean cfg = hasConfig();
             this.readConfig();
             if (cfg != hasConfig) {
@@ -500,6 +513,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         // Both sides are keys now, so this no longer has to ask what type anything is. The guard that used
         // to sit here - "a non-item request counts as an empty slot" - was a stopgap for a storage that
         // could only hold ItemStacks; usePlan is what still decides whether the work can actually be done.
+        // A slot cannot hold more than its capacity, so asking for more is asking for a plan that can never
+        // complete: usePlan checks the whole amount fits before moving anything, so an over-large request
+        // used to fail on every tick and the slot stayed at whatever had been stocked before it was raised.
+        // Clamping means the interface stocks as much as it can hold and then rests.
+        if (req != null) {
+            final long capacity = this.storage.getCapacity(req.what());
+            if (req.amount() > capacity) {
+                req = new GenericStack(req.what(), capacity);
+            }
+        }
+
         final GenericStack stored = this.storage.getStack(slot);
 
         if (req == null && stored != null) {
@@ -950,11 +974,19 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     /**
-     * The stock itself, of every key type. {@link #getStorage()} is the item-only view kept for the GUIs and
+     * The stock itself, of every key type. {@link #getStorage()} is the item-only view kept for the
      * neighbours that speak {@code IItemHandler}.
      */
     public GenericStackInv getStorageInv() {
         return this.storage;
+    }
+
+    /**
+     * What the interface's own GUI shows: every slot, with a non-item key drawn as a placeholder that cannot
+     * be picked up. Without this a stocked fluid would simply be invisible.
+     */
+    public IItemHandler getStorageForDisplay() {
+        return new GenericStackDisplayHandler(this.storage);
     }
 
     @Override
@@ -1492,7 +1524,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     public boolean hasCapability(Capability<?> capabilityClass, EnumFacing facing) {
-        return capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY || capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR;
+        return capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
+                || capabilityClass == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY
+                || capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR;
     }
 
     @SuppressWarnings("unchecked")
@@ -1501,6 +1535,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             // The item *view*, never the inventory itself: a GenericStackInv is not an IItemHandler, and a
             // vanilla hopper casts whatever this returns without asking.
             return (T) this.getInternalInventory();
+        } else if (capabilityClass == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
+            // The same stock, seen as tanks. One interface serving both is what makes the separate fluid
+            // interface redundant.
+            return (T) new NetworkFirstFluidHandler(new GenericStackFluidHandler(this.storage),
+                    this::getStorageGrid, this.mySource);
         } else if (capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
             return (T) this.accessor;
         }

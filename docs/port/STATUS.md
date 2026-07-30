@@ -745,8 +745,67 @@ from the dependency graph. Merged into one stage, sliced so the game stays playa
 
   The crafting card still delivers through an `InventoryAdaptor` over a one-slot item view, so a *crafted*
   non-item restock is still item-only. That is 2c's business, along with the fluid capability.
-- **2c** — expose the fluid-handler capability from the generic interface, so it stocks and serves fluids.
-  Test: fluids stock in the normal ME interface, and a machine can drain them.
+- **2c — the interface stocks and serves fluids (done, awaiting a play-test).** With 2b's plan and execution
+  already type-agnostic, this is mostly capability wiring: `hasCapability`/`getCapability` now answer
+  `FLUID_HANDLER_CAPABILITY` with a `GenericStackFluidHandler` over the same stock, wrapped in the new
+  `NetworkFirstFluidHandler` - the fluid mirror of the item behaviour, and the deleted
+  `AENetworkFluidInventory`'s: what a machine pumps in goes to the network first, while **draining stays
+  local**, which is what makes an interface a buffer rather than a pipe into storage.
+  Slot capacity is four buckets, the same number `DualityFluidInterface.TANK_CAPACITY` used, so nothing
+  changes size.
+  <br/>
+  One thing this needed that the plan did not foresee: the interface's own GUI drew its nine stored slots
+  through the *item* view, so a stocked fluid was simply invisible. `GenericStackDisplayHandler` is the third
+  view of a `GenericStackInv` and exists for exactly that - a machine must not see a fluid slot at all, a
+  player must. It shows a non-item key as a placeholder and refuses every mutation of that slot, which is
+  also what stops the placeholder being picked up: a vanilla slot decides whether it can be taken by asking
+  `extractItem` for one.
+  Two defects the play-test found in 2c, both about **capacity**, and the first of them a regression I would
+  not have caught by reading:
+  - *"It always stocks one bucket."* The config can be set to any amount, but a slot holds four buckets.
+    `usePlan` checks that the whole amount fits before moving anything, so an over-large request failed on
+    every single tick - and the slot kept whatever had been stocked while the number was still small, which
+    from the outside reads as "the amount setting does nothing". `updatePlan` clamps the request to the slot
+    capacity now, so the interface stocks as much as it can hold and then rests.
+  - **The item slot silently shrank from 512 to 64.** The old storage was an
+    `AppEngInternalOversizedInventory` built with `maxStack = 512`; `GenericSlotCapacities` is a *standard*
+    slot size and says 64. `GenericStackInv` therefore takes an optional per-inventory `SlotCapacity`, and
+    the interface passes 512 for items while leaving every other type at the standard. Nothing about the
+    symptom pointed here - it was found only by asking what the deleted class's constructor arguments meant.
+
+  A second round on the same slice found the reason the amount looked inert, and it is worth writing down
+  because it is the §9.1 family again: **`AppEngInternalAEInventory.setStackInSlot` reported "nothing
+  changed" whenever a wrapped key's amount changed.** It works out what happened by differencing the old and
+  new `ItemStack` *counts* - and a placeholder is always exactly one item whatever amount it stands for, so
+  the difference was zero, `removed` and `added` both came out empty, and `DualityInterface` skipped
+  `readConfig()`. The amount was stored correctly and nothing was ever told to act on it, which is why it
+  only took effect after a reload. Placeholders now compare by their `GenericStack`.
+
+  Capacity is one rule instead of two special cases: **an interface slot holds eight standard slots' worth**.
+  That is where the fork's 512 items came from (`maxStack = 512`, eight stacks), and the same multiple gives
+  32 buckets of fluid. The same arithmetic bounds what can be *typed*: a fake slot's stack limit is in items,
+  so scaling it by the key's standard slot size makes "512" mean 512 items and 32 buckets, and scrolling
+  stops there rather than running to 9.2E18.
+
+  A third round found that a stocked fluid could still be picked up out of the interface's GUI - "as an
+  item, but only visually", which was the whole diagnosis in one phrase. **§9.1d again, in the opposite
+  direction.** Vanilla syncs a container slot by sending its `ItemStack` and calling `putStack` on the
+  client, which reaches `GenericStackDisplayHandler.setStackInSlot`; that read the placeholder as the item
+  it looks like and wrote `AEItemKey(WrappedGenericStack)` into the *client's* copy of the inventory. From
+  then on the client's slot held a genuine item: it rendered as one, `canTakeStack` allowed it, and a bucket
+  could be swapped into it - while the server, whose inventory held a fluid, refused. Hence "only visually".
+  It resolves the stack now, like every other reader of a slot.
+
+  Filling a bucket **from** that slot needed adding rather than fixing - the slot rightly will not hand a
+  fluid over as an item, so there was no way to reach it by hand. `SlotGenericStorage` marks a slot as backed
+  by a generic inventory, and a click with a container in hand becomes a fill or an empty **against that
+  slot** rather than against the network. Same left-fills/right-empties convention as a terminal row, and
+  upstream does the same for any slot backed by a generic inventory.
+
+  Also from the same report: scrolling a wrapped amount now snaps to whole units. Up from a hand-tuned 1mB
+  reads 1B rather than 1001mB, because a notch means "one more bucket"; Ctrl is what reaches the amounts in
+  between.
+
 - **2d** — generalise the interface configuration terminal (`FluidSyncHelper`, `PacketFluidSlot`,
   `ClientDCInternalFluidInv` merge into their item counterparts).
 - **2e** — delete the fluid interface orbit and the fluid inventory types with it.

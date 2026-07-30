@@ -21,6 +21,7 @@ package appeng.container;
 
 import appeng.api.AEApi;
 import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
@@ -36,6 +37,7 @@ import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
@@ -56,6 +58,7 @@ import appeng.me.helpers.PlayerSource;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
+import appeng.util.inv.GenericStackInv;
 import appeng.util.inv.WrapperCursorItemHandler;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -549,6 +552,16 @@ public abstract class AEBaseContainer extends Container {
                 }
             }
 
+            // Filling or emptying a held container against a stocked slot, rather than against the network.
+            // Upstream does the same for any slot backed by a generic inventory; here it is what lets a
+            // bucket be filled from an interface's fluid slot, which is otherwise unreachable - the slot
+            // rightly refuses to hand the key over as an item.
+            if (s instanceof SlotGenericStorage genericSlot
+                    && (action == InventoryAction.FILL_ITEM || action == InventoryAction.EMPTY_ITEM)) {
+                this.handleSlotContainerItemAction(player, genericSlot, action);
+                return;
+            }
+
             if (s instanceof SlotFake) {
                 final ItemStack hand = player.inventory.getItemStack();
 
@@ -877,14 +890,18 @@ public abstract class AEBaseContainer extends Container {
                 if (!hand.isEmpty()) {
                     return false;
                 }
-                amount += unit;
+                // To the next whole unit, not one unit further along. Scrolling up from a hand-tuned 1mB
+                // should read 1B, not 1001mB - the notch means "one more bucket", and off-grid amounts are
+                // what Ctrl is for.
+                amount = (amount / unit + 1) * unit;
                 break;
             case PICKUP_SINGLE:
             case SPLIT_OR_PLACE_SINGLE:
                 if (!hand.isEmpty()) {
                     return false;
                 }
-                amount -= unit;
+                // Down to the previous whole unit, so an off-grid amount snaps back onto it first.
+                amount = amount % unit == 0 ? amount - unit : amount / unit * unit;
                 break;
             case HALVE:
                 amount /= 2;
@@ -900,8 +917,90 @@ public abstract class AEBaseContainer extends Container {
         // Never empties the slot, matching the item path: PICKUP_SINGLE on a count of one leaves the one.
         // The floor is a single base unit rather than a whole unit, because a pattern may legitimately ask
         // for less than a bucket.
-        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.max(1, amount)));
+        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.min(this.maxAmountIn(s, current.what()), Math.max(1, amount))));
         return true;
+    }
+
+    /**
+     * Fills the held container from one slot of a generic inventory, or empties it into that slot. The
+     * network is not involved: this moves what the slot itself is holding, which is what makes an
+     * interface's stock reachable by hand.
+     */
+    private void handleSlotContainerItemAction(final EntityPlayerMP player, final SlotGenericStorage slot,
+            final InventoryAction action) {
+        final ItemStack held = player.inventory.getItemStack();
+        if (held.isEmpty()) {
+            return;
+        }
+
+        final GenericStackInv inv = slot.getGenericInv();
+        final int index = slot.getGenericSlot();
+
+        if (action == InventoryAction.FILL_ITEM) {
+            final AEKey what = inv.getKey(index);
+            if (!ContainerItemStrategies.isKeySupported(what)) {
+                return;
+            }
+
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
+            if (ctx == null) {
+                return;
+            }
+
+            final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+            final long available = inv.extract(index, what, room, Actionable.SIMULATE);
+            if (available <= 0) {
+                return;
+            }
+
+            final long moved = ctx.insert(what, available, Actionable.MODULATE);
+            if (moved > 0) {
+                inv.extract(index, what, moved, Actionable.MODULATE);
+                this.replaceHeldWith(player, held, ctx.getContainer());
+            }
+            return;
+        }
+
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+        if (ctx == null) {
+            return;
+        }
+
+        final GenericStack content = ctx.getExtractableContent();
+        if (content == null) {
+            return;
+        }
+
+        final AEKey what = content.what();
+        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        final long room = inv.insert(index, what, drainable, Actionable.SIMULATE);
+        if (room <= 0) {
+            return;
+        }
+
+        final long drained = ctx.extract(what, room, Actionable.MODULATE);
+        if (drained > 0) {
+            inv.insert(index, what, drained, Actionable.MODULATE);
+            this.replaceHeldWith(player, held, ctx.getContainer());
+        }
+    }
+
+    /**
+     * The ceiling for an amount typed into a fake slot, in the key's own units.
+     * <p>
+     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports - so it is
+     * scaled by the key type's standard slot size to mean the same thing for any type. An ME Interface's
+     * config allows 512 items and, by the same arithmetic, 32 buckets. A filter slot has a limit of one and
+     * therefore no meaningful ceiling, so those are left unbounded.
+     */
+    private long maxAmountIn(final Slot s, final AEKey what) {
+        final int slotLimit = s.getSlotStackLimit();
+        if (slotLimit <= 1) {
+            return Long.MAX_VALUE;
+        }
+
+        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
+        return Math.max(1, slotLimit * GenericSlotCapacities.get(what) / standard);
     }
 
     /**

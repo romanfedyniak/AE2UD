@@ -19,8 +19,11 @@
 package appeng.tile.inventory;
 
 
+import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.fluids.items.FluidDummyItem;
 import appeng.core.AELog;
@@ -224,6 +227,7 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
 
     @Override
     public void setStackInSlot(final int slot, final ItemStack newItemStack) {
+        final GenericStack previous = this.inv[slot];
         ItemStack oldStack = this.getStackInSlot(slot).copy();
         this.inv[slot] = toGenericStack(newItemStack);
 
@@ -231,7 +235,19 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             ItemStack newStack = newItemStack.copy();
             InvOperation op = InvOperation.SET;
 
-            if (ItemStack.areItemsEqual(oldStack, newStack)) {
+            // The difference-of-counts dance below is only meaningful for real item stacks. A wrapped key
+            // is *always* one item whatever amount it stands for, so for two placeholders it computed a
+            // difference of zero and reported "nothing removed, nothing added" - and every listener that
+            // asks "did anything change?" answered no. That is why raising a fluid's configured amount in
+            // an ME Interface did nothing until the world was reloaded: the amount was stored, but the
+            // interface was never told to re-plan.
+            final boolean wrapped = GenericStack.isWrapped(oldStack) || GenericStack.isWrapped(newStack);
+
+            if (wrapped) {
+                if (java.util.Objects.equals(previous, this.inv[slot])) {
+                    return;
+                }
+            } else if (ItemStack.areItemsEqual(oldStack, newStack)) {
                 if (newStack.getCount() > oldStack.getCount()) {
                     newStack.shrink(oldStack.getCount());
                     oldStack = ItemStack.EMPTY;
@@ -244,6 +260,21 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
             }
             this.fireOnChangeInventory(slot, op, oldStack, newStack);
         }
+    }
+
+    /**
+     * The largest amount of {@code what} a slot of this inventory may be configured to.
+     * <p>
+     * {@code maxStack} is expressed in items, because that is all this class could hold when it was written.
+     * Scaling it by the key type's own standard slot size keeps one rule for every type: an ME Interface's
+     * config allows eight standard slots' worth, which is 512 items and - by the same arithmetic - 32 buckets.
+     */
+    public long getMaxAmount(final AEKey what) {
+        if (what == null) {
+            return this.maxStack;
+        }
+        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
+        return Math.max(1, this.maxStack * GenericSlotCapacities.get(what) / standard);
     }
 
     private void fireOnChangeInventory(int slot, InvOperation op, ItemStack removed, ItemStack inserted) {

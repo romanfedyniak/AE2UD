@@ -40,13 +40,29 @@ public class GenericStackInv implements Iterable<GenericStack> {
         void onSlotChanged(GenericStackInv inv, int slot);
     }
 
+    /**
+     * How much of a key one slot of <em>this</em> inventory holds. Defaults to {@link GenericSlotCapacities},
+     * but an owner may hold more than the standard: the ME Interface has always stocked several stacks of an
+     * item per slot, and that had to survive the move off {@code AppEngInternalOversizedInventory}.
+     */
+    @FunctionalInterface
+    public interface SlotCapacity {
+        long forKey(AEKey what);
+    }
+
     @Nullable
     private final ChangeListener listener;
+    private final SlotCapacity capacity;
     private final GenericStack[] slots;
     private boolean suppressListener = false;
 
     public GenericStackInv(@Nullable ChangeListener listener, int size) {
+        this(listener, size, GenericSlotCapacities::get);
+    }
+
+    public GenericStackInv(@Nullable ChangeListener listener, int size, SlotCapacity capacity) {
         this.listener = listener;
+        this.capacity = capacity;
         this.slots = new GenericStack[size];
     }
 
@@ -74,7 +90,7 @@ public class GenericStackInv implements Iterable<GenericStack> {
      * @return how much of {@code what} one slot can hold in total, regardless of what is in it now.
      */
     public long getCapacity(AEKey what) {
-        return GenericSlotCapacities.get(what);
+        return what == null ? 0 : Math.max(1, this.capacity.forKey(what));
     }
 
     public void setStack(int slot, @Nullable GenericStack stack) {

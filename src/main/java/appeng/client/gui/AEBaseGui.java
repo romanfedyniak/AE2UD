@@ -386,6 +386,24 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
         final EntityPlayer player = Minecraft.getMinecraft().player;
 
+        // A slot holding real stock of a key the player cannot pick up - an interface's fluid. Left click
+        // fills what is held from that slot, right click empties into it; same convention as a terminal row.
+        // Anything else falls through to the ordinary item handling, so the item slots are untouched.
+        if (slot instanceof SlotGenericStorage && clickType == ClickType.PICKUP && !player.inventory.getItemStack().isEmpty()) {
+            final GenericStack held = GenericStack.resolveItemStack(player.inventory.getItemStack());
+            final boolean holdsContainer = ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null;
+            final GenericStack inSlot = GenericStack.unwrapItemStack(slot.getStack());
+
+            if (mouseButton == 0 && inSlot != null && ContainerItemStrategies.isKeySupported(inSlot.what())) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.FILL_ITEM, slotIdx, 0));
+                return;
+            }
+            if (mouseButton == 1 && holdsContainer && held != null) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.EMPTY_ITEM, slotIdx, 0));
+                return;
+            }
+        }
+
         if (slot instanceof SlotFake) {
             final InventoryAction action;
             if (mouseButton == 1) {
