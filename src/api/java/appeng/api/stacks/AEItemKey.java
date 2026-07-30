@@ -59,8 +59,10 @@ public final class AEItemKey extends AEKey {
     private AEItemKey(Item item, int damage, @Nullable NBTTagCompound tag) {
         this.item = item;
         this.damage = damage;
-        this.tag = tag;
-        this.hash = Objects.hash(item, damage, tag);
+        // Same normalisation as AEFluidKey: an empty compound is no compound. Item identity is safe here -
+        // Item is a true Forge registry singleton, unlike Fluid - so only the tag needed fixing.
+        this.tag = tag == null || tag.isEmpty() ? null : tag;
+        this.hash = Objects.hash(item, damage, this.tag);
     }
 
     /**

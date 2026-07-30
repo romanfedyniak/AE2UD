@@ -64,8 +64,13 @@ public final class AEFluidKey extends AEKey {
 
     private AEFluidKey(Fluid fluid, @Nullable NBTTagCompound tag) {
         this.fluid = fluid;
-        this.tag = tag;
-        this.hash = Objects.hash(fluid.getName(), tag);
+        // An empty compound carries nothing, so it must not make a different key than no compound at all.
+        // Forge's own FluidStack comparison treats the two as distinct, and mods routinely hand out a
+        // FluidStack with an empty tag - which meant one fluid could occupy two entries in a network, show
+        // as two identical rows in a terminal, and, worst of all, make a crafting job wait forever for an
+        // output that had already arrived under the other key.
+        this.tag = tag == null || tag.isEmpty() ? null : tag;
+        this.hash = Objects.hash(fluid.getName(), this.tag);
     }
 
     public static AEFluidKey of(Fluid fluid) {
@@ -207,7 +212,11 @@ public final class AEFluidKey extends AEKey {
         if (!(o instanceof AEFluidKey other)) {
             return false;
         }
-        return this.fluid == other.fluid && Objects.equals(this.tag, other.tag);
+        // By name, not by identity, because the hash is by name and the two have to agree. Forge lets more
+        // than one Fluid instance exist for a name - a mod keeps its own object while the registry hands out
+        // a default - so an identity check could call two keys different that hash the same, which is how a
+        // HashMap ends up holding both.
+        return this.fluid.getName().equals(other.fluid.getName()) && Objects.equals(this.tag, other.tag);
     }
 
     @Override
