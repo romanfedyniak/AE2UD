@@ -905,6 +905,42 @@ pattern is otherwise refused. That matches what `acceptsItems` already required 
 second, parallel queue - but it does mean a machine whose tank is momentarily full defers the craft rather
 than buffering it.
 
+## HEI recipe keybinds over a fluid row (done, awaiting a play-test)
+
+Pressing HEI's show-recipes key over a fluid in a terminal did nothing, while an item row worked.
+
+The first attempt - answering `IAdvancedGuiHandler.getIngredientUnderMouse` with a `FluidStack` - was the
+wrong lever, and the reason is worth keeping: **HEI asks the hovered slot for its ingredient before it asks
+any plugin.** A wrapped key is a genuine `ItemStack` in a genuine `Slot`, so HEI finds it, is satisfied, and
+looks up recipes for a display shim. Telling HEI what the slot really holds cannot help when it never asks.
+(The handler is still worth having - it covers the screens whose rows are *not* vanilla slots, like the
+craft-plan list.)
+
+So the answer has to arrive before the question: `WrappedKeyRecipeShortcut` listens to the keyboard event at
+`EventPriority.HIGHEST`, ahead of HEI's own handler, and takes over **only** when the slot under the mouse
+holds a wrapped key. Every item slot in the mod, and every other screen, is left untouched. The bindings are
+read from HEI's own `KeyBindings`, so a rebind is followed automatically.
+
+Registered from `onRuntimeAvailable`, so it needs the runtime to exist and does not exist at all without HEI.
+
+**Deferred here, pending an HEI API request.** This covers the two recipe keybinds and nothing else -
+bookmarks, HEI's own tooltips, recipe transfer and cheat-mode clicks all still see the placeholder, because
+each of them reaches the slot through the same path and would each need its own interception.
+
+`AE2FluidCraft-Rework-Unofficial` solves the whole class at once with a **Mixin into HEI's internal
+`GuiContainerWrapper.getIngredientUnderMouse`**, wrapping the `ClickedIngredient.create(...)` call so their
+fluid-packet item is substituted for the real `FluidStack` at the single point where a slot's contents become
+an ingredient. That is the right place - it is *one* point, and everything downstream follows. The cost is a
+mixin into a private class of a JEI fork, plus turning on mixins here at all (`usesMixins = false`; the fork
+has an ASM coremod but no Mixin).
+
+What would remove the need for either hack: **a way to tell HEI what a slot's stack really represents.**
+Something like an `ISlotIngredientProvider` consulted inside `GuiContainerWrapper.getIngredientUnderMouse`,
+or simply having HEI ask the registered `IAdvancedGuiHandler`s *before* falling back to the slot's own
+`ItemStack` rather than after. Either one turns this whole problem into a handler we already have. The owner
+is raising it with HEI, who have extended their API before; until then the two keybinds are worth having and
+the rest waits.
+
 ## Stage 2 is done — what the phase actually removed
 
 `appeng.fluids` went from 55 files to 10. Everything deleted was a duplicate of something already generic;

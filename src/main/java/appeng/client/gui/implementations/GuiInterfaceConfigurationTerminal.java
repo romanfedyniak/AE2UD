@@ -269,6 +269,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchFieldInputs != null && this.searchFieldInputs.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (character == ' ' && this.searchFieldInputs.getText().isEmpty() && this.searchFieldInputs.isFocused()) {

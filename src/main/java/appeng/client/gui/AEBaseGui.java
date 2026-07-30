@@ -139,6 +139,17 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
     }
 
+    /**
+     * Whether a text field on this screen currently has the keyboard.
+     * <p>
+     * Anything that reads a raw key press before the screen does has to ask this first, or typing a letter
+     * into a search box triggers whatever that letter is bound to. HEI's own handler makes the same check
+     * for its own field; a screen with a field of ours has to answer for it.
+     */
+    public boolean isTextFieldFocused() {
+        return false;
+    }
+
     private List<Slot> getInventorySlots() {
         return this.inventorySlots.inventorySlots;
     }
