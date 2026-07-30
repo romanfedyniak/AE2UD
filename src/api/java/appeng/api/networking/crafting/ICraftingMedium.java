@@ -45,6 +45,26 @@ public interface ICraftingMedium
 	boolean pushPattern( ICraftingPatternDetails patternDetails, InventoryCrafting table );
 
 	/**
+	 * Same as {@link #pushPattern(ICraftingPatternDetails, InventoryCrafting)}, but also carrying the
+	 * pattern's ingredients that an {@link InventoryCrafting} cannot express - a fluid, or anything else an
+	 * addon registers a key type for.
+	 * <p>
+	 * The two halves arrive together and are all-or-nothing: a medium that cannot place <em>every</em>
+	 * ingredient must accept none of them, because the crafting CPU has already taken them out of the network
+	 * and puts them back only when this returns false.
+	 * <p>
+	 * Defaults to refusing the pattern outright when there is anything in {@code extraInputs}, so an existing
+	 * medium keeps working unchanged and never silently drops an ingredient it cannot see.
+	 *
+	 * @param extraInputs the non-item ingredients, never null and never containing null.
+	 */
+	default boolean pushPattern( ICraftingPatternDetails patternDetails, InventoryCrafting table,
+			appeng.api.stacks.GenericStack[] extraInputs )
+	{
+		return extraInputs.length == 0 && this.pushPattern( patternDetails, table );
+	}
+
+	/**
 	 * @return if this is false, the crafting engine will refuse to send new jobs to this medium.
 	 */
 	boolean isBusy();

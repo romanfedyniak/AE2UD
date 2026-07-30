@@ -255,6 +255,12 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
+    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs) {
+        return this.duality.pushPattern(patternDetails, table, extraInputs);
+    }
+
+    @Override
     public boolean isBusy() {
         return this.duality.isBusy();
     }

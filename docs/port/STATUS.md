@@ -871,6 +871,40 @@ from the dependency graph. Merged into one stage, sliced so the game stays playa
   Worth repeating before any future feature removal - **the assets are a second, untyped reference to the
   enum, and `_constants.json` is the easiest one to miss because it is not a recipe.**
 
+## Fluids as a crafting *ingredient* (done, awaiting a play-test)
+
+The last thing fluids could not do. A pattern with a fluid input encoded, planned and displayed correctly but
+never ran, because the crafting CPU hands a medium an `InventoryCrafting` and that carries `ItemStack`s only.
+
+`ICraftingMedium` gained a **default** overload taking the ingredients an `InventoryCrafting` cannot express:
+
+```java
+default boolean pushPattern(details, table, GenericStack[] extraInputs) {
+    return extraInputs.length == 0 && pushPattern(details, table);
+}
+```
+
+Default rather than a new abstract method for two reasons: an addon's medium keeps compiling, and - more
+importantly - one that has not been updated **refuses** a pattern it cannot fully place instead of silently
+pushing it short an ingredient. The two halves are all-or-nothing, and `CraftingCPUCluster` puts *both* back
+when the push fails.
+
+Where the ingredients actually go, per destination:
+
+- **A neighbouring ME network** needs no translation at all - it speaks `MEStorage`, so a fluid inserts
+  exactly like an item.
+- **An adjacent machine** goes through `StackExportStrategy.push`, the same layer an export bus uses. That is
+  the whole point of the strategy layer paying off: `DualityInterface` never learns what a tank is, and a key
+  type an addon registers works here the moment it registers an export strategy.
+- **A third-party `ICraftingMachine`** is not offered the pattern at all when there are non-item ingredients,
+  since its API takes an `InventoryCrafting`.
+
+Deliberately not done: **queueing**. Items that do not fit go into `waitingToSendFacing`, which holds
+`ItemStack`s; a non-item ingredient is instead pushed only when the whole amount fits right now, and the
+pattern is otherwise refused. That matches what `acceptsItems` already required of the item half and avoids a
+second, parallel queue - but it does mean a machine whose tank is momentarily full defers the craft rather
+than buffering it.
+
 ## Stage 2 is done — what the phase actually removed
 
 `appeng.fluids` went from 55 files to 10. Everything deleted was a duplicate of something already generic;

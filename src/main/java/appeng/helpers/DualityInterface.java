@@ -42,6 +42,8 @@ import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.behaviors.GenericSlotCapacities;
+import appeng.api.behaviors.StackExportStrategy;
+import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -109,6 +111,7 @@ import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 
 public class DualityInterface implements IGridTickable, MEStorage, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost {
+    private static final GenericStack[] EMPTY_EXTRAS = new GenericStack[0];
     public static final int NUMBER_OF_STORAGE_SLOTS = 9;
     /**
      * An interface slot holds eight standard slots' worth, not one. That is where the fork's 512 items per
@@ -729,6 +732,14 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     private void pushItemsOut(final EnumFacing s) {
+        // The queue is null until something is actually queued, and is set back to null when it drains
+        // (readFromNBT does the same). Every caller used to be one that had just queued something, so the
+        // field could not be null here; a pattern whose ingredients are *all* non-items queues nothing and
+        // still reaches this, because the fluids went straight out through the export strategy.
+        if (this.waitingToSendFacing == null) {
+            return;
+        }
+
         if (!this.waitingToSendFacing.containsKey(s) || (this.waitingToSendFacing.containsKey(s) && this.waitingToSendFacing.get(s).isEmpty())) {
             return;
         }
@@ -1025,6 +1036,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     @Override
     public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table) {
+        return this.pushPattern(patternDetails, table, EMPTY_EXTRAS);
+    }
+
+    @Override
+    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs) {
         if (this.hasItemsToSend() || this.hasItemsToSendFacing() || !this.gridProxy.isActive() || !this.craftingList.contains(patternDetails)) {
             return false;
         }
@@ -1083,6 +1100,16 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                                     break;
                                 }
                             }
+                            // A neighbouring network is the one destination that needs no translation: it
+                            // speaks MEStorage, so a fluid ingredient goes in exactly like an item does.
+                            for (final GenericStack extra : extraInputs) {
+                                if (!allItemsCanBeInserted) {
+                                    break;
+                                }
+                                if (inv.insert(extra.what(), extra.amount(), Actionable.SIMULATE, this.mySource) != extra.amount()) {
+                                    allItemsCanBeInserted = false;
+                                }
+                            }
 
                             if (!allItemsCanBeInserted) {
                                 continue;
@@ -1094,6 +1121,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                                 if (!is.isEmpty()) {
                                     addToSendListFacing(is, s);
                                 }
+                            }
+                            // Straight in rather than through the send queue, which holds ItemStacks. It
+                            // was simulated as fitting a moment ago.
+                            for (final GenericStack extra : extraInputs) {
+                                inv.insert(extra.what(), extra.amount(), Actionable.MODULATE, this.mySource);
                             }
                             onPushPatternSuccess(patternDetails);
                             pushItemsOut(s);
@@ -1107,7 +1139,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 continue;
             }
 
-            if (te instanceof ICraftingMachine cm) {
+            // A third-party crafting machine is handed an InventoryCrafting, which cannot carry a fluid, so
+            // a pattern with one is not offered to it at all rather than pushed short an ingredient.
+            if (te instanceof ICraftingMachine cm && extraInputs.length == 0) {
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
                     if (cm.pushPattern(patternDetails, table, s.getOpposite())) {
@@ -1144,7 +1178,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     }
                 }
 
-                if (this.acceptsItems(ad, table)) {
+                if (this.acceptsItems(ad, table) && this.acceptsExtras(s, extraInputs)) {
                     this.visitedFaces.clear();
                     for (int x = 0; x < table.getSizeInventory(); x++) {
                         final ItemStack is = table.getStackInSlot(x);
@@ -1152,6 +1186,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             addToSendListFacing(is, s);
                         }
                     }
+                    this.pushExtras(s, extraInputs);
                     onPushPatternSuccess(patternDetails);
                     pushItemsOut(s);
                     return true;
@@ -1301,6 +1336,59 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     private boolean isBlocking() {
         return this.cm.getSetting(Settings.BLOCK) == YesNo.YES;
+    }
+
+    /**
+     * Whether the block on {@code side} would take every non-item ingredient, right now and in full.
+     * <p>
+     * Uses the export strategy registered for each key's own type - the same layer an export bus pushes
+     * through - so a fluid ingredient reaches the neighbour's tank without this class knowing what a tank
+     * is, and a key type an addon registers works the moment it registers a strategy.
+     */
+    private boolean acceptsExtras(final EnumFacing side, final GenericStack[] extraInputs) {
+        if (extraInputs.length == 0) {
+            return true;
+        }
+
+        final List<StackExportStrategy> export = this.getExportStrategies(side);
+        for (final GenericStack extra : extraInputs) {
+            if (pushThrough(export, extra, Actionable.SIMULATE) != extra.amount()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void pushExtras(final EnumFacing side, final GenericStack[] extraInputs) {
+        if (extraInputs.length == 0) {
+            return;
+        }
+
+        final List<StackExportStrategy> export = this.getExportStrategies(side);
+        for (final GenericStack extra : extraInputs) {
+            pushThrough(export, extra, Actionable.MODULATE);
+        }
+    }
+
+    private static long pushThrough(final List<StackExportStrategy> strategies, final GenericStack what,
+            final Actionable mode) {
+        for (final StackExportStrategy strategy : strategies) {
+            final long pushed = strategy.push(what.what(), what.amount(), mode);
+            if (pushed > 0) {
+                return pushed;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Built per push rather than cached: the neighbour may have been replaced since the last one, and a
+     * strategy holds the position and side it was created for.
+     */
+    private List<StackExportStrategy> getExportStrategies(final EnumFacing side) {
+        final TileEntity self = this.iHost.getTileEntity();
+        return StackWorldBehaviors.createExportStrategies(self.getWorld(), self.getPos().offset(side),
+                side.getOpposite());
     }
 
     private boolean acceptsItems(final InventoryAdaptor ad, final InventoryCrafting table) {

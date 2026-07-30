@@ -85,6 +85,8 @@ import java.util.stream.Collectors;
  */
 public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
+    private static final GenericStack[] EMPTY_EXTRAS = new GenericStack[0];
+
     private static final String LOG_MARK_AS_COMPLETE = "Completed job for %s.";
 
     private final WorldCoord min;
@@ -575,6 +577,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
             if (this.canCraft(details, details.getCondensedInputs())) {
                 InventoryCrafting ic = null;
+                GenericStack[] extras = EMPTY_EXTRAS;
 
                 if (!visitedMediums.containsKey(details) || visitedMediums.get(details).isEmpty()) {
                     visitedMediums.put(details, new ArrayDeque<>(cc.getMediums(details).stream().filter(Objects::nonNull).collect(Collectors.toList())));
@@ -610,6 +613,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             }
 
                             boolean found = false;
+                            // Ingredients an InventoryCrafting cannot hold - a fluid, or an addon's own key
+                            // type. Kept beside the table and handed to the medium with it; the two halves
+                            // are all-or-nothing, and the put-back below restores both.
+                            final List<GenericStack> extraInputs = new ArrayList<>();
 
                             for (int x = 0; x < input.length; x++) {
                                 if (input[x] != null) {
@@ -669,6 +676,18 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                                 continue;
                                             }
                                         }
+                                    } else {
+                                        final AEKey what = input[x].what();
+                                        final long extracted = this.inventory.extract(what, input[x].amount(), Actionable.MODULATE, this.machineSrc);
+
+                                        if (extracted > 0) {
+                                            this.postChange(what, this.machineSrc);
+                                            extraInputs.add(new GenericStack(what, extracted));
+                                            if (extracted == input[x].amount()) {
+                                                found = true;
+                                                continue;
+                                            }
+                                        }
                                     }
                                     // An ingredient that is not an item cannot travel in an InventoryCrafting,
                                     // so this pattern cannot be pushed until the interface can carry one
@@ -698,12 +717,17 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         }
                                     }
                                 }
+                                for (final GenericStack extra : extraInputs) {
+                                    this.inventory.insert(extra.what(), extra.amount(), Actionable.MODULATE, this.machineSrc);
+                                }
                                 ic = null;
                                 break;
                             }
+
+                            extras = extraInputs.toArray(new GenericStack[0]);
                         }
 
-                        if (m.pushPattern(details, ic)) {
+                        if (m.pushPattern(details, ic, extras)) {
                             this.somethingChanged = true;
                             this.remainingOperations--;
 
