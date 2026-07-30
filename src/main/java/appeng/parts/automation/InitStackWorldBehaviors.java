@@ -18,11 +18,13 @@
 
 package appeng.parts.automation;
 
+import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.behaviors.StackExportStrategy;
 import appeng.api.behaviors.StackImportStrategy;
 import appeng.api.stacks.AEKeyType;
+import appeng.fluids.parts.FluidContainerItemStrategy;
 import appeng.fluids.parts.FluidExportStrategy;
 import appeng.fluids.parts.FluidImportStrategy;
 import appeng.fluids.parts.FluidPickupStrategy;
@@ -61,5 +63,8 @@ public final class InitStackWorldBehaviors {
         PlacementStrategy.register(AEKeyType.fluids(), FluidPlacementStrategy::new);
 
         PickupStrategy.register(AEKeyType.fluids(), FluidPickupStrategy::new);
+
+        // Items deliberately get none: an item is its own container, so there is nothing to unwrap.
+        ContainerItemStrategy.register(AEKeyType.fluids(), new FluidContainerItemStrategy());
     }
 }

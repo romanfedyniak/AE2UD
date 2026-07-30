@@ -19,6 +19,7 @@
 package appeng.client.gui;
 
 
+import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -513,6 +514,19 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                             && (entry.getStoredAmount() == 0 || GuiScreen.isAltKeyDown())
                             && player.inventory.getItemStack().isEmpty()) {
                         action = InventoryAction.AUTO_CRAFT;
+                    }
+
+                    // A row the player cannot pick up by hand - a fluid - but can carry away in a container.
+                    // Left click fills what is held from the network.
+                    if (mouseButton == 0 && entry != null && ContainerItemStrategies.isKeySupported(entry.getWhat())
+                            && !player.inventory.getItemStack().isEmpty()) {
+                        action = InventoryAction.FILL_ITEM;
+                    } else if (mouseButton == 1 && !player.inventory.getItemStack().isEmpty()
+                            && ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null) {
+                        // Right click empties a held container into the network. Gated on the held item
+                        // actually containing something, so right-clicking with an ordinary stack still
+                        // places a single item as it always did - a bucket is a normal item everywhere else.
+                        action = InventoryAction.EMPTY_ITEM;
                     }
 
                     break;

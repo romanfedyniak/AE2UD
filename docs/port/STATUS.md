@@ -551,6 +551,49 @@ the generic terminal can do it, and then both go together.
 orphaned `Gui*` class. A static "who references this" sweep reports every screen in the tree as unused for
 the same reason. Both facts matter for stage 3.
 
+### Stage 1b — `ContainerItemStrategy`, so the generic terminal can fill and empty (done, awaiting a play-test)
+
+The sixth member of the strategy family, and the last thing blocking `PartFluidTerminal`'s deletion.
+
+**Shape chosen, after reading both references the owner asked for.** ae-gtnh puts `fillContainer` /
+`drainStackFromContainer` / `clearFilledContainer` straight onto its `IAEStackType` (its `AEKeyType`) and returns
+a `(container, amount)` pair from each call. Modern upstream keeps a separate `ContainerItemStrategies` registry
+keyed by key type, and hands out a *context* object per interaction. **Upstream's shape won**, for two reasons:
+our `AEKeyType` lives in the frozen api and has no business knowing about item containers, and we already have
+`StackWorldBehaviors` — a separate registry of exactly this kind, which an addon already knows how to register
+against. `ContainerItemStrategies` is its sibling, deliberately separate because this is about stacks in a hand
+rather than blocks in the world.
+
+The context object is not ceremony: Forge's `IFluidHandlerItem` works on a *copy* of the stack and returns the
+result through `getContainer()`, so a fill cannot be expressed as a mutation of the stack passed in. ae-gtnh's
+pair-return forces the caller to thread the container through by hand and cannot express two transfers into one
+container.
+
+New: `api/behaviors/ContainerItemStrategy` (+ `Context`), `api/behaviors/ContainerItemStrategies`,
+`fluids/parts/FluidContainerItemStrategy`. Registered in `InitStackWorldBehaviors` beside the other five.
+Items deliberately register none — an item *is* its own container, and pretending otherwise would make every
+ordinary stack look emptiable; `ContainerItemStrategies.register` rejects `AEKeyType.items()` outright.
+
+`AEBaseContainer` gained `handleContainerItemAction` / `fillHeldContainer` / `emptyHeldContainer` /
+`replaceHeldWith`, replacing the three near-identical copies of that dance in the fluid-only containers.
+Nothing in them mentions fluids. `AEBaseGui`'s `SlotME` branch sends the actions: **left click fills** the held
+container from the network when the row's type has a strategy, **right click empties** it — gated on the held
+item actually containing something, so right-clicking with an ordinary stack still places a single item, since
+a bucket is a normal item everywhere else. Same convention the legacy fluid terminal used.
+
+**Three upstream behaviours deliberately not ported yet**, none of them a regression:
+
+- `FILL_ENTIRE_ITEM` / `EMPTY_ENTIRE_ITEM` (shift to transfer a whole container rather than one unit). One
+  unit per click, matching `AEKey.getAmountPerUnit()`, is what the legacy fluid terminal did.
+- Clicking a fluid row with an **empty hand** to pull an empty bucket out of the network and fill it.
+  Upstream has it; the legacy fluid terminal did not.
+- Shift-clicking a filled container **out of the player inventory** to drain it into the network.
+  `ContainerFluidTerminal.transferStackInSlot` did this, and it is the one place the universal terminal
+  cannot copy it: on a fluids-only terminal, storing the bucket itself was not an option, whereas here
+  shift-click already means "store this item" and must keep meaning that or a bucket becomes unstorable.
+  Right-click still empties it. This is a conflict created by making the terminal universal, resolved in
+  favour of the unambiguous reading — not a mechanic dropped.
+
 ### Then, in order
 
 1. **Stage 1** — drop the legacy parts the audit above clears. The formation plane prerequisite is done.

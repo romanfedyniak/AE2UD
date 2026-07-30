@@ -20,6 +20,8 @@ package appeng.container;
 
 
 import appeng.api.AEApi;
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.definitions.IItemDefinition;
@@ -647,6 +649,14 @@ public abstract class AEBaseContainer extends Container {
             return;
         }
 
+        // Filling or emptying a held container against the network. Handled before the item-only switch
+        // below, because these are the two actions whose whole point is a key type the player's inventory
+        // cannot hold directly.
+        if (action == InventoryAction.FILL_ITEM || action == InventoryAction.EMPTY_ITEM) {
+            this.handleContainerItemAction(player, action);
+            return;
+        }
+
         // Get the targeted key. AEKey carries no amount, so `slotItemKey` is identity only, exactly as the
         // pinned AEBaseContainer#getTargetStack() javadoc says ("only identity + display were ever read").
         // The whole switch below is inherently item-only (it moves stacks into/out of the player's vanilla
@@ -836,6 +846,127 @@ public abstract class AEBaseContainer extends Container {
             default:
                 break;
         }
+    }
+
+    /**
+     * Fills the held container from the network, or empties it into the network, through the
+     * {@link ContainerItemStrategy} registered for the key type involved. One unit per click - a bucket for
+     * fluids - matching {@link AEKey#getAmountPerUnit()}.
+     * <p>
+     * Replaces the three near-identical copies of this dance that lived in the fluid-only containers. Nothing
+     * here mentions fluids: a key type that registers a strategy gets the interaction for free.
+     */
+    private void handleContainerItemAction(final EntityPlayerMP player, final InventoryAction action) {
+        if (this.getPowerSource() == null || this.getCellInventory() == null) {
+            return;
+        }
+
+        final ItemStack held = player.inventory.getItemStack();
+        if (held.isEmpty()) {
+            return;
+        }
+
+        if (action == InventoryAction.FILL_ITEM) {
+            final AEKey what = this.clientRequestedTargetItem;
+            if (ContainerItemStrategies.isKeySupported(what)) {
+                this.fillHeldContainer(player, held, what);
+            }
+        } else {
+            this.emptyHeldContainer(player, held);
+        }
+    }
+
+    private void fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what) {
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
+        if (ctx == null) {
+            return;
+        }
+
+        // Room in the container first: asking the network for a bucket we cannot hold would charge power
+        // for nothing.
+        final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        if (room <= 0) {
+            return;
+        }
+
+        final long available = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what, room,
+                this.getActionSource(), Actionable.SIMULATE);
+        if (available <= 0) {
+            return;
+        }
+
+        final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what,
+                available, this.getActionSource());
+        if (extracted <= 0) {
+            return;
+        }
+
+        final long inserted = ctx.insert(what, extracted, Actionable.MODULATE);
+        if (inserted < extracted) {
+            // Put back whatever the container refused rather than voiding it, the same leniency the
+            // import strategies use.
+            this.getCellInventory().insert(what, extracted - inserted, Actionable.MODULATE, this.getActionSource());
+        }
+
+        if (inserted > 0) {
+            this.replaceHeldWith(player, held, ctx.getContainer());
+        }
+    }
+
+    private void emptyHeldContainer(final EntityPlayerMP player, final ItemStack held) {
+        // No key type asked for: the container decides what comes out of it.
+        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+        if (ctx == null) {
+            return;
+        }
+
+        final GenericStack content = ctx.getExtractableContent();
+        if (content == null) {
+            return;
+        }
+
+        final AEKey what = content.what();
+        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        if (drainable <= 0) {
+            return;
+        }
+
+        final long storable = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drainable,
+                this.getActionSource(), Actionable.SIMULATE);
+        if (storable <= 0) {
+            return;
+        }
+
+        final long drained = ctx.extract(what, storable, Actionable.MODULATE);
+        if (drained <= 0) {
+            return;
+        }
+
+        final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drained,
+                this.getActionSource());
+        if (inserted < drained) {
+            // The network took less than the simulation promised; hand the rest back to the container.
+            ctx.insert(what, drained - inserted, Actionable.MODULATE);
+        }
+
+        this.replaceHeldWith(player, held, ctx.getContainer());
+    }
+
+    /**
+     * Swaps one container out of the held stack for its filled/emptied result. The strategy worked on a copy of
+     * size one, so a held stack of several buckets keeps the rest in hand and the changed one goes to the
+     * inventory - or on the floor if there is no room.
+     */
+    private void replaceHeldWith(final EntityPlayerMP player, final ItemStack held, final ItemStack result) {
+        if (held.getCount() <= 1) {
+            player.inventory.setItemStack(result);
+        } else {
+            held.shrink(1);
+            if (!player.inventory.addItemStackToInventory(result)) {
+                player.dropItem(result, false);
+            }
+        }
+        this.updateHeld(player);
     }
 
     protected void updateHeld(final EntityPlayerMP p) {
