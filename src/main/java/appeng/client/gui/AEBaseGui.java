@@ -487,6 +487,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 case PICKUP: // pickup / set-down.
                     if (mouseButton == 1) {
                         action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
+                    } else if (holdsFluidContainer()) {
+                        // Left click configures this slot to what the held container *holds*; right click
+                        // still places the container itself. Same rule a SlotFake has followed since stage
+                        // 0 - the config terminal writes into the very same config inventory, it just
+                        // reaches it through a different slot type and so was missed.
+                        action = InventoryAction.EMPTY_ITEM;
                     } else {
                         action = InventoryAction.PICKUP_OR_SET_DOWN;
                     }
@@ -690,17 +696,21 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 }
             }
         }
-        if (slot instanceof SlotFake) {
+        if (slot instanceof SlotFake || slot instanceof SlotDisconnected) {
             final ItemStack stack = slot.getStack();
             if (stack != ItemStack.EMPTY) {
-                final PacketInventoryAction p;
+                final InventoryAction direction;
                 if (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL)) {
-                    InventoryAction direction = wheel > 0 ? InventoryAction.DOUBLE : InventoryAction.HALVE;
-                    p = new PacketInventoryAction(direction, slot.slotNumber, 0);
+                    direction = wheel > 0 ? InventoryAction.DOUBLE : InventoryAction.HALVE;
                 } else {
-                    InventoryAction direction = wheel > 0 ? InventoryAction.PLACE_SINGLE : InventoryAction.PICKUP_SINGLE;
-                    p = new PacketInventoryAction(direction, slot.slotNumber, 0);
+                    direction = wheel > 0 ? InventoryAction.PLACE_SINGLE : InventoryAction.PICKUP_SINGLE;
                 }
+
+                // A disconnected slot belongs to a remote interface, so it is addressed by that interface's
+                // id and its own index - not by a slot number in this container.
+                final PacketInventoryAction p = slot instanceof SlotDisconnected disconnected
+                        ? new PacketInventoryAction(direction, slot.getSlotIndex(), disconnected.getSlot().getId())
+                        : new PacketInventoryAction(direction, slot.slotNumber, 0);
                 NetworkHandler.instance().sendToServer(p);
             }
         }

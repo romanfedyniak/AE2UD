@@ -609,7 +609,9 @@ public abstract class AEBaseContainer extends Container {
                             if (hand.isEmpty()) {
                                 is.setCount(Math.max(1, is.getCount() - 1));
                             } else if (hand.isItemEqual(is)) {
-                                is.setCount(Math.min(is.getMaxStackSize(), is.getCount() + 1));
+                                // Up to what the slot holds, not the item's own stack size: a config slot is
+                                // a number rather than a stack, and this one stopped at 64 in a slot of 512.
+                                is.setCount((int) Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
                             } else {
                                 is = hand.copy();
                                 is.setCount(1);
@@ -643,7 +645,12 @@ public abstract class AEBaseContainer extends Container {
                         // a future key type would extend the lookup here rather than the slot.
                         final GenericStack contained = containedStackOf(hand);
                         if (contained != null) {
-                            s.putStack(GenericStack.wrapInItemStack(contained));
+                            // Clicking the same contents again adds another helping, like clicking the same
+                            // item again does.
+                            final GenericStack current = GenericStack.unwrapItemStack(s.getStack());
+                            final long already = current != null && current.what().equals(contained.what()) ? current.amount() : 0;
+                            s.putStack(GenericStack.wrapInItemStack(contained.what(),
+                                    Math.min(this.maxAmountIn(s, contained.what()), already + contained.amount())));
                         }
                         break;
                     }
@@ -882,24 +889,43 @@ public abstract class AEBaseContainer extends Container {
      */
     private boolean adjustWrappedAmount(final Slot s, final GenericStack current, final InventoryAction action,
             final ItemStack hand) {
-        final long unit = Math.max(1, current.what().getAmountPerUnit());
-        long amount = current.amount();
+        if (!hand.isEmpty() && action != InventoryAction.HALVE && action != InventoryAction.DOUBLE) {
+            // Holding something means the player is placing a different key, not tuning this one.
+            return false;
+        }
+
+        final long adjusted = adjustAmount(current.amount(), current.what().getAmountPerUnit(), action);
+        if (adjusted < 0) {
+            return false;
+        }
+
+        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.min(this.maxAmountIn(s, current.what()), adjusted)));
+        return true;
+    }
+
+    /**
+     * Steps a wrapped key's amount for one of the amount-changing slot actions, in the key type's own unit -
+     * a bucket per notch for fluids, since a millibucket per notch would be a thousand notches to fill one.
+     * Ctrl (halve/double) is what reaches the amounts in between.
+     * <p>
+     * Shared because the interface configuration terminal carries its own copy of the fake-slot actions,
+     * working on {@code ItemStack} counts, and a wrapped key has no count to work on - it is always exactly
+     * one item whatever amount it stands for.
+     *
+     * @return the new amount, or -1 if this action does not change one.
+     */
+    public static long adjustAmount(final long current, final int amountPerUnit, final InventoryAction action) {
+        final long unit = Math.max(1, amountPerUnit);
+        long amount = current;
 
         switch (action) {
             case PLACE_SINGLE:
-                if (!hand.isEmpty()) {
-                    return false;
-                }
                 // To the next whole unit, not one unit further along. Scrolling up from a hand-tuned 1mB
-                // should read 1B, not 1001mB - the notch means "one more bucket", and off-grid amounts are
-                // what Ctrl is for.
+                // should read 1B, not 1001mB.
                 amount = (amount / unit + 1) * unit;
                 break;
             case PICKUP_SINGLE:
             case SPLIT_OR_PLACE_SINGLE:
-                if (!hand.isEmpty()) {
-                    return false;
-                }
                 // Down to the previous whole unit, so an off-grid amount snaps back onto it first.
                 amount = amount % unit == 0 ? amount - unit : amount / unit * unit;
                 break;
@@ -911,14 +937,13 @@ public abstract class AEBaseContainer extends Container {
                 amount = amount > Long.MAX_VALUE / 2 ? Long.MAX_VALUE : amount * 2;
                 break;
             default:
-                return false;
+                return -1;
         }
 
         // Never empties the slot, matching the item path: PICKUP_SINGLE on a count of one leaves the one.
         // The floor is a single base unit rather than a whole unit, because a pattern may legitimately ask
         // for less than a bucket.
-        s.putStack(GenericStack.wrapInItemStack(current.what(), Math.min(this.maxAmountIn(s, current.what()), Math.max(1, amount))));
-        return true;
+        return Math.max(1, amount);
     }
 
     /**

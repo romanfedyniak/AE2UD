@@ -806,8 +806,37 @@ from the dependency graph. Merged into one stage, sliced so the game stays playa
   reads 1B rather than 1001mB, because a notch means "one more bucket"; Ctrl is what reaches the amounts in
   between.
 
-- **2d** — generalise the interface configuration terminal (`FluidSyncHelper`, `PacketFluidSlot`,
-  `ClientDCInternalFluidInv` merge into their item counterparts).
+- **2d — the ordinary configuration terminal handles fluid configs (done, awaiting a play-test).** Smaller
+  than planned, because it was already most of the way there: the terminal syncs `dual.getConfig()`, whose
+  item-handler face hands out placeholders, so a fluid config was already travelling to the client and
+  rendering. Two gaps, both in the drag-in path:
+  - `getPhantomTargets` rejected anything that was not an `ItemStack`, so a fluid dragged out of HEI offered
+    no target at all - the same defect stage 0 fixed for filter slots, in the one screen that was not
+    covered because it does not use `SlotFake`.
+  - the accepted stack went through `GenericStack.fromItemStack`, §9.1d once more, so even a placeholder
+    dropped from a bookmark would have been recorded as the placeholder item.
+
+  A second round found three more, all one root: **`SlotDisconnected` is a config slot too, and received
+  none of what stage 0 gave `SlotFake`.** It is the slot type this terminal uses to reach a *remote*
+  interface's config, and it has its own parallel copy of the fake-slot actions in
+  `ContainerInterfaceConfigurationTerminal.doAction`, working on `ItemStack` counts. So:
+  - clicking with a lava bucket configured *the bucket*, because the left-click-takes-the-contents rule
+    lives in the `SlotFake` branch;
+  - Ctrl/Shift scrolling did nothing, because a placeholder is always one item and every case there steps a
+    count. `AEBaseContainer.adjustAmount` is now shared between the two copies rather than duplicated;
+  - dragging from HEI always produced the fluid, ignoring the button. Reading the live mouse state was not
+    enough on its own: **it has to be read at the right moment.** HEI asks for targets when the drag
+    *starts* and calls `accept` when it ends, so resolving the ingredient in `getPhantomTargets` pinned the
+    answer before the player had given it. `GuiUpgradeable` reads the button inside `accept`, which is why
+    the same code worked there and not here; the resolution moved into `accept` too.
+
+  The lesson is worth keeping for stage 3: **"every filter goes through `AppEngInternalAEInventory`" was
+  true, but "every filter is a `SlotFake`" was not.** Stage 0 fixed the inventory and the common slot; this
+  terminal reaches the same inventory through a different slot and a different action switch, so it looked
+  finished and was not.
+
+  What that leaves for 2e is the whole fluid interface orbit at once - the part, tile, block, duality,
+  container, screen, *and* its configuration terminal - since they only exist to serve each other.
 - **2e** — delete the fluid interface orbit and the fluid inventory types with it.
 
 Note for 2b: our interface **holds** its stock rather than pushing it, same as upstream's `InterfaceLogic` -
