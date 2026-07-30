@@ -19,6 +19,7 @@
 package appeng.container.slot;
 
 
+import appeng.api.stacks.GenericStack;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -51,6 +52,34 @@ public class SlotFake extends AppEngSlot implements IJEITargetSlot {
             is = is.copy();
         }
         super.putStack(is);
+    }
+
+    /**
+     * Strips the quantity out of what a filter slot is about to store, so it holds an identity and nothing
+     * else.
+     * <p>
+     * A wrapped non-item key keeps its amount inside the wrapper where {@code setCount} cannot reach it, so
+     * it has to be re-wrapped bare rather than trimmed. Shared because two slot classes normalise this way
+     * and only one of them was taught to unwrap - which is how a capacity-card filter came to read "1000mB"
+     * and to answer the scroll wheel.
+     */
+    static ItemStack typeOnly(ItemStack is) {
+        if (is.isEmpty()) {
+            return is;
+        }
+
+        final GenericStack wrapped = GenericStack.unwrapItemStack(is);
+        if (wrapped != null) {
+            return wrapped.what().wrapForDisplayOrFilter();
+        }
+
+        is = is.copy();
+        if (is.getCount() > 1) {
+            is.setCount(1);
+        } else if (is.getCount() < -1) {
+            is.setCount(-1);
+        }
+        return is;
     }
 
     @Override

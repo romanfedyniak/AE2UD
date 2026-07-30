@@ -30,16 +30,7 @@ public class OptionalSlotFakeTypeOnly extends OptionalSlotFake {
     }
 
     @Override
-    public void putStack(ItemStack is) {
-        if (!is.isEmpty()) {
-            is = is.copy();
-            if (is.getCount() > 1) {
-                is.setCount(1);
-            } else if (is.getCount() < -1) {
-                is.setCount(-1);
-            }
-        }
-
-        super.putStack(is);
+    public void putStack(final ItemStack is) {
+        super.putStack(SlotFake.typeOnly(is));
     }
 }

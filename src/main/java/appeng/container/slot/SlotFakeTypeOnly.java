@@ -19,7 +19,6 @@
 package appeng.container.slot;
 
 
-import appeng.api.stacks.GenericStack;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
@@ -31,26 +30,7 @@ public class SlotFakeTypeOnly extends SlotFake {
     }
 
     @Override
-    public void putStack(ItemStack is) {
-        if (!is.isEmpty()) {
-            // A wrapped non-item key carries its amount inside the wrapper, where setCount() cannot reach
-            // it: normalising the ItemStack alone left a filter reading "Water: 1B", as though the slot
-            // were storing a bucket's worth. Re-wrap the bare key instead, which is amount-free by
-            // definition (AEKey.wrapForDisplayOrFilter), so the tooltip states an identity and no quantity.
-            final GenericStack wrapped = GenericStack.unwrapItemStack(is);
-            if (wrapped != null) {
-                super.putStack(wrapped.what().wrapForDisplayOrFilter());
-                return;
-            }
-
-            is = is.copy();
-            if (is.getCount() > 1) {
-                is.setCount(1);
-            } else if (is.getCount() < -1) {
-                is.setCount(-1);
-            }
-        }
-
-        super.putStack(is);
+    public void putStack(final ItemStack is) {
+        super.putStack(typeOnly(is));
     }
 }
