@@ -677,7 +677,8 @@ Two consequences worth knowing:
   items nor fluids - so an addon key type gave the chest no GUI at all. It now answers `GUI_ME` for every
   type. `BasicFluidCellGuiHandler` likewise opens `GUI_ME`; it still has to exist, because `TileChest` only
   opens a GUI when `StorageCells.getGuiHandler` answers for the cell's type. Whether that per-type registry
-  still earns its keep is a stage 3 question.
+  still earns its keep is a stage 3 question — **answered below, under "The cell GUI registry is an
+  override now".**
 - `PacketTargetFluidStack` is down to two dispatch targets, both interface screens. It follows the interface
   in stage 3; `PacketTargetItemStack` already carries a bare `AEKey` of any type.
 
@@ -1014,6 +1015,24 @@ what the slots contain, not about how anything is moved.
 **Do not commit a change that needs in-game testing until the owner has verified it.** Build, report what to
 test, leave the tree dirty. Committing first produced a run of corrections-of-corrections that had to be
 squashed away.
+
+## The cell GUI registry is an override now (done, awaiting a play-test)
+
+`BasicItemCellGuiHandler` and `BasicFluidCellGuiHandler` had identical bodies - both opened `GUI_ME` - and
+differed only in the key type they claimed. They existed because `TileChest.openGui` refused to open
+anything at all unless `StorageCells.getGuiHandler` answered, which made a per-type registry a **gate that
+defaults to closed**: a key type an addon registers had a cell that could not be opened in an ME Chest, and
+the addon's only way out was to register a handler doing exactly what the two built-ins did.
+
+So the duplication was a symptom, not the problem. `TileChest.openGui` now opens `GUI_ME` when no handler
+answers, and both built-ins are deleted. The registry survives, unchanged in shape, for what §7 approved it
+for - an addon shipping a cell with a screen of its own, still preferred over the generic handler through
+`isSpecializedFor`. It just no longer has to be asked permission to open the ordinary terminal.
+
+Note what was *not* done: deleting `ICellGuiHandler` outright. It looks unused now that nothing in this
+repo implements it, and that is exactly the reading rule 6 forbids acting on - the capability was added
+post-freeze on purpose (see "Amendments made to the frozen API", item 2), and its only consumers live
+outside this tree.
 
 ## How terminal live updates ended up working
 
