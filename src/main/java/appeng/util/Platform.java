@@ -443,7 +443,19 @@ public class Platform {
         if (out == null || out.isEmpty()) {
             return new ItemStack[0];
         }
-        return out.toArray(new ItemStack[out.size()]);
+
+        // Drop the empty stacks. Vanilla's Block.getDrops only skips a drop when getItemDropped() answers
+        // Items.AIR, and a block that answers **null** instead - BlockCableBus does, so a cable or bus never
+        // drops itself as a block - still gets an ItemStack added for it, which is empty. Callers reasonably
+        // read this array as "the things that dropped", and an empty stack has no AEKey: AEItemKey.of()
+        // answers null for one, and Platform.poweredInsert rejects a null key outright.
+        final List<ItemStack> nonEmpty = new ArrayList<>(out.size());
+        for (final ItemStack stack : out) {
+            if (stack != null && !stack.isEmpty()) {
+                nonEmpty.add(stack);
+            }
+        }
+        return nonEmpty.toArray(new ItemStack[0]);
     }
 
     public static AEPartLocation cycleOrientations(final AEPartLocation dir, final boolean upAndDown) {

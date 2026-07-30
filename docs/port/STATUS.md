@@ -349,7 +349,7 @@ should go, because ME became universal. `appeng.fluids` is 55 files, of which on
 
 | Keep | Why |
 |---|---|
-| `FluidImportStrategy`, `FluidExportStrategy`, `FluidPickupStrategy`, `FluidPlacementStrategy`, `FluidTransferContext`, `FluidHandlerAdapter` | the fluid type's implementation of the generic hooks — this is the model working |
+| `FluidImportStrategy`, `FluidExportStrategy`, `FluidPickupStrategy`, `FluidPlacementStrategy`, `FluidHandlerAdapter` | the fluid type's implementation of the generic hooks — this is the model working |
 | `BasicFluidStorageCell`, `BasicFluidCellGuiHandler` | a cell parameterised by key type is not a duplicate; the item cell has the same shape |
 
 | Delete | Replaced by |
@@ -385,30 +385,63 @@ rule 6 forbids.
 | `c688e87ca` | a fluid cell's own partition accepts the generic placeholder |
 | `fe6ade83c` | a wrapped key's name no longer recolours the rest of a tooltip line |
 
-### Next, and it blocks stage 1 — import/export buses do not move fluids
+### It blocked stage 1 — import/export buses did not move fluids (fixed, awaiting a play-test)
 
-Diagnosed, not yet fixed. `FluidImportStrategy.transfer` opens with
+`FluidImportStrategy.transfer` opened with `if (!(context instanceof FluidTransferContext ctx) || ...)`, and
+the **generic** bus builds a `StackTransferContextImpl`, so the fluid strategy bailed on its first line. Only
+`PartFluidImportBus` built a `FluidTransferContext`, which is why the legacy bus worked and the generic one
+did not. Three changes, none of them in the api:
 
-```java
-if (!(context instanceof FluidTransferContext ctx) || !context.hasOperationsLeft()) {
-    return false;
-}
-```
+1. **The duplicate context is gone.** `FluidTransferContext` was a byte-for-byte copy of
+   `StackTransferContextImpl`, and that copy *was* the bug: a strategy can only test a context's concrete type
+   when there is more than one. `StackTransferContextImpl` (and its constructor) is now public, both legacy
+   fluid buses build it, and `FluidTransferContext` is deleted. Its package-private extras stay package-private
+   — nothing outside `appeng.parts.automation` uses more than the constructor.
+2. **The filter goes through the frozen contract.** `context.getFilter().matches(what)` replaces the cast and
+   the hand-rolled `matchesFilter`. `getFilter()` is already documented as "the bus' configured filter,
+   strategies must not move anything this rejects", an empty list matches everything, and the fuzzy card is
+   already baked into the `IPartitionList` behind it, so `matchesFilter` was duplicating `FuzzyPriorityList`.
+3. **The budget is counted in operations, not millibuckets.** This was a second, unnoticed defect sitting
+   behind the first: the strategy read `getOperationsRemaining()` as a millibucket count, so on the generic bus
+   a fluid import would have drained 1–96 mB per tick. It now converts through
+   `AEKeyType.fluids().getAmountPerOperation()` (125 mB), which reproduces the pre-port 125…12000 mB cascade
+   exactly, and spends `max(1, inserted / 125)` operations. `PartFluidImportBus` now passes operations too.
+   The export side already did this right — `PartExportBus.exportOne` multiplies by `getAmountPerOperation()`.
 
-and the **generic** bus builds a `StackTransferContextImpl`, so the fluid strategy bails on its first line.
-Only `PartFluidImportBus` builds a `FluidTransferContext`, which is why the legacy bus works and the generic
-one does not. `FluidExportStrategy` has the same shape.
+Also fixed while in the file: the modulate drain was untyped (`fh.drain(int, true)`), which on a multi-tank
+block can return a different fluid than the one peeked and filter-checked. It drains by stack now, as the
+pre-port bus did.
 
-The cast exists only for **package visibility**: `getPartitionList()` and `getFuzzyMode()` are package-private
-on both context classes, and `FluidImportStrategy` happens to share a package with one of them. Nothing needs
-to move to the api — `StackTransferContext.getFilter()` is already public, is already documented as "the bus'
-configured filter, strategies must not move anything this rejects", and both implementations build it
-identically (`what -> filter.isEmpty() || filter.isListed(what)`), with the fuzzy mode already baked into the
-`IPartitionList`. Replace the cast and the hand-rolled `matchesFilter` with `context.getFilter().matches(what)`
-in both strategies.
+**Power**: neither strategy charges AE for the transfer, and that is not a regression — the pre-port
+`PartFluidImportBus`/`PartFluidExportBus` called `injectItems`/`extractItems` directly, never
+`Platform.poweredInsert`. The item strategies *do* charge. On the unified bus that is visibly inconsistent, but
+making fluids cost power is a balance change and belongs to the owner, not to this fix. `FluidTransferContext`'s
+javadoc claimed its `getEnergySource()` existed for exactly this and no caller ever used it.
 
-**Do not delete the legacy fluid buses until this is fixed and tested**, or fluid import/export disappears
-with them.
+Play-tested by the owner: the generic bus now moves both fluids and items. **Stage 1 is unblocked.**
+
+### Server crash — annihilation plane facing a cable bus (fixed, awaiting a play-test)
+
+Found by placing a bus next to a plane by accident. `Ticking GridNode` NPE at
+`Platform.poweredInsert` → `Preconditions.checkNotNull(input)`, from
+`ItemPickupStrategy.canStoreItemStacks`.
+
+`BlockCableBus.getItemDropped()` returns **null**, not `Items.AIR`, so vanilla's `Block.getDrops` — which only
+skips a drop when the item *is* `Items.AIR` — adds an `ItemStack` for it anyway, and that stack is empty.
+`AEItemKey.of()` answers null for an empty stack, and `poweredInsert` asserts a non-null key.
+
+A port regression, and a mirror of §9.1's family: the pre-port code passed the same null into
+`injectItems()`, which answered null and did nothing. Nullability that the old API tolerated became an
+assertion in the new one, and no signature changed to say so.
+
+Fixed in two places: `Platform.getBlockDrops` now filters empty stacks out of the array it returns (the root —
+every caller reads that array as "the things that dropped"), and `canStoreItemStacks` skips a null key
+explicitly, because `AEItemKey.of` is `@Nullable` and a subclass may override `obtainBlockDrops`.
+
+**Not fixed, because it is not a regression**: the plane then *breaks* the adjacent cable bus, dropping its
+parts on the floor. `canHandleBlock` is byte-for-byte the pre-port version and excludes only bedrock, portals,
+command blocks and liquids — a cable bus was always fair game. Raise with the owner as a design question, not
+as a bug.
 
 ### Then, in order
 

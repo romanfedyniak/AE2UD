@@ -247,6 +247,12 @@ class ItemPickupStrategy implements PickupStrategy {
 
         for (ItemStack itemStack : itemStacks) {
             AEItemKey what = AEItemKey.of(itemStack);
+            if (what == null) {
+                // Empty stack: nothing to store, and there is no key to ask about. The pre-port code passed
+                // the resulting null straight to injectItems(), which answered null and left canStore alone;
+                // Platform.poweredInsert asserts a non-null key instead, so the skip is now explicit.
+                continue;
+            }
             long inserted = sink.insert(what, itemStack.getCount(), Actionable.SIMULATE);
             if (inserted < itemStack.getCount()) {
                 canStore = false;
