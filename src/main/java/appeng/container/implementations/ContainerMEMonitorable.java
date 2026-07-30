@@ -72,6 +72,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
@@ -124,10 +125,10 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private final Map<AEKey, Long> pendingPushChanges = new LinkedHashMap<>();
 
     /**
-     * Case 2 snapshot: the amounts last broadcast to listeners, diffed against a fresh
-     * {@link MEStorage#getAvailableStacks()} once per tick. Also seeded at construction so the tick right
-     * after a GUI opens does not immediately re-broadcast the same full listing {@link #queueInventory} just
-     * sent to the new listener.
+     * Case 2 snapshot: the amounts last broadcast to listeners, diffed once per tick against
+     * {@link #retainAvailableStacks()} - and it has to come from there rather than straight off the grid,
+     * see that method. Also seeded at construction so the tick right after a GUI opens does not immediately
+     * re-broadcast the same full listing {@link #queueInventory} just sent to the new listener.
      */
     private KeyCounter previousAvailableStacks = new KeyCounter();
 
@@ -196,7 +197,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                     this.networkTerminalPart.addTerminalListener(this);
                 }
 
-                this.previousAvailableStacks = this.monitor.getAvailableStacks();
+                this.previousAvailableStacks = this.retainAvailableStacks();
                 this.previousCraftables = this.computeCraftables();
             } else {
                 this.setValidContainer(false);
@@ -360,7 +361,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         } else {
             // Case 2: server-side per-tick diff of a directly-viewed cell (or remote network, for a
             // wireless terminal) snapshot - exactly like upstream's MEStorageMenu.broadcastChanges().
-            final KeyCounter current = this.monitor.getAvailableStacks();
+            final KeyCounter current = this.retainAvailableStacks();
 
             for (final var entry : current) {
                 final AEKey what = entry.getKey();
@@ -407,7 +408,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     }
 
     /**
-     * Whether this terminal shows the <em>network's</em> contents, as opposed to one cell's.
+     * The grid's storage service, but only when this terminal shows the <em>network's</em> contents rather
+     * than one cell's. Null otherwise, which is the answer every caller here keys off.
      * <p/>
      * Being attached to a grid is not the same question. A security station and an ME chest are both grid
      * hosts with a live {@link #networkNode}, but they monitor their own inventory - the station's biometric
@@ -421,32 +423,69 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
      * {@link ITerminalHost#getInventory()}. An addon terminal that does the same is covered with no change
      * here, which an {@code instanceof} chain could not manage.
      */
-    private boolean monitorsNetworkInventory() {
+    @Nullable
+    private IStorageService networkStorageService() {
         if (this.monitor == null || this.networkNode == null || !this.networkNode.isActive()) {
-            return false;
+            return null;
         }
 
         final IGrid grid = this.networkNode.getGrid();
         if (grid == null) {
-            return false;
+            return null;
         }
 
         final IStorageService ss = grid.getCache(IStorageService.class);
-        return ss != null && ss.getInventory() == this.monitor;
+        return ss != null && ss.getInventory() == this.monitor ? ss : null;
+    }
+
+    private boolean monitorsNetworkInventory() {
+        return this.networkStorageService() != null;
+    }
+
+    /**
+     * What this terminal shows, read for this tick only.
+     * <p/>
+     * A network-backed terminal reads {@link IStorageService#getCachedInventory()}, which the grid keeps
+     * behind its own dirty flag: several open terminals then cost one recompute per change instead of one
+     * full walk over every drive, cell and storage bus each, every tick. A host that views a single cell -
+     * the portable cell, the ME chest, the security station - has no service to ask and its walk is one
+     * cell deep, exactly as CONTRACT.md §10 assumed for case 2, so it keeps reading the cell directly.
+     * <p/>
+     * <strong>The result may be the service's own live counter.</strong> Read it and let it go; anything
+     * that outlives the tick has to come from {@link #retainAvailableStacks()} instead.
+     */
+    private KeyCounter readAvailableStacks() {
+        final IStorageService ss = this.networkStorageService();
+        return ss != null ? ss.getCachedInventory() : this.monitor.getAvailableStacks();
+    }
+
+    /**
+     * The same listing as {@link #readAvailableStacks()}, but always this container's own object, safe to
+     * keep until the next tick.
+     * <p/>
+     * The copy is the whole point. {@link IStorageService#getCachedInventory()} hands back the service's
+     * live counter, and storing that reference in {@link #previousAvailableStacks} would leave the diff
+     * comparing an object with itself: it would find no change on any tick, and the terminal would silently
+     * stop updating. A cell read needs no copy - {@link MEStorage#getAvailableStacks()} already builds a
+     * fresh counter for each call.
+     */
+    private KeyCounter retainAvailableStacks() {
+        final IStorageService ss = this.networkStorageService();
+        if (ss == null) {
+            return this.monitor.getAvailableStacks();
+        }
+
+        final KeyCounter copy = new KeyCounter();
+        copy.addAll(ss.getCachedInventory());
+        return copy;
     }
 
     private long getCachedAmount(final AEKey what) {
-        if (this.monitorsNetworkInventory()) {
-            final IGrid grid = this.networkNode.getGrid();
-            if (grid != null) {
-                final IStorageService ss = grid.getCache(IStorageService.class);
-                if (ss != null) {
-                    return ss.getCachedInventory().get(what);
-                }
-            }
+        if (this.monitor == null) {
+            return 0;
         }
 
-        return this.monitor == null ? 0 : this.monitor.getAvailableStacks().get(what);
+        return this.readAvailableStacks().get(what);
     }
 
     protected void updatePowerStatus() {
@@ -494,7 +533,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 // so collectChanges() sees no *change* to report either - the row would never be sent at
                 // all, and the terminal would only ever show craftables that happened to be stocked once
                 // while it was open.
-                final KeyCounter stored = this.monitor.getAvailableStacks();
+                final KeyCounter stored = this.readAvailableStacks();
                 final Set<AEKey> keys = new LinkedHashSet<>(stored.keySet());
                 keys.addAll(craftables);
 
