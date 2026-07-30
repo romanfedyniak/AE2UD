@@ -111,7 +111,11 @@ public abstract class AEBaseMEGui extends AEBaseGui {
             }
         } else if (s instanceof AppEngSlot) {
             if (!(s instanceof SlotPlayerInv) && !(s instanceof SlotPlayerHotBar)) {
-                if (!s.getStack().isEmpty()) {
+                // The line exists because an AE slot can hold more than a stack and the overlay abbreviates
+                // it. One of something needs no line: it is what a view cell or an upgrade card holds, and a
+                // wrapped key is always one item whatever amount it stands for - that one states its own
+                // amount already.
+                if (s.getStack().getCount() > 1) {
                     final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(s.getStack().getCount());
                     currentToolTip.add(TextFormatting.GRAY + formattedAmount);
                     this.drawHoveringText(currentToolTip, x, y, this.fontRenderer);
