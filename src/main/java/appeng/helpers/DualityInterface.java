@@ -484,6 +484,18 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             req = null;
         }
 
+        // This interface stocks items only; the universal one is stage 3 of the fluids decomposition. Until
+        // then a configured key of any other type counts as an empty slot rather than as work.
+        //
+        // It used to count as work: the config inventory became generic in stage 0, so a fluid can be put in
+        // the slot, updatePlan happily planned for it, and usePlan then fell through its `instanceof
+        // AEItemKey` guard and did nothing - leaving requireWork set forever, so hasWorkToDo() stayed true
+        // and the interface never went back to sleep. Nothing visible, just a machine ticking at its fastest
+        // rate for good.
+        if (req != null && !(req.what() instanceof AEItemKey)) {
+            req = null;
+        }
+
         final ItemStack stored = this.storage.getStackInSlot(slot);
 
         if (req == null && !stored.isEmpty()) {

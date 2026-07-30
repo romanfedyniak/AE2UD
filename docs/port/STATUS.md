@@ -624,6 +624,87 @@ Two consequences worth knowing:
 - `PacketTargetFluidStack` is down to two dispatch targets, both interface screens. It follows the interface
   in stage 3; `PacketTargetItemStack` already carries a bare `AEKey` of any type.
 
+### Play-test after stage 1c — four reports (fixed, awaiting a re-test)
+
+1. **A fluid put into an ME Interface's config is never stocked.** Not a regression, and expected: the
+   universal interface is stage 3. `DualityInterface.usePlan` guards on `instanceof AEItemKey` and does
+   nothing for anything else. The slot *accepts* a fluid only because stage 0 generalised every config
+   inventory, which was the right order (see stage 0) but makes an unfinished feature look like a broken one.
+   **What was a real defect:** `updatePlan` planned the work anyway, so `requireWork[slot]` stayed set
+   forever, `hasWorkToDo()` stayed true, and **the interface never went back to sleep** - a machine ticking
+   at its fastest rate indefinitely, with nothing visible to show for it. A non-item key now counts as an
+   empty slot until stage 3 teaches the interface to stock one.
+2. **Middle-click on an item to type an amount does not work.** Verified *not* a port regression: the
+   `case CLONE` branches in `AEBaseGui` are structurally identical to `main`, both for `SlotFake` (no
+   middle-click handling at all, before or after) and for `SlotME` (craftable → `AUTO_CRAFT`, else creative
+   duplicate). Whatever opens a value dialog on a filter slot is not in this repo. Left alone pending the
+   owner naming the screen.
+3. **A fluid is not transferred into the pattern terminal by HEI's "Move Items".**
+   `RecipeTransferHandler` read only `recipeLayout.getItemStacks()`; fluid ingredients live in a separate
+   `IGuiIngredientGroup` that nothing ever looked at. It now also walks `getFluidStacks()`, placing inputs
+   into whichever matrix slots the item pass left empty and appending outputs to the output list, each as
+   the same wrapped placeholder the pattern slots already store - so the server side needed no new case.
+   Only for `ContainerPatternEncoder`: a real crafting matrix cannot hold a placeholder.
+4. **A fluid in a pattern slot or interface config drew "1" instead of "1000".**
+   `AEBaseGui.drawSlot` sized the overlay with `GenericStack.fromItemStack(stackInSlot)`, which reads a
+   placeholder as the ordinary item it is - one `WrappedGenericStack` - so every wrapped key rendered as a
+   count of 1. It unwraps first now. Same family as §9.1: a call that translates word for word and changes
+   meaning.
+
+### Second fluid play-test — six reports (fixed, awaiting a re-test)
+
+The last three share one root, found by chasing "two identical fluids" (see CONTRACT.md §9.1c):
+`AEFluidKey.equals` compared `Fluid` by identity while `hashCode` hashed its name, and an empty NBT tag was
+kept rather than normalised to null. Either alone makes two keys for one fluid. That is why a fluid could
+appear twice, and why **a crafting job never finished even though the fluid reached the network** - the
+output arrived under a key that did not equal the one the job waited for. Both key classes normalise now.
+
+1. **HEI recipe keybinds did nothing over a fluid.** Every non-item key travels through the GUI as a
+   `WrappedGenericStack` placeholder, so HEI saw an ordinary item with no recipes. `AEGuiHandler` (already
+   registered as an `IAdvancedGuiHandler`) now unwraps the slot under the mouse and answers with a
+   `FluidStack`. Registered for `AEBaseGui`, so it covers every screen at once. Its craft-plan and
+   crafting-CPU branches were handing HEI the placeholder too, and were fixed with it.
+2. **Crafting a fluid never completed** - see above.
+3. **The same fluid listed twice in a plan** - see above.
+4. **Shift+wheel on a fluid in a pattern did nothing useful.** Every amount-changing fake-slot action worked
+   on `ItemStack.getCount()`, but a wrapped key's amount is in its NBT and the placeholder is always exactly
+   one item that cannot stack - so the count grew where nothing read it, the configured amount never moved,
+   and the slot claimed a stack size the wrapper is not allowed to have (the odd trailing tooltip line).
+   Handled before the item switch now, stepping by the key type's own unit: a bucket per notch, with
+   Ctrl-halve/double reaching the amounts in between, which is how 40mB gets configured.
+5. **"Fish Oil: 0B"** and 6. **"Items Stored: 0B"** were the same formatting bug: `AEKeyFormatting` divided
+   40 mB by 1000 and printed `0.04` through a one-fractional-digit format, giving "0". Below one unit the
+   base unit is now the only reading, so 40 mB says "40mB". Also from that report: a non-item type says
+   **"Amount"** rather than "Items Stored", and **shift** in a terminal tooltip switches to the new
+   `AmountFormat.FULL_BASE` - the exact number in the base unit, "1,040mB" where the normal reading rounds
+   to "1B".
+
+### The fluids-in-patterns root cause, and what it left behind
+
+Three reports - a duplicated terminal row, a crafting job that never completed, and "craft 3" producing three
+runs of 40mB - turned out to be **one** defect, written up as CONTRACT.md §9.1d: `PatternHelper` read a
+pattern's slots with `GenericStack.fromItemStack`, which answers an *item* key for a wrapped placeholder. A
+processing pattern producing 40mB therefore declared its output as one placeholder item. Fixed by a new
+canonical resolver, `GenericStack.resolveItemStack`, threaded through the pattern path.
+
+Worth recording how it was found, because two confident diagnoses came first and both were wrong (an
+`equals`/`hashCode` disagreement in `AEFluidKey`, real but unrelated; and a duplicate transfer context). What
+settled it was asking the owner to read out **both** tooltips: the real row said "Amount: 80mB" and the
+phantom said "Fish Oil: 40mB" - the second is a placeholder item's own tooltip, which no fluid row can
+produce. One piece of evidence beat two rounds of inference.
+
+**Data loss found next, and fixed:** `CraftingCPUCluster` extracted a processing pattern's ingredient from
+the network with `MODULATE` and *then* tested whether it was an `AEItemKey`. A fluid ingredient was pulled
+out, rejected, and never placed in the `InventoryCrafting` - which is the only thing the put-back loop
+restores from, so it was destroyed. Only the first one, because the loop breaks on the first failure, which
+is exactly what the owner saw ("one of the two gets voided"). The type test now happens before the
+extraction.
+
+**Still not delivered, and it is stage 3:** a fluid *ingredient* cannot reach the machine at all. The CPU
+hands the crafting medium an `InventoryCrafting`, which carries `ItemStack`s only, and the interface pushes
+items. Fluids in patterns therefore encode, plan and display correctly but cannot yet run. That is the
+universal interface's job.
+
 ### Then, in order
 
 1. **Stage 1** — drop the legacy parts the audit above clears. The formation plane prerequisite is done.

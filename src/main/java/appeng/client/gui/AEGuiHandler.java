@@ -1,6 +1,8 @@
 package appeng.client.gui;
 
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.implementations.GuiCraftAmount;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
@@ -15,6 +17,7 @@ import mezz.jei.api.gui.IAdvancedGuiHandler;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,7 +49,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftConfirm) guiContainer).getDisplayedRows());
             visual = ((GuiCraftConfirm) guiContainer).getVisual();
             if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = visual.get(guiSlotIdx).wrapForDisplayOrFilter();
+                result = asIngredient(visual.get(guiSlotIdx), 1);
             } else {
                 return null;
             }
@@ -56,7 +59,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftingCPU) guiContainer).getDisplayedRows());
             visual = ((GuiCraftingCPU) guiContainer).getVisual();
             if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = visual.get(guiSlotIdx).wrapForDisplayOrFilter();
+                result = asIngredient(visual.get(guiSlotIdx), 1);
             } else {
                 return null;
             }
@@ -64,7 +67,9 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
 
         if (guiContainer instanceof GuiCraftAmount) {
             if (guiContainer.getSlotUnderMouse() != null) {
-                result = guiContainer.getSlotUnderMouse().getStack();
+                final ItemStack shown = guiContainer.getSlotUnderMouse().getStack();
+                final Object unwrapped = asIngredient(shown);
+                result = unwrapped != null ? unwrapped : shown;
             } else {
                 return null;
             }
@@ -84,7 +89,47 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             }
         }
 
+        // Last: an ordinary slot holding a wrapped key. HEI reads a slot's ItemStack itself, and for a
+        // non-item key that stack is a WrappedGenericStack placeholder - an item with no recipes, which is
+        // why the recipe keybinds did nothing over a fluid and worked over an item. Covers every screen in
+        // the mod at once: terminal rows, pattern slots, bus filters, cell partitions.
+        if (slot != null) {
+            final Object unwrapped = asIngredient(slot.getStack());
+            if (unwrapped != null) {
+                return unwrapped;
+            }
+        }
+
         return result;
+    }
+
+    /**
+     * Turns a key into the ingredient HEI knows how to look recipes up for: a {@code FluidStack} for a fluid,
+     * the key's own stack for anything else.
+     *
+     * @param amount only matters for a type HEI measures - and only in that it must not be zero, since an
+     *               empty {@code FluidStack} is one HEI ignores. Terminal rows wrap with amount 0 because
+     *               their amount is drawn separately, and a recipe lookup does not care either way.
+     */
+    @Nullable
+    private static Object asIngredient(@Nullable AEKey what, long amount) {
+        if (what == null) {
+            return null;
+        }
+        if (what instanceof AEFluidKey fluidKey) {
+            return fluidKey.toStack((int) Math.max(1, Math.min(amount, Integer.MAX_VALUE)));
+        }
+        return what.wrapForDisplayOrFilter();
+    }
+
+    /**
+     * @return the ingredient a placeholder stack stands for, or null if this is an ordinary item stack - in
+     *         which case HEI already reads the slot correctly and must be left to do so.
+     */
+    @Nullable
+    private static Object asIngredient(ItemStack stack) {
+        final GenericStack wrapped = GenericStack.unwrapItemStack(stack);
+        return wrapped == null ? null : asIngredient(wrapped.what(), wrapped.amount());
     }
 
     private boolean checkSlotArea(GuiContainer gui, GuiCustomSlot slot, int mouseX, int mouseY) {

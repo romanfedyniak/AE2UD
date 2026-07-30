@@ -2975,6 +2975,56 @@ type's own units.** The strategy read `getOperationsRemaining()` as millibuckets
 `AEKey.getAmountPerOperation()` in both directions — `maxAmount = operations * factor` going in,
 `reduceOperationsRemaining(max(1, moved / factor))` coming out, as `PartExportBus.exportOne` does.
 
+## 9.1c Sibling hazard: a key's `equals` and `hashCode` must agree, and an empty tag is no tag
+
+Fourth of the family, and the most expensive kind: `AEFluidKey.equals` compared `Fluid` by **identity** while
+`hashCode` hashed `fluid.getName()`. Forge allows more than one `Fluid` instance per name - a mod keeps its
+own object while the registry hands out a default - so two keys for the same fluid could hash the same and
+still answer `false` to `equals`. A `HashMap` then holds both.
+
+Second half of the same bug: `AEFluidKey.of(FluidStack)` kept an **empty** `NBTTagCompound` as-is, so a fluid
+handed over with `tag = {}` made a different key than the same fluid with `tag = null`. Forge's own
+`FluidStack` comparison treats those as distinct too, but a storage key must not: an empty compound carries
+nothing. Both are normalised to null now, in `AEItemKey` as well.
+
+Symptoms, all from one root and none of them looking like an equality problem:
+
+- one fluid occupying two entries in a network, drawn as two identical terminal rows;
+- the craft-plan screen listing the same fluid twice (`visual.contains` is an `equals` test);
+- **a crafting job never completing** - the output arrived under a key that did not equal the one the job was
+  waiting for, so the fluid reached the network and the job kept waiting.
+
+**Rule:** every field `hashCode` reads, `equals` must read the same way. Where a platform type has no stable
+identity - `Fluid` does not - compare by its registry name and hash the same string.
+
+## 9.1d The placeholder must be unwrapped before it is read — use `GenericStack.resolveItemStack`
+
+The most expensive defect of the fluids phase, and it wore three disguises.
+
+`GenericStack.fromItemStack(ItemStack)` is the *raw* reading: it answers `AEItemKey.of(stack)`. Handed a
+`WrappedGenericStack` placeholder it therefore answers **an item key for the display shim** - a key nothing in
+the network will ever store. `PatternHelper` read both a pattern's inputs and its outputs that way, so a
+processing pattern producing 40mB of a fluid declared its output as *one placeholder item*.
+
+What that looked like from the game, none of it resembling the cause:
+
+- **A duplicated terminal row.** The craftable key was `AEItemKey(placeholder)` and the stored key was
+  `AEFluidKey(fish oil)`; they are not equal, so both got a row, and the placeholder renders with the fluid's
+  own name and icon. The tell was in the tooltips: the real row said "Amount: 80mB" while the phantom said
+  "Fish Oil: 40mB" - the latter is the *placeholder item's own* tooltip, printed from its NBT. Reading both
+  tooltips is what finally identified this, after two wrong diagnoses.
+- **A crafting job that never completed.** The job waited for `AEItemKey(placeholder)`; the machine delivered
+  `AEFluidKey`. The fluid reached the network and the CPU kept waiting.
+- **"Craft 3" producing three crafts of 40mB.** The pattern's output was one *item*, so three of them meant
+  three runs rather than three millibuckets.
+
+**Rule:** an `ItemStack` arriving from a slot, an inventory or a saved pattern goes through
+`GenericStack.resolveItemStack`, never `fromItemStack`. Use the raw reading only where the stack cannot be a
+placeholder by construction - a container item's remainder, a vanilla crafting result.
+
+Fourth member of the §9.1 family, and the clearest statement of it: **any** helper that turns an `ItemStack`
+into a key must be asked whether that stack could be a wrapper.
+
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 
 The old crafting plan stored **two** numbers per key on one `IAEItemStack`: `stackSize` (used/missing) and `countRequestable` (to be produced by crafting). A `KeyCounter` holds one `long` per key, so the two cannot coexist in it.
