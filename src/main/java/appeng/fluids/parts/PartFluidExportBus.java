@@ -49,6 +49,7 @@ import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
+import appeng.parts.automation.StackTransferContextImpl;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 
@@ -132,7 +133,7 @@ public class PartFluidExportBus extends PartSharedFluidBus {
         }
 
         final SchedulingMode schedulingMode = (SchedulingMode) this.getConfigManager().getSetting(Settings.SCHEDULING_MODE);
-        final FluidTransferContext context = new FluidTransferContext(internalStorage, energy, this.source,
+        final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
                 Integer.MAX_VALUE, IPartitionList.builder().build(), null);
 
         final int slots = this.getConfig().getSlots();
@@ -160,7 +161,7 @@ public class PartFluidExportBus extends PartSharedFluidBus {
         return didSomething ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 
-    private long transferOne(FluidTransferContext context, AEKey what, long maxAmount) {
+    private long transferOne(StackTransferContextImpl context, AEKey what, long maxAmount) {
         this.ensureExportStrategies();
         for (StackExportStrategy strategy : this.exportStrategies) {
             final long moved = strategy.transfer(context, what, maxAmount);

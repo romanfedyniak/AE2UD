@@ -46,6 +46,7 @@ import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
+import appeng.parts.automation.StackTransferContextImpl;
 import appeng.util.prioritylist.IPartitionList;
 
 
@@ -130,8 +131,14 @@ public class PartFluidImportBus extends PartSharedFluidBus {
                 ? (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)
                 : null;
 
-        final FluidTransferContext context = new FluidTransferContext(internalStorage, energy, this.source,
-                (int) this.calculateAmountToSend(), filter, fzMode);
+        // In operations, not millibuckets: FluidImportStrategy converts through
+        // AEKeyType.fluids().getAmountPerOperation(), because the generic import bus hands it the same
+        // budget in the same unit. calculateAmountToSend() is that unit times the Speed-card cascade, so
+        // dividing it back out leaves this bus moving exactly what it moved before.
+        final int operations = (int) (this.calculateAmountToSend() / Math.max(1, AEKeyType.fluids().getAmountPerOperation()));
+
+        final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
+                Math.max(1, operations), filter, fzMode);
 
         final boolean worked = this.importStrategy.transfer(context);
 

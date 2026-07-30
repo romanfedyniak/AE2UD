@@ -13,10 +13,8 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import appeng.api.behaviors.StackImportStrategy;
 import appeng.api.behaviors.StackTransferContext;
 import appeng.api.config.Actionable;
-import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.AEFluidKey;
-import appeng.api.stacks.AEKey;
-import appeng.util.prioritylist.IPartitionList;
+import appeng.api.stacks.AEKeyType;
 
 /**
  * Fluid counterpart of {@code appeng.parts.automation.StorageImportStrategy}. Registered against
@@ -43,7 +41,7 @@ public class FluidImportStrategy implements StackImportStrategy {
 
     @Override
     public boolean transfer(StackTransferContext context) {
-        if (!(context instanceof FluidTransferContext ctx) || !context.hasOperationsLeft()) {
+        if (!context.hasOperationsLeft()) {
             return false;
         }
 
@@ -52,7 +50,12 @@ public class FluidImportStrategy implements StackImportStrategy {
             return false;
         }
 
-        int maxDrain = (int) Math.min(context.getOperationsRemaining(), Integer.MAX_VALUE);
+        // The budget is counted in operations, not millibuckets: every bus in the mod hands out the same
+        // 1/8/32/64/96 operations per Speed card, and each key type says what one operation is worth. For
+        // fluids that is 125 mB, so this reproduces the pre-port PartFluidImportBus' 125..12000 mB per tick
+        // exactly, while an item bus tick over the same budget still moves 1..96 items.
+        final int amountPerOperation = Math.max(1, AEKeyType.fluids().getAmountPerOperation());
+        int maxDrain = (int) Math.min((long) context.getOperationsRemaining() * amountPerOperation, Integer.MAX_VALUE);
         FluidStack peek = fh.drain(maxDrain, false);
         if (peek == null || peek.amount <= 0) {
             return false;
@@ -63,8 +66,10 @@ public class FluidImportStrategy implements StackImportStrategy {
             return false;
         }
 
-        IPartitionList partitionList = ctx.getPartitionList();
-        if (!partitionList.isEmpty() && !matchesFilter(what, partitionList, ctx.getFuzzyMode())) {
+        // The frozen AEKeyFilter, not the concrete context: this strategy runs on whatever context the bus
+        // that owns it builds, and the generic PartImportBus builds its own. An empty bus filter matches
+        // everything, and a fuzzy card is already baked into the partition list behind getFilter().
+        if (!context.getFilter().matches(what)) {
             return false;
         }
 
@@ -76,7 +81,10 @@ public class FluidImportStrategy implements StackImportStrategy {
             return false;
         }
 
-        FluidStack drained = fh.drain((int) Math.min(acceptable, Integer.MAX_VALUE), true);
+        // Drain by stack, not by amount: an untyped drain on a multi-tank block may hand back a different
+        // fluid than the one peeked and filter-checked above. The pre-port bus drained by stack for the
+        // same reason.
+        FluidStack drained = fh.drain(what.toStack((int) Math.min(acceptable, Integer.MAX_VALUE)), true);
         if (drained == null || drained.amount <= 0) {
             return false;
         }
@@ -89,20 +97,10 @@ public class FluidImportStrategy implements StackImportStrategy {
             fh.fill(what.toStack((int) leftover), true);
         }
 
-        context.reduceOperationsRemaining(inserted);
+        // Spend whole operations, matching the unit the budget was handed out in. Anything that moved at
+        // all costs at least one, so a dribble of fluid can never loop for free.
+        context.reduceOperationsRemaining(Math.max(1, inserted / amountPerOperation));
         return inserted > 0;
-    }
-
-    private boolean matchesFilter(AEKey what, IPartitionList partitionList, @Nullable FuzzyMode fuzzyMode) {
-        if (fuzzyMode != null) {
-            for (AEKey listed : partitionList.getItems()) {
-                if (what.fuzzyEquals(listed, fuzzyMode)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        return partitionList.isListed(what);
     }
 
     @Nullable

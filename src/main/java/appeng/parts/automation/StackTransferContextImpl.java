@@ -39,9 +39,14 @@ import appeng.util.prioritylist.IPartitionList;
  * package-private extras beyond the frozen interface -- exactly the pattern earlier waves used to
  * restore mechanics that don't fit the frozen shape verbatim (see CONTRACT.md &sect;10, "Restored
  * regressions"). {@link StorageImportStrategy}/{@link StorageExportStrategy} cast to this concrete
- * type to reach them; nothing outside this package ever sees this class.
+ * type to reach them; nothing outside this package uses anything beyond the constructor.
+ * <p>
+ * Public only so the legacy fluid bus parts in {@code appeng.fluids.parts} can build one too. They used to
+ * carry a byte-for-byte copy of this class, and that duplicate was the whole reason
+ * {@code FluidImportStrategy} silently moved nothing on the generic import bus: the strategy tested the
+ * context's concrete type, and the generic bus builds this one. One implementation, no such test possible.
  */
-final class StackTransferContextImpl implements StackTransferContext {
+public final class StackTransferContextImpl implements StackTransferContext {
 
     private final MEStorage internalStorage;
     private final IEnergySource energySource;
@@ -52,7 +57,7 @@ final class StackTransferContextImpl implements StackTransferContext {
     private final int initialOperations;
     private int operationsRemaining;
 
-    StackTransferContextImpl(MEStorage internalStorage, IEnergySource energySource, IActionSource actionSource,
+    public StackTransferContextImpl(MEStorage internalStorage, IEnergySource energySource, IActionSource actionSource,
             int operationsRemaining, IPartitionList filter, @Nullable FuzzyMode fuzzyMode) {
         this.internalStorage = internalStorage;
         this.energySource = energySource;

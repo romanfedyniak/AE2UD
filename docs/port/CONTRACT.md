@@ -2955,6 +2955,26 @@ Sites checked afterwards: `CraftingTreeNode.setSimulate` (benign — `used` is o
 and `KeyCounter.add(key, 0)` is a no-op, so zeroed keys contribute nothing) and `JEIMissingItem.showError`
 (correct — it wants the amounts zeroed and the keys kept, and reads through `get()`, which answers 0).
 
+## 9.1b Sibling hazard: a strategy must never test its context's concrete type
+
+Third of the same family, found by play-testing the fluids phase. `FluidImportStrategy` opened with
+`if (!(context instanceof FluidTransferContext ctx) ...) return false;`, purely to reach two package-private
+accessors. It worked on the legacy fluid bus — which built that class — and silently moved nothing on the
+generic bus, which builds `StackTransferContextImpl`. No error, no log line, an import bus that just sits there.
+
+The root cause was the duplicate: two byte-for-byte identical context classes in two packages, so the type test
+compiled and looked meaningful. It is now one public class, and the test is impossible to write.
+
+**Rule:** a `StackImportStrategy`/`StackExportStrategy`/`PlacementStrategy`/`PickupStrategy` sees only
+`StackTransferContext`. Anything it needs belongs on that interface — `getFilter()` already covers filtering,
+including fuzzy, which the `IPartitionList` bakes in. This is what makes an addon's key type work on our buses,
+and ours work on an addon's: the whole point of the strategy layer (§3).
+
+The same bug had a second half worth naming on its own: **the operation budget is in operations, not in the key
+type's own units.** The strategy read `getOperationsRemaining()` as millibuckets. Convert through
+`AEKey.getAmountPerOperation()` in both directions — `maxAmount = operations * factor` going in,
+`reduceOperationsRemaining(max(1, moved / factor))` coming out, as `PartExportBus.exportOne` does.
+
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 
 The old crafting plan stored **two** numbers per key on one `IAEItemStack`: `stackSize` (used/missing) and `countRequestable` (to be produced by crafting). A `KeyCounter` holds one `long` per key, so the two cannot coexist in it.
