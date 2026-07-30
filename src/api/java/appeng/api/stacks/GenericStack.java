@@ -170,6 +170,24 @@ public record GenericStack(AEKey what, long amount) {
         return wrapper().wrap(what, amount);
     }
 
+    /**
+     * Reads a stack that <em>may</em> be a wrapped placeholder back into the thing it stands for: the key and
+     * amount carried in its NBT if it is one, the item stack itself if it is not.
+     * <p>
+     * This is the resolver to reach for whenever an {@link ItemStack} arrives from a slot, an inventory or a
+     * saved pattern. {@link #fromItemStack(ItemStack)} is the raw reading and answers
+     * {@code AEItemKey.of(placeholder)} for a wrapper - an item key for a display shim, which is a key
+     * nothing will ever store. That mistake has now cost a duplicated terminal row, a crafting job that
+     * waited forever for an output it had already received, and a slot overlay reading "1" for a bucket.
+     *
+     * @return null only if the stack is empty.
+     */
+    @Nullable
+    public static GenericStack resolveItemStack(ItemStack stack) {
+        final GenericStack unwrapped = unwrapItemStack(stack);
+        return unwrapped != null ? unwrapped : fromItemStack(stack);
+    }
+
     public static boolean isWrapped(ItemStack stack) {
         return !stack.isEmpty() && wrapper().isWrapped(stack);
     }

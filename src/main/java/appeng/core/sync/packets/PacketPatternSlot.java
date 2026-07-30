@@ -36,7 +36,7 @@ import java.io.IOException;
 /**
  * The pattern terminal's craft-from-pattern shift-click, carrying the 9-slot pattern (CONTRACT.md §10).
  * Pinned signature: {@code PacketPatternSlot(IItemHandler pat, @Nullable GenericStack slotItem, boolean
- * shift)} -- {@code pattern} is built from {@code pat}'s slots via {@link GenericStack#fromItemStack}.
+ * shift)} -- {@code pattern} is built from {@code pat}'s slots via {@link GenericStack#resolveItemStack}.
  */
 public class PacketPatternSlot extends AppEngPacket {
 
@@ -73,7 +73,7 @@ public class PacketPatternSlot extends AppEngPacket {
 
         GenericStack.writeBuffer(slotItem, data);
         for (int x = 0; x < 9; x++) {
-            this.pattern[x] = GenericStack.fromItemStack(pat.getStackInSlot(x));
+            this.pattern[x] = GenericStack.resolveItemStack(pat.getStackInSlot(x));
             GenericStack.writeBuffer(this.pattern[x], data);
         }
 

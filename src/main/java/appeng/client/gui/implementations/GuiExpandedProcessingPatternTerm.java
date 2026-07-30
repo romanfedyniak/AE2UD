@@ -211,7 +211,7 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
     @Nullable
     private static GenericStack ghostPayloadOf(final Object ingredient) {
         if (ingredient instanceof ItemStack stack) {
-            return stack.isEmpty() ? null : GenericStack.fromItemStack(stack);
+            return stack.isEmpty() ? null : GenericStack.resolveItemStack(stack);
         }
         if (ingredient instanceof FluidStack fluid) {
             return fluid.amount <= 0 ? null : new GenericStack(AEFluidKey.of(fluid), fluid.amount);

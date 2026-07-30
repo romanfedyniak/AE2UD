@@ -905,7 +905,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     }
 
                     this.dragSplitting = wasDragSplitting;
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.fromItemStack(stackInSlot), s.xPos, s.yPos);
+                    // Resolve, not fromItemStack: the latter reads a placeholder as the ordinary item it is -
+                    // one WrappedGenericStack - so a slot holding a bucket of water drew "1" for "1000".
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer,
+                            GenericStack.resolveItemStack(stackInSlot), s.xPos, s.yPos);
 
                     return;
                 } else {

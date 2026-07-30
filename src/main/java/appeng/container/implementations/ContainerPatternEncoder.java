@@ -729,7 +729,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 for (int x = 0; x < real.getSizeInventory(); x++) {
                     final ItemStack failed = real.getStackInSlot(x);
                     if (!failed.isEmpty()) {
-                        final GenericStack failedStack = GenericStack.fromItemStack(failed);
+                        final GenericStack failedStack = GenericStack.resolveItemStack(failed);
                         if (failedStack != null) {
                             this.getCellInventory()
                                     .insert(failedStack.what(), failedStack.amount(), Actionable.MODULATE,

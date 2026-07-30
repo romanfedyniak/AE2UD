@@ -46,7 +46,7 @@ public class SlotPatternTerm extends SlotCraftingTerm {
     }
 
     public AppEngPacket getRequest(final boolean shift) throws IOException {
-        return new PacketPatternSlot(this.getPattern(), GenericStack.fromItemStack(this.getStack()), shift);
+        return new PacketPatternSlot(this.getPattern(), GenericStack.resolveItemStack(this.getStack()), shift);
     }
 
     @Override

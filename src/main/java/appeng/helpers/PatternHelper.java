@@ -104,7 +104,9 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 this.markItemAs(x, gs, TestStatus.ACCEPT);
             }
 
-            in.add(GenericStack.fromItemStack(gs));
+            // resolve, not fromItemStack: a processing pattern's slot may hold a wrapped key, and
+            // reading that as the placeholder item makes the job hunt for a display shim.
+            in.add(GenericStack.resolveItemStack(gs));
             this.testFrame.setInventorySlotContents(x, gs);
         }
 
@@ -113,7 +115,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
             if (this.standardRecipe != null) {
                 this.correctOutput = this.standardRecipe.getCraftingResult(this.crafting);
-                out.add(GenericStack.fromItemStack(this.correctOutput));
+                out.add(GenericStack.resolveItemStack(this.correctOutput));
             } else {
                 throw new IllegalStateException("No pattern here!");
             }
@@ -130,7 +132,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 }
 
                 if (!gs.isEmpty()) {
-                    out.add(GenericStack.fromItemStack(gs));
+                    out.add(GenericStack.resolveItemStack(gs));
                 }
             }
         }
@@ -280,7 +282,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             ItemStack[] matchingStacks = getRecipeIngredient(slot).getMatchingStacks();
             List<GenericStack> itemList = new ArrayList<>(matchingStacks.length + 1);
             for (ItemStack matchingStack : matchingStacks) {
-                itemList.add(GenericStack.fromItemStack(matchingStack));
+                itemList.add(GenericStack.resolveItemStack(matchingStack));
             }
 
             // Ensure that the specific item put in by the user is at the beginning,
