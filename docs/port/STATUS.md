@@ -332,6 +332,16 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
   fluid-decomposition phase for free: once pattern slots hold a `GenericStack`, any key type fits.
 - **Requested, not yet done: the Magnet Card should pick up into the network rather than the player's
   inventory.** Owner approved it for whenever; it is a small change.
+- **Requested, not yet done: fill and empty a fluid container against the terminal.** Clicking a fluid row
+  while holding a bucket (or any `FLUID_HANDLER_ITEM_CAPABILITY` container) should extract into it, and
+  clicking with a full one should deposit its contents into the network. Today the terminal only *displays*
+  fluids — there is no way to move one in or out by hand, which makes a universal ME terminal look broken
+  even though storage, buses and cells all work.
+  Owner's instruction: **look at how ae-gtnh and modern upstream do it before writing anything** — both
+  already solve this and the interaction details (which button does which direction, what happens to the
+  emptied container, partial buckets) are worth copying rather than re-deriving. Related and already built:
+  the same capability lookup drives setting a *filter* from a held container (stage 0, `afba0e4e0` /
+  `53953f435`), so the button convention should match what those already do.
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
   and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
   exists now that `remainingItemCount` moves, if it is ever wanted.
