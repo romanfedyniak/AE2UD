@@ -1,12 +1,17 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-07-30, when the work landed on `main`.
+2026-07-31, after the follow-up list was worked through.
 
-**The port is done.** All seven waves, the `appeng.fluids` decomposition and the play-testing are
-finished; `feature/generic-storage` is merged. What is left is the follow-up list under "Still open",
-none of which is migration work. Read §9 of `CONTRACT.md` before calling into any of this — it is the
-class-by-class record of what each wave actually built, and the api it describes is the api that shipped.
+**The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
+and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
+the merge" below. Read §9 of `CONTRACT.md` before calling into any of this — it is the class-by-class
+record of what each wave actually built, and the api it describes is the api that shipped.
+
+Two things are open and **neither is code we can write today**: registering AE2UD as an HEI
+`ISlotIngredientProvider`, which waits on a released HEI carrying the api, and the craftables cache in
+`CraftingGridCache`, which needs a frozen-api decision under §7. Both are described where they belong,
+below.
 
 ## What this port is
 
@@ -366,13 +371,14 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
 
 ### Still open
 
-- **Missing feature, not a regression: fluids cannot be put into a pattern.** Verified against
-  `1e855f729` - neither `ContainerPatternEncoder` nor `ItemEncodedPattern` nor `ICraftingPatternDetails`
-  ever mentioned fluids, and the pattern slots are plain item `SlotFake`s. This falls out of the
-  fluid-decomposition phase for free: once pattern slots hold a `GenericStack`, any key type fits.
-- **Requested, not yet done: the Magnet Card should pick up into the network rather than the player's
-  inventory.** Owner approved it for whenever; it is a small change.
-- **Requested: fill and empty a fluid container against the *generic* terminal.** Clicking a fluid row while
+- ~~**Missing feature: fluids cannot be put into a pattern.**~~ **Done** - encoding, planning, display and
+  execution, the last of those through `ICraftingMedium.pushPattern`'s extra-ingredients overload. See
+  "Fluids as a crafting *ingredient*".
+- ~~**Requested: the Magnet Card should pick up into the network.**~~ **Done**, see "After the merge".
+- ~~**Requested: fill and empty a fluid container against the *generic* terminal.**~~ **Done** in stage 1b
+  as `ContainerItemStrategy`, which is why the legacy fluid terminal could then be deleted. The original
+  brief is kept below because it records why the strategy shape was chosen over ae-gtnh's.
+  <details><summary>the original brief</summary> Clicking a fluid row while
   holding a bucket (or any `FLUID_HANDLER_ITEM_CAPABILITY` container) should extract into it, and clicking
   with a full one should deposit its contents into the network.
   **This mechanic already exists — but only on the legacy fluid parts.** `ContainerFluidTerminal.doAction`
@@ -386,6 +392,13 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
   the right shape here too — it puts the behaviour on the key type rather than on the terminal, matching the
   rule wave 5 settled. Copying `ContainerFluidTerminal`'s body into `ContainerMEMonitorable` would work and
   would be the wrong shape.
+  </details>
+- **Owner decision, recorded so it stops coming back: the annihilation plane may break an adjacent cable
+  bus, and that stays.** `ItemPickupStrategy.canHandleBlock` excludes only air, liquids, bedrock, the end
+  portal and its frame, command blocks, unbreakable blocks and protected chunks - a cable bus is an
+  ordinary breakable block and always was. Byte-for-byte the pre-port method, and upstream behaves the same.
+  Adding an `IGridHost` exclusion was offered and declined; a plane placed on a cable will eat the cable
+  next to it, and that is accepted behaviour rather than a bug to file again.
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
   and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
   exists now that `remainingItemCount` moves, if it is ever wanted.
@@ -998,6 +1011,51 @@ or simply having HEI ask the registered `IAdvancedGuiHandler`s *before* falling 
 `ItemStack` rather than after. Either one turns this whole problem into a handler we already have. The owner
 is raising it with HEI, who have extended their API before; until then the two keybinds are worth having and
 the rest waits.
+
+## After the merge — the follow-up list, worked through
+
+`feature/generic-storage` landed on `main` as `f7218a674` (460 files, +19,729 / -25,225). Everything below
+was done on top of it, each on its own branch, each play-tested by the owner before being committed - the
+working rule at the end of this file.
+
+| Commit | What |
+|---|---|
+| `a777c9d34` | the Magnet Card stores into the network instead of the player |
+| `df319d0d3` | the terminal diff reads the grid's cached inventory; the wireless terminal gets its craftables back |
+| `693e91c73` | the cell GUI handler registry became an override rather than a gate |
+| `a2a880f90` | middle click types an exact amount into a pattern or interface slot |
+| `74c19d6ab` | a count of one is no longer drawn on a slot |
+| `bab1bb6d5` | shift reads a wrapped key's exact amount in any slot, not only a terminal row |
+| `9f1339903` | a capacity-card filter slot no longer stores an amount |
+| `03ac6da63` | the tooltip no longer states a count of one |
+
+Two of these were **regressions of my own**, both found by playing and neither by any scan:
+
+- `df319d0d3` repaired `25d09eb03`. Narrowing `computeCraftables()` from "attached to a grid" to
+  `monitorsNetworkInventory()` fixed the security station and silently took every craftable row away from
+  the **wireless terminal**, because `WirelessTerminalGuiObject.getInventory()` answered `this` rather than
+  the grid's inventory and could never satisfy the identity test. The javadoc written with that commit
+  asserted the opposite. **Narrowing a condition is a deletion**, and it needs the same "who did this used
+  to cover" audit that deleting a class does.
+- Steps 1 and 2 of the terminal-diff optimisation were a **no-op on the one host they were written for**
+  until that same fix landed, for the same reason.
+
+### The shape four of these bugs shared
+
+`bab1bb6d5`, `9f1339903`, `03ac6da63` and the config-slot round in stage 2d are all one thing: **a rule
+written in two places, and only one copy taught the new behaviour.**
+
+| The rule | Copy that learned | Copy that did not |
+|---|---|---|
+| a fake config slot resolves a wrapped key | `SlotFake` | `SlotDisconnected` (stage 2d) |
+| a filter stores an identity, not a quantity | `SlotFakeTypeOnly` | `OptionalSlotFakeTypeOnly` |
+| shift reads the exact amount | `AEBaseMEGui.renderToolTip` | `WrappedGenericStack.addCheckedInformation` |
+| a count of one is not worth stating | `StackSizeRenderer` | `AEBaseMEGui.renderToolTip` |
+
+None of the pairs is related by inheritance, which is exactly why each looked finished on its own. The
+repair in every case was to delete one copy rather than to patch it - `SlotFake.typeOnly()` is now shared
+by both slot classes, `AEBaseContainer.adjustAmount` by both action switches. **When a fix has to be made
+twice, that is the bug.**
 
 ## Stage 2 is done — what the phase actually removed
 
