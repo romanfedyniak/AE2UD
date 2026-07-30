@@ -126,9 +126,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     /**
      * Case 2 snapshot: the amounts last broadcast to listeners, diffed once per tick against
-     * {@link #retainAvailableStacks()} - and it has to come from there rather than straight off the grid,
-     * see that method. Also seeded at construction so the tick right after a GUI opens does not immediately
-     * re-broadcast the same full listing {@link #queueInventory} just sent to the new listener.
+     * {@link #retainAvailableStacks()}. Also seeded at construction so the tick right after a GUI opens does
+     * not immediately re-broadcast the same full listing {@link #queueInventory} just sent to the new
+     * listener.
      */
     private KeyCounter previousAvailableStacks = new KeyCounter();
 
@@ -409,19 +409,11 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     /**
      * The grid's storage service, but only when this terminal shows the <em>network's</em> contents rather
-     * than one cell's. Null otherwise, which is the answer every caller here keys off.
+     * than one cell's. Being attached to a grid is not the same question: a security station and an ME
+     * chest have a live node and still monitor their own inventory.
      * <p/>
-     * Being attached to a grid is not the same question. A security station and an ME chest are both grid
-     * hosts with a live {@link #networkNode}, but they monitor their own inventory - the station's biometric
-     * cards, the chest's single cell - so a network craftable has no business appearing in their listing.
-     * Before this check, clicking one of those phantom craftables in the security station opened the craft
-     * confirmation screen and crashed the client.
-     * <p/>
-     * The test is deliberately by identity rather than by host type: {@link IStorageService#getInventory()}
-     * answers one stable object per grid, and a network-backed host - the terminal parts, and the wireless
-     * terminal through {@code WirelessTerminalGuiObject} - hands back exactly that object from
-     * {@link ITerminalHost#getInventory()}. An addon terminal that does the same is covered with no change
-     * here, which an {@code instanceof} chain could not manage.
+     * Tested by identity rather than by host type, so an addon terminal handing back the grid's inventory
+     * is covered with no change here.
      */
     @Nullable
     private IStorageService networkStorageService() {
@@ -443,16 +435,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     }
 
     /**
-     * What this terminal shows, read for this tick only.
-     * <p/>
-     * A network-backed terminal reads {@link IStorageService#getCachedInventory()}, which the grid keeps
-     * behind its own dirty flag: several open terminals then cost one recompute per change instead of one
-     * full walk over every drive, cell and storage bus each, every tick. A host that views a single cell -
-     * the portable cell, the ME chest, the security station - has no service to ask and its walk is one
-     * cell deep, exactly as CONTRACT.md §10 assumed for case 2, so it keeps reading the cell directly.
-     * <p/>
-     * <strong>The result may be the service's own live counter.</strong> Read it and let it go; anything
-     * that outlives the tick has to come from {@link #retainAvailableStacks()} instead.
+     * What this terminal shows. <strong>May be the service's own live counter</strong> - anything that
+     * outlives the tick has to come from {@link #retainAvailableStacks()} instead.
      */
     private KeyCounter readAvailableStacks() {
         final IStorageService ss = this.networkStorageService();
@@ -460,14 +444,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     }
 
     /**
-     * The same listing as {@link #readAvailableStacks()}, but always this container's own object, safe to
-     * keep until the next tick.
-     * <p/>
-     * The copy is the whole point. {@link IStorageService#getCachedInventory()} hands back the service's
-     * live counter, and storing that reference in {@link #previousAvailableStacks} would leave the diff
-     * comparing an object with itself: it would find no change on any tick, and the terminal would silently
-     * stop updating. A cell read needs no copy - {@link MEStorage#getAvailableStacks()} already builds a
-     * fresh counter for each call.
+     * The same listing, but always this container's own object. Keeping the service's live counter instead
+     * would leave the diff comparing it with itself, and the terminal would silently stop updating.
      */
     private KeyCounter retainAvailableStacks() {
         final IStorageService ss = this.networkStorageService();
