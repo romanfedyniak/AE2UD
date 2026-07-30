@@ -184,6 +184,28 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
      * {@link IBasicCellItem#getKeyType()}; a cell item that does not declare one (the creative cell, which has
      * always behaved as an item cell here) defaults to {@link AEKeyType#items()}.
      */
+    /**
+     * Writes the installed cell's contents back into its {@link ItemStack}.
+     * <p>
+     * A cell reports a change by calling {@link ISaveProvider#saveChanges()} on whatever holds it, and only
+     * then does its NBT get rewritten. The pre-port signature was
+     * {@code saveChanges(ICellInventory<?> cellInventory)} and this class used the argument to call
+     * {@code persist()} on it; the ported interface takes no argument (matching upstream), so the override
+     * quietly became {@code AEBaseTile.saveChanges()}, which only marks the chunk dirty. Everything put into
+     * a chest lived in the cell's in-memory inventory and was never written down, so pulling the cell out
+     * lost the lot and its tooltip always read empty.
+     * <p>
+     * The drive was unaffected because it holds its cells in an {@code AppEngCellInventory}, which persists
+     * them itself.
+     */
+    @Override
+    public void saveChanges() {
+        if (this.driveWatcher != null) {
+            this.driveWatcher.getCell().persist();
+        }
+        super.saveChanges();
+    }
+
     private void updateHandler() {
         if (!this.isCached) {
             this.driveWatcher = null;

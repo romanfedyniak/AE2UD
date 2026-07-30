@@ -23,6 +23,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.misc.TileCellWorkbench;
+import appeng.util.Platform;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
@@ -57,11 +58,47 @@ public class SlotCellWorkbenchConfig extends SlotFakeTypeOnly {
 
     @Override
     public void putStack(ItemStack is) {
-        if (!is.isEmpty() && !this.acceptsKeyOf(is)) {
+        if (!is.isEmpty() && (!this.acceptsKeyOf(is) || this.isAlreadyPartitioned(is))) {
             return;
         }
 
         super.putStack(is);
+    }
+
+    /**
+     * @return true if another slot already names this key. A partition is a set: listing a key twice adds
+     *         nothing, and the cell's tooltip prints one line per configured slot, so a duplicate showed up
+     *         as the same entry repeated.
+     *         <p>
+     *         Server-side only. The client's slots are filled one at a time by the vanilla sync, so during a
+     *         swap it can momentarily hold a duplicate that the server never had; refusing it there would
+     *         drop a legitimate update and leave the two sides disagreeing.
+     */
+    private boolean isAlreadyPartitioned(final ItemStack is) {
+        if (!Platform.isServer()) {
+            return false;
+        }
+
+        final GenericStack candidate = AppEngInternalAEInventory.toGenericStack(is);
+        if (candidate == null) {
+            return false;
+        }
+
+        final IItemHandler inv = this.getItemHandler();
+        for (int slot = 0; slot < inv.getSlots(); slot++) {
+            if (slot == this.getSlotIndex()) {
+                continue;
+            }
+
+            final GenericStack other = AppEngInternalAEInventory.toGenericStack(inv.getStackInSlot(slot));
+            // By key, not by GenericStack: the amounts differ and are meaningless in a partition (CONTRACT
+            // §9.1), so comparing whole stacks would call two entries for the same fluid distinct.
+            if (other != null && other.what().equals(candidate.what())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean acceptsKeyOf(final ItemStack is) {

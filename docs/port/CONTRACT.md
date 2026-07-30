@@ -3025,6 +3025,34 @@ placeholder by construction - a container item's remainder, a vanilla crafting r
 Fourth member of the §9.1 family, and the clearest statement of it: **any** helper that turns an `ItemStack`
 into a key must be asked whether that stack could be a wrapper.
 
+## 9.1e Dropping a parameter can turn an override into a different method
+
+`ISaveProvider.saveChanges(ICellInventory<?>)` became `saveChanges()` in the port, matching upstream. That is
+a fine API change. What it did to `TileChest` is the lesson:
+
+```java
+// before - the only implementor that used the argument
+public void saveChanges(final ICellInventory<?> cellInventory) {
+    if (cellInventory != null) {
+        cellInventory.persist();       // <-- writes the cell's contents into its ItemStack
+    }
+    this.world.markChunkDirty(this.pos, this);
+}
+
+// after - still compiles, still carries @Override, and is now AEBaseTile.saveChanges()
+```
+
+The no-argument `saveChanges()` **already existed** on the supertype chain, so the migrated override simply
+resolved to that one: mark the chunk dirty, and nothing else. `@Override` did not complain, because it was a
+valid override - of a different method. Everything put into an ME Chest lived in the cell's in-memory
+inventory and was never written down; taking the cell out lost the lot and its tooltip always read empty.
+Drives were unaffected, because they hold cells in an `AppEngCellInventory` that persists them itself.
+
+**Rule:** when a frozen-API method loses a parameter, check every implementor for a same-named method
+inherited from elsewhere. `@Override` proves the method exists somewhere above; it does not prove it is the
+one that used to be called. The other three pre-port implementors were no-ops, so the chest was the only
+casualty - which is also why nothing else looked wrong.
+
 ## 9.2 Open note for wave 4 — `ICraftingJob.populatePlan`
 
 The old crafting plan stored **two** numbers per key on one `IAEItemStack`: `stackSize` (used/missing) and `countRequestable` (to be produced by crafting). A `KeyCounter` holds one `long` per key, so the two cannot coexist in it.
