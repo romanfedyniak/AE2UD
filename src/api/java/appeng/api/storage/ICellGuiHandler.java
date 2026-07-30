@@ -32,7 +32,8 @@ import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.StorageCell;
 
 /**
- * Opens the right GUI for a cell placed in an ME chest.
+ * Overrides the screen an ME chest opens for a cell. Without one the chest opens the ordinary terminal,
+ * which serves every key type, so this is only for a cell that wants a screen of its own.
  */
 public interface ICellGuiHandler {
 

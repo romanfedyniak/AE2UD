@@ -98,7 +98,7 @@ public final class StorageCells {
     }
 
     /**
-     * Registers the screen that an ME Chest opens for cells of a given key type.
+     * Registers a screen for an ME Chest to open instead of the ordinary terminal.
      */
     public static synchronized void addCellGuiHandler(ICellGuiHandler handler) {
         Objects.requireNonNull(handler, "handler");

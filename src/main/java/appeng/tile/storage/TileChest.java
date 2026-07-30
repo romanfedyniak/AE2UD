@@ -50,6 +50,7 @@ import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEColor;
+import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.capabilities.Capabilities;
 import appeng.core.sync.GuiBridge;
@@ -548,25 +549,30 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     }
 
     /**
-     * Opens the GUI for the currently inserted cell. The lookup is keyed on the cell's key type rather than on the
-     * old storage channel, and a handler may claim one specific cell item ahead of the generic handler for its type.
+     * Opens the GUI for the currently inserted cell. One terminal serves every key type, so the ordinary
+     * screen is the default; a registered {@link ICellGuiHandler} only overrides it, and may claim one
+     * specific cell item ahead of the generic handler for its type.
      */
     public boolean openGui(final EntityPlayer p) {
         this.updateHandler();
-        if (this.driveWatcher != null) {
-            final ItemStack cellStack = this.getCell();
-            final ICellHandler ch = StorageCells.getHandler(cellStack);
-
-            if (ch != null) {
-                final ICellGuiHandler chg = StorageCells.getGuiHandler(this.cellKeyType, cellStack);
-                if (chg != null) {
-                    chg.openChestGui(p, this, ch, this.driveWatcher.getCell(), cellStack, this.cellKeyType);
-                    return true;
-                }
-            }
+        if (this.driveWatcher == null) {
+            return false;
         }
 
-        return false;
+        final ItemStack cellStack = this.getCell();
+        final ICellHandler ch = StorageCells.getHandler(cellStack);
+        if (ch == null) {
+            return false;
+        }
+
+        final ICellGuiHandler chg = StorageCells.getGuiHandler(this.cellKeyType, cellStack);
+        if (chg != null) {
+            chg.openChestGui(p, this, ch, this.driveWatcher.getCell(), cellStack, this.cellKeyType);
+        } else {
+            Platform.openGUI(p, this, AEPartLocation.fromFacing(this.getUp()), GuiBridge.GUI_ME);
+        }
+
+        return true;
     }
 
     @Override

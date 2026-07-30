@@ -51,7 +51,6 @@ import appeng.core.api.AEFluidKeyType;
 import appeng.core.api.AEItemKeyType;
 import appeng.core.features.registries.P2PTunnelRegistry;
 import appeng.core.features.registries.cell.BasicCellHandler;
-import appeng.core.features.registries.cell.BasicItemCellGuiHandler;
 import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.parts.automation.InitStackWorldBehaviors;
 import appeng.parts.misc.InitExternalStorageStrategies;
@@ -61,7 +60,6 @@ import appeng.core.stats.AdvancementTriggers;
 import appeng.core.stats.PartItemPredicate;
 import appeng.core.stats.Stats;
 import appeng.core.worlddata.SpatialDimensionManager;
-import appeng.fluids.registries.BasicFluidCellGuiHandler;
 import appeng.hooks.TickHandler;
 import appeng.hooks.WrenchClickHook;
 import appeng.items.materials.ItemMaterial;
@@ -219,8 +217,6 @@ final class Registration {
 
         StorageCells.addCellHandler(new BasicCellHandler());
         StorageCells.addCellHandler(new CreativeCellHandler());
-        StorageCells.addCellGuiHandler(new BasicItemCellGuiHandler());
-        StorageCells.addCellGuiHandler(new BasicFluidCellGuiHandler());
 
         // Install the GenericStack.Wrapper implementation (CONTRACT.md §8 item 3, §8.1 item 2) before anything
         // below - or anything running later during init - can call a non-item key's wrapForDisplayOrFilter().
