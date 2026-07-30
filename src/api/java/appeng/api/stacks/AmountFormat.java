@@ -33,6 +33,14 @@ public enum AmountFormat {
     FULL,
 
     /**
+     * The full amount in the type's <em>base</em> unit, with digit group separators and no conversion:
+     * "1,040mB" where {@link #FULL} would say "1B". For a type that has only one unit - items - this is
+     * identical to {@link #FULL}. Used where the exact number matters more than readability, which in
+     * practice means a tooltip with shift held.
+     */
+    FULL_BASE,
+
+    /**
      * Abbreviated form (1.2K), used where horizontal space is limited but still readable,
      * such as terminal rows.
      */

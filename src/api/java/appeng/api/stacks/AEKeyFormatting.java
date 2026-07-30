@@ -37,12 +37,27 @@ final class AEKeyFormatting {
 
     private static final String[] SUFFIXES = { "", "K", "M", "G", "T", "P", "E" };
 
+    /** Prefix for the base unit of a type measured in larger ones - millibuckets for fluids. */
+    private static final String MILLI_PREFIX = "m";
+
     private AEKeyFormatting() {
     }
 
     static String format(long amount, int amountPerUnit, String unitSymbol, AmountFormat format) {
         if (amountPerUnit <= 1) {
             return formatRaw(amount, format) + unitSymbol;
+        }
+
+        // Asked for the base unit outright: 1,040 mB, never rounded. Shift in a terminal tooltip uses this.
+        if (format == AmountFormat.FULL_BASE) {
+            return formatRaw(amount, AmountFormat.FULL) + MILLI_PREFIX + unitSymbol;
+        }
+
+        // Less than one whole unit. Rounding it into units is what "0B" was: 40 mB divided by 1000 is
+        // 0.04, and the one-fractional-digit format below prints that as "0". Below a unit the base unit
+        // is the only honest reading, so 40 mB reads "40mB".
+        if (amount != 0 && amount > -amountPerUnit && amount < amountPerUnit) {
+            return formatRaw(amount, format) + MILLI_PREFIX + unitSymbol;
         }
 
         // Types measured in units (fluids in buckets) keep one fractional digit unless the amount
@@ -61,6 +76,10 @@ final class AEKeyFormatting {
     private static String formatRaw(long amount, AmountFormat format) {
         switch (format) {
             case FULL:
+            // A type with only one unit - items - has nothing to convert, so the exact reading is the
+            // full one. Without this it fell through to the default and lost its digit grouping, turning
+            // a shift-held item tooltip from "8,128" into "8128".
+            case FULL_BASE:
                 return String.format(Locale.ROOT, "%,d", amount);
             case PREVIEW_LARGE:
                 return abbreviate(amount, 9999);

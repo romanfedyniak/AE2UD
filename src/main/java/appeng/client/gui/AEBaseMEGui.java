@@ -19,6 +19,7 @@
 package appeng.client.gui;
 
 
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AmountFormat;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.me.SlotME;
@@ -63,17 +64,27 @@ public abstract class AEBaseMEGui extends AEBaseGui {
             if (myStack != null) {
                 // Amounts go through the key's own formatter, not a bare number: a fluid row holds
                 // millibuckets and has to read "1B", not "1,000". Items format identically to before.
-                if (myStack.getStoredAmount() > 1) {
-                    final String local = ButtonToolTips.ItemsStored.getLocal();
-                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getStoredAmount(), AmountFormat.FULL);
+                //
+                // Two things depend on the key's type rather than on this screen. "Items Stored" is wrong
+                // for anything that is not an item, so a non-item type says "Amount" instead; and the
+                // threshold differs, because a single item is already shown by the slot's own count while
+                // a single millibucket is not shown anywhere else.
+                final boolean isItem = myStack.getWhat().getType() == AEKeyType.items();
+                // Shift asks for the exact number in the base unit - 1,040mB where the normal reading
+                // rounds to 1B.
+                final AmountFormat amountFormat = isShiftKeyDown() ? AmountFormat.FULL_BASE : AmountFormat.FULL;
+
+                if (myStack.getStoredAmount() > (isItem ? 1 : 0)) {
+                    final String local = (isItem ? ButtonToolTips.ItemsStored : ButtonToolTips.AmountStored).getLocal();
+                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getStoredAmount(), amountFormat);
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(TextFormatting.GRAY + format);
                 }
 
                 if (myStack.getRequestableAmount() > 0) {
-                    final String local = ButtonToolTips.ItemsRequestable.getLocal();
-                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getRequestableAmount(), AmountFormat.FULL);
+                    final String local = (isItem ? ButtonToolTips.ItemsRequestable : ButtonToolTips.AmountRequestable).getLocal();
+                    final String formattedAmount = myStack.getWhat().formatAmount(myStack.getRequestableAmount(), amountFormat);
                     final String format = String.format(local, formattedAmount);
 
                     currentToolTip.add(format);
