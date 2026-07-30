@@ -122,11 +122,14 @@ public class GuiCraftConfirm extends AEBaseGui {
         this.selectCPU.enabled = false;
         this.buttonList.add(this.selectCPU);
 
+        // Only when there is a screen to go back to. The add used to sit outside the branch, so a terminal
+        // host this constructor has no GuiBridge for put a null in buttonList and GuiScreen.drawScreen
+        // dereferenced it on the very first frame. Pre-existing, and unreachable until a host that offers no
+        // way back could reach this screen at all.
         if (this.OriginalGui != null) {
             this.cancel = new GuiButton(0, this.guiLeft + 6, this.guiTop + this.ySize - 25, 50, 20, GuiText.Cancel.getLocal());
+            this.buttonList.add(this.cancel);
         }
-
-        this.buttonList.add(this.cancel);
     }
 
     @Override

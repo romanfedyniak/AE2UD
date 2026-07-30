@@ -443,6 +443,33 @@ parts on the floor. `canHandleBlock` is byte-for-byte the pre-port version and e
 command blocks and liquids — a cable bus was always fair game. Raise with the owner as a design question, not
 as a bug.
 
+### Security station listed network craftables (fixed, awaiting a play-test)
+
+The security station's terminal showed craftable items it does not hold, and clicking one crashed the client:
+`GuiCraftConfirm.initGui` builds its Cancel button only when the host maps to a `GuiBridge`, but added it to
+`buttonList` unconditionally, so a null went in and `GuiScreen.drawScreen` dereferenced it on the first frame.
+That `add` is byte-for-byte the pre-port version — pre-existing, and unreachable until a host with no way back
+could reach that screen at all. It is now inside the branch.
+
+The real defect is upstream of it: `computeCraftables()` asked the **grid's** crafting cache whenever the
+container had a live grid node, but "attached to a grid" is not "shows the network". A security station and an
+ME chest are both grid hosts that monitor their own inventory — the station's biometric cards, the chest's one
+cell. The class javadoc already said as much for the live-update path and the craftable path ignored it.
+
+Gated on a new `monitorsNetworkInventory()`, which compares `this.monitor` by identity against
+`IStorageService.getInventory()` (one stable object per grid). Deliberately not an `instanceof` chain: the
+wireless terminal is network-backed without being a terminal part, and an addon terminal that returns the
+grid inventory is covered with no change here. `getCachedAmount()` was reading the network cache for the same
+non-network hosts and is gated on it too.
+
+### Crafting toast overflowed its box (fixed, awaiting a play-test)
+
+Long names ran past the toast. **Widening is not possible in 1.12.2**: `IToast` has no `width()` (that arrives
+in a later version) and `GuiToast.ToastInstance.render` hardcodes 160 for both the slot and the slide-in
+animation, so anything drawn wider would overlap the neighbouring toast and slide wrong. Both lines are
+trimmed with `trimStringToWidth` plus an ellipsis instead — from the right, so the amount at the front of the
+label survives.
+
 ### Then, in order
 
 1. **Stage 1** — drop the six legacy parts above, after generalising `PartFormationPlane`.

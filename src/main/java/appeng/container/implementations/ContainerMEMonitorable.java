@@ -398,21 +398,45 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     }
 
     private Set<AEKey> computeCraftables() {
-        if (this.networkNode == null || !this.networkNode.isActive()) {
+        if (!this.monitorsNetworkInventory()) {
             return Collections.emptySet();
+        }
+
+        final ICraftingGrid cc = this.networkNode.getGrid().getCache(ICraftingGrid.class);
+        return cc == null ? Collections.emptySet() : cc.getCraftables(AEKeyFilter.all());
+    }
+
+    /**
+     * Whether this terminal shows the <em>network's</em> contents, as opposed to one cell's.
+     * <p/>
+     * Being attached to a grid is not the same question. A security station and an ME chest are both grid
+     * hosts with a live {@link #networkNode}, but they monitor their own inventory - the station's biometric
+     * cards, the chest's single cell - so a network craftable has no business appearing in their listing.
+     * Before this check, clicking one of those phantom craftables in the security station opened the craft
+     * confirmation screen and crashed the client.
+     * <p/>
+     * The test is deliberately by identity rather than by host type: {@link IStorageService#getInventory()}
+     * answers one stable object per grid, and a network-backed host - the terminal parts, and the wireless
+     * terminal through {@code WirelessTerminalGuiObject} - hands back exactly that object from
+     * {@link ITerminalHost#getInventory()}. An addon terminal that does the same is covered with no change
+     * here, which an {@code instanceof} chain could not manage.
+     */
+    private boolean monitorsNetworkInventory() {
+        if (this.monitor == null || this.networkNode == null || !this.networkNode.isActive()) {
+            return false;
         }
 
         final IGrid grid = this.networkNode.getGrid();
         if (grid == null) {
-            return Collections.emptySet();
+            return false;
         }
 
-        final ICraftingGrid cc = grid.getCache(ICraftingGrid.class);
-        return cc == null ? Collections.emptySet() : cc.getCraftables(AEKeyFilter.all());
+        final IStorageService ss = grid.getCache(IStorageService.class);
+        return ss != null && ss.getInventory() == this.monitor;
     }
 
     private long getCachedAmount(final AEKey what) {
-        if (this.networkNode != null) {
+        if (this.monitorsNetworkInventory()) {
             final IGrid grid = this.networkNode.getGrid();
             if (grid != null) {
                 final IStorageService ss = grid.getCache(IStorageService.class);
