@@ -705,15 +705,38 @@ hands the crafting medium an `InventoryCrafting`, which carries `ItemStack`s onl
 items. Fluids in patterns therefore encode, plan and display correctly but cannot yet run. That is the
 universal interface's job.
 
-### Then, in order
+### Stages 2 and 3 turned out to be one stage
 
-1. **Stage 1** — drop the legacy parts the audit above clears. The formation plane prerequisite is done.
-2. **Stage 2** — replace `AEFluidInventory`/`AEFluidTank`/`IAEFluidTank` with the generic `GenericStack`
-   config inventory (upstream calls it `ConfigInventory`). About 30 files; the largest mechanical step.
-3. **Stage 3** — the universal interface. `DualityFluidInterface` holds tanks, `DualityInterface` holds item
-   slots; merging them means teaching the generic interface to *stock* `GenericStack`s rather than
-   `ItemStack`s. This is a feature, not a deletion, and it is also what makes **fluids in patterns** work —
-   verified as never having existed in this fork, not a port regression.
+The plan had stage 2 as "replace the fluid inventory types with a generic one, ~30 mechanical files" and
+stage 3 as "the universal interface". A dependency sweep before starting showed **stage 2 has no independent
+existence**: every remaining user of `AEFluidInventory` / `IAEFluidTank` / `IAEFluidInventory` /
+`AENetworkFluidInventory` is either the fluid interface itself, its configuration terminal, or the two
+memory-card branches in `AEBasePart`/`AEBaseTile` that serve them. Generalising those types would mean
+rewriting exactly the classes stage 3 deletes.
+
+Same mistake as the original stage order (see stage 0): the plan was drawn from package names rather than
+from the dependency graph. Merged into one stage, sliced so the game stays playable between slices:
+
+- **2a — the generic inventory itself (done, nothing wired to it yet).** `GenericStackInv` in
+  `appeng.util.inv`: fixed slots, each holding an amount of one `AEKey` of any type, with per-slot capacity
+  from the new `appeng.api.behaviors.GenericSlotCapacities` (a stack of items, four buckets of fluid, and an
+  addon's own type registers its own). Two adapters over it, deliberately separate: `GenericStackItemHandler`
+  shows only the item slots as items, `GenericStackFluidHandler` only the fluid slots as tanks. Each reports
+  the other's slots as **empty and unusable**, which is the point - an adjacent machine pulling items out of
+  an interface must not be handed a `WrappedGenericStack` placeholder, and a pipe must not drain an item
+  slot. That is also why this is a new class rather than a reuse of `AppEngInternalAEInventory`: that one
+  exists to be edited in a GUI and hands out placeholders on purpose.
+- **2b** — switch `DualityInterface`'s `storage` to it, keeping the item-handler capability behaving exactly
+  as now. Test: an ordinary ME interface is unchanged.
+- **2c** — expose the fluid-handler capability from the generic interface, so it stocks and serves fluids.
+  Test: fluids stock in the normal ME interface, and a machine can drain them.
+- **2d** — generalise the interface configuration terminal (`FluidSyncHelper`, `PacketFluidSlot`,
+  `ClientDCInternalFluidInv` merge into their item counterparts).
+- **2e** — delete the fluid interface orbit and the fluid inventory types with it.
+
+Note for 2b: our interface **holds** its stock rather than pushing it, same as upstream's `InterfaceLogic` -
+`getAdaptor(slot)` wraps a one-slot view of its own inventory, not the neighbour's. So the change is about
+what the slots contain, not about how anything is moved.
 
 ### Working rule adopted during this phase
 
