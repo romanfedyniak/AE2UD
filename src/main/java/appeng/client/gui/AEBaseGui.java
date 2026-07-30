@@ -903,7 +903,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                             super.drawSlot(s);
 
                             if (isShiftKeyDown()) {
-                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.fromItemStack(out), s.xPos, s.yPos);
+                                // getOutput wraps the pattern's output key, so a fluid arrives here as a
+                                // placeholder and has to be resolved rather than read (CONTRACT.md §9.1d).
+                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.resolveItemStack(out), s.xPos, s.yPos);
                             } else {
                                 super.drawSlot(s);
                             }
