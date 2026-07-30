@@ -658,10 +658,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                                 }
                                             }
                                         }
-                                    } else {
-                                        final long extracted = this.inventory.extract(input[x].what(), input[x].amount(), Actionable.MODULATE, this.machineSrc);
+                                    } else if (input[x].what() instanceof AEItemKey itemKey) {
+                                        final long extracted = this.inventory.extract(itemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
 
-                                        if (extracted > 0 && input[x].what() instanceof AEItemKey itemKey) {
+                                        if (extracted > 0) {
                                             this.postChange(itemKey, this.machineSrc);
                                             ic.setInventorySlotContents(x, itemKey.toStack((int) extracted));
                                             if (extracted == input[x].amount()) {
@@ -670,6 +670,16 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                             }
                                         }
                                     }
+                                    // An ingredient that is not an item cannot travel in an InventoryCrafting,
+                                    // so this pattern cannot be pushed until the interface can carry one
+                                    // (stage 3 of the fluids decomposition). Leaving `found` false breaks out
+                                    // below, and nothing was taken from the network.
+                                    //
+                                    // The test used to sit *after* the extraction: a fluid ingredient was
+                                    // pulled out of storage with MODULATE, then rejected for not being an
+                                    // AEItemKey, and never reached `ic` - which is the only thing the
+                                    // put-back loop below restores from. The fluid was simply destroyed, and
+                                    // only the first one, because the loop breaks on the first failure.
 
                                     if (!found) {
                                         break;
