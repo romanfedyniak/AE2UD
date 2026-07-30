@@ -26,6 +26,7 @@ import appeng.client.me.SlotDisconnected;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
+import appeng.container.implementations.ContainerSetAmount;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal.ConfigTracker;
 import appeng.container.slot.IJEITargetSlot;
@@ -197,6 +198,8 @@ public class PacketInventoryAction extends AppEngPacket {
                         cca.detectAndSendChanges();
                     }
                 }
+            } else if (this.action == InventoryAction.SET_AMOUNT) {
+                this.openSetAmount(sender, baseContainer);
             } else if (this.action == InventoryAction.PLACE_JEI_GHOST_ITEM) {
                 if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
                     ConfigTracker inv = ((ContainerInterfaceConfigurationTerminal) sender.openContainer).getSlotByID(this.id);
@@ -228,6 +231,42 @@ public class PacketInventoryAction extends AppEngPacket {
             } else {
                 baseContainer.doAction(sender, this.action, this.slot, this.id);
             }
+        }
+    }
+
+    /**
+     * Opens the amount screen for one fake slot, seeded with what that slot currently holds. The key is read
+     * here rather than taken from the client, so a middle click cannot name a stack the slot does not have.
+     */
+    private void openSetAmount(final EntityPlayerMP sender, final AEBaseContainer from) {
+        if (this.slot < 0 || this.slot >= from.inventorySlots.size()) {
+            return;
+        }
+
+        final Slot origin = from.inventorySlots.get(this.slot);
+        if (!(origin instanceof SlotFake)) {
+            return;
+        }
+
+        final GenericStack current = GenericStack.resolveItemStack(origin.getStack());
+        if (current == null) {
+            return;
+        }
+
+        final GuiBridge originGui = GuiBridge.openerOf(from.getClass());
+        if (originGui == null) {
+            return;
+        }
+
+        final long max = from.maxAmountIn(origin, current.what());
+        if (!PacketSwitchGuis.reopen(sender, from, GuiBridge.GUI_SET_AMOUNT)) {
+            return;
+        }
+
+        if (sender.openContainer instanceof ContainerSetAmount) {
+            final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
+            csa.setOrigin(originGui, this.slot, current.what(), current.amount(), max);
+            csa.detectAndSendChanges();
         }
     }
 

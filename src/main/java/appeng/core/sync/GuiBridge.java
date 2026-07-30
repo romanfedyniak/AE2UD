@@ -76,6 +76,7 @@ import net.minecraftforge.fml.common.network.IGuiHandler;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import java.lang.reflect.Constructor;
+import javax.annotation.Nullable;
 
 
 public enum GuiBridge implements IGuiHandler {
@@ -156,6 +157,10 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_CRAFTING_CONFIRM(ContainerCraftConfirm.class, ITerminalHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.CRAFT),
 
+    // No permission of its own: it is only reachable from a screen that already checked one, and returning
+    // to that screen checks it again.
+    GUI_SET_AMOUNT(ContainerSetAmount.class, Object.class, GuiHostType.ITEM_OR_WORLD, null),
+
     GUI_INTERFACE_TERMINAL(ContainerInterfaceTerminal.class, PartInterfaceTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_CRAFTING_STATUS(ContainerCraftingStatus.class, ITerminalHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.CRAFT),
@@ -185,6 +190,20 @@ public enum GuiBridge implements IGuiHandler {
 
     public GuiWrapper.IExternalGui getExternalGui() {
         return this.externalGui;
+    }
+
+    /**
+     * The screen that opens the given container, or null if nothing does. Lets the server send a player back
+     * to where they came from without the client having to name the screen for it.
+     */
+    @Nullable
+    public static GuiBridge openerOf(final Class<?> containerClass) {
+        for (final GuiBridge bridge : values()) {
+            if (bridge.containerClass == containerClass) {
+                return bridge;
+            }
+        }
+        return null;
     }
 
     GuiBridge(final Class containerClass, final SecurityPermissions requiredPermission) {

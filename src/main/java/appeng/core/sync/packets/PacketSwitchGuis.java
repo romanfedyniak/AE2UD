@@ -59,25 +59,34 @@ public class PacketSwitchGuis extends AppEngPacket {
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
         final Container c = player.openContainer;
         if (c instanceof AEBaseContainer) {
-            final AEBaseContainer bc = (AEBaseContainer) c;
-            final ContainerOpenContext context = bc.getOpenContext();
-            if (context != null) {
-                final Object target = bc.getTarget();
-                if (target instanceof IActionHost) {
-                    final IActionHost ah = (IActionHost) target;
-
-                    final TileEntity te = context.getTile();
-
-                    if (te != null) {
-                        Platform.openGUI(player, te, bc.getOpenContext().getSide(), this.newGui);
-                    } else {
-                        if (ah instanceof IInventorySlotAware) {
-                            IInventorySlotAware i = ((IInventorySlotAware) ah);
-                            Platform.openGUI(player, i.getInventorySlot(), this.newGui, i.isBaubleSlot());
-                        }
-                    }
-                }
-            }
+            reopen(player, (AEBaseContainer) c, this.newGui);
         }
+    }
+
+    /**
+     * Opens another screen on the host the given container was opened from - a tile in the world, or a
+     * terminal item in an inventory or bauble slot.
+     *
+     * @return false if the host offered no way back, which leaves the current screen open.
+     */
+    public static boolean reopen(final EntityPlayer player, final AEBaseContainer from, final GuiBridge gui) {
+        final ContainerOpenContext context = from.getOpenContext();
+        if (context == null || !(from.getTarget() instanceof IActionHost)) {
+            return false;
+        }
+
+        final TileEntity te = context.getTile();
+        if (te != null) {
+            Platform.openGUI(player, te, context.getSide(), gui);
+            return true;
+        }
+
+        if (from.getTarget() instanceof IInventorySlotAware) {
+            final IInventorySlotAware i = (IInventorySlotAware) from.getTarget();
+            Platform.openGUI(player, i.getInventorySlot(), gui, i.isBaubleSlot());
+            return true;
+        }
+
+        return false;
     }
 }

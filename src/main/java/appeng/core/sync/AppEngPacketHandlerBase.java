@@ -59,6 +59,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_SWITCH_GUIS(PacketSwitchGuis.class),
 
+        PACKET_SET_AMOUNT(PacketSetAmount.class),
+
         PACKET_SWAP_SLOTS(PacketSwapSlots.class),
 
         PACKET_PATTERN_SLOT(PacketPatternSlot.class),

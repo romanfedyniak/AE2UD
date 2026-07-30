@@ -50,25 +50,29 @@ import java.io.IOException;
 
 
 public class GuiCraftAmount extends AEBaseGui {
-    private GuiTextField amountToCraft;
-    private GuiTabButton originalGuiBtn;
+    protected GuiTextField amountToCraft;
+    protected GuiTabButton originalGuiBtn;
 
-    private GuiButton next;
+    protected GuiButton next;
 
-    private GuiButton plus1;
-    private GuiButton plus10;
-    private GuiButton plus100;
-    private GuiButton plus1000;
-    private GuiButton minus1;
-    private GuiButton minus10;
-    private GuiButton minus100;
-    private GuiButton minus1000;
+    protected GuiButton plus1;
+    protected GuiButton plus10;
+    protected GuiButton plus100;
+    protected GuiButton plus1000;
+    protected GuiButton minus1;
+    protected GuiButton minus10;
+    protected GuiButton minus100;
+    protected GuiButton minus1000;
 
-    private GuiBridge originalGui;
+    protected GuiBridge originalGui;
 
     @Reflected
     public GuiCraftAmount(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(new ContainerCraftAmount(inventoryPlayer, te));
+    }
+
+    protected GuiCraftAmount(final AEBaseContainer container) {
+        super(container);
     }
 
     @Override
@@ -138,12 +142,12 @@ public class GuiCraftAmount extends AEBaseGui {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.fontRenderer.drawString(GuiText.SelectAmount.getLocal(), 8, 6, 4210752);
+        this.fontRenderer.drawString(this.getTitle(), 8, 6, 4210752);
     }
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.next.displayString = isShiftKeyDown() ? GuiText.Start.getLocal() : GuiText.Next.getLocal();
+        this.next.displayString = this.getConfirmLabel();
 
         this.bindTexture("guis/craft_amt.png");
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
@@ -191,14 +195,14 @@ public class GuiCraftAmount extends AEBaseGui {
 
             if (btn == this.next) {
                 double resultD = MathExpressionParser.parse(this.amountToCraft.getText());
-                int result;
+                long result;
                 if (resultD <= 0 || Double.isNaN(resultD)) {
                     result = 1;
                 } else {
-                    result = (int) MathExpressionParser.round(resultD, 0);
+                    result = (long) MathExpressionParser.round(resultD, 0);
                 }
 
-                NetworkHandler.instance().sendToServer(new PacketCraftRequest(result, isShiftKeyDown()));
+                this.confirm(result);
             }
         } catch (final NumberFormatException e) {
             // nope..
@@ -211,6 +215,18 @@ public class GuiCraftAmount extends AEBaseGui {
         if (isPlus || isMinus) {
             this.addQty(this.getQty(btn));
         }
+    }
+
+    protected String getTitle() {
+        return GuiText.SelectAmount.getLocal();
+    }
+
+    protected String getConfirmLabel() {
+        return isShiftKeyDown() ? GuiText.Start.getLocal() : GuiText.Next.getLocal();
+    }
+
+    protected void confirm(final long amount) {
+        NetworkHandler.instance().sendToServer(new PacketCraftRequest((int) Math.min(amount, Integer.MAX_VALUE), isShiftKeyDown()));
     }
 
     private void addQty(final int i) {
