@@ -24,6 +24,7 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.Entity;
@@ -111,8 +112,10 @@ public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrap
         // where the quantity belongs to the row being drawn and not to the stack. Only a wrapper that
         // genuinely carries an amount - a configured filter entry, say - gets the amount line.
         if (wrapped != null && wrapped.amount() > 0) {
+            // Shift reads the exact number in the base unit, the same as a terminal row does.
+            final AmountFormat format = GuiScreen.isShiftKeyDown() ? AmountFormat.FULL_BASE : AmountFormat.FULL;
             lines.add(wrapped.what().getDisplayName().getUnformattedText() + ": "
-                    + wrapped.what().formatAmount(wrapped.amount(), AmountFormat.FULL));
+                    + wrapped.what().formatAmount(wrapped.amount(), format));
         }
     }
 
