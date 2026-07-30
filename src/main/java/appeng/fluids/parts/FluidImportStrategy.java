@@ -19,8 +19,8 @@ import appeng.api.stacks.AEKeyType;
 /**
  * Fluid counterpart of {@code appeng.parts.automation.StorageImportStrategy}. Registered against
  * {@link appeng.api.stacks.AEKeyType#fluids()} through {@code appeng.parts.automation.InitStackWorldBehaviors} (see
- * that file's edit for wave 5), and also used directly by {@link PartFluidImportBus} for its own,
- * fluids-only import bus.
+ * that file's edit for wave 5), and reached only through that registry - the separate fluid import bus that
+ * also used it directly was deleted once the generic bus could serve fluids.
  * <p/>
  * Unlike the item version this does one bounded transfer per call instead of looping in
  * 64-unit chunks: the pre-port {@code PartFluidImportBus#doBusWork} always drained a single, bounded amount (in

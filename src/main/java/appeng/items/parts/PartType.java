@@ -18,7 +18,6 @@
 
 package appeng.items.parts;
 
-
 import appeng.api.parts.IPart;
 import appeng.api.util.AEColor;
 import appeng.core.AEConfig;
@@ -43,7 +42,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.stream.Collectors;
-
 
 public enum PartType {
     INVALID_TYPE(-1, "invalid", EnumSet.of(AEFeature.CORE), EnumSet.noneOf(IntegrationType.class), null),
@@ -128,27 +126,17 @@ public enum PartType {
     DARK_MONITOR(200, "dark_monitor", EnumSet.of(AEFeature.PANELS), EnumSet.noneOf(IntegrationType.class), PartDarkPanel.class, "itemIlluminatedPanel"),
 
     STORAGE_BUS(220, "storage_bus", EnumSet.of(AEFeature.STORAGE_BUS), EnumSet.noneOf(IntegrationType.class), PartStorageBus.class),
-    FLUID_STORAGE_BUS(221, "fluid_storage_bus", EnumSet.of(AEFeature.FLUID_STORAGE_BUS), EnumSet.noneOf(IntegrationType.class), PartFluidStorageBus.class),
     OREDICT_STORAGE_BUS(222, "oredict_storage_bus", EnumSet.of(AEFeature.STORAGE_BUS), EnumSet.noneOf(IntegrationType.class), PartOreDicStorageBus.class),
 
     IMPORT_BUS(240, "import_bus", EnumSet.of(AEFeature.IMPORT_BUS), EnumSet.noneOf(IntegrationType.class), PartImportBus.class),
 
-    FLUID_IMPORT_BUS(241, "fluid_import_bus", EnumSet.of(AEFeature.FLUID_IMPORT_BUS), EnumSet.noneOf(IntegrationType.class), PartFluidImportBus.class),
-
     EXPORT_BUS(260, "export_bus", EnumSet.of(AEFeature.EXPORT_BUS), EnumSet.noneOf(IntegrationType.class), PartExportBus.class),
 
-    FLUID_EXPORT_BUS(261, "fluid_export_bus", EnumSet.of(AEFeature.FLUID_EXPORT_BUS), EnumSet.noneOf(IntegrationType.class), PartFluidExportBus.class),
-
     LEVEL_EMITTER(280, "level_emitter", EnumSet.of(AEFeature.LEVEL_EMITTER), EnumSet.noneOf(IntegrationType.class), PartLevelEmitter.class),
-    FLUID_LEVEL_EMITTER(281, "fluid_level_emitter", EnumSet.of(AEFeature.FLUID_LEVEL_EMITTER), EnumSet.noneOf(IntegrationType.class), PartFluidLevelEmitter.class),
 
     ANNIHILATION_PLANE(300, "annihilation_plane", EnumSet.of(AEFeature.ANNIHILATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartAnnihilationPlane.class),
 
-    FLUID_ANNIHILATION_PLANE(302, "fluid_annihilation_plane", EnumSet.of(AEFeature.FLUID_ANNIHILATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartFluidAnnihilationPlane.class),
-
     FORMATION_PLANE(320, "formation_plane", EnumSet.of(AEFeature.FORMATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartFormationPlane.class),
-
-    FLUID_FORMATION_PLANE(321, "fluid_formation_plane", EnumSet.of(AEFeature.FLUID_FORMATION_PLANE), EnumSet.noneOf(IntegrationType.class), PartFluidFormationPlane.class),
 
     PATTERN_TERMINAL(340, "pattern_terminal", EnumSet.of(AEFeature.PATTERNS), EnumSet.noneOf(IntegrationType.class), PartPatternTerminal.class),
 
@@ -229,7 +217,6 @@ public enum PartType {
     FLUID_TERMINAL(520, "fluid_terminal", EnumSet.of(AEFeature.FLUID_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartFluidTerminal.class),
     INTERFACE_CONFIGURATION_TERMINAL(521, "interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceConfigurationTerminal.class),
     FLUID_INTERFACE_CONFIGURATION_TERMINAL(522, "fluid_interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartFluidInterfaceConfigurationTerminal.class);
-
 
     private final int baseDamage;
     private final Set<AEFeature> features;

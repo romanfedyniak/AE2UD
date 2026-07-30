@@ -153,9 +153,8 @@ public class FluidHandlerAdapter implements MEStorage, ITickingMonitor {
     /**
      * The {@link ExternalStorageStrategy} for {@link appeng.api.stacks.AEKeyType#fluids()}. Registered by
      * {@code appeng.parts.misc.InitExternalStorageStrategies#register()}; {@code appeng.parts.misc.PartStorageBus}
-     * (and {@link PartFluidStorageBus}) obtain it through
-     * {@link appeng.api.behaviors.StackWorldBehaviors#createExternalStorageStrategies} rather than talking to this
-     * class directly.
+     * obtains it through {@link appeng.api.behaviors.StackWorldBehaviors#createExternalStorageStrategies} rather
+     * than talking to this class directly.
      */
     public static final class Strategy implements ExternalStorageStrategy {
         private final World world;

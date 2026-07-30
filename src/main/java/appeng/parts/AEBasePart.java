@@ -31,7 +31,6 @@ import appeng.api.parts.*;
 import appeng.api.util.*;
 import appeng.core.sync.GuiBridge;
 import appeng.fluids.helper.IConfigurableFluidInventory;
-import appeng.fluids.parts.PartFluidLevelEmitter;
 import appeng.fluids.util.AEFluidInventory;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IPriorityHost;
@@ -351,10 +350,6 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
                     target.setFluidInSlot(x, tmp.getFluidInSlot(x));
                 }
             }
-            if (this instanceof PartFluidLevelEmitter) {
-                final PartFluidLevelEmitter partFluidLevelEmitter = (PartFluidLevelEmitter) this;
-                partFluidLevelEmitter.setReportingValue(compound.getLong("reportingValue"));
-            }
         }
     }
 
@@ -405,10 +400,6 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             final IFluidHandler tank = ((IConfigurableFluidInventory) this).getFluidInventoryByName("config");
             if (tank instanceof AEFluidInventory) {
                 ((AEFluidInventory) tank).writeToNBT(output, "config");
-            }
-            if (this instanceof PartFluidLevelEmitter) {
-                final PartFluidLevelEmitter partFluidLevelEmitter = (PartFluidLevelEmitter) this;
-                output.setLong("reportingValue", partFluidLevelEmitter.getReportingValue());
             }
         }
 

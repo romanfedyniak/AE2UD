@@ -518,6 +518,39 @@ So stage 1 splits in two: everything above the terminal row can go now; the term
 container-interaction port. The same blocker applies to `ContainerMEPortableFluidCell` and
 `ContainerFluidInterface`, which carry copies of the same three code blocks.
 
+### Stage 1a — the six cleared parts are deleted (done, awaiting a play-test)
+
+Gone: the seven part classes (`PartFluidImportBus`, `PartFluidExportBus`, `PartSharedFluidBus`,
+`PartFluidStorageBus`, `PartFluidLevelEmitter`, `PartFluidAnnihilationPlane`, `PartFluidFormationPlane`),
+their four containers, four screens, six `PartType` entries, six `AEFeature` flags, six `ApiParts` fields and
+their `IParts` accessors, four `GuiBridge` entries, eight recipes, the item and part models, the exclusive
+textures, and the item-name lang entries in all six languages.
+
+Also removed as a direct consequence:
+
+- the `Upgrades.*.registerItem(parts.fluidImportBus()/…)` lines in `Registration`;
+- `AEBasePart`'s memory-card branches that read/wrote `reportingValue` for a `PartFluidLevelEmitter`;
+- `PacketValueConfig`'s `FluidLevelEmitter.Value` case and the `ContainerFluidStorageBus`
+  partition/clear branches;
+- `ItemPart`'s fluid import/export grouping and the `GuiText.IOBusesFluids` label it was the only user of;
+- `ItemPartRendering`'s built-in `PlaneModel` registrations for the two fluid planes;
+- `GuiOptionalFluidSlot`, orphaned by the three deleted screens.
+
+**Deliberately kept:** `AEFluidTank` is unreferenced and has been since before this phase — an earlier wave
+recorded in its javadoc that it is "a migration target, not a deletion target". Stage 2 replaces it; deleting
+it here would silently reverse that decision.
+
+**Found by the play-test, deliberately not fixed:** the fluid terminal's screen renders its rows as items.
+The owner ruled it out of scope — that part is next to be deleted, and fixing a screen on its way out buys
+nothing. It does mean the fill/empty mechanic is already unavailable in practice, so the "blocker" above is
+now only about the *code*: `ContainerFluidTerminal` stays the reference implementation to port from until
+the generic terminal can do it, and then both go together.
+
+**A note on how the screens were found.** `GuiBridge` resolves a screen from its container by *name*
+(`container.` → `client.gui.`, `.Container` → `.Gui`), so no compile error would ever have pointed at an
+orphaned `Gui*` class. A static "who references this" sweep reports every screen in the tree as unused for
+the same reason. Both facts matter for stage 3.
+
 ### Then, in order
 
 1. **Stage 1** — drop the legacy parts the audit above clears. The formation plane prerequisite is done.

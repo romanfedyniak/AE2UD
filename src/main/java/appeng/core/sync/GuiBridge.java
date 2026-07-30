@@ -45,10 +45,6 @@ import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.*;
 import appeng.fluids.container.*;
 import appeng.fluids.helper.IFluidInterfaceHost;
-import appeng.fluids.parts.PartFluidFormationPlane;
-import appeng.fluids.parts.PartFluidLevelEmitter;
-import appeng.fluids.parts.PartFluidStorageBus;
-import appeng.fluids.parts.PartSharedFluidBus;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
@@ -127,7 +123,6 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_BUS(ContainerUpgradeable.class, IUpgradeableHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_BUS_FLUID(ContainerFluidIO.class, PartSharedFluidBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_IOPORT(ContainerIOPort.class, TileIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -135,11 +130,9 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_OREDICTSTORAGEBUS(ContainerOreDictStorageBus.class, PartOreDicStorageBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_STORAGEBUS_FLUID(ContainerFluidStorageBus.class, PartFluidStorageBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_FORMATION_PLANE(ContainerFormationPlane.class, PartFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_FORMATION_PLANE(ContainerFluidFormationPlane.class, PartFluidFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_PRIORITY(ContainerPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -156,7 +149,6 @@ public enum GuiBridge implements IGuiHandler {
     // extends (Container/Gui) + Bus
     GUI_LEVEL_EMITTER(ContainerLevelEmitter.class, PartLevelEmitter.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_FLUID_LEVEL_EMITTER(ContainerFluidLevelEmitter.class, PartFluidLevelEmitter.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_SPATIAL_IO_PORT(ContainerSpatialIOPort.class, TileSpatialIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 

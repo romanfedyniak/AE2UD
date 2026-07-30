@@ -119,15 +119,4 @@ public interface IParts {
 
     IItemDefinition fluidTerminal();
 
-    IItemDefinition fluidImportBus();
-
-    IItemDefinition fluidExportBus();
-
-    IItemDefinition fluidStorageBus();
-
-    IItemDefinition fluidLevelEmitter();
-
-    IItemDefinition fluidAnnihilationPlane();
-
-    IItemDefinition fluidFormationnPlane();
 }

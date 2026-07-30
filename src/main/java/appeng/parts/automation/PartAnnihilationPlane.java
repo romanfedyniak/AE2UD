@@ -336,11 +336,13 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     }
 
     /**
-     * Extension point: {@code PartFluidAnnihilationPlane} overrides this to substitute its own
-     * always-silk-touch pickup strategy instead of the registered item one.
+     * Extension point for a subclass that wants a different set of pickup strategies than the registered
+     * ones - the removed identity annihilation plane substituted an always-silk-touch strategy this way,
+     * and the removed fluid plane narrowed the list to fluids alone.
      * <p>
-     * The plane itself is type-agnostic: it picks up whatever the registered strategies know how to
-     * take out of the world, so a key type registered by an addon works here with no change.
+     * Nothing in the tree overrides it today, and by default the plane is type-agnostic: it picks up
+     * whatever the registered strategies know how to take out of the world, so a key type registered by an
+     * addon works here with no change.
      */
     protected List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
             TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owner) {

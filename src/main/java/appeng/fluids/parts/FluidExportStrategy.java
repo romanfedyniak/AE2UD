@@ -18,8 +18,8 @@ import appeng.api.stacks.AEKey;
 
 /**
  * Fluid counterpart of {@code appeng.parts.automation.StorageExportStrategy}. Registered against
- * {@link appeng.api.stacks.AEKeyType#fluids()} through {@code appeng.parts.automation.InitStackWorldBehaviors}, and
- * used directly by {@link PartFluidExportBus}. Mirrors the pre-port
+ * {@link appeng.api.stacks.AEKeyType#fluids()} through {@code appeng.parts.automation.InitStackWorldBehaviors} and
+ * reached only through that registry, now that the separate fluid export bus is gone. Mirrors the pre-port
  * {@code PartFluidExportBus#doBusWork}'s simulate-then-fill-then-extract sequence.
  */
 public class FluidExportStrategy implements StackExportStrategy {

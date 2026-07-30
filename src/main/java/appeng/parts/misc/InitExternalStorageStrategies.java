@@ -11,9 +11,8 @@ import appeng.fluids.parts.FluidHandlerAdapter;
  * <p/>
  * The item strategy was registered in wave 3b. The fluid strategy (wave 5) registers through this exact same
  * public API, with no changes required in {@link PartStorageBus} or here -- from this point on the same storage
- * bus serves items and fluids simultaneously (see CONTRACT.md §9, wave 3b entry).
- * {@code appeng.fluids.parts.PartFluidStorageBus} looks the fluid strategy up the same way, restricted to
- * {@code AEKeyType.fluids()} alone.
+ * bus serves items and fluids simultaneously (see CONTRACT.md §9, wave 3b entry). That is what made the
+ * separate fluid storage bus redundant, and it was deleted in the fluids decomposition.
  * <p/>
  * Called once from {@code appeng.core.Registration} during mod init.
  */

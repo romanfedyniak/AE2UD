@@ -56,7 +56,6 @@ public enum GuiText {
     NetworkDetails,
     StorageCells,
     IOBuses,
-    IOBusesFluids,
 
     IOPort,
     BytesUsed,
