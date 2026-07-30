@@ -45,5 +45,6 @@ public enum InventoryAction {
     PLACE_SINGLE,
     DOUBLE,
     HALVE,
-    PLACE_JEI_GHOST_ITEM
+    PLACE_JEI_GHOST_ITEM,
+    SET_AMOUNT
 }

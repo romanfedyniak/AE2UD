@@ -30,6 +30,8 @@ import appeng.client.me.SlotDisconnected;
 import appeng.client.me.SlotME;
 import appeng.client.render.StackSizeRenderer;
 import appeng.container.AEBaseContainer;
+import appeng.container.implementations.ContainerInterface;
+import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.me.GridInventoryEntry;
 import appeng.container.slot.*;
 import appeng.container.slot.AppEngSlot.hasCalculatedValidness;
@@ -148,6 +150,20 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      */
     public boolean isTextFieldFocused() {
         return false;
+    }
+
+    /**
+     * Whether a middle click on this fake slot should open the amount screen, which is only where a
+     * configured amount means something. A filter slot matches on the key alone, and a crafting-mode pattern
+     * slot is one item of the recipe, so neither has an amount to set.
+     */
+    protected boolean allowsTypedAmount(final Slot slot) {
+        if (this.inventorySlots instanceof ContainerPatternEncoder) {
+            return !((ContainerPatternEncoder) this.inventorySlots).isCraftingMode();
+        }
+
+        // An ME Interface stocks its config up to the slot's capacity - 512 items, or 32 buckets.
+        return this.inventorySlots instanceof ContainerInterface;
     }
 
     private List<Slot> getInventorySlots() {
@@ -416,6 +432,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         if (slot instanceof SlotFake) {
+            if (mouseButton == 2 && slot.getHasStack() && this.allowsTypedAmount(slot)) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SET_AMOUNT, slotIdx, 0));
+                return;
+            }
+
             final InventoryAction action;
             if (mouseButton == 1) {
                 action = InventoryAction.SPLIT_OR_PLACE_SINGLE;

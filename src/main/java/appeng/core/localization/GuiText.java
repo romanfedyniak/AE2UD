@@ -148,6 +148,8 @@ public enum GuiText {
     Stores,
     Next,
     SelectAmount,
+    SetAmount,
+    Set,
     Lumen,
     Empty,
 

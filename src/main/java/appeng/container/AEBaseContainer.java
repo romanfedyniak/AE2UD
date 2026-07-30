@@ -1018,7 +1018,7 @@ public abstract class AEBaseContainer extends Container {
      * config allows 512 items and, by the same arithmetic, 32 buckets. A filter slot has a limit of one and
      * therefore no meaningful ceiling, so those are left unbounded.
      */
-    private long maxAmountIn(final Slot s, final AEKey what) {
+    public long maxAmountIn(final Slot s, final AEKey what) {
         final int slotLimit = s.getSlotStackLimit();
         if (slotLimit <= 1) {
             return Long.MAX_VALUE;
