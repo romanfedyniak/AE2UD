@@ -349,7 +349,23 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
 - **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
   and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
   exists now that `remainingItemCount` moves, if it is ever wanted.
-- **Untested**: P2P tunnels and spatial storage. Both were barely touched by the port.
+- **Untested**: spatial storage. Barely touched by the port.
+- **Known limitation, owner decided to leave it: only one IC2 power P2P tunnel per cable bus works.**
+  Found while play-testing P2P. Not a port regression - nothing in `appeng.parts.p2p` changed on this
+  branch, and `PartP2PIC2Power` was last touched by a 2019 reformat.
+  `EnergyNetLocal.registeredTiles` is a `Map<BlockPos, Tile>`: IC2 allows **one energy tile per block
+  position**. AE2 registers a `SinkSource` per *part*, all at the cable bus' position, so the second IC2
+  tunnel on a bus is refused (`addition is conflicting with a previous registration at the same location`
+  in the log). The refused part still believes it registered, because `BasicEnergyTile.onLoad()` sets
+  `addedToEnet = true` right after posting the event without checking whether IC2 took it, so it never
+  retries. `TileEntityCable.updateConnectivity()` then asks the *winning* delegate about the loser's face
+  and gets `false`, which is why a cable will not even connect there.
+  The fix, if it is ever wanted, is one delegate per cable bus dispatching by side. It works for
+  `acceptsEnergyFrom`/`emitsEnergyTo`/`injectEnergy`, which all carry the side; `getOfferedEnergy()` and
+  `drawEnergy()` do not, so two *output* tunnels of different frequencies on one bus could still emit
+  through each other's face. IC2's api cannot express a per-side source at all - their own transformer has
+  one input and one output face per block for the same reason.
+  Workaround: put the tunnels on separate cable blocks.
 - **Removed by owner decision**: the Identity Annihilation Plane (`279b73791`), api definition included.
   Efficiency and Unbreaking on the annihilation plane were considered for removal and deliberately kept -
   they are the reason `PickupStrategy.Factory` carries an enchantment map at all (§8.4).
