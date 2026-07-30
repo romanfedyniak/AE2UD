@@ -217,9 +217,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                                 ));
                         boolean emptyFilter = true;
 
-                        // Resolved on the first item actually worth moving, and reused for the rest of the
-                        // sweep: finding the network walks every wireless access point in the grid, which is
-                        // not worth doing on a tick that picks nothing up.
+                        // Resolved lazily: it walks every access point in the grid.
                         WirelessTerminalGuiObject network = null;
                         boolean triedNetwork = false;
 
@@ -276,25 +274,20 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
     }
 
     /**
-     * The network this terminal is linked to, as seen from where the player is standing, or null when
-     * there is none within range of an access point. Picking up into the network is exactly as reachable
-     * as opening the terminal is; a magnet that worked anywhere would be storage without a wireless range.
+     * The linked network, or null when it is out of range - the magnet reaches exactly as far as opening
+     * the terminal does.
      */
     @Nullable
     private WirelessTerminalGuiObject openNetwork(final ItemStack stack, final EntityPlayer player) {
-        // The two slot arguments are only ever read back by a screen re-opened from this object, which the
-        // magnet never does.
+        // The slot arguments are only read back when re-opening a screen, which never happens here.
         final WirelessTerminalGuiObject terminal = new WirelessTerminalGuiObject(this, stack, player, player.world, 0, 0, 0);
 
         return terminal.rangeCheck() ? terminal : null;
     }
 
     /**
-     * Stores a dropped item in the network rather than handing it to the player, charging the terminal's
-     * own battery for the work.
-     *
      * @return true when the whole entity went in. A partial insert shrinks what is left and answers false,
-     *         so the remainder still reaches the player the way it always did.
+     *         so the remainder still reaches the player.
      */
     private boolean storeInNetwork(@Nullable final WirelessTerminalGuiObject terminal, final EntityPlayer player, final EntityItem entity) {
         if (terminal == null) {
@@ -317,8 +310,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
             return false;
         }
 
-        // Vanilla plays this when the player picks the entity up, and losing it would make a full magnet
-        // and a broken one sound the same.
+        // What vanilla plays on pickup.
         player.world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ITEM_PICKUP,
                 SoundCategory.PLAYERS, 0.2f, ((itemRand.nextFloat() - itemRand.nextFloat()) * 0.7f + 1.0f) * 2.0f);
         entity.setDead();

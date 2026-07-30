@@ -116,17 +116,11 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     }
 
     /**
-     * The linked network's own inventory, not this wrapper.
+     * The linked network's own inventory, not this wrapper - the wrapper only delegates to it, and handing
+     * it out directly is what lets a caller tell a network terminal from a cell one by identity.
      * <p/>
-     * The wrapper's own {@link #insert}, {@link #extract} and {@link #getAvailableStacks} are pure
-     * delegations to the same object, so handing it out directly changes nothing about storage - but it
-     * does let a caller recognise that this terminal shows a <em>network</em> rather than one cell, which
-     * {@code ContainerMEMonitorable} decides by comparing against {@link IStorageService#getInventory()}.
-     * While this answered {@code this}, that comparison failed and the wireless terminal silently lost its
-     * craftable rows.
-     * <p/>
-     * Falls back to this wrapper when there is no link, so an unbound terminal still opens empty and is
-     * closed by the usual range check rather than failing in the container's constructor.
+     * Falls back to this wrapper when there is no link, so an unbound terminal still opens and is closed by
+     * the usual range check.
      */
     @Override
     public MEStorage getInventory() {
