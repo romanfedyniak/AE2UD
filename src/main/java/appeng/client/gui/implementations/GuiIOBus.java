@@ -52,6 +52,7 @@ public class GuiIOBus extends GuiUpgradeable {
 
     public GuiIOBus(final InventoryPlayer inventoryPlayer, final PartSharedItemBus te) {
         super(new ContainerIOBus(inventoryPlayer, te));
+        this.ySize = 251;
     }
 
     @Override
@@ -90,7 +91,9 @@ public class GuiIOBus extends GuiUpgradeable {
             this.craftMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CRAFTING) > 0);
         }
         if (this.schedulingMode != null) {
-            this.schedulingMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CAPACITY) > 0 && this.bc instanceof PartExportBus);
+            // No capacity card in the condition: it used to stand in for "this bus has more than one
+            // slot", which stopped being true once two rows are free.
+            this.schedulingMode.setVisibility(this.bc instanceof PartExportBus);
         }
     }
 

@@ -1290,6 +1290,28 @@ Also worth recording: `ContainerLevelEmitter` had `@Override` on `getCraftingMod
 carrying its own `cmType` field. It was not extending the base behaviour, it was borrowing a signature —
 the base's `cMode` was write-only from its point of view. The annotations are gone.
 
+### Step 2 — the filter is 63 slots (done, verified in game)
+
+Config inventory 9 → 63, `availableSlots()` = `min(18 + capacity * 9, 63)`, upgrade slots 4 → 5, capacity
+card limit 2 → 5, `MultiCraftingTracker` 9 → 63, `bus.png` replaced with the storage bus panel, screen 251
+tall. No NBT migration: `readFromNBT` walks `#0..#62`, a missing key yields an empty tag and
+`GenericStack.readTag` answers null for it, so the old nine settings land in the first row and a half —
+both of which are now free.
+
+The layout was about to be written a **third** time. `ContainerStorageBus` and `ContainerFormationPlane`
+each carried the same "2 fixed rows, 5 optional" double loop, and the busses needed it too. It is
+`ContainerUpgradeable.setupExpandableConfig(rows, cols, optionalRows)` now — upstream's
+`addExpandableConfigSlots` — and all three call `setupExpandableConfig(2, 9, 5)`. `setupUpgrades()` became
+a loop over `availableUpgrades()` in the same pass, which retired two more inlined copies of the five
+upgrade slots.
+
+**One regression, found in play-test, and worth the entry.** The scheduling button was gated on
+`getInstalledUpgrades(CAPACITY) > 0`. Nothing about scheduling needs a capacity card — the condition was
+standing in for "this bus has more than one slot", which was true only while an uncarded bus had exactly
+one. With two rows free by default it hid the button precisely when round-robin first becomes useful.
+Upstream has no such condition; ours no longer does either. **A condition that encodes a fact about a
+different number will not fail when that number changes — it will just start lying.**
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
