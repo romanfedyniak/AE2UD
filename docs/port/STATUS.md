@@ -1200,9 +1200,18 @@ suggestion" rule, which used to be spelled `result == 1` and now reads a flag.
 The shared half lives in `appeng.client.gui.AmountEntry`: the scale a key reads in, the two conversions,
 and the symbol drawing. It is static and stateless — a screen asks what scale it is in and converts.
 
-Queued behind this: **held keys do not repeat** in the amount screens. Holding a digit or backspace types
-once. 1.12 gates that on `Keyboard.enableRepeatEvents(true)`, which has to be turned on when the screen
-opens and back off when it closes — a screen that leaves it on changes how every screen after it behaves.
+**Held keys now repeat** in both amount screens and in the level emitter. 1.12 gates that on
+`Keyboard.enableRepeatEvents(true)`; without it a held digit or backspace fires once. It is turned on in
+`initGui` and back off in `onGuiClosed`, following `GuiMEMonitorable`, which was the only screen in the
+mod that already did it. The order is safe in both directions — `Minecraft.displayGuiScreen` calls the
+old screen's `onGuiClosed` *before* the new screen's `initGui`, so leaving the terminal for the amount
+screen and coming back both end with the right setting.
+
+Five screens with text fields still lack it, and they are not all the same case: `GuiPriority` and
+`GuiQuartzKnife` are plain fields with the same defect, while `GuiRenamer`,
+`GuiInterfaceConfigurationTerminal` and `GuiOreDictStorageBus` use `MEGuiTextField`, whose tooltip variant
+already toggles repeat per focus and restores the previous value rather than forcing it off. Worth a
+single pass that decides which of the two patterns the mod should standardise on.
 
 ### The level emitter, second pass
 
