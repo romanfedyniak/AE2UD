@@ -155,6 +155,10 @@ public class PacketValueConfig extends AppEngPacket {
                     cpt.setSubstitute(this.Value.equals("1"));
                 }
             }
+        } else if (this.Name.equals("Filter.Clear")) {
+            if (c instanceof ContainerUpgradeable) {
+                ((ContainerUpgradeable) c).clear();
+            }
         } else if (this.Name.startsWith("StorageBus.")) {
             if (this.Name.equals("StorageBus.Action")) {
                 if (this.Value.equals("Partition")) {
@@ -163,10 +167,6 @@ public class PacketValueConfig extends AppEngPacket {
                     } else if (c instanceof ContainerOreDictStorageBus) {
                         ((ContainerOreDictStorageBus) c).partition();
                         ((ContainerOreDictStorageBus) c).sendRegex();
-                    }
-                } else if (this.Value.equals("Clear")) {
-                    if (c instanceof ContainerStorageBus) {
-                        ((ContainerStorageBus) c).clear();
                     }
                 }
             }
@@ -186,8 +186,6 @@ public class PacketValueConfig extends AppEngPacket {
                     ccw.nextWorkBenchCopyMode();
                 } else if (this.Value.equals("Partition")) {
                     ccw.partition();
-                } else if (this.Value.equals("Clear")) {
-                    ccw.clear();
                 }
             } else if (this.Name.equals("CellWorkbench.Fuzzy")) {
                 ccw.setFuzzy(FuzzyMode.valueOf(this.Value));

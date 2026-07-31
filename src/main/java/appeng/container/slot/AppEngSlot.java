@@ -118,14 +118,19 @@ public class AppEngSlot extends Slot {
         this.returnAsSingleStack = returnAsSingleStack;
     }
 
+    /**
+     * Note there is no {@link #isSlotEnabled()} test here. This is also the client's sync entry point - a
+     * disabled slot has to accept what the server says it holds, or it keeps showing what it held before it
+     * was switched off. Refusing a *click* on a disabled slot is the caller's job: for a real slot
+     * {@link #isItemValid} and {@link #canTakeStack} already answer false, and filter slots are gated in
+     * {@code AEBaseContainer.doAction}.
+     */
     @Override
     public void putStack(final ItemStack stack) {
-        if (this.isSlotEnabled()) {
-            ItemHandlerUtil.setStackInSlot(this.itemHandler, this.index, stack);
+        ItemHandlerUtil.setStackInSlot(this.itemHandler, this.index, stack);
 
-            if (this.getContainer() != null) {
-                this.getContainer().onSlotChange(this);
-            }
+        if (this.getContainer() != null) {
+            this.getContainer().onSlotChange(this);
         }
     }
 

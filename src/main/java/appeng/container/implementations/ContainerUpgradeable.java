@@ -30,13 +30,21 @@ import appeng.container.slot.*;
 import appeng.items.contents.NetworkToolViewer;
 import appeng.items.tools.ToolNetworkTool;
 import appeng.util.Platform;
+import appeng.util.helpers.ItemHandlerUtil;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.IContainerListener;
 import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.server.SPacketSetSlot;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public abstract class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost {
@@ -144,6 +152,15 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
         return 4;
     }
 
+    /**
+     * Empties the filter. Shared by every screen carrying a clear button - a filter is a filter whatever
+     * its host does with the contents.
+     */
+    public void clear() {
+        ItemHandlerUtil.clear(this.getUpgradeable().getInventoryByName("config"));
+        this.detectAndSendChanges();
+    }
+
     @Override
     public void detectAndSendChanges() {
         this.verifyPermissions(SecurityPermissions.BUILD, false);
@@ -155,16 +172,27 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
 
         this.checkToolbox();
 
-        for (final Object o : this.inventorySlots) {
-            if (o instanceof OptionalSlotFake) {
-                final OptionalSlotFake fs = (OptionalSlotFake) o;
-                if (!fs.isSlotEnabled() && !fs.getDisplayStack().isEmpty()) {
-                    fs.clearStack();
-                }
+        this.standardDetectAndSendChanges();
+    }
+
+    /**
+     * Tells the client a slot is empty without going through {@code EntityPlayerMP.sendSlotContents}.
+     * <p>
+     * That method drops every slot packet while {@code isChangingQuantityOnly} is set, which is exactly the
+     * tick a capacity card is clicked out of its slot - the tick these rows are emptied. The standard
+     * broadcast above updates the container's own record of what the client knows, so the following tick
+     * sees no difference and never retries. The client would keep the rows it had until the window is
+     * reopened, and putting the card back would show settings the server had already thrown away.
+     */
+    private void forceSendEmpty(final List<Integer> slotNumbers) {
+        for (final IContainerListener listener : this.listeners) {
+            if (!(listener instanceof EntityPlayerMP)) {
+                continue;
+            }
+            for (final int slotNumber : slotNumbers) {
+                ((EntityPlayerMP) listener).connection.sendPacket(new SPacketSetSlot(this.windowId, slotNumber, ItemStack.EMPTY));
             }
         }
-
-        this.standardDetectAndSendChanges();
     }
 
     protected void loadSettingsFromHost(final IConfigManager cm) {
@@ -190,8 +218,31 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
         }
     }
 
+    /**
+     * Every subclass routes its broadcast through here, which is why the disabled-slot sweep lives here
+     * rather than in {@link #detectAndSendChanges()} - several subclasses replace that method wholesale.
+     */
     protected void standardDetectAndSendChanges() {
+        List<Integer> cleared = null;
+
+        for (final Slot s : this.inventorySlots) {
+            if (s instanceof OptionalSlotFake) {
+                final OptionalSlotFake fs = (OptionalSlotFake) s;
+                if (!fs.isSlotEnabled() && !fs.getDisplayStack().isEmpty()) {
+                    fs.clearStack();
+                    if (cleared == null) {
+                        cleared = new ArrayList<>();
+                    }
+                    cleared.add(fs.slotNumber);
+                }
+            }
+        }
+
         super.detectAndSendChanges();
+
+        if (cleared != null) {
+            this.forceSendEmpty(cleared);
+        }
     }
 
     /**

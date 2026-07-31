@@ -1312,6 +1312,37 @@ one. With two rows free by default it hid the button precisely when round-robin 
 Upstream has no such condition; ours no longer does either. **A condition that encodes a fact about a
 different number will not fail when that number changes — it will just start lying.**
 
+### Step 3 — a clear button, and the desync it uncovered (done, verified in game)
+
+The button itself is `Settings.ACTIONS`/`ActionItems.CLOSE` on both busses and on the formation plane.
+`ContainerStorageBus.clear()` and `ContainerCellWorkbench.clear()` turned out to be byte-identical, so the
+method moved to `ContainerUpgradeable` and the three packet routes (`StorageBus.Action/Clear`,
+`CellWorkbench.Action/Clear`, and the new one) collapsed into a single `Filter.Clear` that accepts any
+`ContainerUpgradeable`.
+
+**The desync.** Pull a capacity card without closing the screen, put it back, and the hidden rows returned
+with their old contents — until the window was reopened, at which point they were empty. The server was
+right the whole time; the client was never told. It took two independent defects, and fixing either one
+alone changed nothing visible:
+
+1. `AppEngSlot.putStack` refused to write to a disabled slot. That is also the client's sync entry point
+   (`Container.putStackInSlot`), so the client could not accept a correction for a slot that was switched
+   off. The guard is gone; refusing a *click* is now the caller's job, which for real slots `isItemValid`
+   and `canTakeStack` already did, and for filter slots is an explicit check in `AEBaseContainer.doAction`.
+2. `EntityPlayerMP.sendSlotContents` drops every slot packet while `isChangingQuantityOnly` is set — which
+   is precisely the tick a click is being processed, and pulling the card *is* a click. Vanilla's broadcast
+   still updated the container's record of what the client knows, so the next tick saw no difference and
+   never retried. The emptied rows are now pushed with an explicit `SPacketSetSlot`.
+
+Where that sweep lives matters and got it wrong once. Putting it in `detectAndSendChanges` fixed the busses
+and not the storage bus or the formation plane, because both replace that method wholesale — they were
+clearing their disabled slots *by accident*, inside `OptionalSlotFake.getStack()` as vanilla's diff loop
+queried them. It is in `standardDetectAndSendChanges()` now, the one method every subclass routes through.
+
+**Two lessons.** A bug can need two fixes, and testing each alone reads as "the fix did nothing" — the first
+fix here was correct and looked worthless. And a base-class hook is only shared by the subclasses that
+actually call it: `detectAndSendChanges` looked like the common path and was not.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
