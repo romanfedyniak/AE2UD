@@ -7,13 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the mod version comes from `git describe`, which needs the tags
       - name: Set up OpenJDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'adopt' # You can choose other OpenJDK distributions.
-      - name: Update Build Script (Before Build)
-        run: ./gradlew updateBuildScript
+      # No `updateBuildScript` step here: it overwrites build.gradle with the upstream template, whose
+      # pinned plugin versions this fork has had to move off. gradle.properties keeps
+      # autoUpdateBuildScript=false for the same reason - updating the buildscript is a deliberate act.
       - name: Build with Gradle
         run: ./gradlew build
       - name: Upload Artifact
