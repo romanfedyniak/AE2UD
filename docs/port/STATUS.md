@@ -1080,9 +1080,29 @@ callers wrap a neighbour's `IItemHandler`, and the interface deliberately expose
 which hides non-item slots rather than handing out placeholders. That is what the three-views split in
 stage 2a bought.
 
-**Axis 2 - pairs of classes carrying one rule, not related by inheritance. Open.** The four known instances
-are tabled above. What to grep for: sibling slot classes overriding the same method, parallel `doAction`
-switches, and two code paths producing one piece of on-screen text.
+**Axis 2 - pairs of classes carrying one rule, not related by inheritance. Done for on-screen amounts,
+open elsewhere.** Following the third lead - two code paths producing one piece of on-screen text - turned
+up not a pair but **six** copies of "how to display an amount of a key", none of which asked the key.
+Fixed in `46f4c2cdd`:
+
+- `TesrRenderHelper` had `renderItem2dWithAmount`/`renderFluid2dWithAmount`, identical but for the icon and
+  the number. The fluid copy did `amount / 1000` and appended "B" by hand, so a partial bucket read **"0B"**
+  - the exact bug `AEKeyFormatting` already carries a comment about fixing. The fix had landed in the
+  formatter; this copy never saw it. Collapsed into one `renderKey2dWithAmount(AEKey, ...)`.
+- `AbstractPartMonitor` and `CraftingMonitorTESR` each carried their own `instanceof` item/fluid dispatch to
+  choose between those two. Both now make one call.
+- `GuiCraftConfirm` (3 blocks), `GuiCraftingCPU` (3), `GuiCraftingStatus` (2) each hand-rolled a `k`/`m`
+  abbreviation off the raw number, so a fluid job read "16k" instead of "16B". All go through
+  `formatAmount` now - `PREVIEW_LARGE` on screen, `FULL` in the tooltip.
+
+Worth noting how it stayed invisible: every one of these paths was *correct for items*, which is what anyone
+looks at while testing. **A rule that is right for the common type is not a rule that was ported.**
+
+`GuiNetworkStatus` looks like a seventh copy and is not - its rows are machines, so its numbers really are
+item counts. Left alone.
+
+Still open on this axis: sibling slot classes overriding the same method, and parallel `doAction` switches
+(`PacketInventoryAction`, `AEBaseContainer`, the two interface terminals).
 
 **Axis 3 - `instanceof AEItemKey` where every key type belongs. Open.** This shape has already produced two
 defects: `CraftingCPUCluster` destroying a fluid ingredient because the type test came *after* the

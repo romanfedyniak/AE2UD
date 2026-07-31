@@ -27,6 +27,7 @@ import appeng.api.AEApi;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.definitions.IParts;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -216,7 +217,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                     GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
                     this.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
                     GL11.glTranslatef(18.0f, 2.0f, 0.0f);
-                    String amount = Long.toString(craftingStack.amount());
+                    String amount = craftingStack.what().formatAmount(craftingStack.amount(), AmountFormat.PREVIEW_LARGE);
                     if (amount.length() > 5) {
                         amount = amount.substring(0, 5) + "..";
                     }
@@ -259,7 +260,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
             if (crafting != null && crafting.amount() > 0) {
                 tooltip.append(GuiText.Crafting.getLocal());
                 tooltip.append(": ");
-                tooltip.append(crafting.amount());
+                tooltip.append(crafting.what().formatAmount(crafting.amount(), AmountFormat.FULL));
                 tooltip.append(' ');
                 tooltip.append(GenericStack.wrapInItemStack(crafting).getDisplayName());
                 tooltip.append('\n');

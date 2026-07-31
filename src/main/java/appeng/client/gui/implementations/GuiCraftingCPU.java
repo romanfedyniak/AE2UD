@@ -23,6 +23,7 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.KeyCounter;
 import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.AEColor;
@@ -36,7 +37,6 @@ import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.util.Platform;
-import appeng.util.ReadableNumberConverter;
 import com.google.common.base.Joiner;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -197,7 +197,6 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
 
         final int offY = 23;
 
-        final ReadableNumberConverter converter = ReadableNumberConverter.INSTANCE;
         for (int z = viewStart; z < Math.min(viewEnd, this.visual.size()); z++) {
             final AEKey refKey = this.visual.get(z);// repo.getReferenceItem( z );
             if (refKey != null) {
@@ -235,41 +234,41 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
                 int downY = 0;
 
                 if (stored > 0) {
-                    final String str = GuiText.Stored.getLocal() + ": " + converter.toWideReadableForm(stored);
+                    final String str = GuiText.Stored.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
                     this.fontRenderer.drawString(str, (int) ((x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19 - (w * 0.5)) * 2),
                             (y * offY + ITEMSTACK_TOP_OFFSET + 6 - negY + downY) * 2, TEXT_COLOR);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Stored.getLocal() + ": " + stored);
+                        lineList.add(GuiText.Stored.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.FULL));
                     }
 
                     downY += 5;
                 }
 
                 if (activeAmount > 0) {
-                    final String str = GuiText.Crafting.getLocal() + ": " + converter.toWideReadableForm(activeAmount);
+                    final String str = GuiText.Crafting.getLocal() + ": " + refKey.formatAmount(activeAmount, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
 
                     this.fontRenderer.drawString(str, (int) ((x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19 - (w * 0.5)) * 2),
                             (y * offY + ITEMSTACK_TOP_OFFSET + 6 - negY + downY) * 2, TEXT_COLOR);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Crafting.getLocal() + ": " + activeAmount);
+                        lineList.add(GuiText.Crafting.getLocal() + ": " + refKey.formatAmount(activeAmount, AmountFormat.FULL));
                     }
 
                     downY += 5;
                 }
 
                 if (pendingAmount > 0) {
-                    final String str = GuiText.Scheduled.getLocal() + ": " + converter.toWideReadableForm(pendingAmount);
+                    final String str = GuiText.Scheduled.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
 
                     this.fontRenderer.drawString(str, (int) ((x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19 - (w * 0.5)) * 2),
                             (y * offY + ITEMSTACK_TOP_OFFSET + 6 - negY + downY) * 2, TEXT_COLOR);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Scheduled.getLocal() + ": " + pendingAmount);
+                        lineList.add(GuiText.Scheduled.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.FULL));
                     }
                 }
 
