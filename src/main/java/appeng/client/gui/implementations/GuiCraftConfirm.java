@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.AEApi;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
@@ -253,21 +254,14 @@ public class GuiCraftConfirm extends AEBaseGui {
                 int downY = 0;
 
                 if (stored > 0) {
-                    String str = Long.toString(stored);
-                    if (stored >= 10000) {
-                        str = Long.toString(stored / 1000) + 'k';
-                    }
-                    if (stored >= 10000000) {
-                        str = Long.toString(stored / 1000000) + 'm';
-                    }
-
-                    str = GuiText.FromStorage.getLocal() + ": " + str;
+                    // Through the key's formatter, so a fluid row reads "16B" rather than "16k".
+                    String str = GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
                     this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.FromStorage.getLocal() + ": " + stored);
+                        lineList.add(GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.FULL));
                     }
 
                     downY += 5;
@@ -275,21 +269,13 @@ public class GuiCraftConfirm extends AEBaseGui {
 
                 boolean red = false;
                 if (missingAmount > 0) {
-                    String str = Long.toString(missingAmount);
-                    if (missingAmount >= 10000) {
-                        str = Long.toString(missingAmount / 1000) + 'k';
-                    }
-                    if (missingAmount >= 10000000) {
-                        str = Long.toString(missingAmount / 1000000) + 'm';
-                    }
-
-                    str = GuiText.Missing.getLocal() + ": " + str;
+                    String str = GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
                     this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Missing.getLocal() + ": " + missingAmount);
+                        lineList.add(GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.FULL));
                     }
 
                     red = true;
@@ -297,21 +283,13 @@ public class GuiCraftConfirm extends AEBaseGui {
                 }
 
                 if (pendingAmount > 0) {
-                    String str = Long.toString(pendingAmount);
-                    if (pendingAmount >= 10000) {
-                        str = Long.toString(pendingAmount / 1000) + 'k';
-                    }
-                    if (pendingAmount >= 10000000) {
-                        str = Long.toString(pendingAmount / 1000000) + 'm';
-                    }
-
-                    str = GuiText.ToCraft.getLocal() + ": " + str;
+                    String str = GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.PREVIEW_LARGE);
                     final int w = 4 + this.fontRenderer.getStringWidth(str);
                     this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
                             (y * offY + yo + 6 - negY + downY) * 2, 4210752);
 
                     if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.ToCraft.getLocal() + ": " + pendingAmount);
+                        lineList.add(GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.FULL));
                     }
                 }
 

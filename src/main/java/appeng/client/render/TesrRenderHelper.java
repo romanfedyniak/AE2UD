@@ -21,8 +21,8 @@ package appeng.client.render;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
-import appeng.util.IWideReadableNumberConverter;
-import appeng.util.ReadableNumberConverter;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.*;
@@ -39,8 +39,6 @@ import org.lwjgl.opengl.GL11;
  * Helper methods for rendering TESRs.
  */
 public class TesrRenderHelper {
-
-    private static final IWideReadableNumberConverter NUMBER_CONVERTER = ReadableNumberConverter.INSTANCE;
 
     /**
      * Move the current coordinate system to the center of the given block face, assuming that the origin is currently
@@ -158,44 +156,33 @@ public class TesrRenderHelper {
     }
 
     /**
-     * Render an item in 2D and the given text below it.
+     * Render a key in 2D with its amount below it - a monitor face.
+     * <p>
+     * The amount goes through the key's own formatter, so a partial bucket reads "500mB" instead of the
+     * "0B" that dividing by 1000 here used to produce.
      *
-     * @param spacing Specifies how far apart the item and the item stack amount are rendered.
+     * @param spacing Specifies how far apart the icon and the amount are rendered.
      */
-    public static void renderItem2dWithAmount(AEItemKey what, long amount, float itemScale, float spacing) {
-        // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
-        final ItemStack renderStack = what.toStack();
+    public static void renderKey2dWithAmount(AEKey what, long amount, float scale, float spacing) {
+        if (what instanceof AEItemKey itemKey) {
+            // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
+            TesrRenderHelper.renderItem2d(itemKey.toStack(), scale);
+        } else if (what instanceof AEFluidKey fluidKey) {
+            TesrRenderHelper.renderFluid2d(fluidKey.toStack((int) Math.min(amount, Integer.MAX_VALUE)), scale);
+        } else {
+            return;
+        }
 
-        TesrRenderHelper.renderItem2d(renderStack, itemScale);
-
-        final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(amount);
-
-        // Render the item count
-        final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
-        final int width = fr.getStringWidth(renderedStackSize);
-        GlStateManager.translate(0.0f, spacing, 0);
-        GlStateManager.scale(1.0f / 62.0f, 1.0f / 62.0f, 1.0f / 62.0f);
-        GlStateManager.translate(-0.5f * width, 0.0f, 0.5f);
-        fr.drawString(renderedStackSize, 0, 0, 0);
-
+        renderAmount2d(what.formatAmount(amount, AmountFormat.PREVIEW_LARGE), spacing);
     }
 
-    public static void renderFluid2dWithAmount(AEFluidKey what, long amount, float scale, float spacing) {
-        final FluidStack renderStack = what.toStack((int) Math.min(amount, Integer.MAX_VALUE));
-
-        TesrRenderHelper.renderFluid2d(renderStack, scale);
-
-        final long stackSize = amount / 1000;
-        final String renderedStackSize = NUMBER_CONVERTER.toWideReadableForm(stackSize) + "B";
-
-        // Render the item count
+    private static void renderAmount2d(String text, float spacing) {
         final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
-        final int width = fr.getStringWidth(renderedStackSize);
+        final int width = fr.getStringWidth(text);
         GlStateManager.translate(0.0f, spacing, 0);
         GlStateManager.scale(1.0f / 62.0f, 1.0f / 62.0f, 1.0f / 62.0f);
         GlStateManager.translate(-0.5f * width, 0.0f, 0.5f);
-        fr.drawString(renderedStackSize, 0, 0, 0);
-
+        fr.drawString(text, 0, 0, 0);
     }
 
 }

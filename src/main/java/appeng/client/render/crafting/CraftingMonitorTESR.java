@@ -19,8 +19,6 @@
 package appeng.client.render.crafting;
 
 
-import appeng.api.stacks.AEFluidKey;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.render.TesrRenderHelper;
 import appeng.tile.crafting.TileCraftingMonitorTile;
@@ -56,11 +54,7 @@ public class CraftingMonitorTESR extends TileEntitySpecialRenderer<TileCraftingM
             TesrRenderHelper.moveToFace(facing);
             TesrRenderHelper.rotateToFace(facing, (byte) 0);
 
-            if (jobProgress.what() instanceof AEItemKey itemKey) {
-                TesrRenderHelper.renderItem2dWithAmount(itemKey, jobProgress.amount(), 0.7f, 0.1f);
-            } else if (jobProgress.what() instanceof AEFluidKey fluidKey) {
-                TesrRenderHelper.renderFluid2dWithAmount(fluidKey, jobProgress.amount(), 0.7f, 0.1f);
-            }
+            TesrRenderHelper.renderKey2dWithAmount(jobProgress.what(), jobProgress.amount(), 0.7f, 0.1f);
 
             GlStateManager.popMatrix();
         }

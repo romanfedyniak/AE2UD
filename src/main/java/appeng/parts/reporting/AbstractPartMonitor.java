@@ -34,9 +34,7 @@ import appeng.client.render.TesrRenderHelper;
 import appeng.core.localization.PlayerMessages;
 import appeng.helpers.Reflected;
 import appeng.me.GridAccessException;
-import appeng.util.IWideReadableNumberConverter;
 import appeng.util.Platform;
-import appeng.util.ReadableNumberConverter;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.EntityPlayer;
@@ -68,7 +66,6 @@ import java.io.IOException;
  * @since rv3
  */
 public abstract class AbstractPartMonitor extends AbstractPartDisplay implements IPartStorageMonitor, IStorageWatcherNode {
-    private static final IWideReadableNumberConverter NUMBER_CONVERTER = ReadableNumberConverter.INSTANCE;
 
     /**
      * The one key this monitor watches, or null while unconfigured. Replaces the old split
@@ -233,15 +230,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         TesrRenderHelper.moveToFace(facing);
         TesrRenderHelper.rotateToFace(facing, this.getSpin());
-        // NOTE for wave 4 (appeng.client.render is not this wave's scope): TesrRenderHelper still has the old
-        // (IAEItemStack)/(IAEFluidStack) signatures. These two calls are written against what it needs to become -
-        // (AEItemKey/AEFluidKey, long amount, float, float) - exactly like the other forward references CONTRACT.md
-        // §9 already lists as debt for the wave that owns the callee.
-        if (key instanceof AEItemKey itemKey) {
-            TesrRenderHelper.renderItem2dWithAmount(itemKey, this.configuredAmount, 0.8f, 0.17f);
-        } else if (key instanceof AEFluidKey fluidKey) {
-            TesrRenderHelper.renderFluid2dWithAmount(fluidKey, this.configuredAmount, 0.8f, 0.17f);
-        }
+        TesrRenderHelper.renderKey2dWithAmount(key, this.configuredAmount, 0.8f, 0.17f);
         GlStateManager.popMatrix();
 
     }
