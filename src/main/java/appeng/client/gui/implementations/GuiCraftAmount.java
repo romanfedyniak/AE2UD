@@ -99,6 +99,10 @@ public class GuiCraftAmount extends AEBaseGui {
 
     @Override
     public void initGui() {
+        // Without this a held digit or backspace fires once. Turned back off in onGuiClosed, which runs
+        // before the next screen's initGui, so a screen that wants it can still switch it back on.
+        Keyboard.enableRepeatEvents(true);
+
         super.initGui();
 
         final int a = AEConfig.instance().craftItemsByStackAmounts(0);
@@ -164,6 +168,12 @@ public class GuiCraftAmount extends AEBaseGui {
         // Stands in for the one tick before the real starting amount arrives, and stays if it never does.
         this.amountToCraft.setText("1");
         this.amountToCraft.setSelectionPos(0);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

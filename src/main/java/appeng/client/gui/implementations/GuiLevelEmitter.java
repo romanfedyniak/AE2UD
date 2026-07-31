@@ -37,6 +37,7 @@ import appeng.parts.automation.PartLevelEmitter;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
@@ -83,6 +84,9 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     public void initGui() {
+        // Without this a held digit or backspace fires once.
+        Keyboard.enableRepeatEvents(true);
+
         super.initGui();
 
         // Double, not Long: in unit entry the field legitimately holds a decimal point.
@@ -125,6 +129,12 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         // hidden: drawFG decides, and it runs after the buttons are drawn, so the first frame is blank.
         this.buttonList.add(this.unitToggle = new GuiButton(0, this.guiLeft - 24, this.guiTop + 68, 22, 20, ""));
         this.unitToggle.visible = false;
+    }
+
+    @Override
+    public void onGuiClosed() {
+        super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
     }
 
     @Override
