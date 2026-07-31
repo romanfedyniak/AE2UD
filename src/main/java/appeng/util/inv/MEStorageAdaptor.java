@@ -34,13 +34,19 @@ import net.minecraft.item.ItemStack;
 import java.util.Iterator;
 
 
-public class IMEAdaptor extends InventoryAdaptor {
+/**
+ * Presents an {@link MEStorage} through the item-only {@link InventoryAdaptor} surface, so code that moves
+ * stacks between vanilla inventories can treat a network as one more of them.
+ * <p>
+ * Nothing in the mod calls it - the integration that did was removed in 1.8.8 - and it is kept for addons.
+ */
+public class MEStorageAdaptor extends InventoryAdaptor {
 
     private final MEStorage target;
     private final IActionSource src;
     private int maxSlots = 0;
 
-    public IMEAdaptor(final MEStorage input, final IActionSource src) {
+    public MEStorageAdaptor(final MEStorage input, final IActionSource src) {
         this.target = input;
         this.src = src;
     }
@@ -52,7 +58,7 @@ public class IMEAdaptor extends InventoryAdaptor {
 
     @Override
     public Iterator<ItemSlot> iterator() {
-        return new IMEAdaptorIterator(this, this.getList());
+        return new MEStorageAdaptorIterator(this, this.getList());
     }
 
     private KeyCounter getList() {

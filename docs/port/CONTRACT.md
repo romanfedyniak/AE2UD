@@ -799,10 +799,12 @@ public static int compareLong(long a, long b);
 public static void setDirection(SortDir direction);
 
 // appeng.util.inv
-public IMEAdaptor(MEStorage input, IActionSource src);              // extends InventoryAdaptor
-public IMEAdaptorIterator(IMEAdaptor parent, KeyCounter availableItems);
-public IMEInventoryDestination(MEStorage o);
-public boolean IMEInventoryDestination.canInsert(ItemStack stack);
+// The three below were renamed after the port: their `I` prefixes named the deleted IMEInventory, not an
+// interface. All three are unused by the mod and kept for addons.
+public MEStorageAdaptor(MEStorage input, IActionSource src);        // was IMEAdaptor, extends InventoryAdaptor
+public MEStorageAdaptorIterator(MEStorageAdaptor parent, KeyCounter availableItems);  // was IMEAdaptorIterator
+public MEStorageDestination(MEStorage o);                           // was IMEInventoryDestination
+public boolean MEStorageDestination.canInsert(ItemStack stack);
 // ItemSlot: getAEItemStack/setAEItemStack RENAMED to getGenericStack()/setGenericStack()
 public GenericStack ItemSlot.getGenericStack();
 public ItemStack ItemSlot.getItemStack();  public void ItemSlot.setItemStack(ItemStack is);
