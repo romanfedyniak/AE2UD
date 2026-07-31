@@ -1261,6 +1261,35 @@ Same entry rules, but the screen is built differently and each difference had to
 describes the approach this work rejected, but `levelByMillyBuckets(int)` is public, and breaking a public
 method to delete four unused numbers is a bad trade.
 
+## The IO busses, reworked to match upstream (in progress)
+
+Upstream gives the import and export busses a 63-slot filter — two rows always visible, five more unlocked
+one per capacity card — the same shape the storage bus and formation plane already have here. Ours still
+has the nine-slot cross. Four steps, one commit each, in this order: split the classes, widen the filter,
+add a clear button, add the import type selection.
+
+### Step 1 — the busses got their own container and screen (done, verified in game)
+
+`ContainerUpgradeable` and `GuiUpgradeable` *were* the bus screen. Nine other containers and eight other
+screens extend them, and every one overrode `setupConfig`, `addButtons` and `getBackground` — so the bodies
+those bases carried were reachable from exactly one place, the busses, while the bus-specific state sat
+where a dozen unrelated screens could see it. `ContainerIOBus`/`GuiIOBus` now hold the cross layout, the
+craft-only and scheduling modes, `guis/bus.png` and the ImportBus/ExportBus title; both bases are abstract.
+
+`GUI_BUS` also stopped accepting `IUpgradeableHost` and takes `PartSharedItemBus` — only the two busses
+ever opened it.
+
+Two things the code decided rather than the plan:
+
+- `supportCapacity()` was read only by the `setupConfig` that moved out. Deleting it took seven overrides
+  with it. **A protected method whose only caller moves is not "still an extension point".**
+- `getName()` did not become abstract. `GuiInterface` draws no title at all, so an abstract method would
+  have forced it to invent one; the base returns null and `drawFG` skips the title when it is absent.
+
+Also worth recording: `ContainerLevelEmitter` had `@Override` on `getCraftingMode`/`setCraftingMode` while
+carrying its own `cmType` field. It was not extending the base behaviour, it was borrowing a signature —
+the base's `cMode` was write-only from its point of view. The annotations are gone.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

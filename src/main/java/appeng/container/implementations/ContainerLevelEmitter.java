@@ -88,11 +88,6 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
     }
 
     @Override
-    protected boolean supportCapacity() {
-        return false;
-    }
-
-    @Override
     public int availableUpgrades() {
 
         return 1;
@@ -113,12 +108,10 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
         this.standardDetectAndSendChanges();
     }
 
-    @Override
     public YesNo getCraftingMode() {
         return this.cmType;
     }
 
-    @Override
     public void setCraftingMode(final YesNo cmType) {
         this.cmType = cmType;
     }

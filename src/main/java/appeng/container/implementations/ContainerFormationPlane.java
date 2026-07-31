@@ -78,11 +78,6 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
     }
 
     @Override
-    protected boolean supportCapacity() {
-        return true;
-    }
-
-    @Override
     public int availableUpgrades() {
         return 5;
     }

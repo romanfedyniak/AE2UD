@@ -116,11 +116,6 @@ public class ContainerMAC extends ContainerUpgradeable implements IProgressProvi
     }
 
     @Override
-    protected boolean supportCapacity() {
-        return false;
-    }
-
-    @Override
     public int availableUpgrades() {
         return 5;
     }

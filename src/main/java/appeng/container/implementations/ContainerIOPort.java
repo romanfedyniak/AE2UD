@@ -81,11 +81,6 @@ public class ContainerIOPort extends ContainerUpgradeable {
     }
 
     @Override
-    protected boolean supportCapacity() {
-        return false;
-    }
-
-    @Override
     public int availableUpgrades() {
         return 3;
     }

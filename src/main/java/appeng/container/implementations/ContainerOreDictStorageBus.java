@@ -132,11 +132,6 @@ public class ContainerOreDictStorageBus extends ContainerUpgradeable {
         return 1;
     }
 
-    @Override
-    protected boolean supportCapacity() {
-        return false;
-    }
-
     public YesNo getStickyMode() {
         return this.stickyMode;
     }

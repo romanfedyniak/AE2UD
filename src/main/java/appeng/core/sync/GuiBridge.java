@@ -50,6 +50,7 @@ import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.contents.QuartzKnifeObj;
 import appeng.parts.automation.PartFormationPlane;
 import appeng.parts.automation.PartLevelEmitter;
+import appeng.parts.automation.PartSharedItemBus;
 import appeng.parts.misc.PartOreDicStorageBus;
 import appeng.parts.misc.PartStorageBus;
 import appeng.parts.reporting.*;
@@ -117,7 +118,7 @@ public enum GuiBridge implements IGuiHandler {
 
     GUI_INTERFACE(ContainerInterface.class, IInterfaceHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
-    GUI_BUS(ContainerUpgradeable.class, IUpgradeableHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+    GUI_BUS(ContainerIOBus.class, PartSharedItemBus.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
 
     GUI_IOPORT(ContainerIOPort.class, TileIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
