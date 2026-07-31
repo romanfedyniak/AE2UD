@@ -1389,6 +1389,35 @@ other panels exactly. The check and cross went into two unused placeholder cells
 knowing for the next screen that needs a panel: `priority.png` rows 4–54 and 67–103 are pure fill and can
 be sliced again.
 
+## Key repeat, and the middle click the configuration terminal never learned (done, verified in game)
+
+**Repeat is on everywhere now.** The five screens that lacked it - `GuiPriority`, `GuiQuartzKnife`,
+`GuiRenamer`, `GuiInterfaceConfigurationTerminal`, `GuiOreDictStorageBus` - use the screen-level pattern
+(`initGui` on, `onGuiClosed` off) that three screens already had. `GuiInterfaceTerminal` was left alone:
+its `MEGuiTooltipTextField` enables repeat on focus and **restores** the previous value rather than forcing
+it off, so the two compose. That restore is the whole reason a per-widget and a per-screen mechanism can
+coexist; a widget that just turned it off would have fought the screen.
+
+**Middle click to set an amount did not work in the interface configuration terminal.** Three layers, each
+found only after the one above it was fixed:
+
+1. `AEBaseGui` offers the middle click on a `SlotFake`. The terminal uses `SlotDisconnected` - a different
+   slot class over *the same interface config inventory*, reached remotely.
+2. The whole `SET_AMOUNT` path addresses a slot by its index in `inventorySlots`. The terminal's slots are
+   not in any container: they are `(which interface, which slot of it)`. `PacketInventoryAction` grew a
+   branch that reads through `getSlotByID` instead.
+3. **Writing back still silently did nothing.** The interface id is `ConfigTracker.which = autoBase++`, a
+   per-container counter, and `byId` is rebuilt per container instance - so returning to the terminal
+   builds a fresh container that hands the same interfaces *different* ids, and the id the click carried
+   named nothing. `ContainerSetAmount` holds the interface's `IItemHandler` instead, which is owned by the
+   interface and outlives both screens, and the write happens before the screen switch rather than after.
+
+**An identifier that is minted by the thing you are about to replace is not an identifier.** The open GUI
+was the only reason step 2 appeared to work: the container that issued the id was still the live one.
+
+This is the divergence the audit's axis 2 predicted - "parallel `doAction` switches: `PacketInventoryAction`,
+`AEBaseContainer`, the two interface terminals". One of three copies had not learned an action the others had.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

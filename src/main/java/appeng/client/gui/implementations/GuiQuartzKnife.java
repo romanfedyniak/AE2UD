@@ -27,6 +27,7 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.items.contents.QuartzKnifeObj;
 import net.minecraft.client.gui.GuiTextField;
+import org.lwjgl.input.Keyboard;
 import net.minecraft.entity.player.InventoryPlayer;
 
 import java.io.IOException;
@@ -43,6 +44,7 @@ public class GuiQuartzKnife extends AEBaseGui {
 
     @Override
     public void initGui() {
+        Keyboard.enableRepeatEvents(true);
         super.initGui();
 
         this.name = new GuiTextField(0, this.fontRenderer, this.guiLeft + 24, this.guiTop + 32, 79, this.fontRenderer.FONT_HEIGHT);
@@ -51,6 +53,12 @@ public class GuiQuartzKnife extends AEBaseGui {
         this.name.setTextColor(0xFFFFFF);
         this.name.setVisible(true);
         this.name.setFocused(true);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

@@ -34,6 +34,7 @@ import appeng.helpers.IPriorityHost;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
+import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
 
@@ -60,6 +61,7 @@ public class GuiPriority extends AEBaseGui {
 
     @Override
     public void initGui() {
+        Keyboard.enableRepeatEvents(true);
         super.initGui();
 
         final int a = AEConfig.instance().priorityByStacksAmounts(0);
@@ -92,6 +94,12 @@ public class GuiPriority extends AEBaseGui {
         this.priority.setVisible(true);
         this.priority.setFocused(true);
         ((ContainerPriority) this.inventorySlots).setTextField(this.priority);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

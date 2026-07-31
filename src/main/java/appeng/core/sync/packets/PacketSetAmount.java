@@ -23,6 +23,8 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.implementations.ContainerSetAmount;
 import appeng.container.slot.SlotFake;
+import appeng.util.helpers.ItemHandlerUtil;
+import net.minecraftforge.items.IItemHandler;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
@@ -72,6 +74,18 @@ public class PacketSetAmount extends AppEngPacket {
         }
 
         final long clamped = Math.max(1, Math.min(this.amount, source.maxAmount));
+        final IItemHandler originInventory = source.getOriginInventory();
+
+        // Write before switching where the target is an inventory rather than a slot of the screen we are
+        // going back to. Returning to the interface configuration terminal builds a fresh container, and a
+        // fresh container renumbers the interfaces, so there would be nothing left to look the slot up by.
+        if (originInventory != null) {
+            if (originSlot < originInventory.getSlots()) {
+                ItemHandlerUtil.setStackInSlot(originInventory, originSlot, GenericStack.wrapInItemStack(what, clamped));
+            }
+            PacketSwitchGuis.reopen(player, source, originGui);
+            return;
+        }
 
         // Read before switching: the open context belongs to the screen we are leaving.
         if (!PacketSwitchGuis.reopen(player, source, originGui)) {

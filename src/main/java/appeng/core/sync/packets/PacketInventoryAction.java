@@ -29,6 +29,7 @@ import appeng.container.implementations.ContainerCraftAmount;
 import appeng.container.implementations.ContainerSetAmount;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal.ConfigTracker;
+import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.container.slot.IJEITargetSlot;
 import appeng.container.slot.SlotFake;
 import appeng.core.AELog;
@@ -202,7 +203,11 @@ public class PacketInventoryAction extends AppEngPacket {
                     }
                 }
             } else if (this.action == InventoryAction.SET_AMOUNT) {
-                this.openSetAmount(sender, baseContainer);
+                if (baseContainer instanceof ContainerInterfaceConfigurationTerminal) {
+                    this.openSetAmountRemotely(sender, (ContainerInterfaceConfigurationTerminal) baseContainer);
+                } else {
+                    this.openSetAmount(sender, baseContainer);
+                }
             } else if (this.action == InventoryAction.PLACE_JEI_GHOST_ITEM) {
                 if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
                     ConfigTracker inv = ((ContainerInterfaceConfigurationTerminal) sender.openContainer).getSlotByID(this.id);
@@ -269,6 +274,34 @@ public class PacketInventoryAction extends AppEngPacket {
         if (sender.openContainer instanceof ContainerSetAmount) {
             final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
             csa.setOrigin(originGui, this.slot, current.what(), current.amount(), max);
+            csa.detectAndSendChanges();
+        }
+    }
+
+    /**
+     * The same thing for the interface configuration terminal, whose slots belong to an interface somewhere
+     * else on the network rather than to this container. {@link #slot} indexes that interface's config and
+     * {@link #id} names the interface, so neither can be looked up in {@code inventorySlots}.
+     */
+    private void openSetAmountRemotely(final EntityPlayerMP sender, final ContainerInterfaceConfigurationTerminal from) {
+        final ContainerInterfaceConfigurationTerminal.ConfigTracker tracker = from.getSlotByID(this.id);
+        if (tracker == null || this.slot < 0 || this.slot >= tracker.getServer().getSlots()) {
+            return;
+        }
+
+        final GenericStack current = GenericStack.resolveItemStack(tracker.getServer().getStackInSlot(this.slot));
+        if (current == null) {
+            return;
+        }
+
+        final long max = ((AppEngInternalAEInventory) tracker.getServer()).getMaxAmount(current.what());
+        if (!PacketSwitchGuis.reopen(sender, from, GuiBridge.GUI_SET_AMOUNT)) {
+            return;
+        }
+
+        if (sender.openContainer instanceof ContainerSetAmount) {
+            final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
+            csa.setOrigin(GuiBridge.GUI_INTERFACE_CONFIGURATION_TERMINAL, this.slot, tracker.getServer(), current.what(), current.amount(), max);
             csa.detectAndSendChanges();
         }
     }
