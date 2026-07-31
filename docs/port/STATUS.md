@@ -1213,6 +1213,31 @@ Five screens with text fields still lack it, and they are not all the same case:
 already toggles repeat per focus and restores the previous value rather than forcing it off. Worth a
 single pass that decides which of the two patterns the mod should standardise on.
 
+### Two defects the same play-test turned up
+
+**A hotbar key emptied filter slots, and could not move anything into a slot whose limit was not 64.**
+One cause: `AEBaseGui.checkHotbarKeys` found the player's hotbar slot by `s.inventory == getPlayerInv()`,
+and every `AppEngSlot` passes a **shared dummy `IInventory`** to its super constructor, so that comparison
+was never true. Both loops it guarded were dead — including the one that sent `PacketSwapSlots`. So the
+`getSlotStackLimit() == 64` branch was the only live path: slots that took it got vanilla's swap, which
+empties a fake slot, and slots that did not got nothing at all, which is why an upgrade card could never
+be inserted with a number key and why the optional filter slots looked safe.
+
+Worth remembering as a shape: **a condition that is always false reads exactly like a feature that works,
+because "nothing happened" is indistinguishable from "correctly refused"**. It cost a wrong fix first —
+routing everything through the surviving branch, which was the dead one, and broke every screen at once.
+
+The live version guards fake slots explicitly, drops the limit branch, and identifies the hotbar slot by
+`SlotPlayerHotBar`/`SlotDisabled`. `canTakeStack` alone was not enough there either: an empty slot answers
+"cannot take", and taking *into* an empty hotbar slot is half of what the key is for.
+
+**Swapping cells in the workbench carried a filter across key types.** `TileCellWorkbench` copies what is
+on screen into a newly inserted cell whenever that cell is blank — a deliberate convenience for cloning
+settings between cells. It never checked that the two cells store the same thing, so a fluid filter
+followed a swap into an item cell. It now compares against `getCellKeyType()` and clears the screen
+instead when they differ; nothing is lost, because the config is written into the cell on every edit, so
+the cell that was removed already carries its own copy.
+
 ### The level emitter, second pass
 
 Same entry rules, but the screen is built differently and each difference had to be answered:
