@@ -1359,6 +1359,12 @@ wrong twice: an id is a position in a registry, and — the part that is easy to
 know *which* types a given host allows, only which exist in the world. Both the membership and the state
 have to come from the server.
 
+**Follow-up: the button column collapses now.** With clear always present and scheduling always present on
+an export bus, a hidden button left a visible hole in the middle of the column. `GuiIOBus.layoutColumn()`
+packs the visible ones top-down every frame, from a list whose order *is* the layout - the same thing
+upstream's `VerticalButtonBar.updateBeforeRender` does. Adding or removing a button no longer means
+recomputing everyone's `y`.
+
 **Textures were generated, not drawn.** `keytypes.png` is three horizontal bands copied pixel-for-pixel out
 of `priority.png`'s frame (header 0–17, a clean fill row 20–37, footer 96–106), which is why it matches the
 other panels exactly. The check and cross went into two unused placeholder cells of `states.png` at
