@@ -1343,6 +1343,29 @@ queried them. It is in `standardDetectAndSendChanges()` now, the one method ever
 fix here was correct and looked worthless. And a base-class hook is only shared by the subclasses that
 actually call it: `detectAndSendChanges` looked like the common path and was not.
 
+### Step 4 — choosing which key types an import bus takes (done, verified in game)
+
+The API half is `CONTRACT.md` §8.8. The server half was nearly free: `PartImportBus` already passed a
+`Predicate<AEKeyType>` to `createImportStrategies`, it just always passed "every type with a strategy".
+It passes the player's selection now and drops the cached strategy when that changes.
+
+The screen is `ContainerKeyTypeSelection`/`GuiKeyTypeSelection`, reached by a tab on the import bus and
+left by a tab back, the same way `GuiPriority` works. Its panel grows a row per type instead of reserving
+a fixed number, because how many types exist is up to whoever registered them.
+
+**The whole selection is synced, not just the enabled part.** One string,
+`namespace:type=1,namespace:other=0`. A bitmask over registry ids was the obvious cheap encoding and is
+wrong twice: an id is a position in a registry, and — the part that is easy to miss — the client cannot
+know *which* types a given host allows, only which exist in the world. Both the membership and the state
+have to come from the server.
+
+**Textures were generated, not drawn.** `keytypes.png` is three horizontal bands copied pixel-for-pixel out
+of `priority.png`'s frame (header 0–17, a clean fill row 20–37, footer 96–106), which is why it matches the
+other panels exactly. The check and cross went into two unused placeholder cells of `states.png` at
+(6,11) and (6,12), scripted, with the cell borders verified clear so nothing bleeds into a neighbour. Worth
+knowing for the next screen that needs a panel: `priority.png` rows 4–54 and 67–103 are pure fill and can
+be sliced again.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
@@ -1365,7 +1388,7 @@ Every remaining wave must check this. Note the inverse also exists and is correc
 
 ## Amendments made to the frozen API
 
-Post-freeze edits to §1-§4 are the owner's call (§7). Five have been approved, plus §8.5
+Post-freeze edits to §1-§4 are the owner's call (§7). Six have been approved, plus §8.5
 (`wrapForDisplayOrFilter()` wraps with amount 0), which still awaits review:
 
 1. **§8.3** — `ICraftingGrid.getCraftables(AEKeyFilter)` + `default isCraftable(AEKey)`. Keys carry no
@@ -1382,6 +1405,10 @@ Post-freeze edits to §1-§4 are the owner's call (§7). Five have been approved
 5. **§8.7** — `default AEKeyType.getDefaultCraftAmount()`. Same behaviour as upstream, which passes
    `getAmountPerUnit()` at the call site; named here so a type can separate its display unit from its
    typical order.
+6. **§8.8** — `appeng.api.util.KeyTypeSelection` and `KeyTypeSelectionHost`, so an import bus can say which
+   key types it takes at all. Same package and method names as upstream; the "return to the previous
+   screen" half stays in `appeng.helpers.ISubMenuHost` because it needs `GuiBridge`, and `src/api` imports
+   nothing from `src/main`.
 
 ## How the waves are executed
 

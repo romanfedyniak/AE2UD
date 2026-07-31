@@ -21,6 +21,7 @@ package appeng.parts.automation;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
@@ -40,7 +41,10 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.core.AppEng;
+import appeng.helpers.ISubMenuHost;
 import appeng.core.settings.TickRates;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.Reflected;
@@ -60,7 +64,7 @@ import appeng.util.prioritylist.IPartitionList;
  * types (see {@link InitStackWorldBehaviors}). A future addon registering a new {@code AEKeyType}
  * with its own import strategy gets a working import bus for free.
  */
-public class PartImportBus extends PartSharedItemBus {
+public class PartImportBus extends PartSharedItemBus implements KeyTypeSelectionHost, ISubMenuHost {
 
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/import_bus_base");
     @PartModels
@@ -71,6 +75,7 @@ public class PartImportBus extends PartSharedItemBus {
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/import_bus_has_channel"));
 
     private final IActionSource source;
+    private final KeyTypeSelection keyTypeSelection;
 
     private StackImportStrategy importStrategy;
 
@@ -81,6 +86,38 @@ public class PartImportBus extends PartSharedItemBus {
         this.getConfigManager().registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.source = new MachineSource(this);
+        this.keyTypeSelection = new KeyTypeSelection(() -> {
+            this.getHost().markForSave();
+            // Which strategies exist is decided once and cached, so it has to be rebuilt.
+            this.importStrategy = null;
+        }, StackWorldBehaviors.hasImportStrategyTypeFilter());
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_BUS;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return this.getItemStack();
+    }
+
+    @Override
+    public void readFromNBT(final NBTTagCompound extra) {
+        super.readFromNBT(extra);
+        this.keyTypeSelection.readFromNBT(extra);
+    }
+
+    @Override
+    public void writeToNBT(final NBTTagCompound extra) {
+        super.writeToNBT(extra);
+        this.keyTypeSelection.writeToNBT(extra);
     }
 
     @Override
@@ -125,7 +162,7 @@ public class PartImportBus extends PartSharedItemBus {
             final var fromSide = this.getSide().getFacing().getOpposite();
             this.importStrategy = new StackImportFacade(
                     StackWorldBehaviors.createImportStrategies(self.getWorld(), fromPos, fromSide,
-                            StackWorldBehaviors.hasImportStrategyTypeFilter()));
+                            this.keyTypeSelection.enabledPredicate()));
         }
 
         final MEStorage internalStorage;

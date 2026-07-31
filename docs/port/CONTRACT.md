@@ -785,6 +785,45 @@ serialises as a **byte**. A starting amount of 1000 items would not survive the 
 `GUI_CRAFTING_AMOUNT` (`PacketInventoryAction`), which leaves room for a caller to offer something other
 than the type's suggestion — upstream's "craft the missing amount" works exactly that way.
 
+## 8.8 Amendment — `KeyTypeSelection` and `KeyTypeSelectionHost`
+
+**This was an addition to the frozen API. Approved by the owner 2026-08-01.**
+
+An import bus with an empty filter takes whatever the neighbouring block offers. That was harmless while
+"whatever" meant items; once every registered type has an import strategy, a bus that only wants items has
+no way to say so. Upstream solves it with `appeng.api.util.KeyTypeSelection` plus a `KeyTypeSelectionHost`
+marker, and so do we, at the same package and with the same method names.
+
+```java
+// appeng.api.util.KeyTypeSelection
+public KeyTypeSelection(Listener listener, Predicate<AEKeyType> allowKeyType);
+public void setEnabled(AEKeyType type, boolean enabled);   // refuses to turn the last one off
+public boolean isEnabled(AEKeyType type);
+public Map<AEKeyType, Boolean> enabled();                  // registration order
+public List<AEKeyType> enabledSet();
+public Predicate<AEKeyType> enabledPredicate();
+public void writeToNBT(NBTTagCompound tag);
+public void readFromNBT(NBTTagCompound tag);
+
+// appeng.api.util.KeyTypeSelectionHost
+KeyTypeSelection getKeyTypeSelection();
+```
+
+`readFromNBT` differs from upstream in one deliberate way. Upstream, finding no enabled types, turns the
+first one on. Ours distinguishes an **absent** tag from an **empty** one: absent means the machine was
+saved before it had a selection, and it must keep acting on every type. Upstream never faces this — the
+feature and the part were written together. Falling back to "first type only" would have quietly stopped
+every existing bus in a world from importing fluids, which is rule 6.
+
+**`ISubMenuHost` is `appeng.helpers`, not `appeng.api`.** Upstream's `KeyTypeSelectionHost` implementors
+are also `ISubMenuHost`, whose job is telling a sub-screen where to send the player back to. Upstream
+expresses that as `returnToMainMenu(Player, ISubMenu)` plus `getMainMenuIcon()`. In this version returning
+is a `GuiBridge` switched by packet, and `GuiBridge` is in `src/main` — while `src/api` imports nothing
+from `src/main` anywhere in this port, deliberately. So the interface lives in `appeng.helpers` with
+`getGuiBridge()`/`getItemStackRepresentation()`, the two methods `IPriorityHost` already carried, and
+`IPriorityHost` now extends it. The API half stays free of it: `KeyTypeSelectionHost` declares only
+`getKeyTypeSelection()`.
+
 ## 9. Implementation class registry
 
 ### Wave 1a — `appeng.util` (done)
