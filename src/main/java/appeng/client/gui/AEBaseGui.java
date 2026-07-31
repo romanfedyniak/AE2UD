@@ -39,7 +39,6 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
-import appeng.core.sync.packets.PacketSwapSlots;
 import appeng.helpers.InventoryAction;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
@@ -650,29 +649,38 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected boolean checkHotbarKeys(final int keyCode) {
         final Slot theSlot = this.getSlotUnderMouse();
 
+        // A filter slot holds an identity, not a stack, so a hotbar key has nothing to swap with it. Left
+        // to vanilla it empties the filter instead, which is how a level emitter or a storage bus quietly
+        // stopped filtering.
+        if (theSlot instanceof SlotFake) {
+            return false;
+        }
+
         if (this.mc.player.inventory.getItemStack().isEmpty() && theSlot != null) {
             for (int j = 0; j < 9; ++j) {
                 if (keyCode == this.mc.gameSettings.keyBindsHotbar[j].getKeyCode()) {
-                    final List<Slot> slots = this.getInventorySlots();
-                    for (final Slot s : slots) {
-                        if (s.getSlotIndex() == j && s.inventory == ((AEBaseContainer) this.inventorySlots).getPlayerInv()) {
-                            if (!s.canTakeStack(((AEBaseContainer) this.inventorySlots).getPlayerInv().player)) {
-                                return false;
-                            }
+                    // The player's own hotbar slot for this key. It used to be looked up by comparing
+                    // s.inventory to the player inventory, but every AppEngSlot reports one shared dummy
+                    // inventory, so that never matched: the guard below never ran, and neither did the
+                    // PacketSwapSlots branch that used to sit here - which is why a hotbar key could not
+                    // put an upgrade card into a slot whose limit was not exactly 64.
+                    for (final Slot s : this.getInventorySlots()) {
+                        if (s.getSlotIndex() != j) {
+                            continue;
+                        }
+                        if (s instanceof SlotDisabled) {
+                            return false;
+                        }
+                        // Only refuse a hotbar slot whose contents are held back. An empty one has
+                        // nothing to give and still answers "cannot take", which is not a refusal -
+                        // taking *into* it is half of what this key is for.
+                        if (s instanceof SlotPlayerHotBar && s.getHasStack() && !s.canTakeStack(this.mc.player)) {
+                            return false;
                         }
                     }
 
-                    if (theSlot.getSlotStackLimit() == 64) {
-                        this.handleMouseClick(theSlot, theSlot.slotNumber, j, ClickType.SWAP);
-                        return true;
-                    } else {
-                        for (final Slot s : slots) {
-                            if (s.getSlotIndex() == j && s.inventory == ((AEBaseContainer) this.inventorySlots).getPlayerInv()) {
-                                NetworkHandler.instance().sendToServer(new PacketSwapSlots(s.slotNumber, theSlot.slotNumber));
-                                return true;
-                            }
-                        }
-                    }
+                    this.handleMouseClick(theSlot, theSlot.slotNumber, j, ClickType.SWAP);
+                    return true;
                 }
             }
         }
