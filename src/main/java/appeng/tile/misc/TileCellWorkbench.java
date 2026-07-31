@@ -25,6 +25,7 @@ import appeng.api.config.CopyMode;
 import appeng.api.config.Settings;
 import appeng.api.config.Upgrades;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.storage.cells.ICellWorkbenchItem;
@@ -168,15 +169,15 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
                     for (int x = 0; x < this.config.getSlots(); x++) {
                         this.config.setStackInSlot(x, configInventory.getStackInSlot(x));
                     }
-                } else {
+                } else if (this.configFits(this.getCellKeyType())) {
                     ItemHandlerUtil.copy(this.config, configInventory, false);
+                } else {
+                    // A blank cell of another kind: it starts empty, so the screen has to as well.
+                    // Nothing is lost - the cell that was here kept its own copy of these settings.
+                    this.clearConfig();
                 }
             } else if (this.manager.getSetting(Settings.COPY_MODE) == CopyMode.CLEAR_ON_REMOVE) {
-                for (int x = 0; x < this.config.getSlots(); x++) {
-                    this.config.setStackInSlot(x, ItemStack.EMPTY);
-                }
-
-                this.saveChanges();
+                this.clearConfig();
             }
 
             this.locked = false;
@@ -190,6 +191,34 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
             }
             this.locked = false;
         }
+    }
+
+    /**
+     * Whether everything configured on screen is something a cell of {@code type} could hold.
+     * <p>
+     * A blank cell inherits what is on screen, which only means something between cells of the same kind.
+     * Without this a fluid filter followed a swap into an item cell, where those keys can never be stored.
+     */
+    private boolean configFits(@Nullable final AEKeyType type) {
+        if (type == null) {
+            return false;
+        }
+
+        for (int x = 0; x < this.config.getSlots(); x++) {
+            final GenericStack configured = GenericStack.resolveItemStack(this.config.getStackInSlot(x));
+            if (configured != null && configured.what().getType() != type) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void clearConfig() {
+        for (int x = 0; x < this.config.getSlots(); x++) {
+            this.config.setStackInSlot(x, ItemStack.EMPTY);
+        }
+
+        this.saveChanges();
     }
 
     private IItemHandler getCellConfigInventory() {
