@@ -45,8 +45,3 @@ dependencies {
     compileOnly rfg.deobf("curse.maven:actually-additions-228404:3117927") // ActuallyAdditions r152
 }
 
-minecraft {
-    injectedTags.put('AEVERSION', aeversion)
-    injectedTags.put('AECHANNEL', aechannel)
-    injectedTags.put('AEBUILD', aebuild)
-}
