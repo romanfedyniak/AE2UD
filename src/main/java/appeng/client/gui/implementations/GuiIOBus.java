@@ -26,10 +26,13 @@ import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.Upgrades;
 import appeng.api.config.YesNo;
+import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.GenericStack;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerIOBus;
+import appeng.container.slot.SlotFake;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -40,7 +43,10 @@ import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartImportBus;
 import appeng.parts.automation.PartSharedItemBus;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
@@ -107,6 +113,39 @@ public class GuiIOBus extends GuiUpgradeable {
         if (this.schedulingMode != null) {
             this.schedulingMode.set(container.getSchedulingMode());
         }
+    }
+
+    /**
+     * A filter slot says what to move, not how much there is. The amount the network holds is the thing a
+     * player actually wants while setting one up, so it goes on the tooltip.
+     */
+    @Override
+    protected void renderToolTip(final ItemStack stack, final int x, final int y) {
+        final Slot slot = this.getSlot(x, y);
+
+        if (slot instanceof SlotFake && !stack.isEmpty()) {
+            final GenericStack configured = GenericStack.resolveItemStack(slot.getStack());
+            final Long amount = configured == null
+                    ? null
+                    : ((ContainerIOBus) this.cvb).getStoredAmounts().get(slot.getSlotIndex());
+
+            if (amount != null) {
+                final ITooltipFlag.TooltipFlags flags = this.mc.gameSettings.advancedItemTooltips
+                        ? ITooltipFlag.TooltipFlags.ADVANCED
+                        : ITooltipFlag.TooltipFlags.NORMAL;
+                // Shift asks for the exact number in the base unit - 1,040mB where the normal reading
+                // rounds to 1B. Same rule the terminal uses.
+                final AmountFormat format = isShiftKeyDown() ? AmountFormat.FULL_BASE : AmountFormat.FULL;
+
+                final List<String> lines = stack.getTooltip(this.mc.player, flags);
+                lines.add(GuiText.Stored.getLocal() + ": " + configured.what().formatAmount(amount, format));
+
+                this.drawTooltip(x, y, lines);
+                return;
+            }
+        }
+
+        super.renderToolTip(stack, x, y);
     }
 
     @Override

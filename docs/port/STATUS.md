@@ -1365,6 +1365,23 @@ packs the visible ones top-down every frame, from a list whose order *is* the la
 upstream's `VerticalButtonBar.updateBeforeRender` does. Adding or removing a button no longer means
 recomputing everyone's `y`.
 
+### Step 5 — filter slots say what the network holds (done, verified in game)
+
+Hovering a configured filter slot on either bus adds a `Stored: N` line, formatted by the key itself, so a
+fluid reads `3B` and shift reads `3,000mB` - the same rule `AEBaseMEGui` uses for terminal rows.
+
+`IStorageService.getCachedInventory()` is already a maintained snapshot, so a lookup is one map read. The
+container rebuilds a `slot=amount` string every ten ticks and syncs it as one `@GuiSync` field. Half a
+second stale is not wrong for a tooltip; a packet every tick would have been.
+
+Two things the play-test corrected:
+
+- **A disconnected bus reported `Stored: 0`.** No exception is thrown - a bus cut off from its cable forms
+  a one-node grid of its own, and *that* grid genuinely holds nothing. Zero was a true answer to the wrong
+  question. Gated on `proxy.isActive()` now: with no channel there is no number to report, so no line.
+  **An error path that cannot fire is not the same as a correct answer.**
+- Shift did nothing, because the formatter was pinned to `AmountFormat.FULL` instead of asking the keyboard.
+
 **Textures were generated, not drawn.** `keytypes.png` is three horizontal bands copied pixel-for-pixel out
 of `priority.png`'s frame (header 0–17, a clean fill row 20–37, footer 96–106), which is why it matches the
 other panels exactly. The check and cross went into two unused placeholder cells of `states.png` at
