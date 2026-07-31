@@ -37,6 +37,7 @@ import appeng.api.parts.IPartHost;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiNull;
 import appeng.container.AEBaseContainer;
@@ -132,6 +133,8 @@ public enum GuiBridge implements IGuiHandler {
 
 
     GUI_PRIORITY(ContainerPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+
+    GUI_KEY_TYPES(ContainerKeyTypeSelection.class, KeyTypeSelectionHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_SECURITY(ContainerSecurityStation.class, TileSecurityStation.class, GuiHostType.WORLD, SecurityPermissions.SECURITY),
 

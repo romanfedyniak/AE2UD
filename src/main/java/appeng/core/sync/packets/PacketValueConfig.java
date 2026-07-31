@@ -38,6 +38,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -154,6 +155,10 @@ public class PacketValueConfig extends AppEngPacket {
                 } else if (this.Name.equals("PatternTerminal.Substitute")) {
                     cpt.setSubstitute(this.Value.equals("1"));
                 }
+            }
+        } else if (this.Name.equals("KeyTypes.Toggle")) {
+            if (c instanceof ContainerKeyTypeSelection) {
+                ((ContainerKeyTypeSelection) c).toggle(new ResourceLocation(this.Value));
             }
         } else if (this.Name.equals("Filter.Clear")) {
             if (c instanceof ContainerUpgradeable) {

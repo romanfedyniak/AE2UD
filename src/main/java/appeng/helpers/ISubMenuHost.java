@@ -19,15 +19,28 @@
 package appeng.helpers;
 
 
-public interface IPriorityHost extends ISubMenuHost {
+import appeng.core.sync.GuiBridge;
+import net.minecraft.item.ItemStack;
+
+
+/**
+ * Something a sub-screen can return the player to.
+ * <p>
+ * Upstream calls this {@code ISubMenuHost} and gives it {@code returnToMainMenu} plus {@code getMainMenuIcon}.
+ * Here the two halves are the screen to reopen and the icon to label the way back with, because in this
+ * version returning is a matter of switching GUIs with a packet rather than of a menu object.
+ * <p>
+ * Not in {@code src/api} for that reason: {@link GuiBridge} is not part of the API.
+ */
+public interface ISubMenuHost {
 
     /**
-     * get current priority.
+     * The screen a sub-screen sends the player back to.
      */
-    int getPriority();
+    GuiBridge getGuiBridge();
 
     /**
-     * set new priority
+     * What to draw on the button that goes back - normally the machine's own item.
      */
-    void setPriority(int newValue);
+    ItemStack getItemStackRepresentation();
 }

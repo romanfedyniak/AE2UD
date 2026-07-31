@@ -26,11 +26,15 @@ import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.Upgrades;
 import appeng.api.config.YesNo;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.gui.widgets.GuiImgButton;
+import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerIOBus;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
+import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartImportBus;
@@ -52,6 +56,7 @@ public class GuiIOBus extends GuiUpgradeable {
     private GuiImgButton clear;
     private GuiImgButton craftMode;
     private GuiImgButton schedulingMode;
+    private GuiTabButton keyTypes;
 
     public GuiIOBus(final InventoryPlayer inventoryPlayer, final PartSharedItemBus te) {
         super(new ContainerIOBus(inventoryPlayer, te));
@@ -71,6 +76,12 @@ public class GuiIOBus extends GuiUpgradeable {
         this.buttonList.add(this.redstoneMode);
         this.buttonList.add(this.fuzzyMode);
         this.buttonList.add(this.schedulingMode);
+
+        // Only the import bus has a say here: what an export bus moves is named in its filter.
+        if (this.bc instanceof KeyTypeSelectionHost) {
+            this.buttonList.add(this.keyTypes = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16,
+                    GuiText.ConfigureImportedTypes.getLocal(), this.itemRender));
+        }
     }
 
     @Override
@@ -120,6 +131,10 @@ public class GuiIOBus extends GuiUpgradeable {
 
         if (btn == this.clear) {
             NetworkHandler.instance().sendToServer(new PacketValueConfig("Filter.Clear", ""));
+        }
+
+        if (btn == this.keyTypes) {
+            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
         }
 
         if (btn == this.craftMode) {

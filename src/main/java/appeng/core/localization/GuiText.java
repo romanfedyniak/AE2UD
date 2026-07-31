@@ -50,6 +50,8 @@ public enum GuiText {
     ImportBusFluids,
     ExportBus,
     ExportBusFluids,
+    ConfigureImportedTypes,
+    ConfigureImportedTypesHint,
 
     CellWorkbench,
     NetworkDetails,
