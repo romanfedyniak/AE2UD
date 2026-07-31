@@ -1197,18 +1197,35 @@ field, so a screen is entirely in buckets or entirely in millibuckets, never a m
 the default — the buttons behave exactly as before, including the "first press replaces an untouched
 suggestion" rule, which used to be spelled `result == 1` and now reads a flag.
 
-Not done, deliberately: **`GuiLevelEmitter`**. It has its own field with two independent guards against a
-decimal point (`Character.isDigit` in `keyTyped`, and `GuiNumberBox` constructed with `Long.class`), it
-syncs the field's **text** to the server on every keystroke rather than on a confirm button, and it has
-two states with no key at all (`LevelType.ENERGY_LEVEL`, and an empty config slot). Its failure mode is
-also invisible — the field would read `1.5` while the wire carried `1` — so it wants its own play-test
-rather than a shared one. Open with it: `AEConfig.levelByMillibuckets` is dead (never read from the
-config, no caller) and describes a rejected approach; it should probably go.
+The shared half lives in `appeng.client.gui.AmountEntry`: the scale a key reads in, the two conversions,
+and the symbol drawing. It is static and stateless — a screen asks what scale it is in and converts.
 
-Also noticed in the play-test and queued behind the level emitter: **held keys do not repeat** in the
-amount screens. Holding a digit or backspace types once. 1.12 gates that on
-`Keyboard.enableRepeatEvents(true)`, which has to be turned on when the screen opens and back off when it
-closes — a screen that leaves it on changes how every screen after it behaves.
+Queued behind this: **held keys do not repeat** in the amount screens. Holding a digit or backspace types
+once. 1.12 gates that on `Keyboard.enableRepeatEvents(true)`, which has to be turned on when the screen
+opens and back off when it closes — a screen that leaves it on changes how every screen after it behaves.
+
+### The level emitter, second pass
+
+Same entry rules, but the screen is built differently and each difference had to be answered:
+
+- **Two guards blocked a decimal point.** `Character.isDigit` in `keyTyped`, and `GuiNumberBox` built with
+  `Long.class`, which reverts any text that will not parse. The box is `Double.class` now and the
+  character gate admits one `.`, only while the field reads in units.
+- **The threshold is sent on every keystroke, as the field's text.** It now sends a converted base-unit
+  number instead, so what the emitter stores never depends on what the screen is displaying. This also
+  retired the hand-rolled leading-zero stripping, which existed only because the raw string was going
+  into `Long.parseLong` — and which would have eaten the `0` in `0.5`.
+- **The server echoes that value straight back**, and the container used to write it into the text box
+  directly. Re-rendering on the echo wipes a half-typed `1.` before its decimals arrive, so the screen now
+  remembers what it sent and only writes back a value it did not cause. `ContainerLevelEmitter` lost its
+  `@SideOnly(Side.CLIENT)` text box, `setTextField` and `onUpdate` along with it: a container cannot format
+  an amount correctly, because only the client knows which unit is being displayed.
+- **Two states have no unit at all** — `LevelType.ENERGY_LEVEL`, and an empty filter slot. Both answer
+  null, which collapses to the base unit and hides the toggle.
+
+`AEConfig.levelByMillibuckets` was left alone. It is dead — never read from the config, no caller — and it
+describes the approach this work rejected, but `levelByMillyBuckets(int)` is public, and breaking a public
+method to delete four unused numbers is a bad trade.
 
 ## Standing rules that have already been broken in practice
 
