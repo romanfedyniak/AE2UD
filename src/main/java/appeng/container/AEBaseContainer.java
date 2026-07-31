@@ -1298,26 +1298,30 @@ public abstract class AEBaseContainer extends Container {
         ItemStack testA = isB.isEmpty() ? ItemStack.EMPTY : isB.copy();
         ItemStack testB = isA.isEmpty() ? ItemStack.EMPTY : isA.copy();
 
-        // can put some back?
-        if (!testA.isEmpty() && testA.getCount() > a.getSlotStackLimit()) {
+        // Only one of these applies: the remainder the first leaves goes back where it came from and needs
+        // no ceiling. getItemStackLimit, not getSlotStackLimit - a hotbar slot takes exactly one bucket.
+        boolean split = false;
+
+        if (!testA.isEmpty() && testA.getCount() > a.getItemStackLimit(testA)) {
             if (!testB.isEmpty()) {
                 return;
             }
 
             final int totalA = testA.getCount();
-            testA.setCount(a.getSlotStackLimit());
+            testA.setCount(a.getItemStackLimit(testA));
             testB = testA.copy();
 
             testB.setCount(totalA - testA.getCount());
+            split = true;
         }
 
-        if (!testB.isEmpty() && testB.getCount() > b.getSlotStackLimit()) {
+        if (!split && !testB.isEmpty() && testB.getCount() > b.getItemStackLimit(testB)) {
             if (!testA.isEmpty()) {
                 return;
             }
 
             final int totalB = testB.getCount();
-            testB.setCount(b.getSlotStackLimit());
+            testB.setCount(b.getItemStackLimit(testB));
             testA = testB.copy();
 
             testA.setCount(totalB - testA.getCount());

@@ -39,6 +39,7 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
+import appeng.core.sync.packets.PacketSwapSlots;
 import appeng.helpers.InventoryAction;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
@@ -649,9 +650,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected boolean checkHotbarKeys(final int keyCode) {
         final Slot theSlot = this.getSlotUnderMouse();
 
-        // A filter slot holds an identity, not a stack, so a hotbar key has nothing to swap with it. Left
-        // to vanilla it empties the filter instead, which is how a level emitter or a storage bus quietly
-        // stopped filtering.
+        // A filter holds an identity, not a stack: nothing to swap with, and vanilla would empty it.
         if (theSlot instanceof SlotFake) {
             return false;
         }
@@ -659,11 +658,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         if (this.mc.player.inventory.getItemStack().isEmpty() && theSlot != null) {
             for (int j = 0; j < 9; ++j) {
                 if (keyCode == this.mc.gameSettings.keyBindsHotbar[j].getKeyCode()) {
-                    // The player's own hotbar slot for this key. It used to be looked up by comparing
-                    // s.inventory to the player inventory, but every AppEngSlot reports one shared dummy
-                    // inventory, so that never matched: the guard below never ran, and neither did the
-                    // PacketSwapSlots branch that used to sit here - which is why a hotbar key could not
-                    // put an upgrade card into a slot whose limit was not exactly 64.
+                    // Found by class: every AppEngSlot reports the same dummy inventory, so comparing
+                    // s.inventory to the player's matches nothing.
+                    Slot hotbarSlot = null;
                     for (final Slot s : this.getInventorySlots()) {
                         if (s.getSlotIndex() != j) {
                             continue;
@@ -671,15 +668,25 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                         if (s instanceof SlotDisabled) {
                             return false;
                         }
-                        // Only refuse a hotbar slot whose contents are held back. An empty one has
-                        // nothing to give and still answers "cannot take", which is not a refusal -
-                        // taking *into* it is half of what this key is for.
-                        if (s instanceof SlotPlayerHotBar && s.getHasStack() && !s.canTakeStack(this.mc.player)) {
-                            return false;
+                        if (s instanceof SlotPlayerHotBar) {
+                            hotbarSlot = s;
+                            break;
                         }
                     }
 
-                    this.handleMouseClick(theSlot, theSlot.slotNumber, j, ClickType.SWAP);
+                    // getHasStack first: an empty slot also answers "cannot take", and taking into one is
+                    // half of what this key does.
+                    if (hotbarSlot != null && hotbarSlot.getHasStack() && !hotbarSlot.canTakeStack(this.mc.player)) {
+                        return false;
+                    }
+
+                    // Vanilla's swap would hand over the whole oversized stack; ours leaves the rest behind.
+                    final ItemStack inSlot = theSlot.getStack();
+                    if (hotbarSlot != null && inSlot.getCount() > inSlot.getMaxStackSize()) {
+                        NetworkHandler.instance().sendToServer(new PacketSwapSlots(hotbarSlot.slotNumber, theSlot.slotNumber));
+                    } else {
+                        this.handleMouseClick(theSlot, theSlot.slotNumber, j, ClickType.SWAP);
+                    }
                     return true;
                 }
             }
