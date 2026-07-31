@@ -9,6 +9,8 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+' # any semver tag, e.g. v1.2.3
+  # Lets a release be re-run against a tag that is already pushed, instead of deleting and re-pushing it.
+  workflow_dispatch:
 
 jobs:
   Publish:
