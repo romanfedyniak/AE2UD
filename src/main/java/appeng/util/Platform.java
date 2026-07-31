@@ -34,8 +34,10 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.MEStorage;
@@ -591,6 +593,15 @@ public class Platform {
 
         final String n = key.getModId();
         return n == null ? "** Null" : n;
+    }
+
+    /**
+     * Re-expresses a limit written in items as the same limit in {@code what}'s own units, by the ratio of
+     * their standard slot sizes. A config slot holding 512 items holds 32 buckets by the same arithmetic.
+     */
+    public static long scaleAmountFromItems(final long amountInItems, final AEKey what) {
+        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
+        return Math.max(1, amountInItems * GenericSlotCapacities.get(what) / standard);
     }
 
     public static String getItemDisplayName(final Object o) {

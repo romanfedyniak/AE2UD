@@ -8,10 +8,9 @@ and the play-testing are finished; `feature/generic-storage` is merged, and so i
 the merge" below. Read §9 of `CONTRACT.md` before calling into any of this — it is the class-by-class
 record of what each wave actually built, and the api it describes is the api that shipped.
 
-Two things are open and **neither is code we can write today**: registering AE2UD as an HEI
-`ISlotIngredientProvider`, which waits on a released HEI carrying the api, and the craftables cache in
-`CraftingGridCache`, which needs a frozen-api decision under §7. Both are described where they belong,
-below.
+One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
+`ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
+where it belongs, below.
 
 ## What this port is
 
@@ -175,13 +174,21 @@ Worth keeping as a pattern: **narrowing a condition is a deletion, and it needs 
 to cover" audit that deleting a class does.** The security station was the case in mind and it was fixed;
 the wireless terminal was collateral and nothing failed loudly enough to notice.
 
-**Step 3 was not done, and needs an owner decision first.** The saving only lands for a caller passing
-`AEKeyFilter.all()`, which is what the terminal passes, and there is no way to recognise that filter:
-`AEKeyFilter.all()` returns a fresh `what -> true` lambda per call, so an identity test against it is
-relying on unspecified JVM lambda caching. The two ways out are a shared constant or a no-argument
-`ICraftingGrid.getCraftables()` - both edits to the frozen api, which is §7's call - or an `instanceof
-CraftingGridCache` in the container, which is the concrete-type test §9.1b exists to warn against. Left
-alone rather than picking one silently. It is polish either way; upstream pays the same cost.
+**Step 3 is done too, 2026-07-31, once the owner chose the api.** It needed one, because the saving only
+lands for a caller passing `AEKeyFilter.all()` and there is no way to recognise that filter - `all()`
+returns a fresh `what -> true` lambda, so an identity test against it relies on unspecified JVM lambda
+caching. A no-argument `default ICraftingGrid.getCraftables()` was added instead; the reasoning, and the
+`AEKeyFilter.ALL` alternative that was rejected, are in CONTRACT.md §8.6.
+
+Two things worth carrying forward from doing it. The **real** saving turned out not to be the `HashSet`
+allocation but the diff that follows it: an immutable cached set lets the container skip its craftable diff
+by identity, so a tick where no player edited a pattern costs nothing at all instead of O(N). And the sweep
+turned up something bigger sitting beside it - `CraftingGridCache` had never overridden
+`default isCraftable(AEKey)`, so **a one-key question walked every pattern in the network**, with
+`DualityInterface` asking it per slot per update whenever an extraction came up short. That needed no api
+decision at all: the method was `default` precisely so an implementation could answer it directly.
+**A `default` written for correctness is not a `default` anyone measured** - worth a look wherever else the
+api leaves one in place.
 
 Nothing here changes behaviour a player can observe; it is purely how the same delta is computed.
 

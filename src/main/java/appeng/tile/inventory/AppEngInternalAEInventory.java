@@ -19,9 +19,7 @@
 package appeng.tile.inventory;
 
 
-import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.stacks.AEFluidKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -251,18 +249,11 @@ public class AppEngInternalAEInventory implements IItemHandlerModifiable, Iterab
     }
 
     /**
-     * The largest amount of {@code what} a slot of this inventory may be configured to.
-     * <p>
-     * {@code maxStack} is expressed in items, because that is all this class could hold when it was written.
-     * Scaling it by the key type's own standard slot size keeps one rule for every type: an ME Interface's
-     * config allows eight standard slots' worth, which is 512 items and - by the same arithmetic - 32 buckets.
+     * The largest amount of {@code what} a slot of this inventory may be configured to. {@code maxStack} is
+     * expressed in items, because that is all this class could hold when it was written.
      */
     public long getMaxAmount(final AEKey what) {
-        if (what == null) {
-            return this.maxStack;
-        }
-        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
-        return Math.max(1, this.maxStack * GenericSlotCapacities.get(what) / standard);
+        return what == null ? this.maxStack : Platform.scaleAmountFromItems(this.maxStack, what);
     }
 
     private void fireOnChangeInventory(int slot, InvOperation op, ItemStack removed, ItemStack inserted) {
