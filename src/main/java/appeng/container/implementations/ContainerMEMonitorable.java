@@ -39,7 +39,6 @@ import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
-import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
@@ -134,9 +133,10 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     /**
      * The last set of craftable keys sent to the client. A {@link AEKey} carries no craftable flag any more
-     * (CONTRACT.md §8.3) - the flag moved onto {@link ICraftingGrid#getCraftables(AEKeyFilter)}, which has no
-     * watcher of its own in either upstream or this fork, so it is always recomputed and diffed here every
-     * tick, independently of whether case 1 or case 2 is driving the amount half of the update.
+     * (CONTRACT.md §8.3) - the flag moved onto {@link ICraftingGrid#getCraftables()}, which has no watcher
+     * of its own in either upstream or this fork, so it is asked for every tick regardless of whether case 1
+     * or case 2 is driving the amount half of the update. Holding the reference is what makes the identity
+     * check in {@link #collectChanges()} work, so whatever is stored here must be immutable.
      */
     private Set<AEKey> previousCraftables = Collections.emptySet();
 
@@ -344,10 +344,17 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         final List<GridInventoryEntry> result = new ArrayList<>();
 
         final Set<AEKey> craftables = this.computeCraftables();
-        final Set<AEKey> newlyCraftable = new HashSet<>(craftables);
-        newlyCraftable.removeAll(this.previousCraftables);
-        final Set<AEKey> noLongerCraftable = new HashSet<>(this.previousCraftables);
-        noLongerCraftable.removeAll(craftables);
+        final Set<AEKey> newlyCraftable = new HashSet<>();
+        final Set<AEKey> noLongerCraftable = new HashSet<>();
+
+        // The same instance means no pattern changed since last tick, so there is no flag diff to compute.
+        // This is the common case: patterns change when a player edits them, availability changes constantly.
+        if (craftables != this.previousCraftables) {
+            newlyCraftable.addAll(craftables);
+            newlyCraftable.removeAll(this.previousCraftables);
+            noLongerCraftable.addAll(this.previousCraftables);
+            noLongerCraftable.removeAll(craftables);
+        }
 
         if (this.networkTerminalPart != null) {
             // Case 1: real push - only the keys the grid actually told us changed, via onStackChange.
@@ -404,7 +411,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         }
 
         final ICraftingGrid cc = this.networkNode.getGrid().getCache(ICraftingGrid.class);
-        return cc == null ? Collections.emptySet() : cc.getCraftables(AEKeyFilter.all());
+        return cc == null ? Collections.emptySet() : cc.getCraftables();
     }
 
     /**

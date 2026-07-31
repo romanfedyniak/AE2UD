@@ -716,6 +716,43 @@ entry, something amount `1` made inexpressible.
 Audited before changing: the only two callers of `GenericStack.unwrapItemStack` (`ApiClientHelper` and
 `ItemViewCell`) read `what()` and never the amount.
 
+## 8.6 Amendment after the follow-up sweep — no-argument `ICraftingGrid.getCraftables()`
+
+**This was a change to the frozen API. Approved by the owner 2026-07-31.**
+
+`ContainerMEMonitorable` asks for the craftable set **every tick, for every open terminal**, and diffs it
+against last tick's. §8.3 gave it only `getCraftables(AEKeyFilter)`, so every one of those calls allocated a
+fresh `HashSet` over every pattern output plus every emitable key, and the diff that followed was O(N)
+whether or not anything had changed. Patterns change when a player edits one; availability changes
+constantly. The two were being paid for at the same rate.
+
+Added:
+
+```java
+default Set<AEKey> getCraftables();
+```
+
+`default`, not abstract, so an addon's `ICraftingGrid` keeps compiling - it delegates to the filtered form.
+The contract that makes it worth having is stated on the method: an implementation returns an **immutable
+set and the same instance** for as long as patterns and emitters do not change, so a caller holding the
+previous answer recognises "unchanged" by identity. A different instance means only that the answer *may*
+have changed, which is why the delegating default is conservative rather than wrong.
+
+`CraftingGridCache` overrides it with a lazily built `ImmutableSet`, nulled at the two places that mutate
+`craftableItems`/`emitableItems`. `ContainerMEMonitorable` skips both diff sets when the reference is
+unchanged, and its `previousCraftables` javadoc now records why whatever it stores has to be immutable -
+the same aliasing hazard as `IStorageService.getCachedInventory()`.
+
+**Rejected alternative:** an `AEKeyFilter.ALL` constant plus an identity test inside `getCraftables(filter)`.
+Smaller api surface, but it would make the result's mutability depend on which filter was passed - shared
+for `ALL`, fresh for anything else - and the caller stores that reference. That is the trap, not a saving.
+
+**Found while doing it, and the larger half of the win:** `CraftingGridCache` never overrode
+`default isCraftable(AEKey)`, so a single-key question walked every pattern and built a set for the answer.
+Both collections are keyed by `AEKey`; it is a lookup. The hot caller is `DualityInterface`, which asks
+whenever an extraction comes up short - per slot, per update, exactly when a network is starved. No api
+change was needed for this one; the method was already `default` so that an implementation could do better.
+
 ## 9. Implementation class registry
 
 ### Wave 1a — `appeng.util` (done)

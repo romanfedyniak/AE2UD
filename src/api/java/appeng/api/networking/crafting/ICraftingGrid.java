@@ -111,6 +111,23 @@ public interface ICraftingGrid extends IGridCache
 	Set<AEKey> getCraftables( AEKeyFilter filter );
 
 	/**
+	 * The same set, unfiltered, and cheap to ask for repeatedly.
+	 *
+	 * An implementation should return an immutable set and keep handing back the <b>same instance</b> for
+	 * as long as nothing about the network's patterns or emitters changes. A caller holding the previous
+	 * answer can then recognise "nothing changed" by identity rather than diffing two sets every tick,
+	 * which is what an open terminal would otherwise do. A different instance only means the answer
+	 * <em>may</em> have changed, so the default below - which builds a fresh set each time - is merely
+	 * conservative, never wrong.
+	 *
+	 * @return an immutable set. Do not modify it, and do not assume it stays fixed once patterns change.
+	 */
+	default Set<AEKey> getCraftables()
+	{
+		return getCraftables( AEKeyFilter.all() );
+	}
+
+	/**
 	 * @return true if the network has a pattern producing this key.
 	 */
 	default boolean isCraftable( AEKey what )

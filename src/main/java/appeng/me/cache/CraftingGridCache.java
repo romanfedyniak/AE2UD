@@ -94,6 +94,8 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     private final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectOpenHashMap<>();
     private final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftableItems = new Object2ObjectOpenHashMap<>();
     private final Set<AEKey> emitableItems = new HashSet<>();
+    /** Nulled wherever the two collections above are mutated. See {@link #getCraftables()}. */
+    private Set<AEKey> craftablesCache;
     private final Map<String, CraftingLinkNexus> craftingLinks = new HashMap<>();
     private final Multimap<AEKey, CraftingWatcher> interests = HashMultimap.create();
     private final InterestManager<CraftingWatcher> interestManager = new InterestManager<>(this.interests);
@@ -277,6 +279,8 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             this.craftableItems.put(e.getKey(), ImmutableList.copyOf(e.getValue()));
         }
 
+        this.craftablesCache = null;
+
         // Figure out which keys flipped craftable-state (either via a pattern or an emitter) so
         // interested ICraftingWatcherHosts can be told, mirroring AE2-original's CraftingService
         // instead of pushing the change through the storage grid (removed, see contract §8.3).
@@ -371,6 +375,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     @Override
     public void setEmitable(final AEKey what) {
         this.emitableItems.add(what);
+        this.craftablesCache = null;
     }
 
     @Override
@@ -451,6 +456,31 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     @Override
     public boolean canEmitFor(final AEKey someItem) {
         return this.emitableItems.contains(someItem);
+    }
+
+    /**
+     * Both collections are keyed by {@link AEKey}, so one key is a lookup. The interface's default answers
+     * the same question by walking every pattern and building a set for it, which is what an interface with
+     * nothing in stock ends up doing per slot per update.
+     */
+    @Override
+    public boolean isCraftable(final AEKey what) {
+        return this.craftableItems.containsKey(what) || this.emitableItems.contains(what);
+    }
+
+    /**
+     * Held until the patterns change, so a terminal that asks every tick gets the same object back and can
+     * skip its craftable diff entirely. Immutable because callers keep the reference to compare against.
+     */
+    @Override
+    public Set<AEKey> getCraftables() {
+        if (this.craftablesCache == null) {
+            this.craftablesCache = ImmutableSet.<AEKey>builder()
+                    .addAll(this.craftableItems.keySet())
+                    .addAll(this.emitableItems)
+                    .build();
+        }
+        return this.craftablesCache;
     }
 
     @Override
