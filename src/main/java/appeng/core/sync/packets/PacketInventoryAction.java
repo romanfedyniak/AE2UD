@@ -193,6 +193,9 @@ public class PacketInventoryAction extends AppEngPacket {
                             cca.getCraftingItem().putStack(target.wrapForDisplayOrFilter());
                             // This is the *actual* item that matters, not the display item above
                             cca.setItemToCraft(target);
+                            // One unit of whatever was clicked: one item, one bucket. Set here rather than
+                            // in the container so a future caller can offer a different amount instead.
+                            cca.setInitialAmount(target.getDefaultCraftAmount());
                         }
 
                         cca.detectAndSendChanges();

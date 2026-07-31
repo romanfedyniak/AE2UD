@@ -87,6 +87,12 @@ public enum Settings
 
 	STICKY_MODE( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 
+	/**
+	 * Client-side only: whether amount entry fields read in a type's own units - buckets - rather than
+	 * its base unit. Never leaves the client; packets always carry the base unit.
+	 */
+	AMOUNT_ENTRY_UNITS( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
 	;
 
 	private final EnumSet<? extends Enum<?>> values;

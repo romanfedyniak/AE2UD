@@ -156,6 +156,10 @@ public abstract class AEKey {
         return this.getType().getUnitSymbol();
     }
 
+    public final long getDefaultCraftAmount() {
+        return this.getType().getDefaultCraftAmount();
+    }
+
     public final boolean supportsFuzzyRangeSearch() {
         return this.getType().supportsFuzzyRangeSearch();
     }

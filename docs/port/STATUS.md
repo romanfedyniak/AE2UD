@@ -1168,6 +1168,48 @@ Wave 5 confirmed the split holds for fluids: `ContainerFluidTerminal` got case 1
 `PartFluidTerminal extends AbstractPartTerminal`, and `ContainerMEPortableFluidCell` is case 2
 unconditionally, since an `IPortableCell` is never an `AbstractPartTerminal`.
 
+## Craft-amount defaults and unit entry (done, awaiting a play-test)
+
+Ordering a fluid craft started at `1` — one millibucket, never what anyone wants. The number was a
+literal in `GuiCraftAmount.initGui`, which is why it could not know what it was counting.
+
+`AEKeyType.getDefaultCraftAmount()` (CONTRACT §8.7) supplies it now, and `ContainerCraftAmount` carries it
+to the client in `@GuiSync(10) long initialAmount`. `GuiSetAmount` had already built that mechanism for
+itself; it now inherits it and its `drawBG`/`primed` override is gone.
+
+Three things were found on the way and are worth remembering:
+
+- **The same parse rule stood in three copies** in `GuiCraftAmount` — `drawBG`, `actionPerformed` and
+  `addQty` — each answering an unusable field differently (`0`, `1`, `0`), and the third narrowing to
+  `int`. They are one `parseAmount`/`formatAmount` pair now. Same shape as the six copies of the display
+  rule that the second audit axis found; the fix is deletion, again.
+- **Rounding order is load-bearing.** All three copies rounded to a whole number *before* anything could
+  scale it. In unit entry that turns one and a half buckets into two of them. `parseAmount` scales first
+  and rounds last, and returns a finished `long` so no caller can get the order wrong.
+- **`AEKeyFormatting` must not be used for an editable field.** Its `DecimalFormat("0.#")` is right for a
+  label and wrong here: 1001 mB renders "1B", and reading that back loses the millibucket. Unit entry
+  formats integrally instead — quotient, remainder, no `double` — and is only offered when the unit is a
+  power of ten, because that is exactly when the round trip is exact.
+
+`Settings.AMOUNT_ENTRY_UNITS` toggles it, client-side only: packets always carry the base unit, so two
+players on one server can disagree about the display and nothing diverges. The step buttons scale with the
+field, so a screen is entirely in buckets or entirely in millibuckets, never a mix. In the base unit —
+the default — the buttons behave exactly as before, including the "first press replaces an untouched
+suggestion" rule, which used to be spelled `result == 1` and now reads a flag.
+
+Not done, deliberately: **`GuiLevelEmitter`**. It has its own field with two independent guards against a
+decimal point (`Character.isDigit` in `keyTyped`, and `GuiNumberBox` constructed with `Long.class`), it
+syncs the field's **text** to the server on every keystroke rather than on a confirm button, and it has
+two states with no key at all (`LevelType.ENERGY_LEVEL`, and an empty config slot). Its failure mode is
+also invisible — the field would read `1.5` while the wire carried `1` — so it wants its own play-test
+rather than a shared one. Open with it: `AEConfig.levelByMillibuckets` is dead (never read from the
+config, no caller) and describes a rejected approach; it should probably go.
+
+Also noticed in the play-test and queued behind the level emitter: **held keys do not repeat** in the
+amount screens. Holding a digit or backspace types once. 1.12 gates that on
+`Keyboard.enableRepeatEvents(true)`, which has to be turned on when the screen opens and back off when it
+closes — a screen that leaves it on changes how every screen after it behaves.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
@@ -1190,7 +1232,8 @@ Every remaining wave must check this. Note the inverse also exists and is correc
 
 ## Amendments made to the frozen API
 
-Post-freeze edits to §1-§4 are the owner's call (§7). Three have been made and approved:
+Post-freeze edits to §1-§4 are the owner's call (§7). Five have been approved, plus §8.5
+(`wrapForDisplayOrFilter()` wraps with amount 0), which still awaits review:
 
 1. **§8.3** — `ICraftingGrid.getCraftables(AEKeyFilter)` + `default isCraftable(AEKey)`. Keys carry no
    craftable flag, so the crafting grid answers instead. Mirrors upstream verbatim; additive.
@@ -1201,6 +1244,11 @@ Post-freeze edits to §1-§4 are the owner's call (§7). Three have been made an
 3. **§8.4** — `PickupStrategy.Factory` now carries `Map<Enchantment, Integer>` instead of
    `int fortuneLevel, boolean silkTouch`. AE2UD's annihilation-plane energy formula also reads Efficiency
    and Unbreaking, which the upstream-shaped signature could not carry.
+4. **§8.6** — no-argument `default ICraftingGrid.getCraftables()`, so the per-tick terminal diff can
+   recognise "nothing changed" by identity instead of rebuilding the set.
+5. **§8.7** — `default AEKeyType.getDefaultCraftAmount()`. Same behaviour as upstream, which passes
+   `getAmountPerUnit()` at the call site; named here so a type can separate its display unit from its
+   typical order.
 
 ## How the waves are executed
 

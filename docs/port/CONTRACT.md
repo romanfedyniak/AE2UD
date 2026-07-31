@@ -753,6 +753,38 @@ Both collections are keyed by `AEKey`; it is a lookup. The hot caller is `Dualit
 whenever an extraction comes up short - per slot, per update, exactly when a network is starved. No api
 change was needed for this one; the method was already `default` so that an implementation could do better.
 
+## 8.7 Amendment — `AEKeyType.getDefaultCraftAmount()`
+
+**This was a change to the frozen API. Approved by the owner 2026-07-31.**
+
+Ordering a fluid craft offered `1` — one millibucket. The number was a literal in
+`GuiCraftAmount.initGui`, so it could not know what it was counting.
+
+Added:
+
+```java
+default long getDefaultCraftAmount();   // returns getAmountPerUnit()
+```
+
+Behaviour matches upstream exactly: `MEStorageMenu` and `ConversionMonitorPart` pass
+`clickedKey.getAmountPerUnit()` when they open the screen. What differs is only that the policy has a
+name here instead of being a call-site coincidence, which is what lets a type separate the two. The
+motivating case is energy — upstream's own `NumberEntryType.ENERGY` has `amountPerUnit = 1`, yet nobody
+orders energy in single AE. Neither `AEItemKeyType` nor `AEFluidKeyType` overrides it.
+
+**Why the default is `getAmountPerUnit()` and not `1`.** With `1`, a type that declares a display unit
+and forgets this method offers a thousandth of one — the very defect being fixed, silently, as the
+default path for everything written later. A method you must override to avoid a bug is a trap, not an
+extension point; overriding should buy something *different*, not something *working*.
+
+**Why the screen carries the amount over `@GuiSync` and not in the display slot.** Upstream packs it
+into the slot via `GenericStack.wrapInItemStack(what, initialAmount)` with `setHideAmount(true)`. That
+cannot work here: for an `AEItemKey` our wrapper returns a real `ItemStack`, whose `Count` 1.12
+serialises as a **byte**. A starting amount of 1000 items would not survive the trip.
+`ContainerCraftAmount` gets `@GuiSync(10) long initialAmount`, filled at the single place that opens
+`GUI_CRAFTING_AMOUNT` (`PacketInventoryAction`), which leaves room for a caller to offer something other
+than the type's suggestion — upstream's "craft the missing amount" works exactly that way.
+
 ## 9. Implementation class registry
 
 ### Wave 1a — `appeng.util` (done)

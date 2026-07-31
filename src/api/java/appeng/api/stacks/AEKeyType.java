@@ -143,6 +143,18 @@ public abstract class AEKeyType extends IForgeRegistryEntry.Impl<AEKeyType> {
         return "";
     }
 
+    /**
+     * How much of this type a craft-amount screen offers to order before the player types anything.
+     * One displayed unit: a single item, a single bucket.
+     * <p>
+     * Not present in upstream AE2, which passes {@link #getAmountPerUnit()} at the point the screen is
+     * opened. Named here so a type whose display unit and typical order differ can say so - energy is
+     * counted one AE at a time but nobody orders less than a few thousand.
+     */
+    public long getDefaultCraftAmount() {
+        return this.getAmountPerUnit();
+    }
+
     public final String formatAmount(long amount, AmountFormat format) {
         return AEKeyFormatting.format(amount, this.getAmountPerUnit(), this.getUnitSymbol(), format);
     }
