@@ -513,6 +513,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 return;
             }
 
+            // Same middle click as a filter slot on the interface's own screen. These slots are that very
+            // config inventory, reached remotely, so the amount means the same thing here.
+            if (mouseButton == 2 && slot.getHasStack()) {
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SET_AMOUNT,
+                        slot.getSlotIndex(), ((SlotDisconnected) slot).getSlot().getId()));
+                return;
+            }
+
             InventoryAction action = null;
 
             switch (clickType) {

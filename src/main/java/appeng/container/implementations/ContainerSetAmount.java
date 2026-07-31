@@ -27,6 +27,7 @@ import appeng.core.sync.GuiBridge;
 import appeng.tile.inventory.AppEngInternalInventory;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 
@@ -41,6 +42,16 @@ public class ContainerSetAmount extends AEBaseContainer {
     private final Slot slotDisplay;
 
     private int originSlot = -1;
+    /**
+     * The inventory to write into, for an origin screen whose slots are not this container's.
+     * <p>
+     * The interface configuration terminal edits interfaces elsewhere on the network and addresses them by
+     * an id its container mints per session, so returning to it builds a new container that hands the same
+     * interfaces different ids. The inventory itself is owned by the interface and outlives both screens,
+     * which makes it the only stable way to name the target.
+     */
+    @Nullable
+    private IItemHandler originInventory;
     @Nullable
     private AEKey what;
     @Nullable
@@ -60,8 +71,13 @@ public class ContainerSetAmount extends AEBaseContainer {
     }
 
     public void setOrigin(final GuiBridge originGui, final int slot, final AEKey what, final long amount, final long max) {
+        this.setOrigin(originGui, slot, null, what, amount, max);
+    }
+
+    public void setOrigin(final GuiBridge originGui, final int slot, @Nullable final IItemHandler inventory, final AEKey what, final long amount, final long max) {
         this.originGui = originGui;
         this.originSlot = slot;
+        this.originInventory = inventory;
         this.what = what;
         this.initialAmount = amount;
         this.maxAmount = max;
@@ -70,6 +86,11 @@ public class ContainerSetAmount extends AEBaseContainer {
 
     public int getOriginSlot() {
         return this.originSlot;
+    }
+
+    @Nullable
+    public IItemHandler getOriginInventory() {
+        return this.originInventory;
     }
 
     @Nullable
