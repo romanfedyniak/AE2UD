@@ -35,8 +35,6 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
-import appeng.parts.automation.PartExportBus;
-import appeng.parts.automation.PartImportBus;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -47,25 +45,20 @@ import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.awt.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.*;
 
 
-public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
+public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
     protected final Map<Target<?>, Object> mapTargetSlot = new HashMap<>();
     protected final ContainerUpgradeable cvb;
     protected final IUpgradeableHost bc;
 
     protected GuiImgButton redstoneMode;
     protected GuiImgButton fuzzyMode;
-    protected GuiImgButton craftMode;
-    protected GuiImgButton schedulingMode;
-
-    public GuiUpgradeable(final InventoryPlayer inventoryPlayer, final IUpgradeableHost te) {
-        this(new ContainerUpgradeable(inventoryPlayer, te));
-    }
 
     public GuiUpgradeable(final ContainerUpgradeable te) {
         super(te);
@@ -99,21 +92,14 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         return exclusionArea;
     }
 
-    protected void addButtons() {
-        this.redstoneMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
-        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
-        this.craftMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.CRAFT_ONLY, YesNo.NO);
-        this.schedulingMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.SCHEDULING_MODE, SchedulingMode.DEFAULT);
-
-        this.buttonList.add(this.craftMode);
-        this.buttonList.add(this.redstoneMode);
-        this.buttonList.add(this.fuzzyMode);
-        this.buttonList.add(this.schedulingMode);
-    }
+    protected abstract void addButtons();
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.fontRenderer.drawString(this.getGuiDisplayName(this.getName().getLocal()), 8, 6, 4210752);
+        final GuiText name = this.getName();
+        if (name != null) {
+            this.fontRenderer.drawString(this.getGuiDisplayName(name.getLocal()), 8, 6, 4210752);
+        }
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
 
         if (this.redstoneMode != null) {
@@ -122,14 +108,6 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
 
         if (this.fuzzyMode != null) {
             this.fuzzyMode.set(this.cvb.getFuzzyMode());
-        }
-
-        if (this.craftMode != null) {
-            this.craftMode.set(this.cvb.getCraftingMode());
-        }
-
-        if (this.schedulingMode != null) {
-            this.schedulingMode.set(this.cvb.getSchedulingMode());
         }
     }
 
@@ -154,24 +132,21 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
         if (this.fuzzyMode != null) {
             this.fuzzyMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.FUZZY) > 0);
         }
-        if (this.craftMode != null) {
-            this.craftMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CRAFTING) > 0);
-        }
-        if (this.schedulingMode != null) {
-            this.schedulingMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CAPACITY) > 0 && this.bc instanceof PartExportBus);
-        }
     }
 
-    protected String getBackground() {
-        return "guis/bus.png";
-    }
+    protected abstract String getBackground();
 
     protected boolean drawUpgrades() {
         return true;
     }
 
+    /**
+     * The title drawn at the top left, or null for a screen that draws its own header. There is no
+     * name shared by every upgradeable screen, so this base has none.
+     */
+    @Nullable
     protected GuiText getName() {
-        return this.bc instanceof PartImportBus ? GuiText.ImportBus : GuiText.ExportBus;
+        return null;
     }
 
     @Override
@@ -184,16 +159,8 @@ public class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngredients {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.redstoneMode.getSetting(), backwards));
         }
 
-        if (btn == this.craftMode) {
-            NetworkHandler.instance().sendToServer(new PacketConfigButton(this.craftMode.getSetting(), backwards));
-        }
-
         if (btn == this.fuzzyMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.fuzzyMode.getSetting(), backwards));
-        }
-
-        if (btn == this.schedulingMode) {
-            NetworkHandler.instance().sendToServer(new PacketConfigButton(this.schedulingMode.getSetting(), backwards));
         }
     }
 

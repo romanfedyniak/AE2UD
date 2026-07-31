@@ -29,7 +29,6 @@ import appeng.container.guisync.GuiSync;
 import appeng.container.slot.*;
 import appeng.items.contents.NetworkToolViewer;
 import appeng.items.tools.ToolNetworkTool;
-import appeng.parts.automation.PartExportBus;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IInventory;
@@ -40,17 +39,13 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 
-public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost {
+public abstract class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost {
 
     private final IUpgradeableHost upgradeable;
     @GuiSync(0)
     public RedstoneMode rsMode = RedstoneMode.IGNORE;
     @GuiSync(1)
     public FuzzyMode fzMode = FuzzyMode.IGNORE_ALL;
-    @GuiSync(5)
-    public YesNo cMode = YesNo.NO;
-    @GuiSync(6)
-    public SchedulingMode schedulingMode = SchedulingMode.DEFAULT;
     private int tbSlot;
     private NetworkToolViewer tbInventory;
 
@@ -112,26 +107,7 @@ public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSl
         return 184;
     }
 
-    protected void setupConfig() {
-        this.setupUpgrades();
-
-        final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
-        final int y = 40;
-        final int x = 80;
-        this.addSlotToContainer(new SlotFakeTypeOnly(inv, 0, x, y));
-
-        if (this.supportCapacity()) {
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 1, x, y, -1, 0, 1));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 2, x, y, 1, 0, 1));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 3, x, y, 0, -1, 1));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 4, x, y, 0, 1, 1));
-
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 5, x, y, -1, -1, 2));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 6, x, y, 1, -1, 2));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 7, x, y, -1, 1, 2));
-            this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 8, x, y, 1, 1, 2));
-        }
-    }
+    protected abstract void setupConfig();
 
     protected void setupUpgrades() {
         final IItemHandler upgrades = this.getUpgradeable().getInventoryByName("upgrades");
@@ -155,10 +131,6 @@ public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSl
                     (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 3, 187, 8 + 18 * 3, this.getInventoryPlayer()))
                             .setNotDraggable());
         }
-    }
-
-    protected boolean supportCapacity() {
-        return true;
     }
 
     public int availableUpgrades() {
@@ -191,10 +163,6 @@ public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSl
     protected void loadSettingsFromHost(final IConfigManager cm) {
         this.setFuzzyMode((FuzzyMode) cm.getSetting(Settings.FUZZY_MODE));
         this.setRedStoneMode((RedstoneMode) cm.getSetting(Settings.REDSTONE_CONTROLLED));
-        if (this.getUpgradeable() instanceof PartExportBus) {
-            this.setCraftingMode((YesNo) cm.getSetting(Settings.CRAFT_ONLY));
-            this.setSchedulingMode((SchedulingMode) cm.getSetting(Settings.SCHEDULING_MODE));
-        }
     }
 
     protected void checkToolbox() {
@@ -219,14 +187,12 @@ public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSl
         super.detectAndSendChanges();
     }
 
+    /**
+     * No optional slots unless a subclass lays some out.
+     */
     @Override
     public boolean isSlotEnabled(final int idx) {
-        final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
-
-        if (idx == 1 && upgrades > 0) {
-            return true;
-        }
-        return idx == 2 && upgrades > 1;
+        return false;
     }
 
     public FuzzyMode getFuzzyMode() {
@@ -237,28 +203,12 @@ public class ContainerUpgradeable extends AEBaseContainer implements IOptionalSl
         this.fzMode = fzMode;
     }
 
-    public YesNo getCraftingMode() {
-        return this.cMode;
-    }
-
-    public void setCraftingMode(final YesNo cMode) {
-        this.cMode = cMode;
-    }
-
     public RedstoneMode getRedStoneMode() {
         return this.rsMode;
     }
 
     public void setRedStoneMode(final RedstoneMode rsMode) {
         this.rsMode = rsMode;
-    }
-
-    public SchedulingMode getSchedulingMode() {
-        return this.schedulingMode;
-    }
-
-    private void setSchedulingMode(final SchedulingMode schedulingMode) {
-        this.schedulingMode = schedulingMode;
     }
 
     protected IUpgradeableHost getUpgradeable() {

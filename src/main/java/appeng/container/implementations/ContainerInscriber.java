@@ -84,11 +84,6 @@ public class ContainerInscriber extends ContainerUpgradeable implements IProgres
     }
 
     @Override
-    protected boolean supportCapacity() {
-        return false;
-    }
-
-    @Override
     public int availableUpgrades() {
         return 3;
     }

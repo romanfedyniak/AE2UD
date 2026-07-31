@@ -166,7 +166,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
 
         if (this.craftingMode != null) {
-            this.craftingMode.set(this.cvb.getCraftingMode());
+            this.craftingMode.set(((ContainerLevelEmitter) this.cvb).getCraftingMode());
         }
 
         if (this.levelMode != null) {
