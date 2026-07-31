@@ -320,10 +320,13 @@ tasks.withType(ScalaCompile).configureEach {
 
 // Configure Minecraft
 
-// Try to gather mod version from git tags if version is not manually specified
+// Try to gather mod version from git tags if version is not manually specified.
+// Release tags are `v1.0.0`, which is what publish.yml matches, but the mod version has to stay numeric:
+// a leading `v` reads as a Maven qualifier and sorts below every number, so a dependency range like
+// [1.0,) would reject the very build it was written for.
 if (!modVersion) {
     try {
-        modVersion = gitVersion()
+        modVersion = gitVersion() - ~/^v/
     } catch (Exception ignored) {
         out.style(Style.Failure).text(
                 "Mod version could not be determined! Property 'modVersion' is not set, and either git is not installed or no git tags exist.\n" +
