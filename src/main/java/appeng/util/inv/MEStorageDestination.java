@@ -25,11 +25,17 @@ import appeng.api.storage.MEStorage;
 import net.minecraft.item.ItemStack;
 
 
-public class IMEInventoryDestination implements IInventoryDestination {
+/**
+ * Answers "would the network take this?" for {@link appeng.util.InventoryAdaptor}, so a pull from a
+ * neighbouring inventory can be skipped when the destination is full.
+ * <p>
+ * Nothing in the mod calls it, and nothing did before the port either - it is kept for addons.
+ */
+public class MEStorageDestination implements IInventoryDestination {
 
     private final MEStorage me;
 
-    public IMEInventoryDestination(final MEStorage o) {
+    public MEStorageDestination(final MEStorage o) {
         this.me = o;
     }
 
