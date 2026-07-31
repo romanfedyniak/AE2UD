@@ -21,7 +21,6 @@ package appeng.container;
 
 import appeng.api.AEApi;
 import appeng.api.behaviors.ContainerItemStrategies;
-import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
@@ -37,7 +36,6 @@ import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
@@ -1013,19 +1011,12 @@ public abstract class AEBaseContainer extends Container {
     /**
      * The ceiling for an amount typed into a fake slot, in the key's own units.
      * <p>
-     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports - so it is
-     * scaled by the key type's standard slot size to mean the same thing for any type. An ME Interface's
-     * config allows 512 items and, by the same arithmetic, 32 buckets. A filter slot has a limit of one and
-     * therefore no meaningful ceiling, so those are left unbounded.
+     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports. A filter slot
+     * has a limit of one and therefore no meaningful ceiling, so those are left unbounded.
      */
     public long maxAmountIn(final Slot s, final AEKey what) {
         final int slotLimit = s.getSlotStackLimit();
-        if (slotLimit <= 1) {
-            return Long.MAX_VALUE;
-        }
-
-        final long standard = Math.max(1, GenericSlotCapacities.get(AEKeyType.items()));
-        return Math.max(1, slotLimit * GenericSlotCapacities.get(what) / standard);
+        return slotLimit <= 1 ? Long.MAX_VALUE : Platform.scaleAmountFromItems(slotLimit, what);
     }
 
     /**
