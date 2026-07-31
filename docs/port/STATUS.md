@@ -65,8 +65,9 @@ now answerable rather than a matter of opinion.
 reobfuscated jar builds. The migration phase is over; what is left is play-testing and the follow-up work
 listed below, not porting.
 
-The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. One class is merely
-*named* `IMEInventoryDestination` and matches the scan pattern by accident; it is not work.
+The deleted-symbol scan over the whole of `src/main/java/appeng` returns nothing. Three classes used to
+match it by name alone, their `I` prefixes naming the deleted `IMEInventory` rather than an interface; they
+are `MEStorageAdaptor`, `MEStorageAdaptorIterator` and `MEStorageDestination` now.
 
 **All seven waves are committed, the post-v1 `appeng.fluids` decomposition is finished, and every entry in
 the `CONTRACT.md` §10 "at-risk features" inventory has been walked in game.** The last two - P2P tunnels

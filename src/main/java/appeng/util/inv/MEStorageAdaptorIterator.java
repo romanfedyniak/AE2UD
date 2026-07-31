@@ -28,16 +28,16 @@ import net.minecraft.item.ItemStack;
 import java.util.Iterator;
 
 
-public final class IMEAdaptorIterator implements Iterator<ItemSlot> {
+public final class MEStorageAdaptorIterator implements Iterator<ItemSlot> {
     private final Iterator<Object2LongMap.Entry<AEKey>> stack;
     private final ItemSlot slot = new ItemSlot();
-    private final IMEAdaptor parent;
+    private final MEStorageAdaptor parent;
     private final int containerSize;
 
     private int offset = 0;
     private boolean hasNext;
 
-    public IMEAdaptorIterator(final IMEAdaptor parent, final KeyCounter availableItems) {
+    public MEStorageAdaptorIterator(final MEStorageAdaptor parent, final KeyCounter availableItems) {
         this.stack = availableItems.iterator();
         this.containerSize = parent.getMaxSlots();
         this.parent = parent;
