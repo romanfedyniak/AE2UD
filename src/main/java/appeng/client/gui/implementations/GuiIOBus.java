@@ -44,6 +44,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -52,6 +54,10 @@ import java.io.IOException;
  * @see ContainerIOBus
  */
 public class GuiIOBus extends GuiUpgradeable {
+
+    private static final int SPACING = 20;
+
+    private final List<GuiImgButton> column = new ArrayList<>();
 
     private GuiImgButton clear;
     private GuiImgButton craftMode;
@@ -66,16 +72,20 @@ public class GuiIOBus extends GuiUpgradeable {
     @Override
     protected void addButtons() {
         this.clear = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS, ActionItems.CLOSE);
-        this.redstoneMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
-        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
-        this.craftMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.CRAFT_ONLY, YesNo.NO);
-        this.schedulingMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 88, Settings.SCHEDULING_MODE, SchedulingMode.DEFAULT);
+        this.schedulingMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.SCHEDULING_MODE, SchedulingMode.DEFAULT);
+        this.redstoneMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
+        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.craftMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.CRAFT_ONLY, YesNo.NO);
 
-        this.buttonList.add(this.clear);
-        this.buttonList.add(this.craftMode);
-        this.buttonList.add(this.redstoneMode);
-        this.buttonList.add(this.fuzzyMode);
-        this.buttonList.add(this.schedulingMode);
+        // This order is the layout: the column is packed top-down from it, skipping whatever is hidden.
+        this.column.clear();
+        this.column.add(this.clear);
+        this.column.add(this.schedulingMode);
+        this.column.add(this.redstoneMode);
+        this.column.add(this.fuzzyMode);
+        this.column.add(this.craftMode);
+
+        this.buttonList.addAll(this.column);
 
         // Only the import bus has a say here: what an export bus moves is named in its filter.
         if (this.bc instanceof KeyTypeSelectionHost) {
@@ -110,6 +120,23 @@ public class GuiIOBus extends GuiUpgradeable {
             // No capacity card in the condition: it used to stand in for "this bus has more than one
             // slot", which stopped being true once two rows are free.
             this.schedulingMode.setVisibility(this.bc instanceof PartExportBus);
+        }
+
+        this.layoutColumn();
+    }
+
+    /**
+     * Packs the visible buttons down the left column with no gaps, the way upstream's
+     * {@code VerticalButtonBar} does. Runs every frame because a card can appear or leave at any moment.
+     */
+    private void layoutColumn() {
+        int y = this.guiTop + 8;
+        for (final GuiImgButton button : this.column) {
+            if (!button.isVisible()) {
+                continue;
+            }
+            button.y = y;
+            y += SPACING;
         }
     }
 
