@@ -25,12 +25,9 @@ import appeng.api.config.Upgrades;
 import appeng.api.config.YesNo;
 import appeng.api.util.IConfigManager;
 import appeng.container.guisync.GuiSync;
-import appeng.container.slot.OptionalSlotFakeTypeOnly;
-import appeng.container.slot.SlotFakeTypeOnly;
 import appeng.parts.automation.PartExportBus;
 import appeng.parts.automation.PartSharedItemBus;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraftforge.items.IItemHandler;
 
 
 /**
@@ -53,33 +50,24 @@ public class ContainerIOBus extends ContainerUpgradeable {
     }
 
     @Override
+    protected int getHeight() {
+        return 251;
+    }
+
+    @Override
     protected void setupConfig() {
+        this.setupExpandableConfig(2, 9, 5);
         this.setupUpgrades();
+    }
 
-        final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
-        final int y = 40;
-        final int x = 80;
-        this.addSlotToContainer(new SlotFakeTypeOnly(inv, 0, x, y));
-
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 1, x, y, -1, 0, 1));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 2, x, y, 1, 0, 1));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 3, x, y, 0, -1, 1));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 4, x, y, 0, 1, 1));
-
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 5, x, y, -1, -1, 2));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 6, x, y, 1, -1, 2));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 7, x, y, -1, 1, 2));
-        this.addSlotToContainer(new OptionalSlotFakeTypeOnly(inv, this, 8, x, y, 1, 1, 2));
+    @Override
+    public int availableUpgrades() {
+        return 5;
     }
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
-
-        if (idx == 1 && upgrades > 0) {
-            return true;
-        }
-        return idx == 2 && upgrades > 1;
+        return this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY) > idx;
     }
 
     @Override

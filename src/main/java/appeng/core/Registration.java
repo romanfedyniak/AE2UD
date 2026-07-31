@@ -373,7 +373,7 @@ final class Registration {
         // Import Bus
         Upgrades.FUZZY.registerItem(parts.importBus(), 1);
         Upgrades.REDSTONE.registerItem(parts.importBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.importBus(), 2);
+        Upgrades.CAPACITY.registerItem(parts.importBus(), 5);
         Upgrades.SPEED.registerItem(parts.importBus(), 4);
 
         // Fluid Import Bus
@@ -381,7 +381,7 @@ final class Registration {
         // Export Bus
         Upgrades.FUZZY.registerItem(parts.exportBus(), 1);
         Upgrades.REDSTONE.registerItem(parts.exportBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.exportBus(), 2);
+        Upgrades.CAPACITY.registerItem(parts.exportBus(), 5);
         Upgrades.SPEED.registerItem(parts.exportBus(), 4);
         Upgrades.CRAFTING.registerItem(parts.exportBus(), 1);
 

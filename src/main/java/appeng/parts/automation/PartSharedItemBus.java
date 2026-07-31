@@ -36,11 +36,16 @@ import net.minecraftforge.items.IItemHandler;
 
 public abstract class PartSharedItemBus extends PartUpgradeable implements IGridTickable {
 
-    private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, 9);
+    private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, 63);
     private boolean lastRedstone = false;
 
     public PartSharedItemBus(final ItemStack is) {
         super(is);
+    }
+
+    @Override
+    protected int getUpgradeSlots() {
+        return 5;
     }
 
     @Override
@@ -97,8 +102,11 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
         return null;
     }
 
+    /**
+     * Two rows of the filter are always live, and each capacity card adds one more.
+     */
     protected int availableSlots() {
-        return Math.min(1 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 4, this.getConfig().getSlots());
+        return Math.min(18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9, this.getConfig().getSlots());
     }
 
     protected int calculateItemsToSend() {

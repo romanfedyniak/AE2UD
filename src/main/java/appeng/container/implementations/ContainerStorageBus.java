@@ -22,9 +22,6 @@ package appeng.container.implementations;
 import appeng.api.config.*;
 import appeng.api.stacks.AEKey;
 import appeng.container.guisync.GuiSync;
-import appeng.container.slot.OptionalSlotFakeTypeOnly;
-import appeng.container.slot.SlotFakeTypeOnly;
-import appeng.container.slot.SlotRestrictedInput;
 import appeng.me.storage.MEInventoryHandler;
 import appeng.parts.misc.PartStorageBus;
 import appeng.util.Platform;
@@ -62,35 +59,8 @@ public class ContainerStorageBus extends ContainerUpgradeable {
 
     @Override
     protected void setupConfig() {
-        final int xo = 8;
-        final int yo = 23 + 6;
-
-        final IItemHandler config = this.getUpgradeable().getInventoryByName("config");
-        for (int y = 0; y < 7; y++) {
-            for (int x = 0; x < 9; x++) {
-                if (y < 2) {
-                    this.addSlotToContainer(new SlotFakeTypeOnly(config, y * 9 + x, xo + x * 18, yo + y * 18));
-                } else {
-                    this.addSlotToContainer(new OptionalSlotFakeTypeOnly(config, this, y * 9 + x, xo, yo, x, y, y - 2));
-                }
-            }
-        }
-
-        final IItemHandler upgrades = this.getUpgradeable().getInventoryByName("upgrades");
-        this.addSlotToContainer((new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 0, 187, 8, this.getInventoryPlayer()))
-                .setNotDraggable());
-        this.addSlotToContainer(
-                (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 1, 187, 8 + 18, this.getInventoryPlayer()))
-                        .setNotDraggable());
-        this.addSlotToContainer(
-                (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 2, 187, 8 + 18 * 2, this.getInventoryPlayer()))
-                        .setNotDraggable());
-        this.addSlotToContainer(
-                (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 3, 187, 8 + 18 * 3, this.getInventoryPlayer()))
-                        .setNotDraggable());
-        this.addSlotToContainer(
-                (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 4, 187, 8 + 18 * 4, this.getInventoryPlayer()))
-                        .setNotDraggable());
+        this.setupExpandableConfig(2, 9, 5);
+        this.setupUpgrades();
     }
 
     @Override

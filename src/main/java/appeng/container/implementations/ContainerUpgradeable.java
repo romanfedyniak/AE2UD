@@ -111,25 +111,32 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
 
     protected void setupUpgrades() {
         final IItemHandler upgrades = this.getUpgradeable().getInventoryByName("upgrades");
-        if (this.availableUpgrades() > 0) {
+        for (int i = 0; i < this.availableUpgrades(); i++) {
             this.addSlotToContainer(
-                    (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 0, 187, 8, this.getInventoryPlayer()))
+                    (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, i, 187, 8 + 18 * i, this.getInventoryPlayer()))
                             .setNotDraggable());
         }
-        if (this.availableUpgrades() > 1) {
-            this.addSlotToContainer(
-                    (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 1, 187, 8 + 18, this.getInventoryPlayer()))
-                            .setNotDraggable());
-        }
-        if (this.availableUpgrades() > 2) {
-            this.addSlotToContainer(
-                    (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 2, 187, 8 + 18 * 2, this.getInventoryPlayer()))
-                            .setNotDraggable());
-        }
-        if (this.availableUpgrades() > 3) {
-            this.addSlotToContainer(
-                    (new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, 3, 187, 8 + 18 * 3, this.getInventoryPlayer()))
-                            .setNotDraggable());
+    }
+
+    /**
+     * The filter grid upstream builds with {@code addExpandableConfigSlots}: {@code rows} rows of
+     * {@code cols} slots always visible, then {@code optionalRows} more, each unlocked by one further
+     * capacity card through {@link #isSlotEnabled(int)}.
+     */
+    protected void setupExpandableConfig(final int rows, final int cols, final int optionalRows) {
+        final int xo = 8;
+        final int yo = 23 + 6;
+
+        final IItemHandler config = this.getUpgradeable().getInventoryByName("config");
+        for (int y = 0; y < rows + optionalRows; y++) {
+            for (int x = 0; x < cols; x++) {
+                final int idx = y * cols + x;
+                if (y < rows) {
+                    this.addSlotToContainer(new SlotFakeTypeOnly(config, idx, xo + x * 18, yo + y * 18));
+                } else {
+                    this.addSlotToContainer(new OptionalSlotFakeTypeOnly(config, this, idx, xo, yo, x, y, y - rows));
+                }
+            }
         }
     }
 
