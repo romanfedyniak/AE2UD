@@ -44,7 +44,6 @@ import java.util.stream.Stream;
 public final class AEConfig extends Configuration implements IConfigurableObject, IConfigManagerHost {
 
     public static final String VERSION = appeng.Tags.VERSION;
-    public static final String CHANNEL = appeng.Tags.AECHANNEL;
     public static final String PACKET_CHANNEL = "AE";
     // Tunnels
     public static final double TUNNEL_POWER_LOSS = 0.05;
