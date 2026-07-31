@@ -89,11 +89,6 @@ public class ContainerStorageBus extends ContainerUpgradeable {
         return upgrades > idx;
     }
 
-    public void clear() {
-        ItemHandlerUtil.clear(this.getUpgradeable().getInventoryByName("config"));
-        this.detectAndSendChanges();
-    }
-
     public void partition() {
         final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
 

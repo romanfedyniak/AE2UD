@@ -561,6 +561,12 @@ public abstract class AEBaseContainer extends Container {
             }
 
             if (s instanceof SlotFake) {
+                // A filter slot switched off by pulling a capacity card takes no clicks. This used to be
+                // enforced inside AppEngSlot.putStack, where it also swallowed the server's own updates.
+                if (!((SlotFake) s).isSlotEnabled()) {
+                    return;
+                }
+
                 final ItemStack hand = player.inventory.getItemStack();
 
                 // A wrapped key carries its amount in NBT, not in the ItemStack's count - a placeholder is

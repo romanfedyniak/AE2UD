@@ -148,7 +148,7 @@ public class GuiCellWorkbench extends GuiUpgradeable {
             } else if (btn == this.partition) {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("CellWorkbench.Action", "Partition"));
             } else if (btn == this.clear) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("CellWorkbench.Action", "Clear"));
+                NetworkHandler.instance().sendToServer(new PacketValueConfig("Filter.Clear", ""));
             } else if (btn == this.fuzzyMode) {
                 final boolean backwards = Mouse.isButtonDown(1);
 

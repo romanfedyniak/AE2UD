@@ -173,11 +173,6 @@ public class ContainerCellWorkbench extends ContainerUpgradeable {
         super.onUpdate(field, oldValue, newValue);
     }
 
-    public void clear() {
-        ItemHandlerUtil.clear(this.getUpgradeable().getInventoryByName("config"));
-        this.detectAndSendChanges();
-    }
-
     private FuzzyMode getWorkBenchFuzzyMode() {
         final ICellWorkbenchItem cwi = this.workBench.getCell();
         if (cwi != null) {
