@@ -44,14 +44,8 @@ import java.util.regex.Pattern;
  * @version rv6 - 22/05/2018
  * @since rv6 22/05/2018
  *
- * NOTE for wave 5: {@code appeng.fluids.util.FluidSorters} still exposes {@code Comparator<IAEFluidStack>}
- * fields, a deleted api type (CONTRACT.md §4.1). This class is written assuming FluidSorters gets the exact
- * same treatment {@code appeng.util.ItemSorters} already got in wave 1a - {@code
- * CONFIG_BASED_SORT_BY_MOD}/{@code _BY_SIZE}/{@code _BY_NAME} retyped to {@code
- * Comparator<Object2LongMap.Entry<AEKey>>} - since the old FluidRepo used exactly those three names and
- * nothing else. No INVTWEAKS/bogosort branch existed here before and none is added now; this repo's
- * feature set (mod-prefix search, tooltip search, no term negation, no JEI bridge, no view-cell filter) is
- * unchanged from the pre-port file.
+ * This repo's feature set - mod-prefix search, tooltip search, no term negation, no JEI bridge, no view-cell
+ * filter - is unchanged from the pre-port file.
  */
 public class FluidRepo {
     private final Map<AEKey, GridInventoryEntry> entries = new Object2ObjectOpenHashMap<>();
