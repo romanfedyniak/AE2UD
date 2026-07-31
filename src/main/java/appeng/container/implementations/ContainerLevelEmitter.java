@@ -25,20 +25,21 @@ import appeng.container.slot.SlotFakeTypeOnly;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.parts.automation.PartLevelEmitter;
 import appeng.util.Platform;
-import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 
 
+/**
+ * The emitter's threshold is a plain {@code @GuiSync} value here. The container used to hold the screen's
+ * text box and write digits into it directly, which cannot be right once the field can read in a larger
+ * unit: only the client knows which unit that is. {@link appeng.client.gui.implementations.GuiLevelEmitter}
+ * watches the value instead.
+ */
 public class ContainerLevelEmitter extends ContainerUpgradeable {
 
     private final PartLevelEmitter lvlEmitter;
 
-    @SideOnly(Side.CLIENT)
-    private GuiTextField textField;
     @GuiSync(2)
     public LevelType lvType;
     @GuiSync(3)
@@ -49,12 +50,6 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
     public ContainerLevelEmitter(final InventoryPlayer ip, final PartLevelEmitter te) {
         super(ip, te);
         this.lvlEmitter = te;
-    }
-
-    @SideOnly(Side.CLIENT)
-    public void setTextField(final GuiTextField level) {
-        this.textField = level;
-        this.textField.setText(String.valueOf(this.EmitterValue));
     }
 
     public void setLevel(final long l, final EntityPlayer player) {
@@ -116,15 +111,6 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
         }
 
         this.standardDetectAndSendChanges();
-    }
-
-    @Override
-    public void onUpdate(final String field, final Object oldValue, final Object newValue) {
-        if (field.equals("EmitterValue")) {
-            if (this.textField != null) {
-                this.textField.setText(String.valueOf(this.EmitterValue));
-            }
-        }
     }
 
     @Override
