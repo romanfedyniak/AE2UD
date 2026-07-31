@@ -34,27 +34,20 @@ import net.minecraft.entity.player.InventoryPlayer;
  */
 public class GuiSetAmount extends GuiCraftAmount {
 
-    private boolean primed;
-
     @Reflected
     public GuiSetAmount(final InventoryPlayer inventoryPlayer, final Object host) {
         super(new ContainerSetAmount(inventoryPlayer, host));
     }
 
-    private ContainerSetAmount container() {
-        return (ContainerSetAmount) this.inventorySlots;
+    @Override
+    protected long getInitialAmount() {
+        return ((ContainerSetAmount) this.inventorySlots).initialAmount;
     }
 
     @Override
-    public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        // The starting amount arrives over @GuiSync, which lands a tick after the screen opens.
-        if (!this.primed && this.container().initialAmount > 0) {
-            this.primed = true;
-            this.amountToCraft.setText(Long.toString(this.container().initialAmount));
-            this.amountToCraft.setSelectionPos(0);
-        }
-
-        super.drawBG(offsetX, offsetY, mouseX, mouseY);
+    protected boolean startsFromSuggestion() {
+        // What the slot already held, not a suggestion - the first step button adds to it.
+        return false;
     }
 
     @Override

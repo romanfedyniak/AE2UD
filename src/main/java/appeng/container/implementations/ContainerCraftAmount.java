@@ -26,6 +26,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.AEBaseContainer;
+import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotInaccessible;
 import appeng.me.helpers.PlayerSource;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -42,6 +43,13 @@ public class ContainerCraftAmount extends AEBaseContainer {
     private final Slot craftingItem;
     @Nullable
     private AEKey itemToCreate;
+
+    /**
+     * What the amount field starts on. Carried here rather than derived on the client because the key
+     * itself never leaves the server - the display slot only holds a stand-in for it.
+     */
+    @GuiSync(10)
+    public long initialAmount;
 
     public ContainerCraftAmount(final InventoryPlayer ip, final ITerminalHost te) {
         super(ip, te);
@@ -85,5 +93,9 @@ public class ContainerCraftAmount extends AEBaseContainer {
 
     public void setItemToCraft(@Nonnull final AEKey itemToCreate) {
         this.itemToCreate = itemToCreate;
+    }
+
+    public void setInitialAmount(final long initialAmount) {
+        this.initialAmount = initialAmount;
     }
 }

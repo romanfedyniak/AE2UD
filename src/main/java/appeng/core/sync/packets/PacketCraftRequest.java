@@ -53,7 +53,7 @@ public class PacketCraftRequest extends AppEngPacket {
         this.amount = stream.readLong();
     }
 
-    public PacketCraftRequest(final int craftAmt, final boolean shift) {
+    public PacketCraftRequest(final long craftAmt, final boolean shift) {
         this.amount = craftAmt;
         this.heldShift = shift;
 
