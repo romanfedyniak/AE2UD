@@ -1452,6 +1452,30 @@ Third instance in two days of the same shape: **adjacent branches of one switch,
 capacity and the next not.** The earlier two were `SPLIT_OR_PLACE_SINGLE` stopping at 64 in a slot of 512,
 and the hotbar swap. Worth treating "a magic multiplier where a capacity belongs" as its own audit lead.
 
+## Amount screens: the accepted range, and "craft up to" (done, verified in game)
+
+**The range.** Both amount screens now print the span they accept under the title, in whatever unit the
+field is reading in - `1 - 512` for an interface config slot, `1 - 32B` for the same slot on a fluid. The
+step buttons stop at the ceiling instead of stepping past it. Where nothing bounds the amount the line is
+absent rather than printing a number: ordering a craft has no ceiling but `Long.MAX_VALUE`, and neither does
+a pattern's output slot.
+
+That second case was found by the axis-2 sweep and not by testing - `OptionalSlotFake` reports
+`Integer.MAX_VALUE`, which `maxAmountIn` was happily scaling into "1 - 134217727B". **A sentinel that is
+also a number will be used as one by whatever arithmetic it reaches.**
+
+**`=` means "up to".** `=100` orders the difference between what the network holds and 100, rather than 100
+more; already-satisfied orders never open the confirmation screen. Server-side, read from
+`IStorageService.getCachedInventory()` - the snapshot the terminal already shows - and matching upstream's
+`CraftAmountMenu.confirm(amount, craftMissingAmount, autoStart)` including the "already enough" case. The
+prefix survives the step buttons and the unit toggle because both read the field before rewriting it.
+`GuiSetAmount` inherits the field and pins the flag off: a slot's amount is already a total.
+
+**Not done, and deliberately.** Returning from the confirmation screen to the amount screen with the typed
+number intact. The premise was wrong - `GuiCraftConfirm`'s cancel goes to the *terminal*, not back to the
+amount screen, so nothing is being forgotten. Adding that step is a navigation change, not a fix, and the
+case it helps is two clicks away.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

@@ -61,6 +61,8 @@ public class GuiCraftAmount extends AEBaseGui {
      */
     private static final String BASE_UNIT_PREFIX = "m";
 
+    private static final String EQUALS_PREFIX = "=";
+
     private static final int RANGE_Y = 16;
     private static final int RANGE_COLOR = 0x808080;
 
@@ -297,7 +299,7 @@ public class GuiCraftAmount extends AEBaseGui {
     }
 
     protected void confirm(final long amount) {
-        NetworkHandler.instance().sendToServer(new PacketCraftRequest(amount, isShiftKeyDown()));
+        NetworkHandler.instance().sendToServer(new PacketCraftRequest(amount, isShiftKeyDown(), this.craftsMissingAmount()));
     }
 
     /**
@@ -371,11 +373,19 @@ public class GuiCraftAmount extends AEBaseGui {
     }
 
     private String formatAmount(final long amount) {
-        return AmountEntry.format(amount, this.unitScale());
+        return (this.craftsMissingAmount() ? EQUALS_PREFIX : "") + AmountEntry.format(amount, this.unitScale());
     }
 
     private long parseAmount(final String text) {
-        return AmountEntry.parse(text, this.unitScale());
+        return AmountEntry.parse(text.startsWith(EQUALS_PREFIX) ? text.substring(1) : text, this.unitScale());
+    }
+
+    /**
+     * Whether the field reads as a target total rather than as an amount to add - upstream's leading
+     * {@code =}. Only ordering a craft can mean that; setting a slot's amount is already a total.
+     */
+    protected boolean craftsMissingAmount() {
+        return this.amountToCraft != null && this.amountToCraft.getText().startsWith(EQUALS_PREFIX);
     }
 
     protected String getBackground() {
