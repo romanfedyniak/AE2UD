@@ -74,6 +74,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     public boolean craftingMode = true;
     @GuiSync(96)
     public boolean substitute = false;
+    @GuiSync(95)
+    public boolean substituteFluids = false;
 
     protected ContainerPatternEncoder(InventoryPlayer ip, ITerminalHost monitorable, boolean bindInventory) {
         super(ip, monitorable, bindInventory);
@@ -259,6 +261,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         encodedValue.setTag("out", tagOut);
         encodedValue.setBoolean("crafting", this.isCraftingMode());
         encodedValue.setBoolean("substitute", this.isSubstitute());
+        encodedValue.setBoolean("substitutefluids", this.isSubstituteFluids());
 
         output.setTagCompound(encodedValue);
 
@@ -546,6 +549,22 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
+    boolean isSubstituteFluids() {
+        return this.substituteFluids;
+    }
+
+    public void setSubstituteFluids(final boolean substituteFluids) {
+        this.substituteFluids = substituteFluids;
+        if (getPart() != null) {
+            getPart().setFluidSubstitution(substituteFluids);
+        } else if (iGuiItemObject != null) {
+            NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
+            if (nbtTagCompound != null) {
+                nbtTagCompound.setBoolean("isSubstituteFluids", substituteFluids);
+            }
+        }
+    }
+
     @Override
     public void detectAndSendChanges() {
         super.detectAndSendChanges();
@@ -556,6 +575,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                     this.updateOrderOfOutputSlots();
                 }
                 this.substitute = this.getPart().isSubstitution();
+                this.substituteFluids = this.getPart().isFluidSubstitution();
             } else if (iGuiItemObject != null) {
                 NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
                 if (nbtTagCompound != null) {
@@ -582,6 +602,15 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                         }
                     } else {
                         nbtTagCompound.setBoolean("isSubstitute", false);
+                    }
+
+                    if (nbtTagCompound.hasKey("isSubstituteFluids")) {
+                        boolean substituteFluids = nbtTagCompound.getBoolean("isSubstituteFluids");
+                        if (this.isSubstituteFluids() != substituteFluids) {
+                            this.setSubstituteFluids(substituteFluids);
+                        }
+                    } else {
+                        nbtTagCompound.setBoolean("isSubstituteFluids", false);
                     }
                 } else {
                     nbtTagCompound = new NBTTagCompound();

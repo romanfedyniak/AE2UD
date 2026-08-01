@@ -22,6 +22,8 @@ package appeng.items.misc;
 import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
@@ -45,6 +47,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -140,7 +144,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         final boolean isCrafting = details.isCraftable();
         final boolean substitute = details.canSubstitute();
 
-        final GenericStack[] in = details.getCondensedInputs();
+        final List<GenericStack> in = displayInputs(details);
         final GenericStack[] out = details.getCondensedOutputs();
 
         final String label = (isCrafting ? GuiText.Crafts.getLocal() : GuiText.Creates.getLocal()) + ": ";
@@ -153,7 +157,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
                 continue;
             }
 
-            lines.add((first ? label : and) + anOut.amount() + ' ' + Platform.getItemDisplayName(anOut.what()));
+            lines.add((first ? label : and) + describe(anOut));
             first = false;
         }
 
@@ -163,7 +167,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
                 continue;
             }
 
-            lines.add((first ? with : and) + anIn.amount() + ' ' + Platform.getItemDisplayName(anIn.what()));
+            lines.add((first ? with : and) + describe(anIn));
             first = false;
         }
 
@@ -172,7 +176,46 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
             final String canSubstitute = substitute ? GuiText.Yes.getLocal() : GuiText.No.getLocal();
 
             lines.add(substitutionLabel + canSubstitute);
+
+            if (details.canSubstituteFluids()) {
+                lines.add(GuiText.UsesFluidsDirectly.getLocal());
+            }
         }
+    }
+
+    /**
+     * The ingredients as the pattern will actually ask for them: a slot the network fills in shows its
+     * contents rather than the container, because the container is never taken out of storage.
+     */
+    private static List<GenericStack> displayInputs(final ICraftingPatternDetails details) {
+        final GenericStack[] sparse = details.getInputs();
+        final Map<AEKey, GenericStack> merged = new LinkedHashMap<>();
+
+        for (int x = 0; x < sparse.length; x++) {
+            if (sparse[x] == null) {
+                continue;
+            }
+
+            GenericStack shown = sparse[x];
+
+            if (details.isContainerFabricated(x)) {
+                final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                shown = new GenericStack(supplied.what(), supplied.amount() * sparse[x].amount());
+            }
+
+            merged.merge(shown.what(), shown, GenericStack::sum);
+        }
+
+        return new ArrayList<>(merged.values());
+    }
+
+    /**
+     * Amounts go through the key type, so a thousand millibuckets reads as one bucket. Printing the raw
+     * number was only ever tolerable while patterns held items.
+     */
+    private static String describe(final GenericStack stack) {
+        return stack.what().formatAmount(stack.amount(), AmountFormat.FULL) + ' '
+                + Platform.getItemDisplayName(stack.what());
     }
 
     @Override

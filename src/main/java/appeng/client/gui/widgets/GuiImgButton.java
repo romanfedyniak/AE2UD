@@ -127,6 +127,10 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(8, Settings.ACTIONS, ActionItems.ENCODE, ButtonToolTips.Encode, ButtonToolTips.EncodeDescription);
             this.registerApp(4 + 3 * 16, Settings.ACTIONS, ItemSubstitution.ENABLED, ButtonToolTips.Substitutions, ButtonToolTips.SubstitutionsDescEnabled);
             this.registerApp(7 + 3 * 16, Settings.ACTIONS, ItemSubstitution.DISABLED, ButtonToolTips.Substitutions, ButtonToolTips.SubstitutionsDescDisabled);
+            // Bottom row, clear of GuiTabButton: its background is 25x22 drawn from (11*16, 0) and (13*16, 0),
+            // so it reads six pixels down into row 1 and would show whatever sits in those cells.
+            this.registerApp(8 + 15 * 16, Settings.ACTIONS, FluidSubstitution.ENABLED, ButtonToolTips.FluidSubstitutions, ButtonToolTips.FluidSubstitutionsDescEnabled);
+            this.registerApp(9 + 15 * 16, Settings.ACTIONS, FluidSubstitution.DISABLED, ButtonToolTips.FluidSubstitutions, ButtonToolTips.FluidSubstitutionsDescDisabled);
 
             this.registerApp(16, Settings.VIEW_MODE, ViewItems.STORED, ButtonToolTips.View, ButtonToolTips.StoredItems);
             this.registerApp(18, Settings.VIEW_MODE, ViewItems.ALL, ButtonToolTips.View, ButtonToolTips.StoredCraftable);

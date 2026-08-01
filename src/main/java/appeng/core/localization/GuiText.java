@@ -122,6 +122,7 @@ public enum GuiText {
     And,
     With,
     Substitute,
+    UsesFluidsDirectly,
     Yes,
     No,
 

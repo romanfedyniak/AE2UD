@@ -28,6 +28,7 @@ import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.implementations.items.IAEWrench;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
@@ -1365,6 +1366,23 @@ public class Platform {
         }
 
         return ci;
+    }
+
+    /**
+     * What a crafting slot leaves behind once the craft is done. The same as
+     * {@link #getContainerItem(ItemStack)}, except that a container the network assembled out of a fluid
+     * never existed as an item and must not be handed back as one.
+     *
+     * @param cpuSupplied false when the ingredients were fed in by hand rather than pushed by a crafting
+     *                    CPU, in which case every container in the grid is real and stays real.
+     */
+    public static ItemStack getRemainingItem(final ICraftingPatternDetails details, final int slot,
+            final ItemStack inSlot, final boolean cpuSupplied) {
+        if (cpuSupplied && details != null && details.isContainerFabricated(slot)) {
+            return ItemStack.EMPTY;
+        }
+
+        return getContainerItem(inSlot);
     }
 
     public static void notifyBlocksOfNeighbors(final World world, final BlockPos pos) {

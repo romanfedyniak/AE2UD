@@ -824,6 +824,53 @@ from `src/main` anywhere in this port, deliberately. So the interface lives in `
 `IPriorityHost` now extends it. The API half stays free of it: `KeyTypeSelectionHost` declares only
 `getKeyTypeSelection()`.
 
+## 8.9 Amendment — fluid substitution on `ICraftingPatternDetails`
+
+**This was an addition to the frozen API. Approved by the owner 2026-08-01.**
+
+Upstream's `AECraftingPattern` carries a `canSubstituteFluids` flag beside `canSubstitute`, and expresses
+the consequence through `IInput.getPossibleInputs()` plus `IInput.getRemainingKey()`. Neither of those types
+exists here - this version's pattern still speaks in `GenericStack[]` and `getSubstituteInputs(int)` - so the
+same two facts are carried as two default methods, both additive:
+
+```java
+// appeng.api.networking.crafting.ICraftingPatternDetails
+default boolean canSubstituteFluids();          // effective, not the raw flag
+default boolean isContainerFabricated(int slot);
+```
+
+`canSubstituteFluids()` answers **false** for a pattern whose option is on but which has no ingredient that
+qualifies. Every consumer - the tooltip line, the interface's refusal to hand the pattern to a third-party
+`ICraftingMachine` - is then stating something true about what the pattern will do, rather than about what
+the player ticked.
+
+`isContainerFabricated(slot)` is decided by the pattern and not by what happens to sit in the slot, which is
+only possible because such a slot is supplied *only* from the network as a key. That equivalence is the
+whole design: a fabricated container and a real one are the same `ItemStack`, and
+`TileMolecularAssembler` must still work it out after a chunk reload, when all it has is the pattern item
+and the grid contents.
+
+**The empty-container rule is not in `src/api`.** Deciding what a slot leaves behind needs
+`Platform.getContainerItem`, which is `src/main`, and `src/api` imports nothing from `src/main` anywhere in
+this port - the same constraint that put `ISubMenuHost` in `appeng.helpers` (§8.8). So the API carries only
+the per-slot fact, and `Platform.getRemainingItem(details, slot, inSlot, cpuSupplied)` combines it with the
+container lookup in one place that both `CraftingCPUCluster` and `TileMolecularAssembler` call.
+
+A third default method carries the other half of the contract, on the receiving end:
+
+```java
+// appeng.api.implementations.tiles.ICraftingMachine
+default boolean acceptsFabricatedContainers();   // false
+```
+
+It defaults to false deliberately. A machine written before any of this existed hands every container back
+the way a crafting table does, and being handed a fabricated one would have it mint an item out of a fluid
+on every craft - so such a machine is passed over and the pattern waits for a molecular assembler, rather
+than being pushed somewhere that duplicates. `TileMolecularAssembler` answers true; an addon's machine joins
+in by consulting `isContainerFabricated(slot)` and leaving that slot empty when the craft finishes.
+
+`appeng.api.config.FluidSubstitution` joins `ItemSubstitution` as the button's `Settings.ACTIONS` value.
+
 ## 9. Implementation class registry
 
 ### Wave 1a — `appeng.util` (done)

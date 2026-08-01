@@ -19,6 +19,9 @@
 package appeng.helpers;
 
 
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.ContainerItemStrategy;
+import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -62,8 +65,11 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final GenericStack[] inputs;
     private final GenericStack[] outputs;
     private final Map<Integer, List<GenericStack>> substituteInputs;
+    /** Per input slot, what the network supplies in place of the encoded container, or null. */
+    private final GenericStack[] fabricated;
     private final boolean isCrafting;
     private final boolean canSubstitute;
+    private final boolean canSubstituteFluids;
     private final Set<TestLookup> failCache = new HashSet<>();
     private final Set<TestLookup> passCache = new HashSet<>();
     private final AEItemKey pattern;
@@ -84,6 +90,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         testFrame = new InventoryCrafting(new ContainerNull(), isCrafting ? 3 : 4, isCrafting ? 3 : 4);
 
         this.canSubstitute = this.isCrafting && encodedValue.getBoolean("substitute");
+        final boolean wantsFluidSubstitution = this.isCrafting && encodedValue.getBoolean("substitutefluids");
         this.patternItem = is;
         this.pattern = AEItemKey.of(is);
 
@@ -141,6 +148,17 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         this.inputs = in.toArray(new GenericStack[isCrafting ? CRAFTING_INPUT_LIMIT : PROCESSING_INPUT_LIMIT]);
         this.outputs = out.toArray(new GenericStack[outputLength]);
         this.substituteInputs = new HashMap<>(CRAFTING_INPUT_LIMIT);
+        final GenericStack[] fromGrid = wantsFluidSubstitution
+                ? findFabricatedSlots(this.crafting, this.standardRecipe)
+                : new GenericStack[0];
+        this.fabricated = new GenericStack[this.inputs.length];
+        System.arraycopy(fromGrid, 0, this.fabricated, 0, Math.min(fromGrid.length, this.fabricated.length));
+
+        boolean anyFabricated = false;
+        for (final GenericStack slot : this.fabricated) {
+            anyFabricated |= slot != null;
+        }
+        this.canSubstituteFluids = anyFabricated;
 
         final Map<AEKey, GenericStack> tmpOutputs = new LinkedHashMap<>();
 
@@ -181,6 +199,87 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             this.condensedOutputs[offset] = io;
             offset++;
         }
+    }
+
+    /**
+     * Which slots of a crafting grid hold a container the network can fill in for, and what each holds.
+     * <p>
+     * Holding something is not enough. The container is going to be assembled for the craft and thrown away
+     * afterwards, so the recipe must treat it as a vessel and nothing more: whatever the recipe leaves
+     * behind in that slot has to be exactly the emptied container. That single test is what rules out a
+     * mod's part-filled tank, which the recipe hands back untouched, and a recipe that swallows the vessel
+     * outright - the first would silently start costing three buckets a craft, the second would silently
+     * stop costing one.
+     * <p>
+     * Static and public because the pattern terminal answers the same question about a grid the player is
+     * still filling in, and two copies of this rule would be one copy too many.
+     */
+    public static GenericStack[] findFabricatedSlots(final InventoryCrafting grid, final IRecipe recipe) {
+        final GenericStack[] found = new GenericStack[grid.getSizeInventory()];
+
+        if (recipe == null) {
+            return found;
+        }
+
+        // On a throwaway copy: an implementation of getRemainingItems is free to empty the stacks it was
+        // handed, and this grid is the reference frame every isValidItemForSlot test is built from. One mod
+        // recipe draining it leaves the pattern rejecting its own ingredients.
+        final NonNullList<ItemStack> remaining = recipe.getRemainingItems(copyOf(grid));
+
+        for (int x = 0; x < found.length && x < remaining.size(); x++) {
+            final ItemStack encoded = grid.getStackInSlot(x);
+
+            if (encoded.isEmpty()) {
+                continue;
+            }
+
+            final GenericStack contained = ContainerItemStrategies.getContainedStack(encoded);
+
+            if (contained == null || contained.amount() <= 0) {
+                continue;
+            }
+
+            final ItemStack emptied = emptyContainerOf(encoded);
+            final ItemStack leftBehind = remaining.get(x);
+
+            if (!emptied.isEmpty() && ItemStack.areItemsEqual(emptied, leftBehind)
+                    && ItemStack.areItemStackTagsEqual(emptied, leftBehind)) {
+                found[x] = contained;
+            }
+        }
+
+        return found;
+    }
+
+    private static InventoryCrafting copyOf(final InventoryCrafting grid) {
+        final InventoryCrafting copy = new InventoryCrafting(new ContainerNull(), grid.getWidth(), grid.getHeight());
+
+        for (int x = 0; x < grid.getSizeInventory(); x++) {
+            copy.setInventorySlotContents(x, grid.getStackInSlot(x).copy());
+        }
+
+        return copy;
+    }
+
+    /**
+     * @return what is left of the container once everything in it is taken out, or empty if it cannot be
+     * fully emptied.
+     */
+    private static ItemStack emptyContainerOf(final ItemStack container) {
+        final ContainerItemStrategy.Context context = ContainerItemStrategies.openContext(container, null);
+
+        if (context == null) {
+            return ItemStack.EMPTY;
+        }
+
+        final GenericStack content = context.getExtractableContent();
+
+        if (content == null || content.amount() <= 0
+                || context.extract(content.what(), content.amount(), Actionable.MODULATE) != content.amount()) {
+            return ItemStack.EMPTY;
+        }
+
+        return context.getContainer();
     }
 
     private void markItemAs(final int slotIndex, final ItemStack i, final TestStatus b) {
@@ -273,23 +372,52 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     @Override
+    public boolean canSubstituteFluids() {
+        return this.canSubstituteFluids;
+    }
+
+    @Override
+    public boolean isContainerFabricated(final int slot) {
+        return slot >= 0 && slot < this.fabricated.length && this.fabricated[slot] != null;
+    }
+
+    @Override
     public List<GenericStack> getSubstituteInputs(int slot) {
         if (this.inputs[slot] == null) {
             return Collections.emptyList();
+        }
+
+        if (this.isContainerFabricated(slot)) {
+            return Collections.singletonList(this.fabricated[slot]);
+        }
+
+        // Callers now reach this under either toggle, so a pattern that only asked for fluids must not have
+        // ore-dict substitution turned on for it by the back door.
+        if (!this.canSubstitute) {
+            return Collections.singletonList(oneOf(this.inputs[slot]));
         }
 
         return this.substituteInputs.computeIfAbsent(slot, value -> {
             ItemStack[] matchingStacks = getRecipeIngredient(slot).getMatchingStacks();
             List<GenericStack> itemList = new ArrayList<>(matchingStacks.length + 1);
             for (ItemStack matchingStack : matchingStacks) {
-                itemList.add(GenericStack.resolveItemStack(matchingStack));
+                itemList.add(oneOf(GenericStack.resolveItemStack(matchingStack)));
             }
 
             // Ensure that the specific item put in by the user is at the beginning,
             // so that it takes precedence over substitutions
-            itemList.add(0, this.inputs[slot]);
+            itemList.add(0, oneOf(this.inputs[slot]));
             return itemList;
         });
+    }
+
+    /**
+     * A substitute's amount is how much of it stands in for <em>one</em> of the encoded ingredient - one for
+     * an item, a bucket's worth for a fluid. Callers multiply by the slot's own count, so an item substitute
+     * that arrived carrying a stack size would otherwise square it.
+     */
+    private static GenericStack oneOf(final GenericStack stack) {
+        return stack == null || stack.amount() == 1 ? stack : new GenericStack(stack.what(), 1);
     }
 
     /**

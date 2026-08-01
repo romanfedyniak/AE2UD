@@ -96,6 +96,43 @@ public interface ICraftingPatternDetails
 	 */
 	boolean canSubstitute();
 
+	/**
+	 * Whether this pattern takes the contents of its container-item ingredients straight from the network
+	 * rather than the filled containers themselves - a recipe calling for a bucket of water drawing the
+	 * water and nothing else.
+	 * <p>
+	 * This is the <em>effective</em> answer, not the flag the player set: a pattern with the option turned
+	 * on but no ingredient that qualifies answers false, so that everything reading it - the tooltip, the
+	 * interface's refusal to hand the pattern to a third-party machine - is telling the truth about what
+	 * this pattern will actually do.
+	 */
+	default boolean canSubstituteFluids()
+	{
+		return false;
+	}
+
+	/**
+	 * Whether the container item in the given input slot is assembled for the craft out of a key taken from
+	 * the network, instead of being pulled out of storage as an item.
+	 * <p>
+	 * Such a container never existed before the craft and must not survive it, so whoever performs the craft
+	 * has to leave nothing behind for that slot - see {@code Platform.getRemainingItem}. Note that this is
+	 * decided by the pattern alone and not by what happens to sit in the slot: a slot that answers true is
+	 * <em>only ever</em> supplied that way, which is what lets a molecular assembler still holding a
+	 * half-finished craft work it out again after a reload.
+	 */
+	default boolean isContainerFabricated( int slot )
+	{
+		return false;
+	}
+
+	/**
+	 * The inputs that may stand in for the one encoded in the given slot, most preferred first.
+	 * <p>
+	 * For a slot that {@link #isContainerFabricated(int)} reports, this is the single non-item stack the
+	 * network supplies - a fluid amount rather than the container - and nothing else, because mixing the
+	 * two sources would make the fabricated container indistinguishable from a real one.
+	 */
 	default List<GenericStack> getSubstituteInputs( int slot )
 	{
 		return Collections.emptyList();

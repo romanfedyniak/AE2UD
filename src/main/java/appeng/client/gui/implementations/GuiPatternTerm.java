@@ -20,6 +20,7 @@ package appeng.client.gui.implementations;
 
 
 import appeng.api.config.ActionItems;
+import appeng.api.config.FluidSubstitution;
 import appeng.api.config.ItemSubstitution;
 import appeng.api.config.Settings;
 import appeng.api.storage.ITerminalHost;
@@ -29,8 +30,11 @@ import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
+import appeng.container.ContainerNull;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFake;
+import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.helpers.PatternHelper;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -42,10 +46,14 @@ import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
+import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.CraftingManager;
 import net.minecraftforge.fluids.FluidStack;
 import javax.annotation.Nullable;
 
@@ -66,12 +74,19 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private static final String CRAFTMODE_CRFTING = "1";
     private static final String CRAFTMODE_PROCESSING = "0";
 
+    private static final int FABRICATED_SLOT_TINT = 0x8032CD32;
+
     private final ContainerPatternEncoder container;
 
     private GuiTabButton tabCraftButton;
     private GuiTabButton tabProcessButton;
     private GuiImgButton substitutionsEnabledBtn;
     private GuiImgButton substitutionsDisabledBtn;
+    private GuiImgButton fluidSubstitutionsEnabledBtn;
+    private GuiImgButton fluidSubstitutionsDisabledBtn;
+    private List<Slot> craftingGrid;
+    private GenericStack[] fabricatedSlots;
+    private int fabricatedFrom;
     private GuiImgButton encodeBtn;
     private GuiImgButton clearBtn;
     private GuiImgButton x2Btn;
@@ -152,6 +167,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                         .sendToServer(
                                 new PacketValueConfig("PatternTerminal.Substitute", this.substitutionsEnabledBtn == btn ? SUBSITUTION_DISABLE : SUBSITUTION_ENABLE));
             }
+
+            if (this.fluidSubstitutionsEnabledBtn == btn || this.fluidSubstitutionsDisabledBtn == btn) {
+                NetworkHandler.instance()
+                        .sendToServer(
+                                new PacketValueConfig("PatternTerminal.SubstituteFluids", this.fluidSubstitutionsEnabledBtn == btn ? SUBSITUTION_DISABLE : SUBSITUTION_ENABLE));
+            }
         } catch (final IOException e) {
             AELog.error(e);
         }
@@ -176,6 +197,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.substitutionsDisabledBtn = new GuiImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, Settings.ACTIONS, ItemSubstitution.DISABLED);
         this.substitutionsDisabledBtn.setHalfSize(true);
         this.buttonList.add(this.substitutionsDisabledBtn);
+
+        this.fluidSubstitutionsEnabledBtn = new GuiImgButton(this.guiLeft + 94, this.guiTop + this.ySize - 163, Settings.ACTIONS, FluidSubstitution.ENABLED);
+        this.fluidSubstitutionsEnabledBtn.setHalfSize(true);
+        this.buttonList.add(this.fluidSubstitutionsEnabledBtn);
+
+        this.fluidSubstitutionsDisabledBtn = new GuiImgButton(this.guiLeft + 94, this.guiTop + this.ySize - 163, Settings.ACTIONS, FluidSubstitution.DISABLED);
+        this.fluidSubstitutionsDisabledBtn.setHalfSize(true);
+        this.buttonList.add(this.fluidSubstitutionsDisabledBtn);
 
         this.clearBtn = new GuiImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 163, Settings.ACTIONS, ActionItems.CLOSE);
         this.clearBtn.setHalfSize(true);
@@ -233,11 +262,21 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 this.substitutionsEnabledBtn.visible = false;
                 this.substitutionsDisabledBtn.visible = true;
             }
+
+            if (this.container.substituteFluids) {
+                this.fluidSubstitutionsEnabledBtn.visible = true;
+                this.fluidSubstitutionsDisabledBtn.visible = false;
+            } else {
+                this.fluidSubstitutionsEnabledBtn.visible = false;
+                this.fluidSubstitutionsDisabledBtn.visible = true;
+            }
         } else {
             this.tabCraftButton.visible = false;
             this.tabProcessButton.visible = true;
             this.substitutionsEnabledBtn.visible = false;
             this.substitutionsDisabledBtn.visible = false;
+            this.fluidSubstitutionsEnabledBtn.visible = false;
+            this.fluidSubstitutionsDisabledBtn.visible = false;
             this.x2Btn.visible = true;
             this.x3Btn.visible = true;
             this.divTwoBtn.visible = true;
@@ -249,6 +288,76 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
         this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
+        this.drawFluidSubstitutionHint();
+    }
+
+    /**
+     * Tints the ingredients the network would fill in for, while the fluid-substitution button is under the
+     * cursor. Decided by {@link PatternHelper#findFabricatedSlots}, the same rule the pattern itself will
+     * use once encoded - so what lights up green here is exactly what the toggle will act on, and a
+     * container the recipe does not simply empty stays dark instead of promising something.
+     */
+    private void drawFluidSubstitutionHint() {
+        final GuiImgButton button = this.fluidSubstitutionsEnabledBtn.visible
+                ? this.fluidSubstitutionsEnabledBtn
+                : this.fluidSubstitutionsDisabledBtn;
+
+        if (!button.visible || !button.isMouseOver()) {
+            this.fabricatedSlots = null;
+            return;
+        }
+
+        if (this.craftingGrid == null) {
+            this.craftingGrid = new ArrayList<>(9);
+            for (final Slot slot : this.inventorySlots.inventorySlots) {
+                if (slot instanceof SlotFakeCraftingMatrix) {
+                    this.craftingGrid.add(slot);
+                }
+            }
+        }
+
+        // Finding the recipe is a scan of every one registered, so it is redone only when the grid actually
+        // changed - hovering a still grid costs nothing after the first frame.
+        final int contents = this.gridContents();
+        if (this.fabricatedSlots == null || contents != this.fabricatedFrom) {
+            this.fabricatedSlots = this.findFabricated();
+            this.fabricatedFrom = contents;
+        }
+
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+
+        for (int i = 0; i < this.craftingGrid.size() && i < this.fabricatedSlots.length; i++) {
+            if (this.fabricatedSlots[i] != null) {
+                final Slot slot = this.craftingGrid.get(i);
+                drawRect(slot.xPos, slot.yPos, slot.xPos + 16, slot.yPos + 16, FABRICATED_SLOT_TINT);
+            }
+        }
+
+        GlStateManager.enableDepth();
+        GlStateManager.enableLighting();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    private GenericStack[] findFabricated() {
+        final InventoryCrafting grid = new InventoryCrafting(new ContainerNull(), 3, 3);
+
+        for (int i = 0; i < this.craftingGrid.size() && i < 9; i++) {
+            grid.setInventorySlotContents(i, this.craftingGrid.get(i).getStack().copy());
+        }
+
+        return PatternHelper.findFabricatedSlots(grid, CraftingManager.findMatchingRecipe(grid, this.mc.world));
+    }
+
+    private int gridContents() {
+        int hash = 1;
+
+        for (final Slot slot : this.craftingGrid) {
+            final ItemStack is = slot.getStack();
+            hash = hash * 31 + (is.isEmpty() ? 0 : Item.getIdFromItem(is.getItem()) * 31 + is.getItemDamage());
+        }
+
+        return hash;
     }
 
     @Override
