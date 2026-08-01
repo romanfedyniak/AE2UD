@@ -51,6 +51,12 @@ public class GuiSetAmount extends GuiCraftAmount {
     }
 
     @Override
+    protected boolean craftsMissingAmount() {
+        // A slot's amount is already a total, so there is nothing for "up to" to mean here.
+        return false;
+    }
+
+    @Override
     protected long getMaxAmount() {
         // What the slot itself holds, in the key's own units - 512 items, or 32 buckets.
         return ((ContainerSetAmount) this.inventorySlots).maxAmount;

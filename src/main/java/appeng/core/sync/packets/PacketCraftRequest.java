@@ -24,6 +24,8 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
@@ -46,21 +48,26 @@ public class PacketCraftRequest extends AppEngPacket {
 
     private final long amount;
     private final boolean heldShift;
+    /** Treat {@link #amount} as the total to end up with, not as the amount to add. */
+    private final boolean craftMissing;
 
     // automatic.
     public PacketCraftRequest(final ByteBuf stream) {
         this.heldShift = stream.readBoolean();
+        this.craftMissing = stream.readBoolean();
         this.amount = stream.readLong();
     }
 
-    public PacketCraftRequest(final long craftAmt, final boolean shift) {
+    public PacketCraftRequest(final long craftAmt, final boolean shift, final boolean craftMissing) {
         this.amount = craftAmt;
         this.heldShift = shift;
+        this.craftMissing = craftMissing;
 
         final ByteBuf data = Unpooled.buffer();
 
         data.writeInt(this.getPacketID());
         data.writeBoolean(shift);
+        data.writeBoolean(craftMissing);
         data.writeLong(this.amount);
 
         this.configureWrite(data);
@@ -83,10 +90,20 @@ public class PacketCraftRequest extends AppEngPacket {
                     return;
                 }
 
+                final long toCraftAmount = this.craftMissing
+                        ? this.amount - storedAmount(g, cca.getItemToCraft())
+                        : this.amount;
+
+                // Already there: an "up to" order that is already satisfied has nothing to plan, and
+                // opening the confirmation screen on an empty job would only be something else to cancel.
+                if (toCraftAmount <= 0) {
+                    return;
+                }
+
                 // The amount used to be pushed back into the container's stack (setStackSize) and the
                 // stack passed on. An AEKey carries no amount, so the pair is built here instead; the
                 // container keeps holding just the key it was opened with.
-                final GenericStack toCraft = new GenericStack(cca.getItemToCraft(), this.amount);
+                final GenericStack toCraft = new GenericStack(cca.getItemToCraft(), toCraftAmount);
 
                 Future<ICraftingJob> futureJob = null;
                 try {
@@ -120,5 +137,14 @@ public class PacketCraftRequest extends AppEngPacket {
                 }
             }
         }
+    }
+
+    /**
+     * What the network already holds of {@code what}, or zero when it cannot be asked. Read from the
+     * storage service's maintained snapshot, the same one the terminal shows.
+     */
+    private static long storedAmount(final IGrid grid, final AEKey what) {
+        final IStorageService storage = grid.getCache(IStorageService.class);
+        return storage == null ? 0 : storage.getCachedInventory().get(what);
     }
 }
