@@ -98,8 +98,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         if (this.inventorySlots.get(idx) instanceof SlotPlayerInv || this.inventorySlots.get(idx) instanceof SlotPlayerHotBar) {
             final AppEngSlot clickSlot = (AppEngSlot) this.inventorySlots.get(idx); // require AE SLots!
             ItemStack itemStack = clickSlot.getStack();
-            if (AEApi.instance().definitions().materials().blankPattern().isSameAs(itemStack)) {
-                IItemHandler patternInv = this.getPart().getInventoryByName("pattern");
+            // Not every encoder has a part behind it - a wireless terminal is an item in a bag - and
+            // getInventoryByName below already knows that. Shift-clicking a blank pattern was the one place
+            // that asked the part directly, and crashed for anyone holding the wireless one.
+            final IItemHandler patternInv = this.getPart() == null ? null : this.getPart().getInventoryByName("pattern");
+
+            if (patternInv != null && AEApi.instance().definitions().materials().blankPattern().isSameAs(itemStack)) {
                 ItemStack remainder = patternInv.insertItem(0, itemStack, false);
                 clickSlot.putStack(remainder);
             }
