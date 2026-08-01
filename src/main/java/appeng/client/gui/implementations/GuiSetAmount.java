@@ -51,6 +51,11 @@ public class GuiSetAmount extends GuiCraftAmount {
     }
 
     @Override
+    protected boolean startsAsMissingAmount() {
+        return false;
+    }
+
+    @Override
     protected boolean craftsMissingAmount() {
         // A slot's amount is already a total, so there is nothing for "up to" to mean here.
         return false;

@@ -1471,10 +1471,17 @@ more; already-satisfied orders never open the confirmation screen. Server-side, 
 prefix survives the step buttons and the unit toggle because both read the field before rewriting it.
 `GuiSetAmount` inherits the field and pins the flag off: a slot's amount is already a total.
 
-**Not done, and deliberately.** Returning from the confirmation screen to the amount screen with the typed
-number intact. The premise was wrong - `GuiCraftConfirm`'s cancel goes to the *terminal*, not back to the
-amount screen, so nothing is being forgotten. Adding that step is a navigation change, not a fix, and the
-case it helps is two clicks away.
+**Cancelling a plan goes back to the order.** `GuiCraftConfirm`'s cancel used to return to the terminal, so
+adjusting an order meant finding the item again and retyping. It opens the amount screen now, seeded with
+what was typed; the way out to the terminal is that screen's own tab, one step further rather than gone.
+
+I had argued against this as "a navigation change, not a fix", and the owner asked for it anyway - correctly:
+the two-clicks-away estimate ignored that one of the clicks is *finding the item in the terminal again*.
+
+What is restored is **what the player typed, not what the job planned**. `ContainerCraftConfirm` keeps the
+key, the number and the `=` flag separately from `result`, because an "up to" order plans the difference -
+restoring from the job would answer `60` to someone who asked for `=100`, with no way to tell why. It is
+captured when the plan opens rather than when it finishes, so cancelling mid-calculation restores too.
 
 ## Standing rules that have already been broken in practice
 

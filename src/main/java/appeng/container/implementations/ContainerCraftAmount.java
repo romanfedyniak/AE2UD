@@ -51,6 +51,23 @@ public class ContainerCraftAmount extends AEBaseContainer {
     @GuiSync(10)
     public long initialAmount;
 
+    /**
+     * Whether the field should start with the "up to" prefix, because that is how the order being edited
+     * was written. Set only when coming back from the crafting plan.
+     */
+    @GuiSync(11)
+    public boolean initialCraftMissing;
+
+    /**
+     * Restores an order the player is coming back to edit, rather than one they have just started.
+     */
+    public void setRequest(final AEKey what, final long amount, final boolean craftMissing) {
+        this.setItemToCraft(what);
+        this.getCraftingItem().putStack(what.wrapForDisplayOrFilter());
+        this.initialAmount = amount;
+        this.initialCraftMissing = craftMissing;
+    }
+
     public ContainerCraftAmount(final InventoryPlayer ip, final ITerminalHost te) {
         super(ip, te);
 

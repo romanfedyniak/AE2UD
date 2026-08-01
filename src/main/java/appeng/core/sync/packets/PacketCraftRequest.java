@@ -126,6 +126,7 @@ public class PacketCraftRequest extends AppEngPacket {
                             final ContainerCraftConfirm ccc = (ContainerCraftConfirm) player.openContainer;
                             ccc.setAutoStart(this.heldShift);
                             ccc.setJob(futureJob);
+                            ccc.setRequest(cca.getItemToCraft(), this.amount, this.craftMissing);
                             cca.detectAndSendChanges();
                         }
                     }

@@ -303,6 +303,13 @@ public class GuiCraftAmount extends AEBaseGui {
     }
 
     /**
+     * Whether the starting amount is an order being returned to that was written as a total.
+     */
+    protected boolean startsAsMissingAmount() {
+        return ((ContainerCraftAmount) this.inventorySlots).initialCraftMissing;
+    }
+
+    /**
      * The amount to start on, or zero while the server has not sent one yet.
      */
     protected long getInitialAmount() {
@@ -329,7 +336,8 @@ public class GuiCraftAmount extends AEBaseGui {
 
         this.primed = true;
         this.pristine = this.startsFromSuggestion();
-        this.amountToCraft.setText(this.formatAmount(initial));
+        this.amountToCraft.setText((this.startsAsMissingAmount() ? EQUALS_PREFIX : "")
+                + AmountEntry.format(initial, this.unitScale()));
         this.amountToCraft.setSelectionPos(0);
     }
 
