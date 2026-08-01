@@ -3,6 +3,7 @@ package appeng.hooks;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.PartItemStack;
 import appeng.api.parts.SelectedPart;
+import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
 import appeng.util.LookDirection;
 import appeng.util.Platform;
@@ -64,6 +65,19 @@ public class WrenchClickHook {
                     if (sp.part != null) {
                         is.add(sp.part.getItemStack(PartItemStack.WRENCH));
                         sp.part.getDrops(is, true);
+
+                        // Removing the center cable also removes every facade. Collect them before
+                        // removePart() can drop them into the world from CableBusContainer.partChanged().
+                        if (sp.side == AEPartLocation.INTERNAL) {
+                            for (final AEPartLocation side : AEPartLocation.SIDE_LOCATIONS) {
+                                final var facade = host.getFacadeContainer().getFacade(side);
+                                if (facade != null) {
+                                    is.add(facade.getItemStack());
+                                    host.getFacadeContainer().removeFacade(host, side);
+                                }
+                            }
+                        }
+
                         host.removePart(sp.side, false);
                     }
 
@@ -78,7 +92,7 @@ public class WrenchClickHook {
                     }
 
                     if (!is.isEmpty()) {
-                        Platform.spawnDrops(world, pos, is);
+                        Platform.givePlayerDrops(player, is);
                     }
                 } else {
                     player.swingArm(hand);

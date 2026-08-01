@@ -533,6 +533,25 @@ public class Platform {
         }
     }
 
+    /**
+     * Gives drops directly to a player, dropping only the inventory overflow at the player's position.
+     */
+    public static void givePlayerDrops(final EntityPlayer player, final List<ItemStack> drops) {
+        if (player.world.isRemote) {
+            return;
+        }
+
+        final InventoryAdaptor inventory = InventoryAdaptor.getAdaptor(player);
+        for (final ItemStack stack : drops) {
+            if (!stack.isEmpty()) {
+                final ItemStack overflow = inventory.addItems(stack);
+                if (!overflow.isEmpty()) {
+                    player.dropItem(overflow, false);
+                }
+            }
+        }
+    }
+
     /*
      * returns true if the code is on the server.
      */

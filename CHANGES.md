@@ -34,6 +34,7 @@ Performance:
 
 QOL:
 
+ - Wrench-dismantled blocks, parts, contents and facades now go into the player's inventory before dropping any overflow.
  - added highlight interface button to interface terminal ("?" button on the left of the interface slots)
  - Added bar on the interface terminal that search by inputs ( The one on the LEFT, also searchs by interface name )
  - Shortcut to molecular assemblers with free slots on the terminal interface by @Theisyat

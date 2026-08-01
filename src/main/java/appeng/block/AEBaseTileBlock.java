@@ -66,6 +66,8 @@ import java.util.List;
 
 public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntityProvider {
 
+    private static final ThreadLocal<WrenchDismantlingContext> WRENCH_DISMANTLING_CONTEXT = new ThreadLocal<>();
+
     @Nonnull
     private Class<? extends AEBaseTile> tileEntityType;
 
@@ -169,8 +171,12 @@ public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntity
                 te.getNoDrops(w, pos, drops);
             }
 
-            // Cry ;_; ...
-            Platform.spawnDrops(w, pos, drops);
+            final WrenchDismantlingContext context = WRENCH_DISMANTLING_CONTEXT.get();
+            if (context != null && context.matches(w, pos)) {
+                Platform.givePlayerDrops(context.player, drops);
+            } else {
+                Platform.spawnDrops(w, pos, drops);
+            }
         }
 
         // super will remove the TE, as it is not an instance of BlockContainer
@@ -271,10 +277,15 @@ public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntity
                     }
                 }
 
-                if (block.removedByPlayer(blockState, world, pos, player, false)) {
-                    final List<ItemStack> itemsToDrop = Lists.newArrayList(itemDropCandidates);
-                    Platform.spawnDrops(world, pos, itemsToDrop);
-                    world.setBlockToAir(pos);
+                WRENCH_DISMANTLING_CONTEXT.set(new WrenchDismantlingContext(world, pos, player));
+                try {
+                    if (block.removedByPlayer(blockState, world, pos, player, false)) {
+                        final List<ItemStack> itemsToDrop = Lists.newArrayList(itemDropCandidates);
+                        Platform.givePlayerDrops(player, itemsToDrop);
+                        world.setBlockToAir(pos);
+                    }
+                } finally {
+                    WRENCH_DISMANTLING_CONTEXT.remove();
                 }
 
                 return false;
@@ -321,6 +332,23 @@ public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntity
         }
 
         return this.onActivated(world, pos, player, hand, player.getHeldItem(hand), facing, hitX, hitY, hitZ);
+    }
+
+    private static final class WrenchDismantlingContext {
+
+        private final World world;
+        private final BlockPos pos;
+        private final EntityPlayer player;
+
+        private WrenchDismantlingContext(final World world, final BlockPos pos, final EntityPlayer player) {
+            this.world = world;
+            this.pos = pos;
+            this.player = player;
+        }
+
+        private boolean matches(final World world, final BlockPos pos) {
+            return this.world == world && this.pos.equals(pos);
+        }
     }
 
     @Override
