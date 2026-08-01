@@ -51,6 +51,12 @@ public class GuiSetAmount extends GuiCraftAmount {
     }
 
     @Override
+    protected long getMaxAmount() {
+        // What the slot itself holds, in the key's own units - 512 items, or 32 buckets.
+        return ((ContainerSetAmount) this.inventorySlots).maxAmount;
+    }
+
+    @Override
     protected String getTitle() {
         return GuiText.SetAmount.getLocal();
     }
