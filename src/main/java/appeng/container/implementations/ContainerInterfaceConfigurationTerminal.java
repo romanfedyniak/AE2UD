@@ -222,12 +222,19 @@ public final class ContainerInterfaceConfigurationTerminal extends AEBaseContain
                     }
                     break;
                 }
-                case PLACE_SINGLE:
-                    if (inSlot.getCount() < inSlot.getMaxStackSize() * 8) {
+                case PLACE_SINGLE: {
+                    // The slot's own ceiling, the same one SPLIT_OR_PLACE_SINGLE uses below. Eight times the
+                    // item's stack size stopped a bucket at 8 while letting a stackable item reach 512.
+                    final AEItemKey key = AEItemKey.of(inSlot);
+                    final long max = key == null
+                            ? inSlot.getMaxStackSize()
+                            : ((AppEngInternalAEInventory) inv.getServer()).getMaxAmount(key);
+                    if (inSlot.getCount() < max) {
                         inSlot.grow(1);
                         ItemHandlerUtil.setStackInSlot(theSlot, 0, inSlot);
                     }
                     break;
+                }
                 case PICKUP_SINGLE:
                     if (theSlot.getStackInSlot(0).getCount() > 1) {
                         inSlot.shrink(1);

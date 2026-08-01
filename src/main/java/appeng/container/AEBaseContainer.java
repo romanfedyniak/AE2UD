@@ -594,8 +594,10 @@ public abstract class AEBaseContainer extends Container {
                             s.putStack(is);
                         } else {
                             final ItemStack is = s.getStack().copy();
-                            if (is.getCount() < is.getMaxStackSize() * 8)
-                                is.grow(1);
+                            // The slot's own ceiling, like SPLIT_OR_PLACE_SINGLE below. Eight times the
+                            // item's stack size is not a limit this slot has: it let a stackable item reach
+                            // 512 and stopped a bucket at 8.
+                            is.setCount((int) Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
                             s.putStack(is);
                         }
                         break;
