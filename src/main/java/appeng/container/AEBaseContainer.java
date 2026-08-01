@@ -1019,12 +1019,18 @@ public abstract class AEBaseContainer extends Container {
     /**
      * The ceiling for an amount typed into a fake slot, in the key's own units.
      * <p>
-     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports. A filter slot
-     * has a limit of one and therefore no meaningful ceiling, so those are left unbounded.
+     * A slot's stack limit is expressed in items - it is what an {@code IItemHandler} reports. Two answers
+     * mean "no ceiling" rather than a number: a limit of one, which is what a filter slot reports because it
+     * holds an identity, and {@link Integer#MAX_VALUE}, which {@code OptionalSlotFake} reports because a
+     * pattern's output is a quantity the recipe chooses, not something the slot bounds. Scaling either into
+     * the key's units would turn "unbounded" into a large but arbitrary number.
      */
     public long maxAmountIn(final Slot s, final AEKey what) {
         final int slotLimit = s.getSlotStackLimit();
-        return slotLimit <= 1 ? Long.MAX_VALUE : Platform.scaleAmountFromItems(slotLimit, what);
+        if (slotLimit <= 1 || slotLimit == Integer.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        return Platform.scaleAmountFromItems(slotLimit, what);
     }
 
     /**

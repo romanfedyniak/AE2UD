@@ -196,10 +196,14 @@ Nothing here changes behaviour a player can observe; it is purely how the same d
 ### Debt wave 4 handed to wave 5 — all discharged
 
 Every `appeng.fluids` shape wave 4 wrote against was produced by wave 5, most of them by hand before the
-wave started. One decision from that list is still open and was deliberately not taken:
-`PacketMEFluidInventoryUpdate` remains **its own class** rather than being merged into
-`PacketMEInventoryUpdate`. Merging them is a later call, and no wave has been authorised to take it
-silently.
+wave started. One decision from that list was left open at the time - whether `PacketMEFluidInventoryUpdate`
+should be merged into `PacketMEInventoryUpdate` - and **it answered itself**: stage 2 deleted the fluid
+terminals, and the packet went with them (see the deletion list further down). There is one inventory-update
+packet, `GridInventoryEntry`-based, serving every terminal. Nothing to merge.
+
+Left here as a warning about this document rather than about the code: the entry sat open for a fortnight
+after the class it discussed had stopped existing, and was read back as live work. **A "still open" note is
+a claim about the present that nothing re-checks.** Deleting something means walking the notes that named it.
 
 ### Still not delivered from wave 4's own brief
 
@@ -1109,13 +1113,31 @@ looks at while testing. **A rule that is right for the common type is not a rule
 `GuiNetworkStatus` looks like a seventh copy and is not - its rows are machines, so its numbers really are
 item counts. Left alone.
 
-Still open on this axis: sibling slot classes overriding the same method, and parallel `doAction` switches
-(`PacketInventoryAction`, `AEBaseContainer`, the two interface terminals).
+Both remaining leads on this axis are now closed. The parallel `doAction` switches produced the
+configuration terminal's missing middle click, above. **Sibling slot classes** produced one finding:
+`OptionalSlotFake.getSlotStackLimit()` answers `Integer.MAX_VALUE` where `SlotFake` answers the backing
+inventory's real limit. That is deliberate - a pattern's output is a quantity the recipe chooses - but
+`maxAmountIn` was scaling it into the key's units, so a pattern output slot would have advertised a ceiling
+of `1 - 134217727B`. It reads both `1` and `Integer.MAX_VALUE` as "unbounded" now, and the override says why
+it differs. **Two siblings may disagree legitimately; what they must not do is disagree silently.**
 
-**Axis 3 - `instanceof AEItemKey` where every key type belongs. Open.** This shape has already produced two
-defects: `CraftingCPUCluster` destroying a fluid ingredient because the type test came *after* the
-extraction, and `DualityInterface.usePlan` silently doing nothing for a non-item key while `updatePlan`
-kept planning the work, so the interface never slept.
+**Axis 3 - `instanceof AEItemKey` where every key type belongs. Swept 2026-08-01, no new defects.** This
+shape had already produced two: `CraftingCPUCluster` destroying a fluid ingredient because the type test
+came *after* the extraction, and `DualityInterface.usePlan` silently doing nothing for a non-item key while
+`updatePlan` kept planning the work, so the interface never slept.
+
+About seventy sites, and the ones that look wrong are not:
+
+- `Platform.poweredExtract`/`poweredInsert` test the type before a *statistic* (`ItemsExtracted`). Counting
+  millibuckets as items would be the bug.
+- `CraftableCallBack` and `JEIMissingItem` carry bare casts, `((AEItemKey) entry.what()).getDamage()`, which
+  read as a crash waiting for a fluid. Unreachable: `AvailableItems.findFuzzy` buckets by `getPrimaryKey()`,
+  which is an `Item` for item keys and a `Fluid` for fluid keys, so a fluid never enters an item bucket.
+- `PatternHelper`'s slot test is item-only correctly - the frame is a vanilla crafting grid.
+- `MultiCraftingTracker` is the craft-on-demand exception CONTRACT already documents.
+
+**A type test is not a smell by itself.** The two real defects shared something the sweep's false positives
+did not: a *generic* caller that carried on as though the work had been done.
 
 Both open axes are blind sweeps rather than bug reports: expect findings, expect a lower hit rate, and
 expect each to need a play-test.
@@ -1452,8 +1474,9 @@ Every remaining wave must check this. Note the inverse also exists and is correc
 
 ## Amendments made to the frozen API
 
-Post-freeze edits to §1-§4 are the owner's call (§7). Six have been approved, plus §8.5
-(`wrapForDisplayOrFilter()` wraps with amount 0), which still awaits review:
+Post-freeze edits to §1-§4 are the owner's call (§7). Seven have been approved - §8.5
+(`wrapForDisplayOrFilter()` wraps with amount 0) was the last, on 2026-08-01, and was the only one that had
+gone in ahead of its review:
 
 1. **§8.3** — `ICraftingGrid.getCraftables(AEKeyFilter)` + `default isCraftable(AEKey)`. Keys carry no
    craftable flag, so the crafting grid answers instead. Mirrors upstream verbatim; additive.

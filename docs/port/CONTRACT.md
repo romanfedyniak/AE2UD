@@ -701,7 +701,7 @@ This is a **deliberate divergence from upstream**, of exactly the kind rule 6 re
 
 ## 8.5 Amendment after the first play-test — `wrapForDisplayOrFilter()` wraps with amount 0
 
-**This was a change to the frozen API. Made 2026-07-29, needs owner review under §7.**
+**This was a change to the frozen API. Made 2026-07-29, approved by the owner 2026-08-01.**
 
 `AEKey.wrapForDisplayOrFilter()` wrapped with amount **1**. That stack stands for an *identity* — it is what
 a terminal row, a filter slot or HEI is handed when only an `ItemStack` will do — and it never stands for a
