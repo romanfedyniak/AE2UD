@@ -1418,6 +1418,18 @@ was the only reason step 2 appeared to work: the container that issued the id wa
 This is the divergence the audit's axis 2 predicted - "parallel `doAction` switches: `PacketInventoryAction`,
 `AEBaseContainer`, the two interface terminals". One of three copies had not learned an action the others had.
 
+### Scrolling a config slot up stopped at 8 on a bucket (fixed, verified in game)
+
+`PLACE_SINGLE` - wheel up, no modifier - capped the slot at `getMaxStackSize() * 8`. That is not a limit the
+slot has; it is a number that *coincides* with the real ceiling of 512 for an item that stacks to 64, and
+gives 8 for a bucket. Ctrl+wheel worked because `DOUBLE` asks the slot instead. Both copies now use the
+ceiling `SPLIT_OR_PLACE_SINGLE` sits next to and already used: `maxAmountIn(slot, key)` in
+`AEBaseContainer`, `getMaxAmount(key)` in the configuration terminal.
+
+Third instance in two days of the same shape: **adjacent branches of one switch, one taught the slot's real
+capacity and the next not.** The earlier two were `SPLIT_OR_PLACE_SINGLE` stopping at 64 in a slot of 512,
+and the hotbar swap. Worth treating "a magic multiplier where a capacity belongs" as its own audit lead.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
