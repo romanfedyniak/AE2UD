@@ -34,6 +34,7 @@ Performance:
 
 QOL:
 
+ - Creative storage cells now report 2^52 - 1 stored items instead of Integer.MAX_VALUE.
  - Encoded patterns now show the player who encoded them in their tooltip.
  - Wrench-dismantled blocks, parts, contents and facades now go into the player's inventory before dropping any overflow.
  - added highlight interface button to interface terminal ("?" button on the left of the interface slots)

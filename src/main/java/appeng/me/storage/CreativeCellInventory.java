@@ -48,6 +48,8 @@ import appeng.items.contents.CellConfig;
  */
 public class CreativeCellInventory implements StorageCell {
 
+    private static final long STORED_AMOUNT = (1L << 52) - 1;
+
     private final Set<AEKey> configured = new HashSet<>();
     private final ItemStack stack;
 
@@ -82,7 +84,7 @@ public class CreativeCellInventory implements StorageCell {
     @Override
     public void getAvailableStacks(final KeyCounter out) {
         for (final AEKey key : this.configured) {
-            out.add(key, Integer.MAX_VALUE);
+            out.add(key, STORED_AMOUNT);
         }
     }
 
