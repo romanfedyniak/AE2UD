@@ -196,6 +196,7 @@ gui.appliedenergistics2.Crafts=Crafts
 gui.appliedenergistics2.And=and
 gui.appliedenergistics2.Creates=Creates
 gui.appliedenergistics2.With=with
+gui.appliedenergistics2.EncodedBy=Encoded by: %s
 gui.appliedenergistics2.Substitute=Using Substitutions:
 gui.appliedenergistics2.UsesFluidsDirectly=Uses fluids directly
 gui.appliedenergistics2.Yes=Yes

@@ -94,7 +94,9 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         this.canSubstitute = this.isCrafting && encodedValue.getBoolean("substitute");
         final boolean wantsFluidSubstitution = this.isCrafting && encodedValue.getBoolean("substitutefluids");
         this.patternItem = is;
-        this.pattern = AEItemKey.of(is);
+        final ItemStack patternForComparison = is.copy();
+        patternForComparison.getTagCompound().removeTag("author");
+        this.pattern = AEItemKey.of(patternForComparison);
 
         final List<GenericStack> in = new ArrayList<>();
         final List<GenericStack> out = new ArrayList<>();

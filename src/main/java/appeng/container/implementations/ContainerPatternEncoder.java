@@ -366,6 +366,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         encodedValue.setBoolean("crafting", this.isCraftingMode());
         encodedValue.setBoolean("substitute", this.isSubstitute());
         encodedValue.setBoolean("substitutefluids", this.isSubstituteFluids());
+        encodedValue.setString("author", this.getPlayerInv().player.getName());
 
         output.setTagCompound(encodedValue);
 

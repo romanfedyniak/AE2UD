@@ -121,6 +121,7 @@ public enum GuiText {
     Creates,
     And,
     With,
+    EncodedBy,
     Substitute,
     UsesFluidsDirectly,
     Yes,

@@ -33,6 +33,7 @@ import appeng.items.AEBaseItem;
 import appeng.util.Platform;
 import appeng.util.item.ItemStackHashStrategy;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -134,6 +135,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
                 lines.add(substitutionLabel + canSubstitute);
             }
 
+            addAuthor(stack, lines);
             return;
         }
 
@@ -179,6 +181,18 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
 
             if (details.canSubstituteFluids()) {
                 lines.add(GuiText.UsesFluidsDirectly.getLocal());
+            }
+        }
+
+        addAuthor(stack, lines);
+    }
+
+    private static void addAuthor(final ItemStack stack, final List<String> lines) {
+        if (stack.hasTagCompound()) {
+            final String author = stack.getTagCompound().getString("author");
+            if (!author.isEmpty()) {
+                lines.add(TextFormatting.LIGHT_PURPLE
+                        + I18n.format(GuiText.EncodedBy.getUnlocalized(), author));
             }
         }
     }
