@@ -28,6 +28,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.ContainerNull;
 import appeng.util.Platform;
+import appeng.util.helpers.ItemHandlerUtil;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -39,6 +40,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 import net.minecraftforge.common.crafting.IShapedRecipe;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
 
@@ -249,6 +251,22 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         }
 
         return found;
+    }
+
+    /**
+     * Lays an encoded pattern back out over an encoder's two inventories - the grid and the outputs - the
+     * way a pattern terminal shows it. Every slot is written, so nothing of what was there before survives.
+     */
+    public static void decodeInto(final ICraftingPatternDetails details, final IItemHandler grid, final IItemHandler outputs) {
+        final GenericStack[] in = details.getInputs();
+        for (int x = 0; x < grid.getSlots(); x++) {
+            ItemHandlerUtil.setStackInSlot(grid, x, GenericStack.wrapInItemStack(x < in.length ? in[x] : null));
+        }
+
+        final GenericStack[] out = details.getOutputs();
+        for (int x = 0; x < outputs.getSlots(); x++) {
+            ItemHandlerUtil.setStackInSlot(outputs, x, GenericStack.wrapInItemStack(x < out.length ? out[x] : null));
+        }
     }
 
     private static InventoryCrafting copyOf(final InventoryCrafting grid) {

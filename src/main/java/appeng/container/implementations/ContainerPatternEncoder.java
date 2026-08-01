@@ -3,7 +3,9 @@ package appeng.container.implementations;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.definitions.IDefinitions;
+import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -23,6 +25,7 @@ import appeng.container.slot.SlotPlayerInv;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.sync.packets.PacketPatternSlot;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.helpers.PatternHelper;
 import appeng.items.storage.ItemViewCell;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.reporting.AbstractPartEncoder;
@@ -111,6 +114,86 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         return super.transferStackInSlot(p, idx);
     }
 
+    /**
+     * The blank slot is where a pattern goes to be undone: an encoded one dropped here gives its recipe
+     * back to the grid and stays behind as the blank it was made from.
+     */
+    @Override
+    public ItemStack slotClick(final int slotId, final int dragType, final ClickType clickType, final EntityPlayer player) {
+        if (Platform.isServer() && clickType == ClickType.PICKUP && slotId >= 0 && slotId < this.inventorySlots.size()
+                && this.inventorySlots.get(slotId) == this.patternSlotIN
+                && this.unencode(player, dragType != 1)) {
+            return ItemStack.EMPTY;
+        }
+        return super.slotClick(slotId, dragType, clickType, player);
+    }
+
+    /**
+     * Trades encoded patterns off the cursor for blank ones in the slot - the whole stack on a left click,
+     * one on a right click, as any other slot would. False means the click was something else entirely, or
+     * the blanks had nowhere to land; either way the caller should let the normal slot rules have it.
+     */
+    private boolean unencode(final EntityPlayer player, final boolean wholeStack) {
+        final ItemStack held = player.inventory.getItemStack();
+
+        if (held.isEmpty() || !(held.getItem() instanceof ICraftingPatternItem)) {
+            return false;
+        }
+
+        final ICraftingPatternDetails details = ((ICraftingPatternItem) held.getItem()).getPatternForItem(held, player.world);
+        if (details == null) {
+            return false;
+        }
+
+        final Optional<ItemStack> maybeBlank = AEApi.instance().definitions().materials().blankPattern().maybeStack(1);
+        if (!maybeBlank.isPresent()) {
+            return false;
+        }
+
+        final ItemStack blank = maybeBlank.get();
+        final ItemStack inSlot = this.patternSlotIN.getStack();
+
+        if (!inSlot.isEmpty() && !Platform.itemComparisons().isSameItem(inSlot, blank)) {
+            return false;
+        }
+
+        final int room = Math.min(this.patternSlotIN.getSlotStackLimit(), blank.getMaxStackSize()) - inSlot.getCount();
+        final int traded = Math.min(wholeStack ? held.getCount() : 1, room);
+
+        if (traded <= 0) {
+            return false;
+        }
+
+        // A stack is one item and one tag, so all of them carry the same recipe - read it once.
+        this.loadIntoGrid(details);
+
+        held.shrink(traded);
+        player.inventory.setItemStack(held.isEmpty() ? ItemStack.EMPTY : held);
+
+        blank.setCount(inSlot.getCount() + traded);
+        this.patternSlotIN.putStack(blank);
+
+        if (player instanceof EntityPlayerMP) {
+            this.updateHeld((EntityPlayerMP) player);
+        }
+        this.resendSlots();
+        return true;
+    }
+
+    /**
+     * Spreads a decoded pattern back over the terminal: the toggles, then the two inventories behind the
+     * grid and the output slots.
+     */
+    protected void loadIntoGrid(final ICraftingPatternDetails details) {
+        this.setCraftingMode(details.isCraftable());
+        this.setSubstitute(details.canSubstitute());
+        this.setSubstituteFluids(details.canSubstituteFluids());
+
+        PatternHelper.decodeInto(details, this.crafting, this.getInventoryByName("output"));
+
+        this.getAndUpdateOutput();
+    }
+
     public AbstractPartEncoder getPart() {
         return this.patternTerminal;
     }
@@ -185,21 +268,38 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     @Override
     public void onSlotChange(final Slot s) {
         if (s == this.patternSlotOUT && Platform.isServer()) {
-            for (final IContainerListener listener : this.listeners) {
-                for (final Slot slot : this.inventorySlots) {
-                    if (slot instanceof OptionalSlotFake || slot instanceof SlotFakeCraftingMatrix) {
-                        listener.sendSlotContents(this, slot.slotNumber, slot.getStack());
-                    }
-                }
-                if (listener instanceof EntityPlayerMP) {
-                    ((EntityPlayerMP) listener).isChangingQuantityOnly = false;
-                }
-            }
-            this.detectAndSendChanges();
+            this.resendSlots();
         }
         if (s == this.craftSlot && Platform.isClient()) {
             this.getAndUpdateOutput();
         }
+    }
+
+    /**
+     * A click still in flight tells the client to ignore slot updates, and the tick's own sync marks them
+     * sent all the same - so whatever we changed here never reaches the screen until the terminal is
+     * reopened. Push the slots we touch by hand, then let the sync catch the rest.
+     */
+    private void resendSlots() {
+        if (Platform.isClient()) {
+            return;
+        }
+
+        for (final Slot slot : this.inventorySlots) {
+            if (slot instanceof OptionalSlotFake || slot instanceof SlotFakeCraftingMatrix
+                    || slot == this.patternSlotIN || slot == this.patternSlotOUT) {
+                for (final IContainerListener listener : this.listeners) {
+                    listener.sendSlotContents(this, slot.slotNumber, slot.getStack());
+                }
+            }
+        }
+
+        for (final IContainerListener listener : this.listeners) {
+            if (listener instanceof EntityPlayerMP) {
+                ((EntityPlayerMP) listener).isChangingQuantityOnly = false;
+            }
+        }
+        this.detectAndSendChanges();
     }
 
     public void encodeAndMoveToInventory() {

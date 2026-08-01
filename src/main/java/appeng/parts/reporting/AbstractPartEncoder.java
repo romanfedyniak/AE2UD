@@ -3,8 +3,8 @@ package appeng.parts.reporting;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IPartModel;
-import appeng.api.stacks.GenericStack;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.PatternHelper;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
 import net.minecraft.entity.player.EntityPlayer;
@@ -66,20 +66,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
                     this.setSubstitution(details.canSubstitute());
                     this.setFluidSubstitution(details.canSubstituteFluids());
 
-                    for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
-                        final GenericStack item = details.getInputs()[x];
-                        this.crafting.setStackInSlot(x, item == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(item));
-                    }
-
-                    for (int x = 0; x < this.output.getSlots(); x++) {
-                        final GenericStack item;
-                        if (x < details.getOutputs().length) {
-                            item = details.getOutputs()[x];
-                        } else {
-                            item = null;
-                        }
-                        this.output.setStackInSlot(x, item == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(item));
-                    }
+                    PatternHelper.decodeInto(details, this.crafting, this.output);
                 }
             }
         } else if (inv == this.crafting) {
