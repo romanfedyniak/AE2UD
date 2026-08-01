@@ -2,20 +2,20 @@
     {
         "modid": "appliedenergistics2",
         "name": "AE2 Unofficial Deconstructed",
-        "description": "A Mod about Matter, Energy and using them to conquer the world..",
+        "description": "An independently maintained, API-breaking AE2 fork for Minecraft 1.12.2 with fixes, performance improvements, fluid support, and quality-of-life features. Existing AE2 UEL worlds and addons for AE2 or AE2 UEL are not compatible.",
         "version": "${version}",
         "mcversion": "${mcversion}",
         "url": "https://github.com/romanfedyniak/AE2UD",
         "updateUrl": "",
         "authorList": [
-            "romanfedyniak",
+            "Roman Feduniak",
             "NotMyWing",
             "Serenibyss",
             "PrototypeTrousers",
             "AlgorithmX2",
             "contributors <3"
         ],
-        "credits": "The AE2:UEL team, AlgorithmX2 & contributors",
+        "credits": "Based on Applied Energistics 2 and AE2 Unofficial Extended Life, with selected work adapted from GTNewHorizons' Applied Energistics 2 Unofficial and modern AE2 upstream.",
         "logoFile": "assets/appliedenergistics2/meta/logo.png",
         "screenshots":[]
     }

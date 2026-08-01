@@ -743,6 +743,19 @@ jar {
         attributes(getManifestAttributes())
     }
 
+    // Ship the licenses and attributions with every distributable mod jar.
+    from(rootProject.file('LICENSE')) {
+        into 'META-INF'
+        rename { 'LICENSE-AE2UD' }
+    }
+    from(rootProject.file('src/api/java/appeng/api/LICENSE')) {
+        into 'META-INF'
+        rename { 'LICENSE-AE2-API' }
+    }
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) {
+        into 'META-INF'
+    }
+
     // Add all embedded dependencies into the jar
     from provider {
         configurations.embed.collect {
@@ -751,16 +764,10 @@ jar {
     }
 
     if (useSrcApiPath && apiPackage) {
-        from sourceSets.api.output
-        dependsOn apiClasses
-
-        include "${modGroupPath}/**"
-        include "assets/**"
-        include "mcmod.info"
-        include "pack.mcmeta"
-        if (accessTransformersFile) {
-            include "META-INF/${accessTransformersFile}"
+        from(sourceSets.api.output) {
+            include "${modGroupPath}/**"
         }
+        dependsOn apiClasses
     }
 }
 
