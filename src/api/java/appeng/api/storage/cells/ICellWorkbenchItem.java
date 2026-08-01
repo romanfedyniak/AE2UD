@@ -27,11 +27,19 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 import appeng.api.config.FuzzyMode;
+import appeng.api.stacks.AEKeyType;
 
 /**
  * An item that can be configured in the cell workbench.
  */
 public interface ICellWorkbenchItem {
+
+    /**
+     * The kind of content this cell accepts. Item-only workbench items keep the historical default.
+     */
+    default AEKeyType getKeyType() {
+        return AEKeyType.items();
+    }
 
     boolean isEditable(ItemStack is);
 

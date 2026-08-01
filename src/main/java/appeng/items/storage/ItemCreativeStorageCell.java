@@ -21,9 +21,11 @@ package appeng.items.storage;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
+import appeng.fluids.helper.FluidCellConfig;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import net.minecraft.client.util.ITooltipFlag;
@@ -49,16 +51,26 @@ import java.util.List;
  * silently moved the creative cell from {@link appeng.me.storage.CreativeCellInventory} to
  * {@code BasicCellInventory}, which then dereferenced this class's null upgrades inventory.
  * <p/>
- * Nothing was gained by it either: both call sites already fall back to {@link AEKeyType#items()} for an
- * item that declares no key type, and items is the right answer for this cell. The unreachable
- * {@code getBytes}/{@code getBytesPerType}/{@code getTotalTypes}/{@code getIdleDrain} overrides that existed
- * only to satisfy the wider interface are gone with it; {@code CreativeCellInventory} never did byte or type
- * accounting.
+ * Its content type is exposed through {@link ICellWorkbenchItem#getKeyType()} instead. This keeps creative
+ * cells on their dedicated handler while allowing separate item and fluid variants to share the same item
+ * and inventory implementation.
  */
 public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenchItem {
 
+    private final AEKeyType keyType;
+
     public ItemCreativeStorageCell() {
+        this(AEKeyType.items());
+    }
+
+    public ItemCreativeStorageCell(final AEKeyType keyType) {
+        this.keyType = keyType;
         this.setMaxStackSize(1);
+    }
+
+    @Override
+    public AEKeyType getKeyType() {
+        return this.keyType;
     }
 
     @Override
@@ -73,7 +85,7 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        return this.keyType == AEKeyType.fluids() ? new FluidCellConfig(is) : new CellConfig(is);
     }
 
     @Override
@@ -95,8 +107,9 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
             final CellConfig cc = new CellConfig(stack);
 
             for (final ItemStack is : cc) {
-                if (!is.isEmpty()) {
-                    lines.add(is.getDisplayName());
+                final GenericStack configured = GenericStack.resolveItemStack(is);
+                if (configured != null && configured.what().getType() == this.keyType) {
+                    lines.add(configured.what().getDisplayName().getFormattedText());
                 }
             }
         }

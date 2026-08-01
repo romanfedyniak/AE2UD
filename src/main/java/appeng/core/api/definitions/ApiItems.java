@@ -21,6 +21,7 @@ package appeng.core.api.definitions;
 
 import appeng.api.definitions.IItemDefinition;
 import appeng.api.definitions.IItems;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.util.AEColoredItemDefinition;
 import appeng.bootstrap.FeatureFactory;
 import appeng.bootstrap.components.IEntityRegistrationComponent;
@@ -87,6 +88,7 @@ public final class ApiItems implements IItems {
     private final IItemDefinition portableCell;
 
     private final IItemDefinition cellCreative;
+    private final IItemDefinition fluidCellCreative;
     private final IItemDefinition viewCell;
 
     private final IItemDefinition cell1k;
@@ -207,6 +209,10 @@ public final class ApiItems implements IItems {
         this.networkTool = registry.item("network_tool", ToolNetworkTool::new).features(AEFeature.NETWORK_TOOL).build();
 
         this.cellCreative = registry.item("creative_storage_cell", ItemCreativeStorageCell::new)
+                .features(AEFeature.STORAGE_CELLS, AEFeature.CREATIVE)
+                .build();
+        this.fluidCellCreative = registry.item("creative_fluid_storage_cell",
+                        () -> new ItemCreativeStorageCell(AEKeyType.fluids()))
                 .features(AEFeature.STORAGE_CELLS, AEFeature.CREATIVE)
                 .build();
         this.viewCell = registry.item("view_cell", ItemViewCell::new).features(AEFeature.VIEW_CELL).build();
@@ -403,6 +409,11 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition cellCreative() {
         return this.cellCreative;
+    }
+
+    @Override
+    public IItemDefinition fluidCellCreative() {
+        return this.fluidCellCreative;
     }
 
     @Override

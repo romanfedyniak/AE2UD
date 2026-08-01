@@ -28,12 +28,14 @@ import net.minecraft.util.text.TextComponentString;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.contents.CellConfig;
+import appeng.items.storage.ItemCreativeStorageCell;
 
 
 /**
@@ -55,14 +57,13 @@ public class CreativeCellInventory implements StorageCell {
 
     private CreativeCellInventory(final ItemStack o) {
         this.stack = o;
+        final AEKeyType keyType = ((ItemCreativeStorageCell) o.getItem()).getKeyType();
 
         final CellConfig cc = new CellConfig(o);
         for (final ItemStack is : cc) {
-            if (!is.isEmpty()) {
-                final AEItemKey key = AEItemKey.of(is);
-                if (key != null) {
-                    this.configured.add(key);
-                }
+            final GenericStack configured = GenericStack.resolveItemStack(is);
+            if (configured != null && configured.what().getType() == keyType) {
+                this.configured.add(configured.what());
             }
         }
     }

@@ -36,7 +36,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
-import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
@@ -319,8 +319,8 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                         final StorageCell inv = this.getInv(is);
 
                         if (inv != null) {
-                            final AEKeyType keyType = is.getItem() instanceof IBasicCellItem basicCellItem
-                                    ? basicCellItem.getKeyType()
+                            final AEKeyType keyType = is.getItem() instanceof ICellWorkbenchItem workbenchItem
+                                    ? workbenchItem.getKeyType()
                                     : AEKeyType.items();
 
                             if (this.manager.getSetting(Settings.OPERATION_MODE) == OperationMode.EMPTY) {

@@ -26,7 +26,6 @@ import appeng.api.config.Settings;
 import appeng.api.config.Upgrades;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
-import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.util.IConfigManager;
@@ -109,7 +108,9 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
             return null;
         }
 
-        return is.getItem() instanceof IBasicCellItem basicCell ? basicCell.getKeyType() : AEKeyType.items();
+        return is.getItem() instanceof ICellWorkbenchItem workbenchItem
+                ? workbenchItem.getKeyType()
+                : AEKeyType.items();
     }
 
     @Override

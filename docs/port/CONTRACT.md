@@ -1440,7 +1440,11 @@ public MEStorage getInventory();   // returns this — ITerminalHost
 // instead of the deleted IMEInventory<IAEItemStack>/IItemList<IAEItemStack> pair.
 ```
 
-**Fixed the wave-2-deferred gap.** `ItemCreativeStorageCell` now implements `IBasicCellItem`. `TileChest`/`TileDrive`/`TileIOPort`'s `is.getItem() instanceof IBasicCellItem c ? c.getKeyType() : AEKeyType.items()` now takes the `IBasicCellItem` branch for the creative cell instead of the default-to-items fallback. Behaviourally identical either way today — AE2UD has exactly one creative cell item and it has always been item-only (no creative fluid cell exists in this codebase, confirmed by grep) — but the type is now declared rather than inferred by omission, so an addon (or a future AE2UD creative fluid cell) that pattern-matches on `IBasicCellItem` sees the creative cell correctly.
+**Post-merge creative-cell correction.** `ItemCreativeStorageCell` must not implement `IBasicCellItem`:
+`BasicCellHandler` is registered first and would claim it before `CreativeCellHandler`. The content type is
+instead an additive default on `ICellWorkbenchItem`, overridden by the creative item. AE2UD registers item
+and fluid creative-cell variants backed by the same generic `CreativeCellInventory`; the Cell Workbench,
+ME Chest and IO Port read the declared type through `ICellWorkbenchItem#getKeyType()`.
 
 **`ItemViewCell.createFilter` return type — the decision waves 4/5 need to know.** The task brief called for `AEKeyFilter`; the api-level `AEKeyFilter` was chosen over the already-multi-type-capable `appeng.util.prioritylist.IPartitionList` (which wave 1 had already turned into a non-generic, `AEKey`-based type — it would have satisfied "works for every key type" too) because `AEKeyFilter` is the frozen, addon-facing type whose javadoc states it "Replaces the various per-channel filter interfaces", i.e. it is the intended long-term home for exactly this kind of predicate. Internally `createFilter` is unchanged: it still builds an `IPartitionList`/`MergedPriorityList` (the same fuzzy/inverter/merge machinery `BasicCellInventory` uses for a cell's own partition list) and exposes it as an `AEKeyFilter` via `list::isListed` (a method reference is valid regardless of the method's name, only its signature has to match `AEKeyFilter.matches(AEKey)`, which `isListed(AEKey)` does).
 

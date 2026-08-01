@@ -45,8 +45,8 @@ import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
-import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ICellHandler;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEColor;
@@ -225,8 +225,8 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
 
                     this.driveWatcher = new DriveWatcher(cell, () -> this.blinkCell(0));
                     this.cellStorage = new SecurityAwareCellStorage(this.driveWatcher);
-                    this.cellKeyType = is.getItem() instanceof IBasicCellItem basicCellItem
-                            ? basicCellItem.getKeyType()
+                    this.cellKeyType = is.getItem() instanceof ICellWorkbenchItem workbenchItem
+                            ? workbenchItem.getKeyType()
                             : AEKeyType.items();
 
                     this.accessor = new Accessor();
