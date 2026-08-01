@@ -24,7 +24,6 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.IUpgradeableCellContainer;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.api.stacks.GenericStack;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
@@ -37,7 +36,6 @@ import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
-import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.InvOperation;
 import baubles.api.BaublesApi;
 import net.minecraft.entity.player.EntityPlayer;
@@ -260,24 +258,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
                 final ICraftingPatternItem pattern = (ICraftingPatternItem) is.getItem();
                 final ICraftingPatternDetails details = pattern.getPatternForItem(is, this.getPlayerInv().player.world);
                 if (details != null) {
-                    this.setCraftingMode(details.isCraftable());
-                    this.setSubstitute(details.canSubstitute());
-                    this.setSubstituteFluids(details.canSubstituteFluids());
-
-                    for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
-                        final GenericStack item = details.getInputs()[x];
-                        ItemHandlerUtil.setStackInSlot(this.crafting, x, GenericStack.wrapInItemStack(item));
-                    }
-
-                    for (int x = 0; x < this.output.getSlots(); x++) {
-                        final GenericStack item;
-                        if (x < details.getOutputs().length) {
-                            item = details.getOutputs()[x];
-                        } else {
-                            item = null;
-                        }
-                        this.output.setStackInSlot(x, GenericStack.wrapInItemStack(item));
-                    }
+                    this.loadIntoGrid(details);
                 }
             }
         }
