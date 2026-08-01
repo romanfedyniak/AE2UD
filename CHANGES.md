@@ -6,6 +6,7 @@
 - Applied terminal styles to ME terminals, interface terminals, the interface configuration terminal, crafting status, crafting confirmation, and network status.
 - Added forward and reverse style cycling and made Small the default for new client configurations.
 - HEI item panels avoid the terminal-style controls in Crafting Plan and Crafting Status.
+- HEI item panels avoid the fluid-unit toggle on amount entry screens.
 - Portable cells remain compact when their type capacity fits in three rows; addon portable cells with larger capacities can opt into the expanded layouts through the public API.
 
 # AE2 Unofficial Deconstructed 1.3.0
