@@ -263,7 +263,9 @@ public abstract class AEBaseContainer extends Container {
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 9; j++) {
                 if (this.locked.contains(j + i * 9 + 9)) {
-                    this.addSlotToContainer(new SlotDisabled(ih, j + i * 9 + 9, 8 + j * 18 + offsetX, offsetY + i * 18));
+                    // Locked or not, it is still one of the player's own slots - guis that lay out the two
+                    // sides differently line it up with its row by asking.
+                    this.addSlotToContainer(new SlotDisabled(ih, j + i * 9 + 9, 8 + j * 18 + offsetX, offsetY + i * 18).setPlayerSide());
                 } else {
                     this.addSlotToContainer(new SlotPlayerInv(ih, j + i * 9 + 9, 8 + j * 18 + offsetX, offsetY + i * 18));
                 }
@@ -273,7 +275,7 @@ public abstract class AEBaseContainer extends Container {
         // bind player hotbar
         for (int i = 0; i < 9; i++) {
             if (this.locked.contains(i)) {
-                this.addSlotToContainer(new SlotDisabled(ih, i, 8 + i * 18 + offsetX, 58 + offsetY));
+                this.addSlotToContainer(new SlotDisabled(ih, i, 8 + i * 18 + offsetX, 58 + offsetY).setPlayerSide());
             } else {
                 this.addSlotToContainer(new SlotPlayerHotBar(ih, i, 8 + i * 18 + offsetX, 58 + offsetY));
             }
