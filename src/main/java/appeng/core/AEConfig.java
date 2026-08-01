@@ -156,7 +156,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.oreDoublePercentage = this.get("GrindStone", "oreDoublePercentage", this.oreDoublePercentage, "Chance to actually get an output with stacksize > 1.").getDouble(this.oreDoublePercentage);
 
         this.settings.registerSetting(Settings.SEARCH_TOOLTIPS, YesNo.YES);
-        this.settings.registerSetting(Settings.TERMINAL_STYLE, TerminalStyle.TALL);
+        this.settings.registerSetting(Settings.TERMINAL_STYLE, TerminalStyle.SMALL);
         this.settings.registerSetting(Settings.SEARCH_MODE, SearchBoxMode.AUTOSEARCH);
         this.settings.registerSetting(Settings.AMOUNT_ENTRY_UNITS, YesNo.NO);
 

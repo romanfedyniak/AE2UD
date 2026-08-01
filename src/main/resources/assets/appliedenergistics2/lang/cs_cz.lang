@@ -269,6 +269,7 @@ gui.tooltips.appliedenergistics2.Mod=Mód
 gui.tooltips.appliedenergistics2.TerminalStyle=Styl terminálu
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Celo-obrazový terminál
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Vysoko-centrovaný terminál
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Střední centrovaný terminál
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Nízko-centrovaný terminál
 gui.tooltips.appliedenergistics2.DoesntDespawn=Tento předmět nezmizí ze země.
 gui.tooltips.appliedenergistics2.EmitterMode=Mód vysílací výroby

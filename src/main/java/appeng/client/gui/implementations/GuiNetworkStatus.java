@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
+import appeng.api.config.TerminalStyle;
 import appeng.api.config.ViewItems;
 import appeng.api.implementations.guiobjects.INetworkTool;
 import appeng.container.me.GridInventoryEntry;
@@ -49,10 +50,15 @@ import java.util.List;
 
 public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
 
+    private static final int MIN_ROWS = 4;
+    private static final int ROW_HEIGHT = 18;
+    private static final int FIXED_HEIGHT = 81;
+
     private final ItemRepo repo;
-    private final int rows = 4;
+    private int rows = MIN_ROWS;
     private final ContainerNetworkStatus cns;
     private GuiImgButton units;
+    private GuiImgButton terminalStyleBox;
     private int tooltip = -1;
 
     public GuiNetworkStatus(final InventoryPlayer inventoryPlayer, final INetworkTool te) {
@@ -78,15 +84,29 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         if (btn == this.units) {
             AEConfig.instance().nextPowerUnit(backwards);
             this.units.set(AEConfig.instance().selectedPowerUnit());
+        } else if (btn == this.terminalStyleBox) {
+            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
+                    Settings.TERMINAL_STYLE.getPossibleValues());
+            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            this.buttonList.clear();
+            this.initGui();
         }
     }
 
     @Override
     public void initGui() {
+        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
+        this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
         this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEConfig.instance().selectedPowerUnit());
         this.buttonList.add(this.units);
+        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28,
+                Settings.TERMINAL_STYLE, style);
+        this.buttonList.add(this.terminalStyleBox);
+        this.setScrollBar();
     }
 
     @Override
@@ -99,7 +119,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
 
         int y = 0;
         int x = 0;
-        for (int z = 0; z <= 4 * 5; z++) {
+        for (int z = 0; z < 5 * this.rows; z++) {
             final int minX = gx + 14 + x * 31;
             final int minY = gy + 41 + y * 18;
 
@@ -130,9 +150,9 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         this.fontRenderer.drawString(GuiText.StoredPower.getLocal() + ": " + Platform.formatPowerLong(ns.getCurrentPower(), false), 13, 16, 4210752);
         this.fontRenderer.drawString(GuiText.MaxPower.getLocal() + ": " + Platform.formatPowerLong(ns.getMaxPower(), false), 13, 26, 4210752);
 
-        this.fontRenderer.drawString(GuiText.PowerInputRate.getLocal() + ": " + Platform.formatPowerLong(ns.getAverageAddition(), true), 13, 143 - 10,
+        this.fontRenderer.drawString(GuiText.PowerInputRate.getLocal() + ": " + Platform.formatPowerLong(ns.getAverageAddition(), true), 13, this.ySize - 20,
                 4210752);
-        this.fontRenderer.drawString(GuiText.PowerUsageRate.getLocal() + ": " + Platform.formatPowerLong(ns.getPowerUsage(), true), 13, 143 - 20, 4210752);
+        this.fontRenderer.drawString(GuiText.PowerUsageRate.getLocal() + ": " + Platform.formatPowerLong(ns.getPowerUsage(), true), 13, this.ySize - 30, 4210752);
 
         final int sectionLength = 30;
 
@@ -140,8 +160,8 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         int y = 0;
         final int xo = 12;
         final int yo = 42;
-        final int viewStart = 0;// myScrollBar.getCurrentScroll() * 5;
-        final int viewEnd = viewStart + 5 * 4;
+        final int viewStart = this.getScrollBar().getCurrentScroll() * 5;
+        final int viewEnd = viewStart + 5 * this.rows;
 
         String toolTip = "";
         int toolPosX = 0;
@@ -200,7 +220,13 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.bindTexture("guis/networkstatus.png");
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 41);
+        for (int row = 0; row < this.rows; row++) {
+            this.drawTexturedModalRect(offsetX, offsetY + 41 + row * ROW_HEIGHT, 0, 41,
+                    this.xSize, ROW_HEIGHT);
+        }
+        this.drawTexturedModalRect(offsetX, offsetY + 41 + this.rows * ROW_HEIGHT, 0, 113,
+                this.xSize, 40);
     }
 
     public void postUpdate(final List<GridInventoryEntry> list) {
@@ -216,7 +242,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
 
     private void setScrollBar() {
         final int size = this.repo.size();
-        this.getScrollBar().setTop(39).setLeft(175).setHeight(78);
+        this.getScrollBar().setTop(39).setLeft(175).setHeight(this.rows * ROW_HEIGHT + 6);
         this.getScrollBar().setRange(0, (size + 4) / 5 - this.rows, 1);
     }
 

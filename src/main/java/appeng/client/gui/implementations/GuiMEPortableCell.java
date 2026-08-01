@@ -26,12 +26,20 @@ import net.minecraft.entity.player.InventoryPlayer;
 
 public class GuiMEPortableCell extends GuiMEMonitorable {
 
+    private final IPortableCell portableCell;
+
     public GuiMEPortableCell(final InventoryPlayer inventoryPlayer, final IPortableCell te) {
         super(inventoryPlayer, te, new ContainerMEPortableCell(inventoryPlayer, te));
+        this.portableCell = te;
     }
     
     @Override
     protected int getMaxRows() {
-        return 3;
+        return this.portableCell.getTerminalRowLimit();
+    }
+
+    @Override
+    protected boolean supportsTerminalStyle() {
+        return this.getMaxRows() > 3;
     }
 }

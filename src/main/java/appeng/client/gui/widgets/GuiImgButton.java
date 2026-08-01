@@ -98,6 +98,7 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(16 * 13, Settings.TERMINAL_STYLE, TerminalStyle.TALL, ButtonToolTips.TerminalStyle, ButtonToolTips.TerminalStyle_Tall);
             this.registerApp(16 * 13 + 1, Settings.TERMINAL_STYLE, TerminalStyle.SMALL, ButtonToolTips.TerminalStyle, ButtonToolTips.TerminalStyle_Small);
             this.registerApp(16 * 13 + 2, Settings.TERMINAL_STYLE, TerminalStyle.FULL, ButtonToolTips.TerminalStyle, ButtonToolTips.TerminalStyle_Full);
+            this.registerApp(16 * 13, Settings.TERMINAL_STYLE, TerminalStyle.MEDIUM, ButtonToolTips.TerminalStyle, ButtonToolTips.TerminalStyle_Medium);
 
             this.registerApp(64, Settings.SORT_BY, SortOrder.NAME, ButtonToolTips.SortBy, ButtonToolTips.ItemName);
             this.registerApp(65, Settings.SORT_BY, SortOrder.AMOUNT, ButtonToolTips.SortBy, ButtonToolTips.NumberOfItems);
@@ -212,7 +213,7 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                 final int uv_x = iconIndex - uv_y * 16;
 
                 this.drawTexturedModalRect(0, 0, 256 - 16, 256 - 16, 16, 16);
-                this.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
+                this.drawIcon(0, 0, uv_x, uv_y);
                 this.mouseDragged(par1Minecraft, par2, par3);
 
                 GlStateManager.popMatrix();
@@ -230,11 +231,23 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                 final int uv_x = iconIndex - uv_y * 16;
 
                 this.drawTexturedModalRect(this.x, this.y, 256 - 16, 256 - 16, 16, 16);
-                this.drawTexturedModalRect(this.x, this.y, uv_x * 16, uv_y * 16, 16, 16);
+                this.drawIcon(this.x, this.y, uv_x, uv_y);
                 this.mouseDragged(par1Minecraft, par2, par3);
             }
         }
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    private void drawIcon(final int x, final int y, final int uvX, final int uvY) {
+        if (this.buttonSetting == Settings.TERMINAL_STYLE && this.currentValue == TerminalStyle.MEDIUM) {
+            // The legacy atlas has Small, Tall and Full, but no Medium tile. Recompose Tall into a
+            // twelve-pixel-high icon between the ten-pixel Small and fourteen-pixel Tall variants.
+            this.drawTexturedModalRect(x, y + 2, uvX * 16, uvY * 16 + 1, 16, 1);
+            this.drawTexturedModalRect(x, y + 3, uvX * 16, uvY * 16 + 2, 16, 10);
+            this.drawTexturedModalRect(x, y + 13, uvX * 16, uvY * 16 + 14, 16, 1);
+        } else {
+            this.drawTexturedModalRect(x, y, uvX * 16, uvY * 16, 16, 16);
+        }
     }
 
     private int getIconIndex() {

@@ -26,11 +26,27 @@ package appeng.api.config;
 
 public enum TerminalStyle
 {
+	SMALL( 1 ),
 
-	TALL,
+	MEDIUM( 2 ),
 
-	FULL,
+	TALL( 3 ),
 
-	SMALL
+	FULL( 4 );
+
+	private final int heightMultiplier;
+
+	TerminalStyle( final int heightMultiplier )
+	{
+		this.heightMultiplier = heightMultiplier;
+	}
+
+	/**
+	 * Selects this style's share of the rows that fit on the screen.
+	 */
+	public int getRows( final int maxRows )
+	{
+		return (int) ( (long) maxRows * this.heightMultiplier / 4 );
+	}
 
 }

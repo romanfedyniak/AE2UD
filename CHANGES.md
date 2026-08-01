@@ -1,3 +1,13 @@
+# Unreleased
+
+## Terminal layout
+
+- Added the modern Small, Medium, Tall, and Full-Height terminal styles, using 25%, 50%, 75%, and 100% of the available screen height.
+- Applied terminal styles to ME terminals, interface terminals, the interface configuration terminal, crafting status, crafting confirmation, and network status.
+- Added forward and reverse style cycling and made Small the default for new client configurations.
+- HEI item panels avoid the terminal-style controls in Crafting Plan and Crafting Status.
+- Portable cells remain compact when their type capacity fits in three rows; addon portable cells with larger capacities can opt into the expanded layouts through the public API.
+
 # AE2 Unofficial Deconstructed 1.3.0
 
 This is the first public CurseForge release of AE2UD. This cumulative changelog covers the complete development history of AE2UD since it was forked from AE2 Unofficial Extended Life. No earlier CurseForge release is required.

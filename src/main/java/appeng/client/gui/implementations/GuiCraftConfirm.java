@@ -20,6 +20,8 @@ package appeng.client.gui.implementations;
 
 
 import appeng.api.AEApi;
+import appeng.api.config.Settings;
+import appeng.api.config.TerminalStyle;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
@@ -28,8 +30,10 @@ import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
+import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -51,8 +55,10 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
+import java.awt.Rectangle;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,9 +66,15 @@ import java.util.Map;
 
 public class GuiCraftConfirm extends AEBaseGui {
 
+    private static final int MIN_ROWS = 5;
+    private static final int ROW_HEIGHT = 23;
+    private static final int FIXED_HEIGHT = 91;
+    private static final int TEXTURE_TOP_HEIGHT = 41;
+    private static final int TEXTURE_BOTTOM_Y = 110;
+
     private final ContainerCraftConfirm ccc;
 
-    private final int rows = 5;
+    private int rows = MIN_ROWS;
 
     private final KeyCounter storage = new KeyCounter();
     private final KeyCounter pending = new KeyCounter();
@@ -81,6 +93,7 @@ public class GuiCraftConfirm extends AEBaseGui {
     private GuiButton cancel;
     private GuiButton start;
     private GuiButton selectCPU;
+    private GuiImgButton terminalStyleBox;
     private int tooltip = -1;
 
     public GuiCraftConfirm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -122,6 +135,10 @@ public class GuiCraftConfirm extends AEBaseGui {
 
     @Override
     public void initGui() {
+        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final int availableRows = (this.height - 64 - FIXED_HEIGHT) / ROW_HEIGHT;
+        this.rows = Math.max(MIN_ROWS, style.getRows(availableRows));
+        this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
         this.start = new GuiButton(0, this.guiLeft + 162, this.guiTop + this.ySize - 25, 50, 20, GuiText.Start.getLocal());
@@ -141,6 +158,10 @@ public class GuiCraftConfirm extends AEBaseGui {
             this.cancel = new GuiButton(0, this.guiLeft + 6, this.guiTop + this.ySize - 25, 50, 20, GuiText.Cancel.getLocal());
             this.buttonList.add(this.cancel);
         }
+
+        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
+                Settings.TERMINAL_STYLE, style);
+        this.buttonList.add(this.terminalStyleBox);
     }
 
     @Override
@@ -158,7 +179,7 @@ public class GuiCraftConfirm extends AEBaseGui {
         final int offY = 23;
         int y = 0;
         int x = 0;
-        for (int z = 0; z <= 4 * 5; z++) {
+        for (int z = 0; z < 3 * this.rows; z++) {
             final int minX = gx + 9 + x * 67;
             final int minY = gy + 22 + y * offY;
 
@@ -220,7 +241,7 @@ public class GuiCraftConfirm extends AEBaseGui {
         }
 
         final int offset = (219 - this.fontRenderer.getStringWidth(dsp)) / 2;
-        this.fontRenderer.drawString(dsp, offset, 165, 4210752);
+        this.fontRenderer.drawString(dsp, offset, this.ySize - 41, 4210752);
 
         final int sectionLength = 67;
 
@@ -392,13 +413,32 @@ public class GuiCraftConfirm extends AEBaseGui {
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.setScrollBar();
         this.bindTexture("guis/craftingreport.png");
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, TEXTURE_TOP_HEIGHT);
+        int y = TEXTURE_TOP_HEIGHT;
+        for (int row = 1; row < this.rows - 1; row++) {
+            this.drawTexturedModalRect(offsetX, offsetY + y, 0, TEXTURE_TOP_HEIGHT,
+                    this.xSize, ROW_HEIGHT);
+            y += ROW_HEIGHT;
+        }
+        this.drawTexturedModalRect(offsetX, offsetY + y, 0, TEXTURE_BOTTOM_Y,
+                this.xSize, 206 - TEXTURE_BOTTOM_Y);
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        if (this.terminalStyleBox == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1,
+                this.terminalStyleBox.y - 1, this.terminalStyleBox.width + 2,
+                this.terminalStyleBox.height + 2));
     }
 
     private void setScrollBar() {
         final int size = this.visual.size();
 
-        this.getScrollBar().setTop(19).setLeft(218).setHeight(114);
+        this.getScrollBar().setTop(19).setLeft(218).setHeight(this.rows * ROW_HEIGHT - 1);
         this.getScrollBar().setRange(0, (size + 2) / 3 - this.rows, 1);
     }
 
@@ -490,6 +530,16 @@ public class GuiCraftConfirm extends AEBaseGui {
         super.actionPerformed(btn);
 
         final boolean backwards = Mouse.isButtonDown(1);
+
+        if (btn == this.terminalStyleBox) {
+            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
+                    Settings.TERMINAL_STYLE.getPossibleValues());
+            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            this.buttonList.clear();
+            this.initGui();
+            return;
+        }
 
         if (btn == this.selectCPU) {
             try {

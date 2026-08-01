@@ -303,6 +303,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=Style du terminal
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Terminal plein écran
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Grand terminal centré
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Terminal centré de taille moyenne
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Petit terminal centré
 gui.tooltips.appliedenergistics2.DoesntDespawn=Cet élément ne disparaitra pas.
 gui.tooltips.appliedenergistics2.EmitterMode=Mode d'émission de la fabrication

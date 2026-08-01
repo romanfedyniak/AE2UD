@@ -349,6 +349,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=终端风格
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=全屏
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=长
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=中等
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=短
 gui.tooltips.appliedenergistics2.DoesntDespawn=该物品不会消失。
 gui.tooltips.appliedenergistics2.EmitterMode=合成发信模式

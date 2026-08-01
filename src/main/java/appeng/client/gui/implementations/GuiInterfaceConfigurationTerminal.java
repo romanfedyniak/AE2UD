@@ -21,8 +21,10 @@ package appeng.client.gui.implementations;
 
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
+import appeng.api.config.TerminalStyle;
 import appeng.api.stacks.AEFluidKey;
 import appeng.core.AELog;
+import appeng.core.AEConfig;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -69,7 +71,9 @@ import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEIGhostIngredients {
 
-    private static final int LINES_ON_PAGE = 6;
+    private static final int MIN_ROWS = 6;
+    private static final int ROW_HEIGHT = 18;
+    private static final int FIXED_HEIGHT = 127;
 
     // TODO: copied from GuiMEMonitorable. It looks not changed, maybe unneeded?
     private final int offsetX = 21;
@@ -87,7 +91,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private final Map<String, Set<Object>> cachedSearches = new WeakHashMap<>();
 
     private boolean refreshList = false;
+    private int rows = MIN_ROWS;
     private MEGuiTextField searchFieldInputs;
+    private GuiImgButton terminalStyleBox;
     private final PartInterfaceConfigurationTerminal partInterfaceTerminal;
     private final HashMap<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
     public Map<IGhostIngredientHandler.Target<?>, Object> mapTargetSlot = new HashMap<>();
@@ -105,11 +111,23 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void initGui() {
         Keyboard.enableRepeatEvents(true);
+        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
+        this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
         this.getScrollBar().setLeft(189);
-        this.getScrollBar().setHeight(106);
+        this.getScrollBar().setHeight(this.rows * ROW_HEIGHT - 2);
         this.getScrollBar().setTop(31);
+
+        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
+                Settings.TERMINAL_STYLE, style);
+
+        for (final Object obj : this.inventorySlots.inventorySlots) {
+            if (obj instanceof appeng.container.slot.AppEngSlot slot) {
+                slot.yPos = slot.getY() + this.ySize - 235;
+            }
+        }
 
         this.searchFieldInputs = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(32, this.offsetX), this.guiTop + 17, 65, 12);
         this.searchFieldInputs.setEnableBackgroundDrawing(false);
@@ -131,6 +149,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.buttonList.clear();
+        this.terminalStyleBox.set(AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
+        this.buttonList.add(this.terminalStyleBox);
 
         this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.InterfaceConfigurationTerminal.getLocal()), 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), this.offsetX + 2, this.ySize - 96 + 3, 4210752);
@@ -141,7 +161,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         int offset = 30;
         int linesDraw = 0;
-        for (int x = 0; x < LINES_ON_PAGE && linesDraw < LINES_ON_PAGE && currentScroll + x < this.lines.size(); x++) {
+        for (int x = 0; x < this.rows && linesDraw < this.rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
             if (lineObj instanceof ClientDCInternalInv) {
                 final ClientDCInternalInv inv = (ClientDCInternalInv) lineObj;
@@ -151,7 +171,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 this.buttonList.add(guiButton);
                 int extraLines = numUpgradesMap.get(inv);
 
-                for (int row = 0; row < 1 + extraLines && linesDraw < LINES_ON_PAGE; ++row) {
+                for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
                     for (int z = 0; z < 9; z++) {
                         this.inventorySlots.inventorySlots.add(new SlotDisconnected(inv, z + (row * 9), (z * 18 + 22), offset));
                         if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (row * 9)))) {
@@ -198,7 +218,15 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
-        if (guiButtonHashMap.containsKey(btn)) {
+        if (btn == this.terminalStyleBox) {
+            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
+                    Settings.TERMINAL_STYLE.getPossibleValues());
+            final String search = this.searchFieldInputs.getText();
+            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            this.initGui();
+            this.searchFieldInputs.setText(search);
+        } else if (guiButtonHashMap.containsKey(btn)) {
             BlockPos blockPos = blockPosHashMap.get(guiButtonHashMap.get(this.selectedButton));
             BlockPos blockPos2 = mc.player.getPosition();
             int playerDim = mc.world.provider.getDimension();
@@ -241,12 +269,18 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.bindTexture("guis/interfaceconfigurationterminal.png");
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 29);
+        for (int row = 0; row < this.rows; row++) {
+            this.drawTexturedModalRect(offsetX, offsetY + 29 + row * ROW_HEIGHT, 0, 29,
+                    this.xSize, ROW_HEIGHT);
+        }
+        this.drawTexturedModalRect(offsetX, offsetY + 29 + this.rows * ROW_HEIGHT, 0, 137,
+                this.xSize, 98);
 
         int offset = 29;
         final int ex = this.getScrollBar().getCurrentScroll();
         int linesDraw = 0;
-        for (int x = 0; x < LINES_ON_PAGE && linesDraw < LINES_ON_PAGE && ex + x < this.lines.size(); x++) {
+        for (int x = 0; x < this.rows && linesDraw < this.rows && ex + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(ex + x);
             if (lineObj instanceof ClientDCInternalInv) {
                 GlStateManager.color(1, 1, 1, 1);
@@ -254,7 +288,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
                 int extraLines = numUpgradesMap.get(lineObj);
 
-                for (int row = 0; row < 1 + extraLines && linesDraw < LINES_ON_PAGE; ++row) {
+                for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
                     this.drawTexturedModalRect(offsetX + 20, offsetY + offset, 20, 170, width, 18);
                     offset += 18;
                     linesDraw++;

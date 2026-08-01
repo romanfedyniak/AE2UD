@@ -167,11 +167,12 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     }
 
     private int calculateRowsCount() {
-        final int maxRows = getMaxRows();
         final int jeiPadding = jeiEnabled ? 22 + 18 : 0;
         final int extraSpace = this.height - MAGIC_HEIGHT_NUMBER - jeiPadding;
+        final int availableRows = extraSpace / 18;
+        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
 
-        return Math.max(6, Math.min(maxRows, extraSpace / 18));
+        return Math.max(6, style.getRows(availableRows));
     }
 
     @Override
@@ -679,10 +680,6 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         }
 
         return cache;
-    }
-
-    private int getMaxRows() {
-        return AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE) != TerminalStyle.TALL ? 6 : Integer.MAX_VALUE;
     }
 
     private ClientDCInternalInv getById(final long id, final long sortBy, final String string) {

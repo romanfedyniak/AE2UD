@@ -306,6 +306,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=Konsolen-Stil
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Vollbildschirmskonsole
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Hohe zentrierte Konsole
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Mittlere zentrierte Konsole
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Kleine zentrierte Konsole
 gui.tooltips.appliedenergistics2.DoesntDespawn=Dieses Item wird nicht verschwinden.
 gui.tooltips.appliedenergistics2.EmitterMode=Fertigungs-Emittermodus

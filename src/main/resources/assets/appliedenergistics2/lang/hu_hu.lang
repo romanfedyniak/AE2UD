@@ -309,6 +309,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod szerint
 gui.tooltips.appliedenergistics2.TerminalStyle=Terminál Stílus
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Teljes képernyős Terminál
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Magas Középreigazított Terminál
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Közepes Középreigazított Terminál
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Kicsi Középreigazított Terminál
 gui.tooltips.appliedenergistics2.DoesntDespawn=Ez a tárgy nem fog eltűnni.
 gui.tooltips.appliedenergistics2.EmitterMode=Barkács Kibocsátó Mód

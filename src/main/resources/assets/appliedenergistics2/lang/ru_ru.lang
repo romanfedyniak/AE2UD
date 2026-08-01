@@ -327,6 +327,7 @@ gui.tooltips.appliedenergistics2.Mod=Мод
 gui.tooltips.appliedenergistics2.TerminalStyle=Стиль терминала
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Полноэкранный терминал
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Высокий отцентрированный терминал
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Средний центрованный терминал
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Маленький отцентрированный терминал
 gui.tooltips.appliedenergistics2.DoesntDespawn=Этот предмет не будет исчезать.
 gui.tooltips.appliedenergistics2.EmitterMode=Режим излучателя крафта

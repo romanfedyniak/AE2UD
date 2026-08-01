@@ -24,6 +24,7 @@
 package appeng.api.implementations.guiobjects;
 
 
+import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.ITerminalHost;
@@ -34,5 +35,19 @@ import appeng.api.storage.ITerminalHost;
  */
 public interface IPortableCell extends ITerminalHost, MEStorage, IEnergySource, IGuiItemObject
 {
+	/**
+	 * Maximum useful number of terminal rows for this portable cell. Addons with a custom storage
+	 * implementation can override this method; basic cell items are sized automatically.
+	 */
+	default int getTerminalRowLimit()
+	{
+		if( this.getItemStack().getItem() instanceof IBasicCellItem cellItem )
+		{
+			final long totalTypes = cellItem.getTotalTypes( this.getItemStack() );
+			return (int) Math.min( Integer.MAX_VALUE, Math.max( 3, ( totalTypes + 8 ) / 9 ) );
+		}
+
+		return 3;
+	}
 
 }

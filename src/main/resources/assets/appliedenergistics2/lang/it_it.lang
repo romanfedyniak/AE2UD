@@ -290,6 +290,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=Stile terminale
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Terminale schermo intero
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Terminale centrato grande
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Terminale Centrato Medio
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Terminale centrato piccolo
 gui.tooltips.appliedenergistics2.DoesntDespawn=Questo oggetto non scomparirà (de-spawn).
 gui.tooltips.appliedenergistics2.EmitterMode=Modalità pietrarossa per fabbricazione

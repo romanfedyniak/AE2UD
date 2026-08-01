@@ -323,6 +323,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=Estilo do Terminal
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=Terminal em Tela Cheia
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=Terminal Alto e Centrado
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=Terminal Médio e Centralizado
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=Terminal Pequeno e Centrado
 gui.tooltips.appliedenergistics2.DoesntDespawn=Esse item não vai sumir.
 gui.tooltips.appliedenergistics2.EmitterMode=Modo de Fabricação Emissor

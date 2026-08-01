@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-07-31, after the follow-up list was worked through.
+2026-08-02, after the terminal-style follow-up was implemented.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,17 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release terminal-style follow-up
+
+The terminal layout setting now follows modern AE2 semantics: Small, Medium, Tall, and Full-Height use
+25%, 50%, 75%, and 100% of the rows available to each screen. The shared client setting is used by ME
+terminals, both interface terminal families, crafting status and confirmation, and network status while
+preserving each legacy screen's safe minimum row count. The old Full horizontal expansion was removed.
+
+Portable cells expose `IPortableCell.getTerminalRowLimit()`. Basic cell items derive that limit from their
+type capacity, so the standard 27-type portable cell stays fixed at three rows with no meaningless style
+button, while larger addon portable cells receive the same style control automatically.
 
 ## What this port is
 

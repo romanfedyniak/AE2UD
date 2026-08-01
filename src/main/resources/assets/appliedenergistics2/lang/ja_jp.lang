@@ -334,6 +334,7 @@ gui.tooltips.appliedenergistics2.Mod=Mod
 gui.tooltips.appliedenergistics2.TerminalStyle=表示形式
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=フルスクリーン
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=最小化
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=中
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=最大化
 gui.tooltips.appliedenergistics2.DoesntDespawn=このアイテムは自然消滅しません
 gui.tooltips.appliedenergistics2.EmitterMode=クラフティングエミッターモード

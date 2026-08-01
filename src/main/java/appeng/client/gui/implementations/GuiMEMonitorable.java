@@ -224,15 +224,13 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         Keyboard.enableRepeatEvents(true);
 
         this.maxRows = this.getMaxRows();
-        this.perRow = AEConfig.instance()
-                .getConfigManager()
-                .getSetting(
-                        Settings.TERMINAL_STYLE) != TerminalStyle.FULL ? 9 : 9 + ((this.width - this.standardSize) / 18);
+        this.perRow = 9;
 
         final int magicNumber = 114 + 1;
         final int extraSpace = this.height - magicNumber - this.reservedSpace;
 
-        this.rows = (int) Math.floor(extraSpace / 18);
+        final TerminalStyle terminalStyle = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        this.rows = terminalStyle.getRows((int) Math.floor(extraSpace / 18));
         if (this.rows > this.maxRows) {
             this.rows = this.maxRows;
         }
@@ -248,11 +246,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             }
         }
 
-        if (AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE) != TerminalStyle.FULL) {
-            this.xSize = this.standardSize + ((this.perRow - 9) * 18);
-        } else {
-            this.xSize = this.standardSize;
-        }
+        this.xSize = this.standardSize;
 
         super.initGui();
         // full size : 204
@@ -292,7 +286,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         offset += 20;
 
-        if (!(this instanceof GuiMEPortableCell) || this instanceof GuiWirelessTerm) {
+        if (this.supportsTerminalStyle()) {
             this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEConfig.instance()
                     .getConfigManager()
                     .getSetting(Settings.TERMINAL_STYLE)));
@@ -449,7 +443,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     protected int getMaxRows() {
-        return AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE) == TerminalStyle.SMALL ? 6 : Integer.MAX_VALUE;
+        return Integer.MAX_VALUE;
+    }
+
+    protected boolean supportsTerminalStyle() {
+        return true;
     }
 
     protected void repositionSlot(final AppEngSlot s) {

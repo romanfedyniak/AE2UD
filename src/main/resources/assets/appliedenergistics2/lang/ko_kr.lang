@@ -317,6 +317,7 @@ gui.tooltips.appliedenergistics2.Mod=모드
 gui.tooltips.appliedenergistics2.TerminalStyle=터미널 방식
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=풀 스크린 터미널
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=긴 집중 터미널
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=중간 중앙 터미널
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=짧은 집중 터미널
 gui.tooltips.appliedenergistics2.DoesntDespawn=이 아이템은 디스폰하지 않을 것입니다.
 gui.tooltips.appliedenergistics2.EmitterMode=처리 조합 모드

@@ -315,6 +315,7 @@ gui.tooltips.appliedenergistics2.Mod=模組
 gui.tooltips.appliedenergistics2.TerminalStyle=終端風格
 gui.tooltips.appliedenergistics2.TerminalStyle_Full=全屏
 gui.tooltips.appliedenergistics2.TerminalStyle_Tall=長
+gui.tooltips.appliedenergistics2.TerminalStyle_Medium=中等
 gui.tooltips.appliedenergistics2.TerminalStyle_Small=短
 gui.tooltips.appliedenergistics2.DoesntDespawn=該物品不會消亡。
 gui.tooltips.appliedenergistics2.EmitterMode=合成發出器模式
