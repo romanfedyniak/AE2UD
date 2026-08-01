@@ -104,7 +104,11 @@ public class CraftingTreeNode {
         final KeyCounter inventoryList = inv.getItemList();
         final List<GenericStack> thingsUsed = new ArrayList<>();
 
-        if (this.getSlot() >= 0 && this.parent != null && this.parent.details.isCraftable()) {
+        // A fabricated slot is not matched against the crafting grid: what the network hands over is a fluid,
+        // which no InventoryCrafting can hold and no isValidItemForSlot would accept. It is drawn plainly,
+        // like a processing pattern's ingredient, and leaves no container behind.
+        if (this.getSlot() >= 0 && this.parent != null && this.parent.details.isCraftable()
+                && !this.parent.details.isContainerFabricated(this.slot)) {
             final LinkedList<GenericStack> itemList = new LinkedList<>();
 
             final boolean damageableItem = this.what instanceof AEItemKey whatItemKey
@@ -303,7 +307,12 @@ public class CraftingTreeNode {
         }
         // missing = 0;
 
-        job.addBytes(this.bytes);
+        // A job is charged per thing, and for a fluid the thing is a bucket, not a millibucket. This is
+        // getAmountPerUnit and deliberately not getAmountPerByte - the latter is how densely a storage cell
+        // packs the type (8 items, 8000 mB) and dividing by it would make every existing job eight times
+        // cheaper. Applied once here rather than at the six places above, which all add a raw amount of this
+        // node's single key: no rounding drift, and no chance of five of them learning it and the sixth not.
+        job.addBytes(this.bytes / Math.max(1, this.what.getType().getAmountPerUnit()));
 
         for (final CraftingTreeProcess pro : this.nodes) {
             pro.dive(job);

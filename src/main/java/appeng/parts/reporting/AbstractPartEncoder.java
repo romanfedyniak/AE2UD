@@ -23,6 +23,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
 
     protected boolean craftingMode = true;
     protected boolean substitute = false;
+    protected boolean fluidSubstitute = false;
 
     public AbstractPartEncoder(ItemStack is) {
         super(is);
@@ -63,6 +64,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
                 if (details != null) {
                     this.setCraftingRecipe(details.isCraftable());
                     this.setSubstitution(details.canSubstitute());
+                    this.setFluidSubstitution(details.canSubstituteFluids());
 
                     for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
                         final GenericStack item = details.getInputs()[x];
@@ -113,6 +115,14 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
 
     public void setSubstitution(final boolean canSubstitute) {
         this.substitute = canSubstitute;
+    }
+
+    public boolean isFluidSubstitution() {
+        return this.fluidSubstitute;
+    }
+
+    public void setFluidSubstitution(final boolean canSubstituteFluids) {
+        this.fluidSubstitute = canSubstituteFluids;
     }
 
     @Override

@@ -123,6 +123,9 @@ public enum ButtonToolTips {
     SubstitutionsOff,
     SubstitutionsDescEnabled,
     SubstitutionsDescDisabled,
+    FluidSubstitutions,
+    FluidSubstitutionsDescEnabled,
+    FluidSubstitutionsDescDisabled,
     CraftOnly,
     CraftEither,
 

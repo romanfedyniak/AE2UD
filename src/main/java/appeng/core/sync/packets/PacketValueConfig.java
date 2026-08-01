@@ -154,6 +154,8 @@ public class PacketValueConfig extends AppEngPacket {
                     cpt.maximizeCount();
                 } else if (this.Name.equals("PatternTerminal.Substitute")) {
                     cpt.setSubstitute(this.Value.equals("1"));
+                } else if (this.Name.equals("PatternTerminal.SubstituteFluids")) {
+                    cpt.setSubstituteFluids(this.Value.equals("1"));
                 }
             }
         } else if (this.Name.equals("KeyTypes.Toggle")) {

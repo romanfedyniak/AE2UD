@@ -264,6 +264,11 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     }
 
     @Override
+    public boolean acceptsFabricatedContainers() {
+        return true;
+    }
+
+    @Override
     public int getInstalledUpgrades(final Upgrades u) {
         return this.upgrades.getInstalledUpgrades(u);
     }
@@ -488,10 +493,22 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
             this.progress = 0;
             final ItemStack output = this.myPlan.getOutput(this.craftingInv, this.getWorld());
             if (!output.isEmpty()) {
+                // forcePlan is the only honest way to tell an assembled container from a real one, since the
+                // two are the same ItemStack: it is set exactly when a crafting CPU pushed this plan, and it
+                // is saved to NBT, so it still answers after a reload. Without it, a pattern dropped into an
+                // assembler and fed by hand would have the player's own buckets destroyed.
+                //
+                // Read before pushOut, which clears forcePlan the moment the result is away and may drop
+                // myPlan with it. Read after, every craft would look hand-fed and hand back a bucket that
+                // was never taken out of the network.
+                final ICraftingPatternDetails plan = this.myPlan;
+                final boolean cpuSupplied = this.forcePlan;
+
                 this.pushOut(output);
 
                 for (int x = 0; x < this.craftingInv.getSizeInventory(); x++) {
-                    this.gridInv.setStackInSlot(x, Platform.getContainerItem(this.craftingInv.getStackInSlot(x)));
+                    this.gridInv.setStackInSlot(x, Platform.getRemainingItem(plan, x,
+                            this.craftingInv.getStackInSlot(x), cpuSupplied));
                 }
 
                 if (ItemHandlerUtil.isEmpty(this.patternInv)) {

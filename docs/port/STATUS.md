@@ -1483,6 +1483,111 @@ key, the number and the `=` flag separately from `result`, because an "up to" or
 restoring from the job would answer `60` to someone who asked for `=100`, with no way to tell why. It is
 captured when the plan opens rather than when it finishes, so cancelling mid-calculation restores too.
 
+## Crafting patterns that take fluids straight from the network (done, awaiting a play-test)
+
+A recipe calling for a bucket of water can draw the water and nothing else. Second toggle in the pattern
+terminal, independent of ore-dict substitution, stored as `substitutefluids`; upstream's
+`AECraftingPattern.canSubstituteFluids`.
+
+**Eligibility is per slot, decided once, and hangs on the recipe's own remainder.** In `PatternHelper`'s
+constructor: the slot holds something a registered `ContainerItemStrategy` recognises, **and** the emptied
+container equals what `IRecipe.getRemainingItems` leaves in that slot. Both halves are needed. Without the
+second, a mod's part-filled tank - which the recipe hands back untouched - would start costing three buckets
+a craft, and a recipe that swallows the vessel would stop costing one. Nothing here knows what a bucket is;
+`ContainerItemStrategies` was already type-erased, so an addon's key type gets this for free.
+
+**The container is assembled and destroyed, and that is only sound because the two sources never mix.** An
+eligible slot is supplied *only* as a key - never a real filled container out of storage, never an ore-dict
+alternative. That is what makes "slot x is eligible" equal to "the container in slot x was fabricated",
+derivable from the pattern alone. It has to be derivable: `TileMolecularAssembler` keeps a half-finished
+craft in `gridInv` across a chunk reload and rebuilds `myPlan` from the pattern item, so a side channel from
+the CPU would not survive to the moment the container is destroyed - and a fabricated bucket and a real one
+are the same `ItemStack`, byte for byte. The rule itself lives in one place, `Platform.getRemainingItem`,
+which `CraftingCPUCluster` and `TileMolecularAssembler` both ask instead of `getContainerItem`.
+
+**Provenance is `forcePlan`, and it must be read before it is spent.** A pattern dropped straight into an
+assembler and fed by an import bus gets *real* buckets, and destroying those would be eating the player's
+items. `forcePlan` is set exactly when a CPU pushed the plan and is already saved to NBT, so it answers
+after a reload too. Consequence, accepted: the same pattern in a standalone assembler ignores the toggle and
+still wants filled containers. It has no network to draw from - it is fed.
+
+The first version read it one line too late. `pushOut()` clears `forcePlan` as soon as the result is away
+(and `recalculatePlan()` may drop `myPlan` with it), and the grid was emptied *after* that call - so every
+CPU-driven craft looked hand-fed and handed back a bucket that had never been taken out of the network.
+Both are captured into locals before `pushOut`. **A flag that means "how this got here" is spent by the
+thing that finishes the job; read it before, never after.**
+
+**Three landmines found by reading rather than by testing**, any one of which would have made the feature
+look broken or silently duplicate items:
+
+- `CraftingTreeNode` counted **a byte per millibucket** (`bytes += available`, six sites). 64 crafts with a
+  water bucket would have cost 64,000 bytes against a 64k accumulator's 65,536. Scaled once in `dive()`
+  rather than six times: the node holds a single key for its whole life, so dividing the sum is exact and
+  cannot half-learn. This also makes existing **processing** patterns with fluids a thousand times cheaper,
+  which is the correct number.
+
+  The divisor is `getAmountPerUnit()` (1 for items, 1000 for fluids) and **not** `getAmountPerByte()`, which
+  reads like the right method and is not: it is how densely a *storage cell* packs the type - 8 items,
+  8000 mB - so dividing by it would have made every existing job eight times cheaper. A job is charged per
+  thing, and for a fluid the thing is a bucket. Caught by reading the constant, not by testing; nothing
+  in-game would have looked wrong, autocrafting would just have quietly become cheap.
+- `AEConfig.enableCraftingSubstitutes` defaults to **false** and gates all of `CraftingTreeProcess:92-158`,
+  while `CraftingTreeNode` and `CraftingCPUCluster` never check it. Hanging fluids inside that `if` would
+  have had the plan reserve buckets and the CPU wait on water it never asked for - a job that never
+  finishes, with no error anywhere. The fabricated branch sits outside the gate.
+- `DualityInterface.pushPattern` has **three** destinations, not one, and a fabricated container may go to
+  none of them: a third-party `ICraftingMachine` hands the emptied container straight back, a neighbouring
+  network takes the whole table into its storage, and a plain `InventoryAdaptor` drops it in a chest. Each
+  would mint a bucket out of water on every craft. All three are gated on one local now.
+
+  The first attempt at that gate was `!canSubstituteFluids()` on the machine branch alone - which broke the
+  feature outright, because **`TileMolecularAssembler` is itself an `ICraftingMachine`** and that branch is
+  the only route from an interface to one. The job planned, the CPU filled, and nothing was ever pushed:
+  a silent hang. The gate is an opt-in on the machine instead, `ICraftingMachine.acceptsFabricatedContainers()`,
+  defaulting to false - so an addon's machine is passed over rather than quietly duplicating, and can join in
+  by consulting `isContainerFabricated` and leaving the slot empty.
+
+**`getRemainingItems` is asked on a throwaway copy.** It is free to empty the stacks it is handed, and mod
+recipes do; the grid it was first called with is `PatternHelper.crafting`, the reference frame every
+`isValidItemForSlot` test is rebuilt from. Draining it left an assembler accepting the water bucket - which
+the constructor had already put in the pass cache - and rejecting every other ingredient, because the frame
+those were tested against no longer contained any water. **A method that reads a thing is not thereby a
+method that leaves it alone.**
+
+**Atlas cells are not free just because they are blank.** The two button icons first went into
+`states.png` cells (11,1) and (12,1), the only unregistered fully-transparent ones - and the droplet then
+appeared along the top of every terminal. `GuiTabButton` draws its background as **25x22** from `(11*16, 0)`
+and `(13*16, 0)`, so it reads six pixels down into row 1. The icons live in the bottom row now, which
+nothing oversized reaches. Only two draws on this sheet are not 16x16 cells: that one and `GuiScrollbar`.
+
+**The button previews its own effect.** Hovering it tints the qualifying slots green, answered by the same
+`PatternHelper.findFabricatedSlots` the pattern will use once encoded - static and shared precisely so the
+preview cannot drift from the rule. A container the recipe does not simply empty stays dark rather than
+promising something. The recipe lookup is a scan of every registered recipe, so it is redone only when the
+grid contents change.
+
+**Two pre-existing defects fixed in passing**, both inside the blast radius. `CraftingCPUCluster`'s tail
+put-back (`if (ic != null)`) restored the table but never the ingredients carried beside it, so a processing
+pattern with a fluid lost it whenever no medium took the job; both put-backs are one method now. And
+`getSubstituteInputs` amounts are normalised to "per one of the encoded ingredient", because callers
+multiply by the slot's own count and a substitute arriving with a stack size would square it.
+
+**Batching.** `getTimes()` returns 1 - one craft planned at a time - when any input carries a container,
+because `request()` puts containers back only at the end of a batch. An eligible slot returns nothing, so it
+is no longer a reason to give it up; the same item sitting in another, non-eligible slot still is.
+
+**Known landmine, deliberately not touched.** For *item* substitution the same split is still there: the
+plan is gated by `enableCraftingSubstitutes`, the CPU is not. With the config off and a substituting pattern,
+the two can disagree about which item a craft will use. Left alone because fixing it changes ore-dict
+behaviour for every existing pattern, which is a separate change with separate testing.
+
+**Also deliberately not done: batching by how many containers are in stock.** `addContainers` credits back
+exactly *one* container however many were consumed (`toStack()` is `toStack(1)`), which is the real reason
+`getTimes` returns 1 - the guard hides broken accounting rather than expressing a policy. Fix that and the
+batch size can be `min(remaining, available)`, turning 8192 planning rounds into 16, multiplied by tree
+depth. Separate change: it moves plans for *every* container recipe, and doing it beside a change that also
+moves plans would make a discrepancy unattributable.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
@@ -1505,7 +1610,7 @@ Every remaining wave must check this. Note the inverse also exists and is correc
 
 ## Amendments made to the frozen API
 
-Post-freeze edits to §1-§4 are the owner's call (§7). Seven have been approved - §8.5
+Post-freeze edits to §1-§4 are the owner's call (§7). Eight have been approved - §8.5
 (`wrapForDisplayOrFilter()` wraps with amount 0) was the last, on 2026-08-01, and was the only one that had
 gone in ahead of its review:
 
@@ -1527,6 +1632,10 @@ gone in ahead of its review:
    key types it takes at all. Same package and method names as upstream; the "return to the previous
    screen" half stays in `appeng.helpers.ISubMenuHost` because it needs `GuiBridge`, and `src/api` imports
    nothing from `src/main`.
+7. **§8.9** — `default ICraftingPatternDetails.canSubstituteFluids()` and `isContainerFabricated(int)`, so a
+   crafting pattern can take a bucket's contents from the network instead of the bucket. Upstream carries
+   the same two facts on `IInput`, a type this version does not have. The empty-container rule stays in
+   `Platform` for the `src/api` reason again.
 
 ## How the waves are executed
 

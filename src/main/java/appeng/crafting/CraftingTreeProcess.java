@@ -89,6 +89,20 @@ public class CraftingTreeProcess {
 
                     long wantedSize = part.amount();
 
+                    // A slot the network fills in for has exactly one source and is not subject to the
+                    // substitution config, which is off by default. Planning it as the encoded container
+                    // instead would reserve buckets and leave the CPU waiting on water it never asked for -
+                    // a job that hangs forever with a full CPU and nothing in the log.
+                    if (details.isContainerFabricated(x)) {
+                        final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                        this.nodes.put(new CraftingTreeNode(cc, job, supplied.what(), this, x, depth + 1),
+                                wantedSize * supplied.amount());
+                        if (isPartContainer) {
+                            continue;
+                        }
+                        break;
+                    }
+
                     if (AEConfig.instance().getEnableCraftingSubstitutes()) {
                         long remaining;
                         long requestAmount;
@@ -176,13 +190,34 @@ public class CraftingTreeProcess {
     long getTimes(final long remaining, final long stackSize) {
         for (final GenericStack part : details.getCondensedOutputs()) {
             for (final GenericStack o : details.getCondensedInputs()) {
-                if (part.what().equals(o.what())
-                        || (o.what() instanceof AEItemKey oItemKey && oItemKey.getItem().hasContainerItem(oItemKey.getReadOnlyStack()))) {
+                if (part.what().equals(o.what()) || this.returnsContainer(o.what())) {
                     return 1;
                 }
             }
         }
         return (remaining / stackSize) + (remaining % stackSize != 0 ? 1 : 0);
+    }
+
+    /**
+     * Planning one craft at a time is what keeps a returned container available for the next one, since
+     * {@link #request} puts the whole batch's containers back only at the end. A slot the network fills in
+     * for returns nothing, so it is not a reason to give up batching - but the same item may sit in another
+     * slot that does return, and one such slot is enough.
+     */
+    private boolean returnsContainer(final AEKey what) {
+        if (!(what instanceof AEItemKey itemKey) || !itemKey.getItem().hasContainerItem(itemKey.getReadOnlyStack())) {
+            return false;
+        }
+
+        final GenericStack[] sparse = this.details.getInputs();
+
+        for (int x = 0; x < sparse.length; x++) {
+            if (sparse[x] != null && sparse[x].what().equals(what) && !this.details.isContainerFabricated(x)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void request(final MECraftingInventory inv, final long amountOfTimes, final IActionSource src) throws CraftBranchFailure, InterruptedException {

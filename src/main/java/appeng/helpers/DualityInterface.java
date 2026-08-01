@@ -1057,6 +1057,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             this.visitedFaces = this.iHost.getTargets();
         }
 
+        // The table may be carrying containers this network assembled out of a fluid. Those never existed
+        // as items and must not survive the craft, so the only destination allowed to have them is a machine
+        // that says it destroys them. Anything else here - a neighbouring network's storage, a plain chest -
+        // takes in a real bucket, which would mint one out of water on every craft.
+        final boolean fabricated = patternDetails.canSubstituteFluids();
+
         for (final EnumFacing s : visitedFaces) {
             final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
             if (te == null) {
@@ -1065,7 +1071,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
 
             var mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
-            if (mon != null) {
+            if (mon != null && !fabricated) {
                 visitedFaces.remove(s);
 
                 try {
@@ -1141,7 +1147,14 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
             // A third-party crafting machine is handed an InventoryCrafting, which cannot carry a fluid, so
             // a pattern with one is not offered to it at all rather than pushed short an ingredient.
-            if (te instanceof ICraftingMachine cm && extraInputs.length == 0) {
+            //
+            // A pattern the network fills containers for goes only to a machine that says it destroys them.
+            // The table it gets is complete, but an ordinary machine hands the emptied container back and
+            // nothing here can stop it - and since that container was assembled out of a fluid, taking it
+            // back would mint a bucket every craft. Note our own molecular assembler arrives here too: this
+            // is the only route from an interface to one.
+            if (te instanceof ICraftingMachine cm && extraInputs.length == 0
+                    && (!fabricated || cm.acceptsFabricatedContainers())) {
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
                     if (cm.pushPattern(patternDetails, table, s.getOpposite())) {
@@ -1153,7 +1166,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
 
             InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
-            if (ad != null) {
+            if (ad != null && !fabricated) {
                 if (this.isBlocking()) {
                     IPhantomTile phantomTE;
                     if (Platform.isModLoaded("actuallyadditions") && te instanceof IPhantomTile) {

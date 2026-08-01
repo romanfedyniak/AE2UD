@@ -416,7 +416,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     return false;
                 }
             }
-        } else if (details.canSubstitute()) {
+        } else if (details.canSubstitute() || details.canSubstituteFluids()) {
             // When substitutions are allowed, we have to keep track of which items we've reserved
             final GenericStack[] inputs = details.getInputs();
             final Map<AEKey, Long> consumedCount = new HashMap<>();
@@ -428,18 +428,21 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                 boolean found = false;
                 for (final GenericStack substitute : substitutes) {
+                    // A substitute's amount is per one of the encoded ingredient, so a bucket slot filled by
+                    // the network asks for a bucket's worth and not for one millibucket.
+                    final long needed = substitute.amount() * inputs[i].amount();
+
                     for (final var entry : this.inventory.getAvailableStacks().findFuzzy(substitute.what(), FuzzyMode.IGNORE_ALL)) {
                         final AEKey fuzzKey = entry.getKey();
                         final long alreadyConsumed = consumedCount.getOrDefault(fuzzKey, 0L);
-                        if (entry.getLongValue() - alreadyConsumed <= 0) {
+                        if (entry.getLongValue() - alreadyConsumed < needed) {
                             continue; // Already fully consumed by a previous slot of this recipe
                         }
 
-                        final long extracted = this.inventory.extract(fuzzKey, 1, Actionable.SIMULATE, this.machineSrc);
+                        final long extracted = this.inventory.extract(fuzzKey, needed, Actionable.SIMULATE, this.machineSrc);
 
-                        if (extracted > 0) {
-                            // Mark 1 of the stack as consumed
-                            consumedCount.merge(fuzzKey, 1L, Long::sum);
+                        if (extracted >= needed) {
+                            consumedCount.merge(fuzzKey, needed, Long::sum);
                             found = true;
                             break;
                         }
@@ -578,6 +581,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             if (this.canCraft(details, details.getCondensedInputs())) {
                 InventoryCrafting ic = null;
                 GenericStack[] extras = EMPTY_EXTRAS;
+                GenericStack[] fabricated = EMPTY_EXTRAS;
 
                 if (!visitedMediums.containsKey(details) || visitedMediums.get(details).isEmpty()) {
                     visitedMediums.put(details, new ArrayDeque<>(cc.getMediums(details).stream().filter(Objects::nonNull).collect(Collectors.toList())));
@@ -617,12 +621,30 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             // type. Kept beside the table and handed to the medium with it; the two halves
                             // are all-or-nothing, and the put-back below restores both.
                             final List<GenericStack> extraInputs = new ArrayList<>();
+                            // Keys drawn to assemble a container that the crafting grid then carries as an
+                            // item. They travel with the table rather than beside it, so neither the table
+                            // nor extraInputs can give them back - hence a list of their own.
+                            final List<GenericStack> fabricatedInputs = new ArrayList<>();
 
                             for (int x = 0; x < input.length; x++) {
                                 if (input[x] != null) {
                                     found = false;
 
-                                    if (details.isCraftable()) {
+                                    if (details.isCraftable() && details.isContainerFabricated(x)
+                                            && input[x].what() instanceof AEItemKey containerKey) {
+                                        final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                                        final long needed = supplied.amount() * input[x].amount();
+
+                                        // Simulate first: a partial draw would have to be undone by hand,
+                                        // because what goes into the table is the container, not the key.
+                                        if (this.inventory.extract(supplied.what(), needed, Actionable.SIMULATE, this.machineSrc) == needed) {
+                                            this.inventory.extract(supplied.what(), needed, Actionable.MODULATE, this.machineSrc);
+                                            this.postChange(supplied.what(), this.machineSrc);
+                                            fabricatedInputs.add(new GenericStack(supplied.what(), needed));
+                                            ic.setInventorySlotContents(x, containerKey.toStack((int) input[x].amount()));
+                                            found = true;
+                                        }
+                                    } else if (details.isCraftable()) {
                                         final List<GenericStack> itemList;
 
                                         if (details.canSubstitute()) {
@@ -707,24 +729,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             }
 
                             if (!found) {
-                                // put stuff back..
-                                for (int x = 0; x < ic.getSizeInventory(); x++) {
-                                    final ItemStack is = ic.getStackInSlot(x);
-                                    if (!is.isEmpty()) {
-                                        final AEItemKey key = AEItemKey.of(is);
-                                        if (key != null) {
-                                            this.inventory.insert(key, is.getCount(), Actionable.MODULATE, this.machineSrc);
-                                        }
-                                    }
-                                }
-                                for (final GenericStack extra : extraInputs) {
-                                    this.inventory.insert(extra.what(), extra.amount(), Actionable.MODULATE, this.machineSrc);
-                                }
+                                this.putBack(details, ic, extraInputs, fabricatedInputs);
                                 ic = null;
                                 break;
                             }
 
                             extras = extraInputs.toArray(new GenericStack[0]);
+                            fabricated = fabricatedInputs.toArray(new GenericStack[0]);
                         }
 
                         if (m.pushPattern(details, ic, extras)) {
@@ -742,7 +753,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                             if (details.isCraftable()) {
                                 for (int x = 0; x < ic.getSizeInventory(); x++) {
-                                    final ItemStack output = Platform.getContainerItem(ic.getStackInSlot(x));
+                                    final ItemStack output = Platform.getRemainingItem(details, x, ic.getStackInSlot(x), true);
                                     if (!output.isEmpty()) {
                                         final AEItemKey key = AEItemKey.of(output);
                                         if (key != null) {
@@ -770,18 +781,43 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 }
 
                 if (ic != null) {
-                    // put stuff back..
-                    for (int x = 0; x < ic.getSizeInventory(); x++) {
-                        final ItemStack is = ic.getStackInSlot(x);
-                        if (!is.isEmpty()) {
-                            final AEItemKey key = AEItemKey.of(is);
-                            if (key != null) {
-                                this.inventory.insert(key, is.getCount(), Actionable.MODULATE, this.machineSrc);
-                            }
-                        }
-                    }
+                    this.putBack(details, ic, Arrays.asList(extras), Arrays.asList(fabricated));
                 }
             }
+        }
+    }
+
+    /**
+     * Returns a prepared crafting table to the CPU's inventory after no medium would take it.
+     * <p>
+     * All three parts have to come back together, because all three were taken out together: the items on
+     * the table, the ingredients carried beside it that an {@link InventoryCrafting} cannot express, and the
+     * keys that were drawn to assemble a container. That last group is the reason the table itself cannot be
+     * read back slot by slot - a fabricated container is not something the network ever held, and putting it
+     * into storage would be conjuring an item out of a fluid.
+     */
+    private void putBack(final ICraftingPatternDetails details, final InventoryCrafting ic,
+            final Iterable<GenericStack> beside, final Iterable<GenericStack> assembled) {
+        for (int x = 0; x < ic.getSizeInventory(); x++) {
+            if (details.isContainerFabricated(x)) {
+                continue;
+            }
+
+            final ItemStack is = ic.getStackInSlot(x);
+            if (!is.isEmpty()) {
+                final AEItemKey key = AEItemKey.of(is);
+                if (key != null) {
+                    this.inventory.insert(key, is.getCount(), Actionable.MODULATE, this.machineSrc);
+                }
+            }
+        }
+
+        for (final GenericStack g : beside) {
+            this.inventory.insert(g.what(), g.amount(), Actionable.MODULATE, this.machineSrc);
+        }
+
+        for (final GenericStack g : assembled) {
+            this.inventory.insert(g.what(), g.amount(), Actionable.MODULATE, this.machineSrc);
         }
     }
 

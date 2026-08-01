@@ -262,6 +262,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
                 if (details != null) {
                     this.setCraftingMode(details.isCraftable());
                     this.setSubstitute(details.canSubstitute());
+                    this.setSubstituteFluids(details.canSubstituteFluids());
 
                     for (int x = 0; x < this.crafting.getSlots() && x < details.getInputs().length; x++) {
                         final GenericStack item = details.getInputs()[x];
