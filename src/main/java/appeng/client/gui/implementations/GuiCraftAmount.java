@@ -61,6 +61,9 @@ public class GuiCraftAmount extends AEBaseGui {
      */
     private static final String BASE_UNIT_PREFIX = "m";
 
+    private static final int RANGE_Y = 16;
+    private static final int RANGE_COLOR = 0x808080;
+
     private static final int FIELD_X = 62;
     private static final int FIELD_Y = 57;
     private static final int FIELD_WIDTH = 59;
@@ -179,6 +182,42 @@ public class GuiCraftAmount extends AEBaseGui {
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.fontRenderer.drawString(this.getTitle(), 8, 6, 4210752);
+
+        final String range = this.getRangeLabel();
+        if (range != null) {
+            this.fontRenderer.drawString(range, 8, RANGE_Y, RANGE_COLOR);
+        }
+    }
+
+    /**
+     * The span the field will accept, written in whatever unit the field is currently reading in, or null
+     * when nothing bounds the amount from above and a range would say nothing.
+     */
+    @Nullable
+    private String getRangeLabel() {
+        final long max = this.getMaxAmount();
+        if (max == Long.MAX_VALUE) {
+            return null;
+        }
+
+        final int scale = this.unitScale();
+        final String symbol = AmountEntry.symbol(this.getDisplayedKey(), scale);
+        return AmountEntry.format(this.getMinAmount(), scale) + symbol + " - " + AmountEntry.format(max, scale) + symbol;
+    }
+
+    /**
+     * The smallest amount this screen accepts.
+     */
+    protected long getMinAmount() {
+        return 1;
+    }
+
+    /**
+     * The largest, or {@link Long#MAX_VALUE} when nothing bounds it - ordering a craft has no ceiling
+     * beyond what the field itself can hold.
+     */
+    protected long getMaxAmount() {
+        return Long.MAX_VALUE;
     }
 
     @Override
@@ -303,9 +342,7 @@ public class GuiCraftAmount extends AEBaseGui {
         this.pristine = false;
 
         result += i;
-        if (result < 1) {
-            result = 1;
-        }
+        result = Math.max(this.getMinAmount(), Math.min(this.getMaxAmount(), result));
 
         this.amountToCraft.setText(this.formatAmount(result));
     }
