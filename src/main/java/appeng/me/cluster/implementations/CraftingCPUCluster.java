@@ -99,6 +99,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private final List<TileCraftingMonitorTile> status = new ArrayList<>();
     private final Map<ICraftingCPUListener, Object> listeners = new HashMap<>();
     private final Map<ICraftingPatternDetails, Queue<ICraftingMedium>> visitedMediums = new HashMap<>();
+    /** This tick's working copy of {@link #tasks}; a task drops out of it once it is known unworkable. */
+    private final Map<ICraftingPatternDetails, TaskProgress> workableTasks = new HashMap<>();
+    /** Mediums already found busy this tick. Cleared every tick, so nothing stays skipped. */
+    private final Set<ICraftingMedium> busyMediums = new HashSet<>();
+    /** Per pattern and medium: {@code {interval, earliest tick to try again}}. See {@link #backedOff}. */
+    private final Map<ICraftingPatternDetails, Map<ICraftingMedium, long[]>> pushBackoff = new HashMap<>();
     private ICraftingLink myLastLink;
     private String myName = "";
     private boolean isDestroyed = false;
@@ -504,6 +510,8 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.isComplete = true;
         this.myLastLink = null;
         this.tasks.clear();
+        this.pushBackoff.clear();
+        this.visitedMediums.clear();
 
         final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
         this.waitingFor.clear(); // see completeJob(): reset() keeps the keys and isBusy() counts keys
@@ -550,12 +558,25 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.remainingOperations = this.accelerator + 1 - (this.usedOps[0] + this.usedOps[1] + this.usedOps[2]);
         final int started = this.remainingOperations;
 
+        // executeCrafting runs again for as long as anything moved, so within one tick the same task can be
+        // asked several times. A task that has already answered "not enough ingredients", and a medium that
+        // has already answered "busy", will answer the same on every re-pass - both are remembered for the
+        // tick and forgotten at the end of it, so nothing stays skipped for longer than that.
+        this.workableTasks.clear();
+        this.workableTasks.putAll(this.tasks);
+        this.busyMediums.clear();
+        this.pushBackoff.keySet().retainAll(this.tasks.keySet());
+
         if (this.remainingOperations > 0) {
             do {
                 this.somethingChanged = false;
                 this.executeCrafting(eg, cc);
             } while (this.somethingChanged && this.remainingOperations > 0);
         }
+
+        this.workableTasks.clear();
+        this.busyMediums.clear();
+
         this.usedOps[2] = this.usedOps[1];
         this.usedOps[1] = this.usedOps[0];
         this.usedOps[0] = started - this.remainingOperations;
@@ -566,12 +587,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     private void executeCrafting(final IEnergyGrid eg, final CraftingGridCache cc) {
-        final Iterator<Entry<ICraftingPatternDetails, TaskProgress>> i = this.tasks.entrySet().iterator();
+        final Iterator<Entry<ICraftingPatternDetails, TaskProgress>> i = this.workableTasks.entrySet().iterator();
 
         while (i.hasNext()) {
             final Entry<ICraftingPatternDetails, TaskProgress> e = i.next();
 
             if (e.getValue().value <= 0) {
+                this.tasks.remove(e.getKey());
                 i.remove();
                 continue;
             }
@@ -591,191 +613,201 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                     ICraftingMedium m = visitedMediums.get(details).poll();
 
-                    if (e.getValue().value <= 0) {
+                    if (e.getValue().value <= 0 || m == null || this.busyMediums.contains(m)) {
                         continue;
                     }
 
-                    if (m != null && !m.isBusy()) {
-                        if (ic == null) {
-                            final GenericStack[] input = details.getInputs();
-                            double sum = 0;
+                    if (m.isBusy()) {
+                        this.busyMediums.add(m);
+                        continue;
+                    }
 
-                            for (final GenericStack anInput : input) {
-                                if (anInput != null) {
-                                    sum += anInput.amount();
-                                }
+                    if (this.backedOff(details, m)) {
+                        continue;
+                    }
+
+                    if (ic == null) {
+                        final GenericStack[] input = details.getInputs();
+                        double sum = 0;
+
+                        for (final GenericStack anInput : input) {
+                            if (anInput != null) {
+                                sum += anInput.amount();
                             }
+                        }
 
-                            // power...
-                            if (eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
-                                continue;
-                            }
-                            if (details.isCraftable()) {
-                                ic = new InventoryCrafting(new ContainerNull(), 3, 3);
-                            } else {
-                                ic = new InventoryCrafting(new ContainerNull(), PatternHelper.PROCESSING_INPUT_WIDTH, PatternHelper.PROCESSING_INPUT_HEIGHT);
-                            }
+                        // power...
+                        if (eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
+                            continue;
+                        }
+                        if (details.isCraftable()) {
+                            ic = new InventoryCrafting(new ContainerNull(), 3, 3);
+                        } else {
+                            ic = new InventoryCrafting(new ContainerNull(), PatternHelper.PROCESSING_INPUT_WIDTH, PatternHelper.PROCESSING_INPUT_HEIGHT);
+                        }
 
-                            boolean found = false;
-                            // Ingredients an InventoryCrafting cannot hold - a fluid, or an addon's own key
-                            // type. Kept beside the table and handed to the medium with it; the two halves
-                            // are all-or-nothing, and the put-back below restores both.
-                            final List<GenericStack> extraInputs = new ArrayList<>();
-                            // Keys drawn to assemble a container that the crafting grid then carries as an
-                            // item. They travel with the table rather than beside it, so neither the table
-                            // nor extraInputs can give them back - hence a list of their own.
-                            final List<GenericStack> fabricatedInputs = new ArrayList<>();
+                        boolean found = false;
+                        // Ingredients an InventoryCrafting cannot hold - a fluid, or an addon's own key
+                        // type. Kept beside the table and handed to the medium with it; the two halves
+                        // are all-or-nothing, and the put-back below restores both.
+                        final List<GenericStack> extraInputs = new ArrayList<>();
+                        // Keys drawn to assemble a container that the crafting grid then carries as an
+                        // item. They travel with the table rather than beside it, so neither the table
+                        // nor extraInputs can give them back - hence a list of their own.
+                        final List<GenericStack> fabricatedInputs = new ArrayList<>();
 
-                            for (int x = 0; x < input.length; x++) {
-                                if (input[x] != null) {
-                                    found = false;
+                        for (int x = 0; x < input.length; x++) {
+                            if (input[x] != null) {
+                                found = false;
 
-                                    if (details.isCraftable() && details.isContainerFabricated(x)
-                                            && input[x].what() instanceof AEItemKey containerKey) {
-                                        final GenericStack supplied = details.getSubstituteInputs(x).get(0);
-                                        final long needed = supplied.amount() * input[x].amount();
+                                if (details.isCraftable() && details.isContainerFabricated(x)
+                                        && input[x].what() instanceof AEItemKey containerKey) {
+                                    final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                                    final long needed = supplied.amount() * input[x].amount();
 
-                                        // Simulate first: a partial draw would have to be undone by hand,
-                                        // because what goes into the table is the container, not the key.
-                                        if (this.inventory.extract(supplied.what(), needed, Actionable.SIMULATE, this.machineSrc) == needed) {
-                                            this.inventory.extract(supplied.what(), needed, Actionable.MODULATE, this.machineSrc);
-                                            this.postChange(supplied.what(), this.machineSrc);
-                                            fabricatedInputs.add(new GenericStack(supplied.what(), needed));
-                                            ic.setInventorySlotContents(x, containerKey.toStack((int) input[x].amount()));
-                                            found = true;
-                                        }
-                                    } else if (details.isCraftable()) {
-                                        final List<GenericStack> itemList;
+                                    // Simulate first: a partial draw would have to be undone by hand,
+                                    // because what goes into the table is the container, not the key.
+                                    if (this.inventory.extract(supplied.what(), needed, Actionable.SIMULATE, this.machineSrc) == needed) {
+                                        this.inventory.extract(supplied.what(), needed, Actionable.MODULATE, this.machineSrc);
+                                        this.postChange(supplied.what(), this.machineSrc);
+                                        fabricatedInputs.add(new GenericStack(supplied.what(), needed));
+                                        ic.setInventorySlotContents(x, containerKey.toStack((int) input[x].amount()));
+                                        found = true;
+                                    }
+                                } else if (details.isCraftable()) {
+                                    final List<GenericStack> itemList;
 
-                                        if (details.canSubstitute()) {
-                                            final List<GenericStack> substitutes = details.getSubstituteInputs(x);
-                                            itemList = new ArrayList<>();
+                                    if (details.canSubstitute()) {
+                                        final List<GenericStack> substitutes = details.getSubstituteInputs(x);
+                                        itemList = new ArrayList<>();
 
-                                            for (final GenericStack sub : substitutes) {
-                                                for (final var entry : this.inventory.getAvailableStacks().findFuzzy(sub.what(), FuzzyMode.IGNORE_ALL)) {
-                                                    itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-                                                }
-                                            }
-                                        } else {
-                                            itemList = new ArrayList<>(1);
-
-                                            final AEKey exactKey = input[x].what();
-                                            if (this.inventory.getAvailableStacks().get(exactKey) > 0) {
-                                                itemList.add(new GenericStack(exactKey, input[x].amount()));
-                                            } else if (exactKey instanceof AEItemKey itemKey
-                                                    && (itemKey.getItem().isDamageable() || Platform.isGTDamageableItem(itemKey.getItem()))) {
-                                                for (final var entry : this.inventory.getAvailableStacks().findFuzzy(exactKey, FuzzyMode.IGNORE_ALL)) {
-                                                    itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-                                                }
-                                            }
-                                        }
-
-                                        for (final GenericStack fuzz : itemList) {
-                                            if (!(fuzz.what() instanceof AEItemKey fuzzItemKey)) {
-                                                continue;
-                                            }
-                                            final ItemStack candidate = fuzzItemKey.toStack((int) Math.min(input[x].amount(), fuzzItemKey.getMaxStackSize()));
-
-                                            if (details.isValidItemForSlot(x, candidate, this.getWorld())) {
-                                                final long extracted = this.inventory.extract(fuzzItemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
-
-                                                if (extracted > 0) {
-                                                    this.postChange(fuzzItemKey, this.machineSrc);
-                                                    ic.setInventorySlotContents(x, fuzzItemKey.toStack((int) extracted));
-                                                    found = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    } else if (input[x].what() instanceof AEItemKey itemKey) {
-                                        final long extracted = this.inventory.extract(itemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
-
-                                        if (extracted > 0) {
-                                            this.postChange(itemKey, this.machineSrc);
-                                            ic.setInventorySlotContents(x, itemKey.toStack((int) extracted));
-                                            if (extracted == input[x].amount()) {
-                                                found = true;
-                                                continue;
+                                        for (final GenericStack sub : substitutes) {
+                                            for (final var entry : this.inventory.getAvailableStacks().findFuzzy(sub.what(), FuzzyMode.IGNORE_ALL)) {
+                                                itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
                                             }
                                         }
                                     } else {
-                                        final AEKey what = input[x].what();
-                                        final long extracted = this.inventory.extract(what, input[x].amount(), Actionable.MODULATE, this.machineSrc);
+                                        itemList = new ArrayList<>(1);
 
-                                        if (extracted > 0) {
-                                            this.postChange(what, this.machineSrc);
-                                            extraInputs.add(new GenericStack(what, extracted));
-                                            if (extracted == input[x].amount()) {
-                                                found = true;
-                                                continue;
+                                        final AEKey exactKey = input[x].what();
+                                        if (this.inventory.getAvailableStacks().get(exactKey) > 0) {
+                                            itemList.add(new GenericStack(exactKey, input[x].amount()));
+                                        } else if (exactKey instanceof AEItemKey itemKey
+                                                && (itemKey.getItem().isDamageable() || Platform.isGTDamageableItem(itemKey.getItem()))) {
+                                            for (final var entry : this.inventory.getAvailableStacks().findFuzzy(exactKey, FuzzyMode.IGNORE_ALL)) {
+                                                itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
                                             }
                                         }
                                     }
-                                    // An ingredient that is not an item cannot travel in an InventoryCrafting,
-                                    // so this pattern cannot be pushed until the interface can carry one
-                                    // (stage 3 of the fluids decomposition). Leaving `found` false breaks out
-                                    // below, and nothing was taken from the network.
-                                    //
-                                    // The test used to sit *after* the extraction: a fluid ingredient was
-                                    // pulled out of storage with MODULATE, then rejected for not being an
-                                    // AEItemKey, and never reached `ic` - which is the only thing the
-                                    // put-back loop below restores from. The fluid was simply destroyed, and
-                                    // only the first one, because the loop breaks on the first failure.
 
-                                    if (!found) {
-                                        break;
+                                    for (final GenericStack fuzz : itemList) {
+                                        if (!(fuzz.what() instanceof AEItemKey fuzzItemKey)) {
+                                            continue;
+                                        }
+                                        final ItemStack candidate = fuzzItemKey.toStack((int) Math.min(input[x].amount(), fuzzItemKey.getMaxStackSize()));
+
+                                        if (details.isValidItemForSlot(x, candidate, this.getWorld())) {
+                                            final long extracted = this.inventory.extract(fuzzItemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
+
+                                            if (extracted > 0) {
+                                                this.postChange(fuzzItemKey, this.machineSrc);
+                                                ic.setInventorySlotContents(x, fuzzItemKey.toStack((int) extracted));
+                                                found = true;
+                                                break;
+                                            }
+                                        }
                                     }
-                                }
-                            }
+                                } else if (input[x].what() instanceof AEItemKey itemKey) {
+                                    final long extracted = this.inventory.extract(itemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
 
-                            if (!found) {
-                                this.putBack(details, ic, extraInputs, fabricatedInputs);
-                                ic = null;
-                                break;
-                            }
+                                    if (extracted > 0) {
+                                        this.postChange(itemKey, this.machineSrc);
+                                        ic.setInventorySlotContents(x, itemKey.toStack((int) extracted));
+                                        if (extracted == input[x].amount()) {
+                                            found = true;
+                                            continue;
+                                        }
+                                    }
+                                } else {
+                                    final AEKey what = input[x].what();
+                                    final long extracted = this.inventory.extract(what, input[x].amount(), Actionable.MODULATE, this.machineSrc);
 
-                            extras = extraInputs.toArray(new GenericStack[0]);
-                            fabricated = fabricatedInputs.toArray(new GenericStack[0]);
-                        }
-
-                        if (m.pushPattern(details, ic, extras)) {
-                            this.somethingChanged = true;
-                            this.remainingOperations--;
-
-                            for (final GenericStack out : details.getCondensedOutputs()) {
-                                if (out == null) {
-                                    continue;
-                                }
-                                this.postChange(out.what(), this.machineSrc);
-                                this.waitingFor.add(out.what(), out.amount());
-                                this.postCraftingStatusChange(out.what());
-                            }
-
-                            if (details.isCraftable()) {
-                                for (int x = 0; x < ic.getSizeInventory(); x++) {
-                                    final ItemStack output = Platform.getRemainingItem(details, x, ic.getStackInSlot(x), true);
-                                    if (!output.isEmpty()) {
-                                        final AEItemKey key = AEItemKey.of(output);
-                                        if (key != null) {
-                                            this.postChange(key, this.machineSrc);
-                                            this.waitingFor.add(key, output.getCount());
-                                            this.postCraftingStatusChange(key);
+                                    if (extracted > 0) {
+                                        this.postChange(what, this.machineSrc);
+                                        extraInputs.add(new GenericStack(what, extracted));
+                                        if (extracted == input[x].amount()) {
+                                            found = true;
+                                            continue;
                                         }
                                     }
                                 }
+                                // An ingredient that is not an item cannot travel in an InventoryCrafting,
+                                // so this pattern cannot be pushed until the interface can carry one
+                                // (stage 3 of the fluids decomposition). Leaving `found` false breaks out
+                                // below, and nothing was taken from the network.
+                                //
+                                // The test used to sit *after* the extraction: a fluid ingredient was
+                                // pulled out of storage with MODULATE, then rejected for not being an
+                                // AEItemKey, and never reached `ic` - which is the only thing the
+                                // put-back loop below restores from. The fluid was simply destroyed, and
+                                // only the first one, because the loop breaks on the first failure.
+
+                                if (!found) {
+                                    break;
+                                }
                             }
+                        }
 
-                            ic = null; // hand off complete!
-                            this.markDirty();
+                        if (!found) {
+                            this.putBack(details, ic, extraInputs, fabricatedInputs);
+                            ic = null;
+                            break;
+                        }
 
-                            e.getValue().value--;
-                            if (e.getValue().value <= 0) {
+                        extras = extraInputs.toArray(new GenericStack[0]);
+                        fabricated = fabricatedInputs.toArray(new GenericStack[0]);
+                    }
+
+                    final boolean pushed = m.pushPattern(details, ic, extras);
+                    this.recordPush(details, m, pushed);
+
+                    if (pushed) {
+                        this.somethingChanged = true;
+                        this.remainingOperations--;
+
+                        for (final GenericStack out : details.getCondensedOutputs()) {
+                            if (out == null) {
                                 continue;
                             }
+                            this.postChange(out.what(), this.machineSrc);
+                            this.waitingFor.add(out.what(), out.amount());
+                            this.postCraftingStatusChange(out.what());
+                        }
 
-                            if (this.remainingOperations == 0) {
-                                return;
+                        if (details.isCraftable()) {
+                            for (int x = 0; x < ic.getSizeInventory(); x++) {
+                                final ItemStack output = Platform.getRemainingItem(details, x, ic.getStackInSlot(x), true);
+                                if (!output.isEmpty()) {
+                                    final AEItemKey key = AEItemKey.of(output);
+                                    if (key != null) {
+                                        this.postChange(key, this.machineSrc);
+                                        this.waitingFor.add(key, output.getCount());
+                                        this.postCraftingStatusChange(key);
+                                    }
+                                }
                             }
+                        }
+
+                        ic = null; // hand off complete!
+                        this.markDirty();
+
+                        e.getValue().value--;
+                        if (e.getValue().value <= 0) {
+                            continue;
+                        }
+
+                        if (this.remainingOperations == 0) {
+                            return;
                         }
                     }
                 }
@@ -783,8 +815,55 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 if (ic != null) {
                     this.putBack(details, ic, Arrays.asList(extras), Arrays.asList(fabricated));
                 }
+            } else {
+                // Nothing that happens later in this tick can make the missing ingredients appear, so stop
+                // asking until the next one. Still in this.tasks - only this tick's working copy loses it.
+                i.remove();
             }
         }
+    }
+
+    /**
+     * How long a medium that keeps refusing a pattern is left alone, in ticks. A second is long enough to be
+     * worth having and short enough that a destination which frees up is not noticeably delayed.
+     */
+    private static final long MAX_PUSH_BACKOFF = 20;
+
+    /**
+     * Whether this medium is currently being left alone for this pattern.
+     * <p>
+     * {@link ICraftingMedium#isBusy()} only means "has something queued to send". An interface pointed at a
+     * chest that is full is not busy, so it takes a whole {@code pushPattern} - building an adaptor and
+     * simulating the insert of every stack on the table - to find out it will refuse, and it did that every
+     * tick, for every pattern. A refusal now doubles the wait before asking again, and one success clears
+     * it, so a destination that starts accepting is missed at most once.
+     */
+    private boolean backedOff(final ICraftingPatternDetails details, final ICraftingMedium medium) {
+        final Map<ICraftingMedium, long[]> mediums = this.pushBackoff.get(details);
+        if (mediums == null) {
+            return false;
+        }
+
+        final long[] entry = mediums.get(medium);
+        return entry != null && this.getWorld().getTotalWorldTime() < entry[1];
+    }
+
+    private void recordPush(final ICraftingPatternDetails details, final ICraftingMedium medium, final boolean pushed) {
+        if (pushed) {
+            final Map<ICraftingMedium, long[]> mediums = this.pushBackoff.get(details);
+            if (mediums != null) {
+                mediums.remove(medium);
+                if (mediums.isEmpty()) {
+                    this.pushBackoff.remove(details);
+                }
+            }
+            return;
+        }
+
+        final long[] entry = this.pushBackoff.computeIfAbsent(details, d -> new HashMap<>())
+                .computeIfAbsent(medium, m -> new long[2]);
+        entry[0] = entry[0] <= 0 ? 1 : Math.min(entry[0] * 2, MAX_PUSH_BACKOFF);
+        entry[1] = this.getWorld().getTotalWorldTime() + entry[0];
     }
 
     /**

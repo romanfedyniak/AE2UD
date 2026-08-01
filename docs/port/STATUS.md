@@ -1581,12 +1581,73 @@ plan is gated by `enableCraftingSubstitutes`, the CPU is not. With the config of
 the two can disagree about which item a craft will use. Left alone because fixing it changes ore-dict
 behaviour for every existing pattern, which is a separate change with separate testing.
 
-**Also deliberately not done: batching by how many containers are in stock.** `addContainers` credits back
-exactly *one* container however many were consumed (`toStack()` is `toStack(1)`), which is the real reason
-`getTimes` returns 1 - the guard hides broken accounting rather than expressing a policy. Fix that and the
-batch size can be `min(remaining, available)`, turning 8192 planning rounds into 16, multiplied by tree
-depth. Separate change: it moves plans for *every* container recipe, and doing it beside a change that also
-moves plans would make a discrepancy unattributable.
+**Considered and rejected: batching by how many containers are in stock.** Worth recording, because the
+starting observation is real and will occur to the next person too.
+
+A recipe whose inputs carry a container plans **one craft at a time** - `getTimes` returns 1 - while every
+ordinary recipe collapses to a single pass (`ceil(remaining / stackSize)` times, one call). So ordering 8192
+of a bucket recipe is 8192 rounds against 1. The obvious fix is to bound the batch by the containers on hand
+and credit them back properly, since `addContainers` returns exactly one container however many were
+consumed. Note that credit is **not** a standalone bug: it is correct precisely because `getTimes` pins the
+batch at 1, so the node only ever draws one. The two are a single package.
+
+Rejected for two reasons.
+
+- **Nesting breaks the bound.** The pool is shared by the whole subtree, but the bound is computed per
+  process, and the outer process is served first even though the inner crafts happen first. Recipe A uses a
+  bucket and contains B, which also uses one: A's batch takes every bucket, B finds none and cannot craft
+  one, and a job that plans fine today comes back as "missing buckets". (Related and pre-existing, worth
+  knowing: nested container recipes already need one container *per nesting level* at once, because a
+  process holds its containers until the end of its own `request` - `CraftingTreeProcess.request` inserts
+  the pending list only after every child has been asked.)
+- **Both the payoff and the failure are invisible.** "Same plan, fewer rounds" cannot be eyeballed, and
+  neither can a subtly different one. The nesting interaction above was found by talking it through, not by
+  testing - which is exactly the problem with the change.
+
+A retry-without-batching fallback would make the *outcome* safe (`CraftingJob:144-157` already resets the
+tree with `setSimulate()` and re-runs on failure, so the machinery exists; `setSimulate` would additionally
+have to clear each process's pending `containers`, which today is only ever cleared on a successful
+`request`). It would not make the plan *shape* safe. Revisit only if a real pack turns out to order
+container recipes in the thousands.
+
+## The crafting CPU stops re-asking things that just said no (done, awaiting a play-test)
+
+Three changes to `CraftingCPUCluster.executeCrafting`, taken from a server-side fixer the owner runs and
+from ae-gtnh's fork, which solve two different halves of the same waste.
+
+**Within a tick** (ae-gtnh's shape, `CraftingCPUCluster.java:776-789, 822, 852` there). `updateCraftingLogic`
+re-runs `executeCrafting` for as long as anything moved, so one tick can ask the same question many times.
+Two answers cannot change in between: a task that failed `canCraft` drops out of `workableTasks`, a per-tick
+copy, and a medium that answered `isBusy()` goes into `busyMediums`. Both are cleared every tick, so nothing
+stays skipped longer than that. `tasks` itself is untouched except where an exhausted task was already being
+removed.
+
+**Between ticks** (the fixer's shape). `isBusy()` only means "has something queued to send" - an interface
+pointed at a *full* chest is not busy, so finding out it will refuse costs a whole `pushPattern`: build an
+adaptor, simulate inserting every stack on the table. That ran every tick, per pattern, forever. A refusal
+now doubles the wait before that (pattern, medium) pair is asked again, capped at **20 ticks**, and any
+success clears it outright.
+
+The cap is the one real trade-off: CPU time against latency. The fixer uses 60 ticks; a destination that
+frees up mid-backoff would then wait up to three seconds, which is a throughput loss on a setup that is
+merely intermittent rather than dead. One second keeps the win against genuinely stuck destinations and
+misses a freed-up one at most once. The two within-tick measures cost nothing and need no such judgement,
+which is why they carry most of the weight.
+
+**Also fixed, unrelated and found while reading the same source:**
+`ContainerPatternEncoder.transferStackInSlot` asked `getPart().getInventoryByName("pattern")` with no null
+check, while `getInventoryByName` three methods below already knew a part may be absent. Shift-clicking a
+blank pattern crashed for anyone using the **wireless** pattern terminal, which has no part.
+
+**From that same fixer, deliberately not ported** - each one is a bug this port had already removed:
+
+- Hash collisions in `AEItemStackRegistry`, which cached by raw `int` in a `Map<Integer, …>` with no
+  equality check, so two items sharing a hash replaced each other. The class does not exist here;
+  `AEItemKey` with a real `equals`/`hashCode` replaced the whole idea.
+- `PacketInventoryAction` calling `sendToServer` where it meant `sendTo` - already correct here.
+- An NPE in `FluidHandlerAdapter$InventoryCache` when `drain` was handed null - the null is checked one line
+  earlier here.
+- A recipe cache on `PatternHelper`; the owner rejected it as unnecessary.
 
 ## Standing rules that have already been broken in practice
 
