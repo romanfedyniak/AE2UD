@@ -411,9 +411,15 @@ ore-dictionary partition tooltip (`a41e140bb`), and the two HEI bookmark defects
   ordinary breakable block and always was. Byte-for-byte the pre-port method, and upstream behaves the same.
   Adding an `IGridHost` exclusion was offered and declined; a plane placed on a cable will eat the cable
   next to it, and that is accepted behaviour rather than a bug to file again.
-- **Not reproduced**: a green progress line in the crafting status screen. It does not exist in this tree
-  and did not exist pre-port either; the owner believes it comes from Random Complements. The data for one
-  exists now that `remainingItemCount` moves, if it is ever wanted.
+- **Implemented from AE2 GTNH**: each active Crafting Status CPU now has the red-yellow-green progress bar;
+  its tooltip labels the craft and remaining output, shows completed/total steps with a percentage, elapsed
+  time, and the requesting player (or a machine request marker). `CraftingCPUStatus` carries the elapsed time
+  and requester in its existing NBT packet.
+- **Implemented from AE2 GTNH, with mixed rows improved**: Crafting Confirmation shows `Steps` for every
+  pattern-produced key and `Used` as the percentage of that key's stock at calculation start that the order
+  consumes. Unlike GTNH, `Used` remains visible when the same row also has `To Craft` or `Missing`. The value
+  uses GTNH's blue/green/orange/dark-red thresholds and travels in the container-specific metadata field of
+  `GridInventoryEntry`; item and fluid amounts still use their key type's formatter.
 - ~~**Untested**: P2P tunnels and spatial storage.~~ **Both play-tested and working.** P2P turned up one
   defect, immediately below; spatial storage came through clean.
 - **Known limitation, owner decided to leave it: only one IC2 power P2P tunnel per cable bus works.**

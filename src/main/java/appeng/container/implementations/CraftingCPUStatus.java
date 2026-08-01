@@ -21,6 +21,8 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
     private final long totalItems;
     private final long remainingItems;
     private final GenericStack crafting;
+    private final long craftingElapsedTime;
+    private final String sourcePlayer;
 
     public CraftingCPUStatus() {
         this.serverCluster = null;
@@ -31,6 +33,8 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.totalItems = 0;
         this.remainingItems = 0;
         this.crafting = null;
+        this.craftingElapsedTime = 0;
+        this.sourcePlayer = null;
     }
 
     public CraftingCPUStatus(ICraftingCPU cluster, int serial) {
@@ -41,10 +45,14 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
             crafting = cluster.getFinalOutput();
             totalItems = cluster.getStartItemCount();
             remainingItems = cluster.getRemainingItemCount();
+            craftingElapsedTime = cluster.getElapsedTime();
+            sourcePlayer = cluster.getSourcePlayer();
         } else {
             crafting = null;
             totalItems = 0;
             remainingItems = 0;
+            craftingElapsedTime = 0;
+            sourcePlayer = null;
         }
         this.storage = cluster.getAvailableStorage();
         this.coprocessors = cluster.getCoProcessors();
@@ -59,6 +67,8 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.totalItems = i.getLong("totalItems");
         this.remainingItems = i.getLong("remainingItems");
         this.crafting = i.hasKey("crafting") ? GenericStack.readTag(i.getCompoundTag("crafting")) : null;
+        this.craftingElapsedTime = i.getLong("craftingElapsedTime");
+        this.sourcePlayer = i.hasKey("sourcePlayer") ? i.getString("sourcePlayer") : null;
     }
 
     public CraftingCPUStatus(ByteBuf packet) throws IOException {
@@ -82,6 +92,10 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         i.setLong("coprocessors", coprocessors);
         i.setLong("totalItems", totalItems);
         i.setLong("remainingItems", remainingItems);
+        i.setLong("craftingElapsedTime", craftingElapsedTime);
+        if (sourcePlayer != null) {
+            i.setString("sourcePlayer", sourcePlayer);
+        }
         if (crafting != null) {
             NBTTagCompound stack = new NBTTagCompound();
             GenericStack.writeTag(stack, crafting);
@@ -135,6 +149,14 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     public GenericStack getCrafting() {
         return crafting;
+    }
+
+    public long getCraftingElapsedTime() {
+        return craftingElapsedTime;
+    }
+
+    public String getSourcePlayer() {
+        return sourcePlayer;
     }
 
     @Override

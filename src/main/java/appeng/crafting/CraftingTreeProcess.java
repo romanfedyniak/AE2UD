@@ -309,7 +309,7 @@ public class CraftingTreeProcess {
         }
     }
 
-    void getPlan(final KeyCounter used, final KeyCounter requestable) {
+    void getPlan(final KeyCounter used, final KeyCounter requestable, final KeyCounter craftingSteps) {
         for (final GenericStack i : this.details.getOutputs()) {
             if (i == null) {
                 continue;
@@ -317,8 +317,17 @@ public class CraftingTreeProcess {
             requestable.add(i.what(), i.amount() * this.crafts);
         }
 
+        // Condensed outputs contain every output key once, so a processing pattern with the same key in
+        // multiple output slots still reports the number of pattern executions rather than multiplying it.
+        for (final GenericStack i : this.details.getCondensedOutputs()) {
+            if (i == null) {
+                continue;
+            }
+            craftingSteps.add(i.what(), this.crafts);
+        }
+
         for (final Entry<CraftingTreeNode, Long> entry : this.nodes.object2LongEntrySet()) {
-            entry.getKey().getPlan(used, requestable);
+            entry.getKey().getPlan(used, requestable, craftingSteps);
         }
     }
 }

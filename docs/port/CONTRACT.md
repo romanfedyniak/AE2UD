@@ -3246,6 +3246,20 @@ Instructing agents to "mirror AE2-original" has a side effect: features the fork
 
 **Crafting CPU push notifications.** `addListener`/`removeListener`/`postChange` were removed from `CraftingCPUCluster` along with the `IMEMonitorHandlerReceiver` model, and polling was proposed instead. The owner rejected polling. **Restored** as `ICraftingCPUListener` (`onCraftingCPUChange(AEKey, IActionSource)`), with `postChange` calls back in every place the old code had them: `injectItems`, both extraction branches and both output loops in `executeCrafting`, `cancel()`, `submitJob()`, `storeItems()`.
 
+**Crafting Status diagnostics.** The CPU selector follows the AE2 GTNH status layout: a red-yellow-green
+progress bar plus a tooltip with craft name, remaining output, completed/total processing steps with percentage, elapsed time, and requester. The
+additive `ICraftingCPU.getElapsedTime()` and `getSourcePlayer()` defaults expose those two status values
+without breaking third-party CPU implementations; `CraftingCPUCluster` persists the requester's name so
+the tooltip does not depend on the player remaining online.
+
+**Crafting Confirmation diagnostics.** The concrete `CraftingJob.populatePlan` split has a third
+`KeyCounter` for pattern executions. `CraftingTreeProcess` counts each condensed output key once per pattern
+execution, while the existing requestable counter still contains the produced amount. The confirmation
+container compares the amount drawn from ME with `CraftingJob`'s calculation-start inventory snapshot and
+sends the percentage as fixed point (four decimal places) in stream 0's container-specific
+`GridInventoryEntry.requestableAmount`; stream 1 uses that same metadata field for pattern executions.
+The GUI shows both values for items and fluids, including `Used` on mixed storage/crafting/missing rows.
+
 ### Third case: terminal live updates — resolved 2026-07-28
 
 `ContainerMEMonitorable` is the base container of **every** ME terminal (regular, crafting, pattern, wireless, portable cell). Before the migration (`git show 1e855f729:src/main/java/appeng/container/implementations/ContainerMEMonitorable.java`) it did `this.monitor.addListener(this, null)` at line 116 and received live deltas in `postChange(IBaseMonitor<IAEItemStack>, Iterable<IAEItemStack>, IActionSource)` at line 369. That is how a terminal updates in real time.

@@ -75,6 +75,8 @@ import java.util.concurrent.Future;
 
 public class ContainerCraftConfirm extends AEBaseContainer {
 
+    public static final long USED_PERCENT_SCALE = 10_000;
+
     private final ArrayList<CraftingCPURecord> cpus = new ArrayList<>();
     private Future<ICraftingJob> job;
     /**
@@ -223,7 +225,8 @@ public class ContainerCraftConfirm extends AEBaseContainer {
                     // overload can be called instead, keeping the two apart.
                     final KeyCounter used = new KeyCounter();
                     final KeyCounter requestable = new KeyCounter();
-                    this.result.populatePlan(used, requestable);
+                    final KeyCounter craftingSteps = new KeyCounter();
+                    this.result.populatePlan(used, requestable, craftingSteps);
 
                     this.setUsedBytes(this.result.getByteTotal());
 
@@ -237,6 +240,7 @@ public class ContainerCraftConfirm extends AEBaseContainer {
                     // union rather than just one counter's keys.
                     final Set<AEKey> plannedKeys = new LinkedHashSet<>(used.keySet());
                     plannedKeys.addAll(requestable.keySet());
+                    plannedKeys.addAll(craftingSteps.keySet());
 
                     for (final AEKey what : plannedKeys) {
                         long o = used.get(what);
@@ -250,11 +254,13 @@ public class ContainerCraftConfirm extends AEBaseContainer {
                         }
 
                         if (o > 0) {
-                            a.appendItem(new GridInventoryEntry(what, o, 0, false));
+                            final long availableAtStart = this.result.getAvailableAtStart(what);
+                            final long usedPercent = encodeUsedPercent(o, availableAtStart);
+                            a.appendItem(new GridInventoryEntry(what, o, usedPercent, false));
                         }
 
                         if (p > 0) {
-                            b.appendItem(new GridInventoryEntry(what, p, 0, false));
+                            b.appendItem(new GridInventoryEntry(what, p, craftingSteps.get(what), false));
                         }
 
                         if (c != null && m > 0) {
@@ -288,6 +294,15 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
     private boolean cpuMatches(final ICraftingCPU c) {
         return c.getAvailableStorage() >= this.getUsedBytes() && !c.isBusy();
+    }
+
+    private static long encodeUsedPercent(final long used, final long available) {
+        if (used <= 0 || available <= 0) {
+            return 0;
+        }
+
+        final double percentage = Math.min(100, (double) used / available * 100);
+        return Math.round(percentage * USED_PERCENT_SCALE);
     }
 
     private void sendCPUs() {

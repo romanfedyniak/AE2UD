@@ -374,9 +374,9 @@ public class CraftingTreeNode {
      * {@code getCountRequestable()} (to be produced by crafting, flagged {@code isCraftable(true)}) -
      * which a single-{@code long}-per-key {@link KeyCounter} cannot represent at once. Split into two
      * counters instead of merging them into one and losing the distinction; see
-     * {@link CraftingJob#populatePlan(KeyCounter, KeyCounter)}.
+     * {@link CraftingJob#populatePlan(KeyCounter, KeyCounter, KeyCounter)}.
      */
-    void getPlan(final KeyCounter used, final KeyCounter requestable) {
+    void getPlan(final KeyCounter used, final KeyCounter requestable, final KeyCounter craftingSteps) {
         if (this.missing > 0) {
             used.add(this.what, this.missing);
         }
@@ -390,7 +390,7 @@ public class CraftingTreeNode {
         }
 
         for (final CraftingTreeProcess pro : this.nodes) {
-            pro.getPlan(used, requestable);
+            pro.getPlan(used, requestable, craftingSteps);
         }
     }
 

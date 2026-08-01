@@ -54,6 +54,7 @@ import appeng.tile.crafting.TileCraftingMonitorTile;
 import appeng.tile.crafting.TileCraftingTile;
 import appeng.util.Platform;
 import com.google.common.base.Preconditions;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -132,6 +133,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private long startItemCount;
     private long remainingItemCount;
     private UUID requestingPlayerUUID;
+    private String requestingPlayerName;
 
     public CraftingCPUCluster(final WorldCoord min, final WorldCoord max) {
         this.min = min;
@@ -355,6 +357,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         notifyRequester(false);
         this.requestingPlayerUUID = null;
+        this.requestingPlayerName = null;
     }
 
     private void notifyRequester(boolean cancelled) {
@@ -518,6 +521,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         notifyRequester(true);
         this.requestingPlayerUUID = null;
+        this.requestingPlayerName = null;
         this.finalOutput = null;
         this.updateCPU();
 
@@ -964,9 +968,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                 // Store the requesting player if present.
                 if (src instanceof PlayerSource playerSource && playerSource.player().isPresent()) {
-                    this.requestingPlayerUUID = playerSource.player().get().getUniqueID();
+                    final EntityPlayer player = playerSource.player().get();
+                    this.requestingPlayerUUID = player.getUniqueID();
+                    this.requestingPlayerName = player.getName();
                 } else {
                     this.requestingPlayerUUID = null;
+                    this.requestingPlayerName = null;
                 }
 
                 this.markDirty();
@@ -1202,6 +1209,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         if (Platform.isServer() && this.requestingPlayerUUID != null) {
             data.setUniqueId("requestingPlayerUUID", this.requestingPlayerUUID);
         }
+        if (this.requestingPlayerName != null) {
+            data.setString("requestingPlayerName", this.requestingPlayerName);
+        }
     }
 
     private NBTTagList writeKeyCounter(final KeyCounter counter) {
@@ -1292,6 +1302,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         if (Platform.isServer() && data.hasUniqueId("requestingPlayerUUID")) {
             this.requestingPlayerUUID = data.getUniqueId("requestingPlayerUUID");
         }
+        this.requestingPlayerName = data.hasKey("requestingPlayerName")
+                ? data.getString("requestingPlayerName")
+                : null;
     }
 
     public void updateName() {
@@ -1351,8 +1364,23 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.lastTime = nextStartTime;
     }
 
+    @Override
     public long getElapsedTime() {
         return this.elapsedTime;
+    }
+
+    @Override
+    public String getSourcePlayer() {
+        if (this.requestingPlayerName != null) {
+            return this.requestingPlayerName;
+        }
+
+        if (Platform.isServer() && this.requestingPlayerUUID != null) {
+            final EntityPlayer player = AppEng.proxy.getPlayerByUUID(this.requestingPlayerUUID);
+            return player == null ? null : player.getName();
+        }
+
+        return null;
     }
 
     @Override

@@ -257,7 +257,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
         final KeyCounter used = new KeyCounter();
         final KeyCounter requestable = new KeyCounter();
-        this.getTree().getPlan(used, requestable);
+        this.getTree().getPlan(used, requestable, new KeyCounter());
 
         plan.addAll(used);
         plan.addAll(requestable);
@@ -275,9 +275,23 @@ public class CraftingJob implements Runnable, ICraftingJob {
      * concrete {@link CraftingJob} instead of through the interface.
      */
     public void populatePlan(final KeyCounter used, final KeyCounter requestable) {
+        this.populatePlan(used, requestable, new KeyCounter());
+    }
+
+    /**
+     * Adds the number of pattern executions behind every crafted output to the split plan.
+     */
+    public void populatePlan(final KeyCounter used, final KeyCounter requestable, final KeyCounter craftingSteps) {
         if (this.getTree() != null) {
-            this.getTree().getPlan(used, requestable);
+            this.getTree().getPlan(used, requestable, craftingSteps);
         }
+    }
+
+    /**
+     * Returns how much of a key existed when this crafting calculation started.
+     */
+    public long getAvailableAtStart(final AEKey what) {
+        return this.original.extract(what, Long.MAX_VALUE, Actionable.SIMULATE, this.actionSrc);
     }
 
     @Override

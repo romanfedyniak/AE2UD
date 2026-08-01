@@ -83,4 +83,21 @@ public interface ICraftingCPU
 	{
 		return 0;
 	}
+
+	/**
+	 * @return elapsed time for the current crafting job in nanoseconds
+	 */
+	default long getElapsedTime()
+	{
+		return 0;
+	}
+
+	/**
+	 * @return the name of the player that requested the current job, or null for machine requests
+	 */
+	@Nullable
+	default String getSourcePlayer()
+	{
+		return null;
+	}
 }

@@ -43,8 +43,10 @@ import java.util.Objects;
  * {@code PacketMEInventoryUpdate} and the other containers that packet serves read the two amount fields
  * with their own meaning: {@code ContainerNetworkStatus} sends a machine count in {@code storedAmount} and
  * that machine's idle power drain (x100) in {@code requestableAmount}, and {@code ContainerCraftConfirm}
- * sends the used/missing amount in {@code storedAmount} and the to-be-crafted amount in
- * {@code requestableAmount}. That reuse is inherited, not new.
+ * sends the used, to-be-crafted, or missing amount in {@code storedAmount}, depending on the packet stream.
+ * Craft-confirm stream 0 carries the fixed-point percentage of the initial ME stock that will be used in
+ * {@code requestableAmount}, while stream 1 carries the number of pattern executions. That reuse is inherited
+ * from the old stack metadata rather than terminal semantics.
  */
 public class GridInventoryEntry {
 

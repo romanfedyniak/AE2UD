@@ -46,18 +46,23 @@ import appeng.parts.reporting.PartCraftingTerminal;
 import appeng.parts.reporting.PartExpandedProcessingPatternTerminal;
 import appeng.parts.reporting.PartPatternTerminal;
 import appeng.parts.reporting.PartTerminal;
+import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextFormatting;
+import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 
 public class GuiCraftingStatus extends GuiCraftingCPU {
@@ -68,6 +73,9 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     private static final int CPU_TABLE_SLOT_YOFF = 0;
     private static final int CPU_TABLE_SLOT_WIDTH = 67;
     private static final int CPU_TABLE_SLOT_HEIGHT = 23;
+    private static final int PROGRESS_START_COLOR = 0xFFE60A00;
+    private static final int PROGRESS_MIDDLE_COLOR = 0xFFE6E600;
+    private static final int PROGRESS_END_COLOR = 0xFF0AE600;
 
     private final ContainerCraftingStatus status;
     private GuiButton selectCPU;
@@ -227,6 +235,19 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                     GL11.glPushMatrix();
                     GL11.glTranslatef(x + CPU_TABLE_SLOT_WIDTH - 19, y + 3, 0);
                     this.drawItem(0, 0, GenericStack.wrapInItemStack(craftingStack));
+                    GL11.glPopMatrix();
+                    GL11.glPushMatrix();
+
+                    final double craftingProgress = getCraftingProgress(cpu);
+                    final int progressWidth = (int) ((CPU_TABLE_SLOT_WIDTH - 2) * craftingProgress);
+                    if (progressWidth > 0) {
+                        drawRect(
+                                x + 1,
+                                y + CPU_TABLE_SLOT_HEIGHT - 2,
+                                x + 1 + progressWidth,
+                                y + CPU_TABLE_SLOT_HEIGHT - 1,
+                                calculateProgressColor(craftingProgress));
+                    }
                 } else {
                     final int iconIndex = 16 * 4 + 3;
                     this.bindTexture("guis/states.png");
@@ -258,15 +279,63 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
             }
             GenericStack crafting = hoveredCpu.getCrafting();
             if (crafting != null && crafting.amount() > 0) {
-                tooltip.append(GuiText.Crafting.getLocal());
+                final NumberFormat numberFormat = NumberFormat.getInstance();
+                final long totalItems = Math.max(hoveredCpu.getTotalItems(), 0);
+                final long remainingItems = Math.max(0, Math.min(hoveredCpu.getRemainingItems(), totalItems));
+                final long completedItems = totalItems - remainingItems;
+                final NumberFormat percentageFormat = NumberFormat.getPercentInstance();
+                percentageFormat.setMinimumFractionDigits(2);
+                percentageFormat.setMaximumFractionDigits(2);
+
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.CraftName.getLocal());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append(": ");
+                tooltip.append(Platform.getItemDisplayName(crafting.what()));
+                tooltip.append('\n');
+
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.Remains.getLocal());
+                tooltip.append(TextFormatting.RESET);
                 tooltip.append(": ");
                 tooltip.append(crafting.what().formatAmount(crafting.amount(), AmountFormat.FULL));
-                tooltip.append(' ');
-                tooltip.append(GenericStack.wrapInItemStack(crafting).getDisplayName());
                 tooltip.append('\n');
-                tooltip.append(hoveredCpu.getRemainingItems());
+
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.Progress.getLocal());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append(": ");
+                tooltip.append(numberFormat.format(completedItems));
                 tooltip.append(" / ");
-                tooltip.append(hoveredCpu.getTotalItems());
+                tooltip.append(numberFormat.format(totalItems));
+                if (totalItems > 0) {
+                    tooltip.append(" (");
+                    tooltip.append(TextFormatting.GOLD);
+                    tooltip.append(percentageFormat.format(getCraftingProgress(hoveredCpu)));
+                    tooltip.append(TextFormatting.RESET);
+                    tooltip.append(')');
+                }
+                tooltip.append('\n');
+
+                final long elapsedMilliseconds = TimeUnit.MILLISECONDS.convert(
+                        hoveredCpu.getCraftingElapsedTime(),
+                        TimeUnit.NANOSECONDS);
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.TimeUsed.getLocal());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append(": ");
+                tooltip.append(DurationFormatUtils.formatDuration(elapsedMilliseconds, GuiText.ETAFormat.getLocal()));
+                tooltip.append('\n');
+
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.CPUSourcePlayer.getLocal());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append(": ");
+                tooltip.append(TextFormatting.GOLD);
+                tooltip.append(hoveredCpu.getSourcePlayer() == null
+                        ? GuiText.CPUSourceMachineRequested.getLocal()
+                        : hoveredCpu.getSourcePlayer());
+                tooltip.append(TextFormatting.RESET);
                 tooltip.append('\n');
             }
             if (hoveredCpu.getStorage() > 0) {
@@ -386,5 +455,34 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
 
     public void postCPUUpdate(CraftingCPUStatus[] cpus) {
         this.status.postCPUUpdate(cpus);
+    }
+
+    private static double getCraftingProgress(final CraftingCPUStatus cpu) {
+        final long totalItems = Math.max(cpu.getTotalItems(), 0);
+        if (totalItems == 0) {
+            return 0;
+        }
+
+        final long remainingItems = Math.max(0, Math.min(cpu.getRemainingItems(), totalItems));
+        return (double) (totalItems - remainingItems) / totalItems;
+    }
+
+    private static int calculateProgressColor(final double progress) {
+        if (progress <= 0.5) {
+            return interpolateColor(PROGRESS_START_COLOR, PROGRESS_MIDDLE_COLOR, progress * 2);
+        }
+        return interpolateColor(PROGRESS_MIDDLE_COLOR, PROGRESS_END_COLOR, (progress - 0.5) * 2);
+    }
+
+    private static int interpolateColor(final int start, final int end, final double ratio) {
+        final int alpha = interpolateChannel(start >>> 24, end >>> 24, ratio);
+        final int red = interpolateChannel(start >>> 16 & 0xFF, end >>> 16 & 0xFF, ratio);
+        final int green = interpolateChannel(start >>> 8 & 0xFF, end >>> 8 & 0xFF, ratio);
+        final int blue = interpolateChannel(start & 0xFF, end & 0xFF, ratio);
+        return alpha << 24 | red << 16 | green << 8 | blue;
+    }
+
+    private static int interpolateChannel(final int start, final int end, final double ratio) {
+        return (int) (start + ratio * (end - start));
     }
 }

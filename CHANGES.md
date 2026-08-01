@@ -35,6 +35,8 @@ Performance:
 
 QOL:
 
+ - Crafting confirmation now shows pattern execution steps and the percentage of each ME stock that the job will consume.
+ - Crafting Status CPUs now show a progress bar and tooltips with completed and total steps, percentage, elapsed time, and requester.
  - Added a creative fluid storage cell configurable in the Cell Workbench.
  - Creative storage cells now report 2^52 - 1 stored items instead of Integer.MAX_VALUE.
  - Encoded patterns now show the player who encoded them in their tooltip.

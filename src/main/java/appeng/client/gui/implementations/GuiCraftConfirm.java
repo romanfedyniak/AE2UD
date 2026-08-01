@@ -41,6 +41,7 @@ import appeng.parts.reporting.PartExpandedProcessingPatternTerminal;
 import appeng.parts.reporting.PartPatternTerminal;
 import appeng.parts.reporting.PartTerminal;
 import appeng.util.Platform;
+import appeng.util.ReadableNumberConverter;
 import com.google.common.base.Joiner;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -52,7 +53,9 @@ import org.lwjgl.input.Mouse;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class GuiCraftConfirm extends AEBaseGui {
@@ -64,6 +67,13 @@ public class GuiCraftConfirm extends AEBaseGui {
     private final KeyCounter storage = new KeyCounter();
     private final KeyCounter pending = new KeyCounter();
     private final KeyCounter missing = new KeyCounter();
+    private final KeyCounter craftingSteps = new KeyCounter();
+    private final Map<AEKey, Long> usedPercentages = new HashMap<>();
+
+    private static final int USED_PERCENT_25_COLOR = 0x1C4CA6;
+    private static final int USED_PERCENT_50_COLOR = 0x1A751E;
+    private static final int USED_PERCENT_75_COLOR = 0xE3940B;
+    private static final int USED_PERCENT_100_COLOR = 0x660F0F;
 
     private final List<AEKey> visual = new ArrayList<>();
 
@@ -237,17 +247,25 @@ public class GuiCraftConfirm extends AEBaseGui {
                 final long stored = this.storage.get(refKey);
                 final long pendingAmount = this.pending.get(refKey);
                 final long missingAmount = this.missing.get(refKey);
+                final long steps = this.craftingSteps.get(refKey);
+                final long usedPercent = this.usedPercentages.getOrDefault(refKey, 0L);
 
                 int lines = 0;
 
                 if (stored > 0) {
                     lines++;
+                    if (usedPercent > 0) {
+                        lines++;
+                    }
                 }
                 if (missingAmount > 0) {
                     lines++;
                 }
                 if (pendingAmount > 0) {
                     lines++;
+                    if (steps > 0) {
+                        lines++;
+                    }
                 }
 
                 final int negY = ((lines - 1) * 5) / 2;
@@ -265,6 +283,25 @@ public class GuiCraftConfirm extends AEBaseGui {
                     }
 
                     downY += 5;
+
+                    if (usedPercent > 0) {
+                        final String percentage = formatUsedPercent(usedPercent, 2);
+                        str = GuiText.FromStoragePercent.getLocal() + ": " + percentage + "%";
+                        final int percentWidth = 4 + this.fontRenderer.getStringWidth(str);
+                        this.fontRenderer.drawString(
+                                str,
+                                (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
+                                        - (percentWidth * 0.5)) * 2),
+                                (y * offY + yo + 6 - negY + downY) * 2,
+                                getUsedPercentColor(usedPercent));
+
+                        if (this.tooltip == z - viewStart) {
+                            lineList.add(GuiText.FromStoragePercent.getLocal() + ": "
+                                    + formatUsedPercent(usedPercent, 4) + "%");
+                        }
+
+                        downY += 5;
+                    }
                 }
 
                 boolean red = false;
@@ -290,6 +327,25 @@ public class GuiCraftConfirm extends AEBaseGui {
 
                     if (this.tooltip == z - viewStart) {
                         lineList.add(GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.FULL));
+                    }
+
+                    downY += 5;
+
+                    if (steps > 0) {
+                        str = GuiText.ToCraftRequests.getLocal() + ": "
+                                + ReadableNumberConverter.INSTANCE.toWideReadableForm(steps);
+                        final int stepsWidth = 4 + this.fontRenderer.getStringWidth(str);
+                        this.fontRenderer.drawString(
+                                str,
+                                (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
+                                        - (stepsWidth * 0.5)) * 2),
+                                (y * offY + yo + 6 - negY + downY) * 2,
+                                4210752);
+
+                        if (this.tooltip == z - viewStart) {
+                            lineList.add(GuiText.ToCraftRequests.getLocal() + ": "
+                                    + NumberFormat.getInstance().format(steps));
+                        }
                     }
                 }
 
@@ -351,12 +407,14 @@ public class GuiCraftConfirm extends AEBaseGui {
             case 0:
                 for (final GridInventoryEntry l : list) {
                     this.handleInput(this.storage, l);
+                    this.updateMetadata(this.usedPercentages, l);
                 }
                 break;
 
             case 1:
                 for (final GridInventoryEntry l : list) {
                     this.handleInput(this.pending, l);
+                    this.craftingSteps.set(l.getWhat(), l.getRequestableAmount());
                 }
                 break;
 
@@ -384,6 +442,33 @@ public class GuiCraftConfirm extends AEBaseGui {
         // Each of the three KeyCounters is keyed by AEKey, whose equals() is already the size-insensitive
         // identity the old findPrecise(IAEItemStack) dance existed to provide - a plain set() replaces it.
         s.set(l.getWhat(), l.getStoredAmount());
+    }
+
+    private void updateMetadata(final Map<AEKey, Long> target, final GridInventoryEntry entry) {
+        if (entry.getStoredAmount() > 0 && entry.getRequestableAmount() > 0) {
+            target.put(entry.getWhat(), entry.getRequestableAmount());
+        } else {
+            target.remove(entry.getWhat());
+        }
+    }
+
+    private static String formatUsedPercent(final long fixedPercentage, final int maximumFractionDigits) {
+        final NumberFormat format = NumberFormat.getNumberInstance();
+        format.setMaximumFractionDigits(maximumFractionDigits);
+        return format.format((double) fixedPercentage / ContainerCraftConfirm.USED_PERCENT_SCALE);
+    }
+
+    private static int getUsedPercentColor(final long fixedPercentage) {
+        if (fixedPercentage <= 25 * ContainerCraftConfirm.USED_PERCENT_SCALE) {
+            return USED_PERCENT_25_COLOR;
+        }
+        if (fixedPercentage <= 50 * ContainerCraftConfirm.USED_PERCENT_SCALE) {
+            return USED_PERCENT_50_COLOR;
+        }
+        if (fixedPercentage <= 75 * ContainerCraftConfirm.USED_PERCENT_SCALE) {
+            return USED_PERCENT_75_COLOR;
+        }
+        return USED_PERCENT_100_COLOR;
     }
 
     private long getTotal(final AEKey what) {
