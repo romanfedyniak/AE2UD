@@ -35,6 +35,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
@@ -61,7 +62,7 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
             return;
         }
         Object2LongMap<AEKey> sub = this.subMap(key);
-        sub.put(key, sub.getLong(key) + amount);
+        sub.put(key, LongMath.saturatedAdd(sub.getLong(key), amount));
     }
 
     public void remove(AEKey key, long amount) {

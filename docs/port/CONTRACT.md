@@ -278,6 +278,10 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
 
 > **The difference from `IItemList` that is easy to miss:** `IItemList` stored mutable `IAEStack` elements and let callers change an amount via `setStackSize` on the element. Here the value is a `long` in a map; the amount can **only** be changed through `add`/`set`/`remove` on the `KeyCounter` itself. Code that used to mutate a stack in place must be rewritten, not adapted.
 
+`add` and the methods built on it use saturated arithmetic: positive overflow clamps to `Long.MAX_VALUE`
+and negative underflow clamps to `Long.MIN_VALUE`. Network aggregation must never wrap a very large stored
+amount into the opposite sign.
+
 ### 1.7 `AmountFormat`
 
 `src\api\java\appeng\api\stacks\AmountFormat.java`

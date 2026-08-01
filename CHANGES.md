@@ -9,6 +9,7 @@ Design changes/breakages:
 
 Fixes:
 
+ - Storage amount aggregation now saturates at the long limits instead of wrapping on overflow.
  - Fix gregtech machines appearing with 'unnamed' or 'draconium lens' on the interface terminal on specific situations.
  - Add memorycard support for fluid interfaces, import/export/storage busses and level emitters ( this fix was upstreamed to AE2 for MC 1.16)
  - Storage busses now hide/show inaccessible items as configured.
