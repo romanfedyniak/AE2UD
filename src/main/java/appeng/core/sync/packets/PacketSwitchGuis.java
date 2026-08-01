@@ -22,6 +22,8 @@ package appeng.core.sync.packets;
 import appeng.api.networking.security.IActionHost;
 import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
+import appeng.container.implementations.ContainerCraftAmount;
+import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
@@ -58,8 +60,20 @@ public class PacketSwitchGuis extends AppEngPacket {
     @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
         final Container c = player.openContainer;
-        if (c instanceof AEBaseContainer) {
-            reopen(player, (AEBaseContainer) c, this.newGui);
+        if (!(c instanceof AEBaseContainer)) {
+            return;
+        }
+
+        if (!reopen(player, (AEBaseContainer) c, this.newGui)) {
+            return;
+        }
+
+        // Leaving a crafting plan for the amount screen means going back to edit the order, so the new
+        // screen is seeded with it. Every other switch opens a screen that stands on its own.
+        if (c instanceof ContainerCraftConfirm && player.openContainer instanceof ContainerCraftAmount) {
+            final ContainerCraftAmount amount = (ContainerCraftAmount) player.openContainer;
+            ((ContainerCraftConfirm) c).restoreRequestTo(amount);
+            amount.detectAndSendChanges();
         }
     }
 

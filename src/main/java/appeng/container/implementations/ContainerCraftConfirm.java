@@ -63,6 +63,7 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,6 +82,17 @@ public class ContainerCraftConfirm extends AEBaseContainer {
      * container can call {@link CraftingJob#populatePlan(KeyCounter, KeyCounter)} - see CONTRACT.md §9.2.
      */
     private CraftingJob result;
+
+    /**
+     * What the player asked for, kept so cancelling can hand the order back to the amount screen exactly as
+     * it was written. Not read from {@link #result}: an "up to" order plans the *difference*, so the job's
+     * output is not the number that was typed.
+     */
+    @Nullable
+    private AEKey requestedKey;
+    private long requestedAmount;
+    private boolean requestedCraftMissing;
+
     @GuiSync(0)
     public long bytesUsed;
     @GuiSync(1)
@@ -443,6 +455,22 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
     public void setJob(final Future<ICraftingJob> job) {
         this.job = job;
+    }
+
+    public void setRequest(final AEKey what, final long amount, final boolean craftMissing) {
+        this.requestedKey = what;
+        this.requestedAmount = amount;
+        this.requestedCraftMissing = craftMissing;
+    }
+
+    /**
+     * Hands the order being shown back to an amount screen, so cancelling a plan returns the player to what
+     * they typed rather than to a blank one.
+     */
+    public void restoreRequestTo(final ContainerCraftAmount amount) {
+        if (this.requestedKey != null) {
+            amount.setRequest(this.requestedKey, this.requestedAmount, this.requestedCraftMissing);
+        }
     }
 
     public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {
