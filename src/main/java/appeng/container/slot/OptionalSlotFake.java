@@ -62,6 +62,11 @@ public class OptionalSlotFake extends SlotFake implements IOptionalSlot {
         return this.host.isSlotEnabled(this.groupNum);
     }
 
+    /**
+     * Deliberately unlike {@link SlotFake}, which reports the backing inventory's limit. A pattern's output
+     * is a quantity the recipe decides, so the slot bounds nothing; {@code AEBaseContainer.maxAmountIn}
+     * reads this value as "unbounded" rather than scaling it into the key's units.
+     */
     @Override
     public int getSlotStackLimit() {
         return Integer.MAX_VALUE;
