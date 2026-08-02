@@ -5,43 +5,36 @@
             "values": [
                 {
                     "type": "minecraft:item_exists",
-                    "item": "appliedenergistics2:fluid_storage_cell_1k"
-                },
-                {
-                    "type": "minecraft:item_exists",
                     "item": "appliedenergistics2:quartz_glass"
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
-                    "material": "material.cell1k_part"
+                    "material": "material.fluid_cell_housing"
                 }
             ]
         }
     ],
     "result": {
-        "item": "appliedenergistics2:fluid_storage_cell_1k"
+        "type": "appliedenergistics2:part",
+        "part": "material.fluid_cell_housing"
     },
-    "type": "forge:ore_shaped",
+    "type": "appliedenergistics2:part_shaped",
     "pattern": [
         "aba",
-        "bcb",
-        "ddd"
+        "b b",
+        "ccc"
     ],
     "key": {
         "a": {
             "item": "appliedenergistics2:quartz_glass"
         },
-        "d": {
+        "c": {
             "type": "forge:ore_dict",
             "ore": "ingotIron"
         },
         "b": {
             "type": "forge:ore_dict",
             "ore": "gemLapis"
-        },
-        "c": {
-            "type": "appliedenergistics2:part",
-            "part": "material.cell1k_part"
         }
     }
 }

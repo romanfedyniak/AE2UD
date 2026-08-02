@@ -113,15 +113,11 @@ public enum MaterialType {
     BLANK_PATTERN(52, "material_blank_pattern", EnumSet.of(AEFeature.PATTERNS)),
     CARD_CRAFTING(53, "material_card_crafting", EnumSet.of(AEFeature.ADVANCED_CARDS, AEFeature.CRAFTING_CPU)),
 
-    FLUID_CELL1K_PART(54, "material_fluid_cell1k_part", EnumSet.of(AEFeature.STORAGE_CELLS)),
-    FLUID_CELL4K_PART(55, "material_fluid_cell4k_part", EnumSet.of(AEFeature.STORAGE_CELLS)),
-    FLUID_CELL16K_PART(56, "material_fluid_cell16k_part", EnumSet.of(AEFeature.STORAGE_CELLS)),
-    FLUID_CELL64K_PART(57, "material_fluid_cell64k_part", EnumSet.of(AEFeature.STORAGE_CELLS)),
-
     CARD_PATTERN_EXPANSION(58, "material_card_pattern_expansion", EnumSet.of(AEFeature.ADVANCED_CARDS)),
     CARD_QUANTUM_LINK(59, "material_card_quantum_link", EnumSet.of(AEFeature.ADVANCED_CARDS, AEFeature.QUANTUM_LINKING_CARD)),
     CARD_MAGNET(60, "material_card_magnet", EnumSet.of(AEFeature.BASIC_CARDS)),
     CARD_STICKY(61, "material_card_sticky", EnumSet.of(AEFeature.BASIC_CARDS)),
+    FLUID_CELL_HOUSING(62, "material_fluid_cell_housing", EnumSet.of(AEFeature.STORAGE_CELLS)),
     ;
 
 

@@ -9,11 +9,11 @@
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
-                    "material": "material.empty_storage_cell"
+                    "material": "material.fluid_cell_housing"
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
-                    "material": "material.fluid_cell1k_part"
+                    "material": "material.cell1k_part"
                 }
             ]
         }
@@ -25,11 +25,11 @@
     "ingredients": [
         {
             "type": "appliedenergistics2:part",
-            "part": "material.empty_storage_cell"
+            "part": "material.fluid_cell_housing"
         },
         {
             "type": "appliedenergistics2:part",
-            "part": "material.fluid_cell1k_part"
+            "part": "material.cell1k_part"
         }
     ]
 }

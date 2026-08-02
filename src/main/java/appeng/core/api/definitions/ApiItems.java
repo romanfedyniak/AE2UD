@@ -223,10 +223,10 @@ public final class ApiItems implements IItems {
         this.cell16k = storageCells.item("storage_cell_16k", () -> new BasicItemStorageCell(MaterialType.CELL16K_PART, 16)).build();
         this.cell64k = storageCells.item("storage_cell_64k", () -> new BasicItemStorageCell(MaterialType.CELL64K_PART, 64)).build();
 
-        this.fluidCell1k = storageCells.item("fluid_storage_cell_1k", () -> new BasicFluidStorageCell(MaterialType.FLUID_CELL1K_PART, 1)).build();
-        this.fluidCell4k = storageCells.item("fluid_storage_cell_4k", () -> new BasicFluidStorageCell(MaterialType.FLUID_CELL4K_PART, 4)).build();
-        this.fluidCell16k = storageCells.item("fluid_storage_cell_16k", () -> new BasicFluidStorageCell(MaterialType.FLUID_CELL16K_PART, 16)).build();
-        this.fluidCell64k = storageCells.item("fluid_storage_cell_64k", () -> new BasicFluidStorageCell(MaterialType.FLUID_CELL64K_PART, 64)).build();
+        this.fluidCell1k = storageCells.item("fluid_storage_cell_1k", () -> new BasicFluidStorageCell(MaterialType.CELL1K_PART, 1)).build();
+        this.fluidCell4k = storageCells.item("fluid_storage_cell_4k", () -> new BasicFluidStorageCell(MaterialType.CELL4K_PART, 4)).build();
+        this.fluidCell16k = storageCells.item("fluid_storage_cell_16k", () -> new BasicFluidStorageCell(MaterialType.CELL16K_PART, 16)).build();
+        this.fluidCell64k = storageCells.item("fluid_storage_cell_64k", () -> new BasicFluidStorageCell(MaterialType.CELL64K_PART, 64)).build();
 
         FeatureFactory spatialCells = registry.features(AEFeature.SPATIAL_IO);
         this.spatialCell2 = spatialCells.item("spatial_storage_cell_2_cubed", () -> new ItemSpatialStorageCell(2)).build();

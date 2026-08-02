@@ -13,7 +13,7 @@
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
-                    "material": "material.fluid_cell16k_part"
+                    "material": "material.cell16k_part"
                 }
             ]
         }
@@ -37,11 +37,11 @@
         },
         "b": {
             "type": "forge:ore_dict",
-            "ore": "dustRedstone"
+            "ore": "gemLapis"
         },
         "c": {
             "type": "appliedenergistics2:part",
-            "part": "material.fluid_cell16k_part"
+            "part": "material.cell16k_part"
         }
     }
 }

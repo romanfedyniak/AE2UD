@@ -11,6 +11,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Universal storage components
+
+- Removed the separate fluid storage components; fluid cells now use the same 1k, 4k, 16k, and 64k storage components as item cells, following [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2).
+- Added a distinct ME Fluid Cell Housing with a lapis-based recipe and a texture matching the legacy 1.12.2 art style.
+- Fluid cells can be assembled directly or from their housing and component, and empty fluid cells disassemble back into the universal component and fluid housing.
+- Removed the four fluid-component API definitions and added `IMaterials.fluidCellHousing()`.
+- Existing completed fluid cells retain their contents, but obsolete standalone fluid components are intentionally not migrated.
+
 ### Terminal pins
 
 - Added automatic crafting-result pins adapted from [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2), with its animated Molecular Assembler lights. Rows are created only after a craft becomes active, while completed pins remain until the terminal is reopened.

@@ -12,6 +12,20 @@ One thing is open and **it is not code we can write today**: registering AE2UD a
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
 
+## Post-release universal storage components
+
+Fluid cells now take `CELL1K_PART`, `CELL4K_PART`, `CELL16K_PART`, or `CELL64K_PART`, matching modern
+AE2's universal storage-component progression. The separate fluid-component materials at metadata 54-57,
+their public `IMaterials` definitions, recipes, models, textures, and translations are removed deliberately
+without a migration shim. Existing assembled fluid-cell item IDs and NBT formats are unchanged, so their
+stored contents remain valid.
+
+`FLUID_CELL_HOUSING` uses new metadata 62 rather than reusing an obsolete component ID. It is exposed as
+`IMaterials.fluidCellHousing()`, crafted in the legacy empty-housing pattern with `gemLapis` instead of
+redstone, and uses the blue-grey casing palette of the existing 1.12.2 fluid cells. Both direct and housing-based fluid
+cell recipes use universal components. Shift-right-click and the disassembly crafting recipe return the
+universal component plus the fluid housing.
+
 ## Post-release terminal pins
 
 Standard wired and wireless storage, crafting, pattern, and expanded processing-pattern terminals now
