@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after the interface-terminal HEI exclusion fix.
+2026-08-02, after the quantum bridge startup fix.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,15 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release quantum bridge startup
+
+`QuantumCluster.isActive()` now requires a registered, intact cluster with an entangled singularity, but
+does not require its local grid to be powered before creating the inter-grid connection. This ports
+upstream fix `82bf06333` ("Don't require power to connect QNBs"). The connection can therefore form with
+zero power; once either side receives energy, the merged grid powers both sides. Each bridge keeps its
+existing 22 AE/t idle drain, so the change removes only the circular startup requirement and does not make
+the link free.
 
 ## Post-release interface-terminal HEI exclusions
 

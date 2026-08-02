@@ -180,7 +180,7 @@ public class QuantumCluster implements ILocatable, IAECluster {
             return false;
         }
 
-        return this.center.isPowered() && this.hasQES();
+        return this.hasQES();
     }
 
     private IGridNode getNode() {

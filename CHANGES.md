@@ -11,6 +11,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Quantum bridge startup
+
+- Quantum Network Bridges connect their grids without requiring both sides to be powered first.
+- Power supplied on either side can start the combined network, while both bridges continue to consume their normal idle power.
+
 ### Import bus inverter card
 
 - Import buses accept one Inverter Card, changing a configured whitelist into a blacklist for items, fluids, and addon key types.
