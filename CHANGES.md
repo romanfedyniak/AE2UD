@@ -31,6 +31,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Portable cells remain compact when their type capacity fits in three rows; addon portable cells with larger capacities can opt into expanded layouts through the public API.
 - HEI item panels avoid the terminal-style controls in Crafting Plan and Crafting Status.
 - HEI item panels avoid the fluid-unit toggle on amount entry screens.
+- HEI item panels avoid the side controls in wired and wireless Interface Terminals and the Interface Configuration Terminal.
 
 ## 1.3.0 - 2026-08-02
 

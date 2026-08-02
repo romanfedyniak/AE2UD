@@ -140,6 +140,17 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     }
 
     @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        if (this.terminalStyleBox == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1,
+                this.terminalStyleBox.y - 1, this.terminalStyleBox.width + 2,
+                this.terminalStyleBox.height + 2));
+    }
+
+    @Override
     public void onGuiClosed() {
         partInterfaceTerminal.saveSearchStrings(this.searchFieldInputs.getText().toLowerCase());
         super.onGuiClosed();

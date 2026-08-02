@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after Inverter Card support was added to the import bus.
+2026-08-02, after the interface-terminal HEI exclusion fix.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,14 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release interface-terminal HEI exclusions
+
+The wired and wireless Interface Terminal now derive one HEI exclusion rectangle from the actual
+four-button side column instead of reserving one hard-coded stale position. The Interface Configuration
+Terminal likewise exposes its terminal-style button. Because the rectangles use the initialized button
+coordinates, terminal-style height changes and the Interface Terminal's JEI padding cannot desynchronise
+the exclusion areas from what is rendered.
 
 ## Post-release import bus inverter support
 
