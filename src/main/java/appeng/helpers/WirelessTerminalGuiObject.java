@@ -39,7 +39,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.DimensionalCoord;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.core.sync.GuiBridge;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.implementations.QuantumCluster;
 import appeng.parts.automation.StackUpgradeInventory;
@@ -49,6 +52,7 @@ import appeng.tile.networking.TileWireless;
 import appeng.tile.qnb.TileQuantumBridge;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
+import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -56,7 +60,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 
-public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, IInventorySlotAware, IViewCellStorage, IAEAppEngInventory, IUpgradeableCellHost {
+public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, IInventorySlotAware, IViewCellStorage,
+        IAEAppEngInventory, IUpgradeableCellHost, KeyTypeSelectionHost, ISubMenuHost {
 
     private final ItemStack effectiveItem;
     private final IWirelessTermHandler wth;
@@ -73,6 +78,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
 
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
     private final UpgradeInventory upgrades;
+    private final KeyTypeSelection keyTypeSelection;
     private QuantumCluster myQC;
 
 
@@ -107,6 +113,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         }
 
         upgrades = new StackUpgradeInventory(effectiveItem, this, 2);
+        this.keyTypeSelection = new KeyTypeSelection(this::saveKeyTypeSelection, type -> true);
 
         this.loadFromNBT();
     }
@@ -169,6 +176,32 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     @Override
     public IConfigManager getConfigManager() {
         return this.wth.getConfigManager(this.effectiveItem);
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    private void saveKeyTypeSelection() {
+        this.keyTypeSelection.writeToNBT(Platform.openNbtData(this.effectiveItem));
+    }
+
+    @Override
+    public boolean requiresBuildPermissionForKeyTypeSelection() {
+        return false;
+    }
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return this.wth.getGuiHandler(this.effectiveItem) instanceof GuiBridge
+                ? (GuiBridge) this.wth.getGuiHandler(this.effectiveItem)
+                : GuiBridge.GUI_WIRELESS_TERM;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return this.effectiveItem;
     }
 
     @Override
@@ -292,6 +325,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         if (data != null) {
             viewCell.readFromNBT(data);
             upgrades.readFromNBT(data);
+            this.keyTypeSelection.readFromNBT(data);
         }
     }
 

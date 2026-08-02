@@ -94,6 +94,11 @@ public class PartCraftingTerminal extends AbstractPartTerminal {
     }
 
     @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_CRAFTING_TERMINAL;
+    }
+
+    @Override
     public IItemHandler getInventoryByName(final String name) {
         if (name.equals("crafting")) {
             return this.craftingGrid;

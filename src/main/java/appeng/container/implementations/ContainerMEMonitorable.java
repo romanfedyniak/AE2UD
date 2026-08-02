@@ -44,6 +44,7 @@ import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
@@ -360,6 +361,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             // Case 1: real push - only the keys the grid actually told us changed, via onStackChange.
             for (final Map.Entry<AEKey, Long> e : this.pendingPushChanges.entrySet()) {
                 final AEKey what = e.getKey();
+                if (!this.isKeyTypeVisible(what)) {
+                    continue;
+                }
                 newlyCraftable.remove(what);
                 noLongerCraftable.remove(what);
                 result.add(new GridInventoryEntry(what, e.getValue(), 0, craftables.contains(what)));
@@ -394,10 +398,14 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
         // Craftable-only changes: the amount for `what` did not change, but its craftable status did.
         for (final AEKey what : newlyCraftable) {
-            result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true));
+            if (this.isKeyTypeVisible(what)) {
+                result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true));
+            }
         }
         for (final AEKey what : noLongerCraftable) {
-            result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, false));
+            if (this.isKeyTypeVisible(what)) {
+                result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, false));
+            }
         }
 
         this.previousCraftables = craftables;
@@ -456,13 +464,19 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
      */
     private KeyCounter retainAvailableStacks() {
         final IStorageService ss = this.networkStorageService();
-        if (ss == null) {
-            return this.monitor.getAvailableStacks();
-        }
-
+        final KeyCounter available = ss == null ? this.monitor.getAvailableStacks() : ss.getCachedInventory();
         final KeyCounter copy = new KeyCounter();
-        copy.addAll(ss.getCachedInventory());
+        for (final var entry : available) {
+            if (this.isKeyTypeVisible(entry.getKey())) {
+                copy.set(entry.getKey(), entry.getLongValue());
+            }
+        }
         return copy;
+    }
+
+    private boolean isKeyTypeVisible(final AEKey what) {
+        return !(this.host instanceof KeyTypeSelectionHost)
+                || ((KeyTypeSelectionHost) this.host).getKeyTypeSelection().enabledPredicate().test(what.getType());
     }
 
     private long getCachedAmount(final AEKey what) {
@@ -523,6 +537,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 keys.addAll(craftables);
 
                 for (final AEKey what : keys) {
+                    if (!this.isKeyTypeVisible(what)) {
+                        continue;
+                    }
                     final GridInventoryEntry send = new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what));
                     try {
                         piu.appendItem(send);

@@ -30,7 +30,6 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.gui.widgets.GuiImgButton;
-import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerIOBus;
 import appeng.container.slot.SlotFake;
 import appeng.core.localization.GuiText;
@@ -68,7 +67,7 @@ public class GuiIOBus extends GuiUpgradeable {
     private GuiImgButton clear;
     private GuiImgButton craftMode;
     private GuiImgButton schedulingMode;
-    private GuiTabButton keyTypes;
+    private GuiImgButton keyTypes;
 
     public GuiIOBus(final InventoryPlayer inventoryPlayer, final PartSharedItemBus te) {
         super(new ContainerIOBus(inventoryPlayer, te));
@@ -86,18 +85,18 @@ public class GuiIOBus extends GuiUpgradeable {
         // This order is the layout: the column is packed top-down from it, skipping whatever is hidden.
         this.column.clear();
         this.column.add(this.clear);
+        // Only the import bus has a say here: what an export bus moves is named in its filter.
+        if (this.bc instanceof KeyTypeSelectionHost) {
+            this.keyTypes = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS,
+                    ActionItems.CONFIGURE_IMPORTED_TYPES);
+            this.column.add(this.keyTypes);
+        }
         this.column.add(this.schedulingMode);
         this.column.add(this.redstoneMode);
         this.column.add(this.fuzzyMode);
         this.column.add(this.craftMode);
 
         this.buttonList.addAll(this.column);
-
-        // Only the import bus has a say here: what an export bus moves is named in its filter.
-        if (this.bc instanceof KeyTypeSelectionHost) {
-            this.buttonList.add(this.keyTypes = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16,
-                    GuiText.ConfigureImportedTypes.getLocal(), this.itemRender));
-        }
     }
 
     @Override

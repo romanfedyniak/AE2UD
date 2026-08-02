@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after the terminal-style follow-up was implemented.
+2026-08-02, after the terminal visible-type filter was implemented.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,15 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release terminal type filter
+
+Network-backed part terminals and wireless storage, crafting, and pattern terminals now implement
+`KeyTypeSelectionHost`. Each terminal persists its own set of visible registered `AEKeyType`s and opens the
+same extensible selection screen as the import bus; the display-only setting does not require BUILD
+permission. The server filters the initial listing, watcher updates, snapshot diffs, and craftable-only rows,
+so a hidden type cannot reappear when its amount or crafting availability changes. The standard portable
+cell remains unchanged because it can only display its own item key type.
 
 ## Post-release terminal-style follow-up
 

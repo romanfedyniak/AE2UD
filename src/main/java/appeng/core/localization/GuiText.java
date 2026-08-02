@@ -52,6 +52,8 @@ public enum GuiText {
     ExportBusFluids,
     ConfigureImportedTypes,
     ConfigureImportedTypesHint,
+    ConfigureVisibleTypes,
+    ConfigureVisibleTypesHint,
 
     CellWorkbench,
     NetworkDetails,

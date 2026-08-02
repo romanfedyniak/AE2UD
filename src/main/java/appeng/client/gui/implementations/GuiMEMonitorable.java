@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
+import appeng.api.config.ActionItems;
 import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.implementations.tiles.IMEChest;
 import appeng.api.implementations.tiles.IViewCellStorage;
@@ -29,6 +30,7 @@ import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.ActionKey;
 import appeng.client.gui.AEBaseMEGui;
 import appeng.client.gui.widgets.*;
@@ -80,6 +82,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private final ItemStack[] myCurrentViewCells = new ItemStack[5];
     private final ContainerMEMonitorable monitorableContainer;
     private GuiTabButton craftingStatusBtn;
+    private GuiImgButton keyTypesBtn;
     private MEGuiTextField searchField;
     private GuiText myName;
     private int perRow = 9;
@@ -97,6 +100,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private int currentMouseX = 0;
     private int currentMouseY = 0;
     private boolean delayedUpdate;
+    private final boolean supportsKeyTypeSelection;
 
     protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
 
@@ -125,6 +129,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         (this.monitorableContainer = (ContainerMEMonitorable) this.inventorySlots).setGui(this);
 
         this.viewCell = te instanceof IViewCellStorage;
+        this.supportsKeyTypeSelection = te instanceof KeyTypeSelectionHost;
 
         if (te instanceof TileSecurityStation) {
             this.myName = GuiText.Security;
@@ -184,6 +189,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     protected void actionPerformed(final GuiButton btn) {
         if (btn == this.craftingStatusBtn) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_STATUS));
+        }
+
+        if (btn == this.keyTypesBtn) {
+            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
         }
 
         if (btn instanceof GuiImgButton iBtn) {
@@ -290,6 +299,12 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEConfig.instance()
                     .getConfigManager()
                     .getSetting(Settings.TERMINAL_STYLE)));
+            offset += 20;
+        }
+
+        if (this.supportsKeyTypeSelection) {
+            this.buttonList.add(this.keyTypesBtn = new GuiImgButton(this.guiLeft - 18, offset, Settings.ACTIONS,
+                    ActionItems.CONFIGURE_VISIBLE_TYPES));
         }
 
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(80, this.offsetX), this.guiTop + 4, 90, 12);

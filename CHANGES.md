@@ -1,5 +1,10 @@
 # Unreleased
 
+## Terminal type filters
+
+- Added per-terminal visible-type selection for network and wireless terminals, using the same extensible type picker as the import bus.
+- Hidden types are excluded from stored, craftable, and live-updating terminal rows; at least one type always remains visible.
+
 ## Terminal layout
 
 - Added the modern Small, Medium, Tall, and Full-Height terminal styles, using 25%, 50%, 75%, and 100% of the available screen height.

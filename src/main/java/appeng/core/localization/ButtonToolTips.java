@@ -114,6 +114,10 @@ public enum ButtonToolTips {
     TerminalStyle_Tall,
     TerminalStyle_Medium,
     TerminalStyle_Small,
+    ConfigureVisibleTypes,
+    ConfigureVisibleTypesHint,
+    ConfigureImportedTypes,
+    ConfigureImportedTypesHint,
 
     Stash,
     StashDesc,

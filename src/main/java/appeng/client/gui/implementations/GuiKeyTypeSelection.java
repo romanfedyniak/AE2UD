@@ -62,9 +62,11 @@ public class GuiKeyTypeSelection extends AEBaseGui {
 
     private GuiTabButton originalGuiBtn;
     private GuiBridge originalGui;
+    private final boolean displayFilter;
 
     public GuiKeyTypeSelection(final InventoryPlayer inventoryPlayer, final KeyTypeSelectionHost te) {
         super(new ContainerKeyTypeSelection(inventoryPlayer, te));
+        this.displayFilter = !te.requiresBuildPermissionForKeyTypeSelection();
         this.xSize = WIDTH;
         this.ySize = HEADER_HEIGHT + FOOTER_HEIGHT;
     }
@@ -86,7 +88,9 @@ public class GuiKeyTypeSelection extends AEBaseGui {
         for (int i = 0; i < this.rows.size(); i++) {
             final AEKeyType type = this.rows.get(i);
             final GuiToggleButton toggle = new GuiToggleButton(this.guiLeft + 8, this.guiTop + HEADER_HEIGHT + i * ROW_HEIGHT + 1,
-                    ICON_ON, ICON_OFF, type.getDescription().getFormattedText(), GuiText.ConfigureImportedTypesHint.getLocal());
+                    ICON_ON, ICON_OFF, type.getDescription().getFormattedText(), (this.displayFilter
+                            ? GuiText.ConfigureVisibleTypesHint
+                            : GuiText.ConfigureImportedTypesHint).getLocal());
             this.toggles.put(type, toggle);
             this.buttonList.add(toggle);
         }
@@ -117,7 +121,8 @@ public class GuiKeyTypeSelection extends AEBaseGui {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.fontRenderer.drawString(GuiText.ConfigureImportedTypes.getLocal(), 8, 6, 4210752);
+        this.fontRenderer.drawString((this.displayFilter ? GuiText.ConfigureVisibleTypes : GuiText.ConfigureImportedTypes).getLocal(),
+                8, 6, 4210752);
 
         final Map<AEKeyType, Boolean> selection = ((ContainerKeyTypeSelection) this.inventorySlots).getSelection();
         for (int i = 0; i < this.rows.size(); i++) {

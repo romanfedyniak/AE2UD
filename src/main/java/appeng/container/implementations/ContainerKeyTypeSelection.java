@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import appeng.api.config.SecurityPermissions;
+import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
@@ -60,7 +61,8 @@ public class ContainerKeyTypeSelection extends AEBaseContainer {
     public String selection = "";
 
     public ContainerKeyTypeSelection(final InventoryPlayer ip, final KeyTypeSelectionHost te) {
-        super(ip, (TileEntity) (te instanceof TileEntity ? te : null), (IPart) (te instanceof IPart ? te : null));
+        super(ip, (TileEntity) (te instanceof TileEntity ? te : null), (IPart) (te instanceof IPart ? te : null),
+                (IGuiItemObject) (te instanceof IGuiItemObject ? te : null));
         this.host = te;
     }
 
@@ -90,6 +92,12 @@ public class ContainerKeyTypeSelection extends AEBaseContainer {
     }
 
     public void toggle(final ResourceLocation id) {
+        if (this.host.requiresBuildPermissionForKeyTypeSelection()
+                && Platform.isServer()
+                && !this.hasAccess(SecurityPermissions.BUILD, false)) {
+            return;
+        }
+
         final AEKeyType type = AEKeyTypes.get(id);
         if (type == null) {
             return;
@@ -106,7 +114,9 @@ public class ContainerKeyTypeSelection extends AEBaseContainer {
 
     @Override
     public void detectAndSendChanges() {
-        this.verifyPermissions(SecurityPermissions.BUILD, false);
+        if (this.host.requiresBuildPermissionForKeyTypeSelection()) {
+            this.verifyPermissions(SecurityPermissions.BUILD, false);
+        }
 
         if (Platform.isServer()) {
             final List<String> entries = new ArrayList<>();

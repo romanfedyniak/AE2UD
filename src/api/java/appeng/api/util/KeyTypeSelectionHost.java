@@ -36,4 +36,12 @@ package appeng.api.util;
 public interface KeyTypeSelectionHost {
 
     KeyTypeSelection getKeyTypeSelection();
+
+    /**
+     * Whether changing this selection configures how a machine acts on the world. Display-only filters,
+     * such as a terminal's visible key types, may be changed by anyone who can open the terminal.
+     */
+    default boolean requiresBuildPermissionForKeyTypeSelection() {
+        return true;
+    }
 }

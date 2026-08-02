@@ -30,7 +30,10 @@ import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.ISubMenuHost;
 import appeng.me.GridAccessException;
 import appeng.me.storage.NullInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -61,10 +64,12 @@ import java.util.List;
  * @version rv3
  * @since rv3
  */
-public abstract class AbstractPartTerminal extends AbstractPartDisplay implements ITerminalHost, IConfigManagerHost, IViewCellStorage, IAEAppEngInventory, IStorageWatcherNode {
+public abstract class AbstractPartTerminal extends AbstractPartDisplay implements ITerminalHost, IConfigManagerHost,
+        IViewCellStorage, IAEAppEngInventory, IStorageWatcherNode, KeyTypeSelectionHost, ISubMenuHost {
 
     private final IConfigManager cm = new ConfigManager(this);
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
+    private final KeyTypeSelection keyTypeSelection = new KeyTypeSelection(() -> this.getHost().markForSave(), type -> true);
 
     /**
      * Wave 4 addition (CONTRACT.md §10, "Third case: terminal live updates", case 1 - "network-backed
@@ -111,6 +116,7 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
         super.readFromNBT(data);
         this.cm.readFromNBT(data);
         this.viewCell.readFromNBT(data, "viewCell");
+        this.keyTypeSelection.readFromNBT(data);
     }
 
     @Override
@@ -118,6 +124,7 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
         super.writeToNBT(data);
         this.cm.writeToNBT(data);
         this.viewCell.writeToNBT(data, "viewCell");
+        this.keyTypeSelection.writeToNBT(data);
     }
 
     @Override
@@ -132,6 +139,26 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
 
     public GuiBridge getGui(final EntityPlayer player) {
         return GuiBridge.GUI_ME;
+    }
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_ME;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return this.getItemStack();
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    @Override
+    public boolean requiresBuildPermissionForKeyTypeSelection() {
+        return false;
     }
 
     @Override
