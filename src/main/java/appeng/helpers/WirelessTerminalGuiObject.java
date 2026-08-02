@@ -37,6 +37,9 @@ import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.ITerminalPinHost;
+import appeng.api.storage.ITerminalPinStorage;
+import appeng.api.storage.TerminalPinStorages;
 import appeng.api.util.DimensionalCoord;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.KeyTypeSelection;
@@ -61,7 +64,7 @@ import net.minecraftforge.items.IItemHandler;
 
 
 public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, IInventorySlotAware, IViewCellStorage,
-        IAEAppEngInventory, IUpgradeableCellHost, KeyTypeSelectionHost, ISubMenuHost {
+        IAEAppEngInventory, IUpgradeableCellHost, KeyTypeSelectionHost, ISubMenuHost, ITerminalPinHost {
 
     private final ItemStack effectiveItem;
     private final IWirelessTermHandler wth;
@@ -79,6 +82,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
     private final UpgradeInventory upgrades;
     private final KeyTypeSelection keyTypeSelection;
+    private final ITerminalPinStorage terminalPinStorage;
     private QuantumCluster myQC;
 
 
@@ -114,6 +118,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
 
         upgrades = new StackUpgradeInventory(effectiveItem, this, 2);
         this.keyTypeSelection = new KeyTypeSelection(this::saveKeyTypeSelection, type -> true);
+        this.terminalPinStorage = TerminalPinStorages.forItem(this.effectiveItem, this::saveChanges);
 
         this.loadFromNBT();
     }
@@ -342,5 +347,10 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             return viewCell;
         }
         return null;
+    }
+
+    @Override
+    public ITerminalPinStorage getTerminalPinStorage() {
+        return this.terminalPinStorage;
     }
 }

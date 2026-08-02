@@ -85,6 +85,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_TERMINAL_KEYBIND(PacketTerminalUse.class),
 
+        PACKET_TERMINAL_PINS(PacketTerminalPins.class),
+
         PACKET_CRAFTING_TOAST(PacketCraftingToast.class),
 
         PACKET_COLOR_APPLICATOR_SELECT_COLOR(PacketColorApplicatorSelectColor.class),

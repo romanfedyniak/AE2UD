@@ -12,6 +12,33 @@ One thing is open and **it is not code we can write today**: registering AE2UD a
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
 
+## Post-release terminal pins
+
+Standard wired and wireless storage, crafting, pattern, and expanded processing-pattern terminals now
+support two fixed-order sections above their ordinary contents: live crafting pins followed by persistent
+player pins. The automatic-pin behaviour is adapted from modern AE2's `PinnedKeys`, terminal repo, and
+crafting-start packet flow. The split sections, 16-row controls, pin-slot interaction, and per-terminal
+per-player persistence are adapted from GTNH AE2 Unofficial's `PinList`, `PinsHolder`,
+`PacketPinsUpdate`, and `GuiMEMonitorable`. AE2UD deliberately keeps crafting jobs network-derived rather
+than persisting them alongside player pins.
+
+The server performs an initial `ICraftingGrid` snapshot, subscribes to built-in `CraftingCPUCluster`
+change notifications, and reconciles every 20 ticks for addon CPU implementations that cannot provide
+  that internal listener. Matching jobs are aggregated with Guava saturating addition. Crafting rows are
+  created only after a matching job becomes active; finished or cancelled pins become inactive and remain
+  in their stable positions until the terminal closes. A newly opened terminal starts from active jobs only.
+  Visible pin keys bypass search, sorting, view cells, view mode, and key-type filtering and are removed
+  from the ordinary terminal list.
+
+  The server pushes the initial pin snapshot as soon as the container listener is attached. The packet carries
+  the window ID and can wait client-side for that container, so its rows are present before the GUI's first layout
+  instead of appearing after a request/response round trip.
+
+The public API consists of `ITerminalPinHost`, `ITerminalPinStorage`, `IPlayerTerminalPins`, and
+`TerminalPinStorages`. It serializes generic `AEKey`s, stores player state by UUID, offers host-NBT and
+item-NBT factories, and lets addon hosts using the standard terminal container opt in without depending
+on internal implementation classes. See `docs/TERMINAL_PIN_API.md`.
+
 ## Post-release item-based upgrade API
 
 The fixed `Upgrades` enum and `IUpgradeModule` marker are replaced by `IUpgradeRegistry` associations
@@ -70,6 +97,10 @@ The terminal layout setting now follows modern AE2 semantics: Small, Medium, Tal
 25%, 50%, 75%, and 100% of the rows available to each screen. The shared client setting is used by ME
 terminals, both interface terminal families, crafting status and confirmation, and network status while
 preserving each legacy screen's safe minimum row count. The old Full horizontal expansion was removed.
+
+The Interface Configuration Terminal stretches its list body and scrollbar trough separately. Repeating
+the old fixed-height texture as one piece repeated the trough's top edge on every row and made the track
+look like a column of slots.
 
 Portable cells expose `IPortableCell.getTerminalRowLimit()`. Basic cell items derive that limit from their
 type capacity, so the standard 27-type portable cell stays fixed at three rows with no meaningless style

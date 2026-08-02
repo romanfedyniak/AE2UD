@@ -59,4 +59,8 @@ public class InternalSlotME {
     int getyPosition() {
         return this.yPos;
     }
+
+    public SlotME createSlot() {
+        return new SlotME(this);
+    }
 }

@@ -11,6 +11,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Terminal pins
+
+- Added automatic crafting-result pins adapted from [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2), with its animated Molecular Assembler lights. Rows are created only after a craft becomes active, while completed pins remain until the terminal is reopened.
+- Added persistent per-player manual pins and row controls adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
+- Crafting and player pins occupy separate sections above terminal contents, ignore display filters, and remove their visible keys from the ordinary sorted list.
+- Shift-middle-click toggles a manual pin; carried items, filled containers, and HEI ingredients can be placed directly into player pin slots.
+- Pin storage and interaction support every registered `AEKey` type and are exposed to addon terminal hosts through the public API.
+- Added client settings for independently hiding crafting and player pins.
+- Initial pin state is pushed with the opening container, avoiding a delayed row resize after the terminal appears.
+
 ### Extensible upgrade cards
 
 - Replaced the fixed upgrade enum with an item-and-metadata registry that lets addons register arbitrary cards and compatible machines.
@@ -45,6 +55,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - HEI item panels avoid the terminal-style controls in Crafting Plan and Crafting Status.
 - HEI item panels avoid the fluid-unit toggle on amount entry screens.
 - HEI item panels avoid the side controls in wired and wireless Interface Terminals and the Interface Configuration Terminal.
+- Fixed the Interface Configuration Terminal repeating the scrollbar trough texture at expanded heights.
 
 ## 1.3.0 - 2026-08-02
 

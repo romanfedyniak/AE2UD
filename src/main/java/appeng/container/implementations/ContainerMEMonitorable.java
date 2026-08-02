@@ -29,6 +29,7 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
+import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
@@ -40,6 +41,8 @@ import appeng.api.parts.IPart;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.ITerminalPinHost;
+import appeng.api.storage.IPlayerTerminalPins;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
@@ -56,8 +59,11 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.core.sync.packets.PacketTerminalPins;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
+import appeng.me.cluster.implementations.ICraftingCPUListener;
 import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
@@ -76,6 +82,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -83,9 +90,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Objects;
+import com.google.common.math.LongMath;
 
 
-public class ContainerMEMonitorable extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject, IStorageWatcherNode {
+public class ContainerMEMonitorable extends AEBaseContainer implements IConfigManagerHost, IConfigurableObject,
+        IStorageWatcherNode, ICraftingCPUListener {
 
     protected final SlotRestrictedInput[] cellView = new SlotRestrictedInput[5];
     private final MEStorage monitor;
@@ -140,6 +150,21 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
      * check in {@link #collectChanges()} work, so whatever is stored here must be immutable.
      */
     private Set<AEKey> previousCraftables = Collections.emptySet();
+    private final IPlayerTerminalPins terminalPins;
+    private final LinkedHashMap<AEKey, TerminalCraftingPin> craftingPins = new LinkedHashMap<>();
+    private boolean terminalPinsRequested;
+    private boolean showCraftingPins;
+    private boolean showPlayerPins;
+    private int craftingPinTicker;
+    private List<TerminalCraftingPin> lastSentCraftingPins = Collections.emptyList();
+    private final Set<CraftingCPUCluster> subscribedCraftingCpus = new HashSet<>();
+    private final Set<AEKey> visiblePlayerPinKeys = new HashSet<>();
+    private boolean craftingPinsDirty;
+    private int clientTerminalPinSnapshotVersion;
+    private int clientCraftingPinRows = 1;
+    private int clientPlayerPinRows;
+    private final AEKey[] clientPlayerPins = new AEKey[IPlayerTerminalPins.MAX_PINS];
+    private List<TerminalCraftingPin> clientCraftingPins = Collections.emptyList();
 
 
     public ContainerMEMonitorable(final InventoryPlayer ip, final ITerminalHost monitorable) {
@@ -154,6 +179,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         super(ip, monitorable instanceof TileEntity ? (TileEntity) monitorable : null, monitorable instanceof IPart ? (IPart) monitorable : null, iGuiItemObject);
 
         this.host = monitorable;
+        this.terminalPins = monitorable instanceof ITerminalPinHost
+                ? ((ITerminalPinHost) monitorable).getTerminalPinStorage().forPlayer(ip.player.getPersistentID())
+                : null;
         this.clientCM = new ConfigManager(this);
 
         this.clientCM.registerSetting(Settings.SORT_BY, SortOrder.NAME);
@@ -274,6 +302,12 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     @Override
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
+            if (this.terminalPinsRequested && this.showCraftingPins && this.terminalPins.getCraftingRows() > 0
+                    && (this.craftingPinsDirty || ++this.craftingPinTicker >= 20)) {
+                this.craftingPinTicker = 0;
+                this.craftingPinsDirty = false;
+                this.refreshCraftingPins(false);
+            }
             if (this.monitor != this.host.getInventory()) {
                 this.setValidContainer(false);
             }
@@ -337,6 +371,219 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     }
 
+    public void requestTerminalPins(boolean showCrafting, boolean showPlayer) {
+        if (this.terminalPins == null || !Platform.isServer()) {
+            return;
+        }
+        this.terminalPinsRequested = true;
+        this.showCraftingPins = showCrafting;
+        this.showPlayerPins = showPlayer;
+        this.refreshVisiblePlayerPinKeys();
+        this.refreshCraftingPins(true);
+    }
+
+    public void receiveTerminalPins(int craftingRows, int playerRows, AEKey[] playerPins,
+            List<TerminalCraftingPin> craftingPins) {
+        if (!Platform.isClient()) {
+            return;
+        }
+        this.clientCraftingPinRows = craftingRows;
+        this.clientPlayerPinRows = playerRows;
+        Arrays.fill(this.clientPlayerPins, null);
+        System.arraycopy(playerPins, 0, this.clientPlayerPins, 0,
+                Math.min(playerPins.length, this.clientPlayerPins.length));
+        this.clientCraftingPins = new ArrayList<>(craftingPins);
+        this.clientTerminalPinSnapshotVersion++;
+    }
+
+    public int getTerminalPinSnapshotVersion() {
+        return this.clientTerminalPinSnapshotVersion;
+    }
+
+    public int getClientCraftingPinRows() {
+        return this.clientCraftingPinRows;
+    }
+
+    public int getClientPlayerPinRows() {
+        return this.clientPlayerPinRows;
+    }
+
+    public AEKey[] getClientPlayerPins() {
+        return Arrays.copyOf(this.clientPlayerPins, this.clientPlayerPins.length);
+    }
+
+    public List<TerminalCraftingPin> getClientCraftingPins() {
+        return new ArrayList<>(this.clientCraftingPins);
+    }
+
+    public void setTerminalPinRows(int craftingRows, int playerRows) {
+        if (this.terminalPins == null || !Platform.isServer()) {
+            return;
+        }
+        this.terminalPins.setCraftingRows(craftingRows);
+        this.terminalPins.setPlayerRows(playerRows);
+        this.refreshVisiblePlayerPinKeys();
+        this.refreshCraftingPins(true);
+    }
+
+    public void setTerminalPlayerPin(int slot, @Nullable AEKey key) {
+        if (this.terminalPins == null || !Platform.isServer() || slot < 0
+                || slot >= IPlayerTerminalPins.MAX_PINS) {
+            return;
+        }
+        this.terminalPins.setPin(slot, key);
+        this.refreshVisiblePlayerPinKeys();
+        this.sendTerminalPins();
+    }
+
+    private void refreshCraftingPins(boolean force) {
+        if (this.terminalPins == null) {
+            return;
+        }
+
+        final Map<AEKey, long[]> active = new LinkedHashMap<>();
+        final Set<CraftingCPUCluster> currentClusters = new HashSet<>();
+        if (this.showCraftingPins && this.terminalPins.getCraftingRows() > 0
+                && this.networkNode != null && this.networkNode.getGrid() != null) {
+            ICraftingGrid craftingGrid = this.networkNode.getGrid().getCache(ICraftingGrid.class);
+            if (craftingGrid != null) {
+                for (ICraftingCPU cpu : craftingGrid.getCpus()) {
+                    if (cpu instanceof CraftingCPUCluster) {
+                        CraftingCPUCluster cluster = (CraftingCPUCluster) cpu;
+                        currentClusters.add(cluster);
+                        if (this.subscribedCraftingCpus.add(cluster)) {
+                            cluster.addListener(this, this);
+                        }
+                    }
+                    if (!cpu.isBusy() || cpu.getFinalOutput() == null || !this.isOwnCraftingJob(cpu)) {
+                        continue;
+                    }
+                    AEKey what = cpu.getFinalOutput().what();
+                    long[] progress = active.computeIfAbsent(what, ignored -> new long[2]);
+                    progress[0] = LongMath.saturatedAdd(progress[0], Math.max(0, cpu.getRemainingItemCount()));
+                    progress[1] = LongMath.saturatedAdd(progress[1], Math.max(0, cpu.getStartItemCount()));
+                }
+            }
+        }
+        for (CraftingCPUCluster old : new HashSet<>(this.subscribedCraftingCpus)) {
+            if (!currentClusters.contains(old)) {
+                old.removeListener(this);
+                this.subscribedCraftingCpus.remove(old);
+            }
+        }
+
+        for (Map.Entry<AEKey, TerminalCraftingPin> entry : new ArrayList<>(craftingPins.entrySet())) {
+            long[] progress = active.remove(entry.getKey());
+            if (progress == null) {
+                TerminalCraftingPin old = entry.getValue();
+                entry.setValue(new TerminalCraftingPin(entry.getKey(), old.getRemaining(), old.getRequested(), false));
+            } else {
+                entry.setValue(new TerminalCraftingPin(entry.getKey(), progress[0], progress[1], true));
+            }
+        }
+
+        int capacity = Math.max(0, Math.min(IPlayerTerminalPins.MAX_PINS,
+                this.terminalPins.getCraftingRows() * IPlayerTerminalPins.SLOTS_PER_ROW));
+        for (Map.Entry<AEKey, long[]> entry : active.entrySet()) {
+            while (craftingPins.size() >= capacity && !craftingPins.isEmpty()) {
+                AEKey victim = null;
+                for (Map.Entry<AEKey, TerminalCraftingPin> candidate : craftingPins.entrySet()) {
+                    if (!candidate.getValue().isActive()) {
+                        victim = candidate.getKey();
+                        break;
+                    }
+                }
+                craftingPins.remove(victim != null ? victim : craftingPins.keySet().iterator().next());
+            }
+            if (capacity > 0) {
+                long[] progress = entry.getValue();
+                craftingPins.put(entry.getKey(), new TerminalCraftingPin(entry.getKey(), progress[0], progress[1], true));
+            }
+        }
+        while (craftingPins.size() > capacity) {
+            craftingPins.remove(craftingPins.keySet().iterator().next());
+        }
+
+        List<TerminalCraftingPin> current = new ArrayList<>(craftingPins.values());
+        if (force || !current.equals(this.lastSentCraftingPins)) {
+            this.lastSentCraftingPins = current;
+            this.sendTerminalPins();
+        }
+    }
+
+    private boolean isOwnCraftingJob(ICraftingCPU cpu) {
+        EntityPlayer player = this.getInventoryPlayer().player;
+        if (cpu.getActionSource() != null && cpu.getActionSource().player().isPresent()
+                && player.getPersistentID().equals(cpu.getActionSource().player().get().getPersistentID())) {
+            return true;
+        }
+        return Objects.equals(player.getName(), cpu.getSourcePlayer());
+    }
+
+    private void sendTerminalPins() {
+        if (!this.terminalPinsRequested || !(this.getInventoryPlayer().player instanceof EntityPlayerMP)) {
+            return;
+        }
+        AEKey[] playerKeys = new AEKey[IPlayerTerminalPins.MAX_PINS];
+        if (this.showPlayerPins) {
+            for (int i = 0; i < playerKeys.length; i++) {
+                playerKeys[i] = this.terminalPins.getPin(i);
+            }
+        }
+        try {
+            this.sendPinnedInventoryEntries(playerKeys);
+            NetworkHandler.instance().sendTo(PacketTerminalPins.snapshot(
+                    this.windowId, this.terminalPins.getCraftingRows(), this.terminalPins.getPlayerRows(), playerKeys,
+                    this.showCraftingPins ? craftingPins.values() : Collections.emptyList()),
+                    (EntityPlayerMP) this.getInventoryPlayer().player);
+        } catch (IOException e) {
+            AELog.debug(e);
+        }
+    }
+
+    private void sendPinnedInventoryEntries(AEKey[] playerKeys) throws IOException {
+        Set<AEKey> keys = new LinkedHashSet<>();
+        if (this.showCraftingPins) {
+            keys.addAll(this.craftingPins.keySet());
+        }
+        if (this.showPlayerPins) {
+            int limit = Math.min(playerKeys.length,
+                    this.terminalPins.getPlayerRows() * IPlayerTerminalPins.SLOTS_PER_ROW);
+            for (int i = 0; i < limit; i++) {
+                if (playerKeys[i] != null) {
+                    keys.add(playerKeys[i]);
+                }
+            }
+        }
+        if (keys.isEmpty()) {
+            return;
+        }
+        KeyCounter stored = this.readAvailableStacks();
+        Set<AEKey> craftables = this.computeCraftables();
+        PacketMEInventoryUpdate update = new PacketMEInventoryUpdate();
+        for (AEKey what : keys) {
+            update.appendItem(new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what)));
+        }
+        NetworkHandler.instance().sendTo(update, (EntityPlayerMP) this.getInventoryPlayer().player);
+    }
+
+    @Override
+    public boolean isValid(Object verificationToken) {
+        return verificationToken == this && this.terminalPinsRequested && !this.listeners.isEmpty();
+    }
+
+    @Override
+    public void onCraftingCPUChange(AEKey what, IActionSource source) {
+        this.craftingPinsDirty = true;
+    }
+
+    private void unsubscribeCraftingPins() {
+        for (CraftingCPUCluster cluster : this.subscribedCraftingCpus) {
+            cluster.removeListener(this);
+        }
+        this.subscribedCraftingCpus.clear();
+    }
+
     /**
      * Builds this tick's delta, merging whichever of case 1 / case 2 (CONTRACT.md §10) applies to this
      * terminal with the craftable-flag diff that applies to both (§8.3).
@@ -361,7 +608,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             // Case 1: real push - only the keys the grid actually told us changed, via onStackChange.
             for (final Map.Entry<AEKey, Long> e : this.pendingPushChanges.entrySet()) {
                 final AEKey what = e.getKey();
-                if (!this.isKeyTypeVisible(what)) {
+                if (!this.isDisplayedKey(what)) {
                     continue;
                 }
                 newlyCraftable.remove(what);
@@ -398,12 +645,12 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
         // Craftable-only changes: the amount for `what` did not change, but its craftable status did.
         for (final AEKey what : newlyCraftable) {
-            if (this.isKeyTypeVisible(what)) {
+            if (this.isDisplayedKey(what)) {
                 result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true));
             }
         }
         for (final AEKey what : noLongerCraftable) {
-            if (this.isKeyTypeVisible(what)) {
+            if (this.isDisplayedKey(what)) {
                 result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, false));
             }
         }
@@ -467,7 +714,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         final KeyCounter available = ss == null ? this.monitor.getAvailableStacks() : ss.getCachedInventory();
         final KeyCounter copy = new KeyCounter();
         for (final var entry : available) {
-            if (this.isKeyTypeVisible(entry.getKey())) {
+            if (this.isDisplayedKey(entry.getKey())) {
                 copy.set(entry.getKey(), entry.getLongValue());
             }
         }
@@ -477,6 +724,32 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private boolean isKeyTypeVisible(final AEKey what) {
         return !(this.host instanceof KeyTypeSelectionHost)
                 || ((KeyTypeSelectionHost) this.host).getKeyTypeSelection().enabledPredicate().test(what.getType());
+    }
+
+    private boolean isDisplayedKey(final AEKey what) {
+        boolean typeVisible = this.isKeyTypeVisible(what);
+        if (typeVisible || this.terminalPins == null || !this.terminalPinsRequested) {
+            return typeVisible;
+        }
+        if (this.showCraftingPins && this.craftingPins.containsKey(what)) {
+            return true;
+        }
+        return this.showPlayerPins && this.visiblePlayerPinKeys.contains(what);
+    }
+
+    private void refreshVisiblePlayerPinKeys() {
+        this.visiblePlayerPinKeys.clear();
+        if (this.terminalPins == null || !this.showPlayerPins) {
+            return;
+        }
+        int limit = Math.min(IPlayerTerminalPins.MAX_PINS,
+                this.terminalPins.getPlayerRows() * IPlayerTerminalPins.SLOTS_PER_ROW);
+        for (int i = 0; i < limit; i++) {
+            AEKey key = this.terminalPins.getPin(i);
+            if (key != null) {
+                this.visiblePlayerPinKeys.add(key);
+            }
+        }
     }
 
     private long getCachedAmount(final AEKey what) {
@@ -518,6 +791,14 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     public void addListener(final IContainerListener c) {
         super.addListener(c);
 
+        if (Platform.isServer() && c instanceof EntityPlayerMP && this.terminalPins != null
+                && !this.terminalPinsRequested) {
+            this.terminalPinsRequested = true;
+            this.showCraftingPins = true;
+            this.showPlayerPins = true;
+            this.refreshVisiblePlayerPinKeys();
+            this.refreshCraftingPins(true);
+        }
         this.queueInventory(c);
     }
 
@@ -537,7 +818,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 keys.addAll(craftables);
 
                 for (final AEKey what : keys) {
-                    if (!this.isKeyTypeVisible(what)) {
+                    if (!this.isDisplayedKey(what)) {
                         continue;
                     }
                     final GridInventoryEntry send = new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what));
@@ -565,6 +846,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (this.listeners.isEmpty() && this.networkTerminalPart != null) {
             this.networkTerminalPart.removeTerminalListener(this);
         }
+        if (this.listeners.isEmpty()) {
+            this.unsubscribeCraftingPins();
+        }
     }
 
     @Override
@@ -573,6 +857,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (this.networkTerminalPart != null) {
             this.networkTerminalPart.removeTerminalListener(this);
         }
+        this.unsubscribeCraftingPins();
     }
 
     /**

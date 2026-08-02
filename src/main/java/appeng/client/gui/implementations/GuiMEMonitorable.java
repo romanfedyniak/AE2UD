@@ -27,6 +27,12 @@ import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.implementations.tiles.IMEChest;
 import appeng.api.implementations.tiles.IViewCellStorage;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.ITerminalPinHost;
+import appeng.api.storage.IPlayerTerminalPins;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
@@ -37,6 +43,8 @@ import appeng.client.gui.widgets.*;
 import appeng.client.me.InternalSlotME;
 import appeng.client.me.ItemRepo;
 import appeng.client.me.SlotME;
+import appeng.client.me.PinSlotME;
+import appeng.client.me.InternalPinSlotME;
 import appeng.container.implementations.ContainerMEMonitorable;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotCraftingMatrix;
@@ -49,6 +57,8 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.core.sync.packets.PacketTerminalPins;
+import appeng.container.implementations.TerminalCraftingPin;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.integration.Integrations;
 import appeng.parts.reporting.AbstractPartTerminal;
@@ -56,9 +66,22 @@ import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.item.ItemStack;
+import net.minecraft.init.SoundEvents;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fluids.FluidStack;
+import mezz.jei.api.gui.IGhostIngredientHandler;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -66,6 +89,9 @@ import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
+
+import org.lwjgl.opengl.GL11;
 
 
 public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfigManagerHost {
@@ -101,6 +127,16 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private int currentMouseY = 0;
     private boolean delayedUpdate;
     private final boolean supportsKeyTypeSelection;
+    private final boolean supportsTerminalPins;
+    private GuiPinsButton pinsButton;
+    private int craftingPinRows = 1;
+    private int playerPinRows;
+    private int visibleCraftingPinRows;
+    private int visiblePlayerPinRows;
+    private int normalRows;
+    private int terminalPinSnapshotVersion;
+    private final AEKey[] terminalPlayerPins = new AEKey[IPlayerTerminalPins.MAX_PINS];
+    private List<TerminalCraftingPin> terminalCraftingPins = new ArrayList<>();
 
     protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
 
@@ -130,6 +166,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         this.viewCell = te instanceof IViewCellStorage;
         this.supportsKeyTypeSelection = te instanceof KeyTypeSelectionHost;
+        this.supportsTerminalPins = te instanceof ITerminalPinHost;
 
         if (te instanceof TileSecurityStation) {
             this.myName = GuiText.Security;
@@ -181,8 +218,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     private void setScrollBar() {
-        this.getScrollBar().setTop(18).setLeft(175).setHeight(this.rows * 18 - 2);
-        this.getScrollBar().setRange(0, (this.repo.size() + this.perRow - 1) / this.perRow - this.rows, Math.max(1, this.rows / 6));
+        int pinRows = this.visibleCraftingPinRows + this.visiblePlayerPinRows;
+        this.getScrollBar().setTop(18 + pinRows * 18).setLeft(175).setHeight(this.normalRows * 18 - 2);
+        this.getScrollBar().setRange(0, (this.repo.size() + this.perRow - 1) / this.perRow - this.normalRows,
+                Math.max(1, this.normalRows / 6));
     }
 
     @Override
@@ -193,6 +232,26 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         if (btn == this.keyTypesBtn) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
+        }
+
+        if (btn == this.pinsButton) {
+            boolean backwards = Mouse.isButtonDown(1);
+            boolean crafting = GuiScreen.isCtrlKeyDown();
+            int nextCrafting = this.craftingPinRows;
+            int nextPlayer = this.playerPinRows;
+            int available = Math.max(0, this.rows - 1);
+            if (crafting) {
+                int visiblePlayer = AEConfig.instance().showPlayerPins() ? nextPlayer : 0;
+                nextCrafting = Math.max(0, Math.min(IPlayerTerminalPins.MAX_ROWS,
+                        nextCrafting + (backwards ? -1 : 1)));
+                nextCrafting = Math.min(nextCrafting, Math.max(0, available - visiblePlayer));
+            } else {
+                int visibleCrafting = AEConfig.instance().showCraftingPins() ? nextCrafting : 0;
+                nextPlayer = Math.max(0, Math.min(IPlayerTerminalPins.MAX_ROWS,
+                        nextPlayer + (backwards ? -1 : 1)));
+                nextPlayer = Math.min(nextPlayer, Math.max(0, available - visibleCrafting));
+            }
+            this.setPinRows(nextCrafting, nextPlayer, true);
         }
 
         if (btn instanceof GuiImgButton iBtn) {
@@ -232,6 +291,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     public void initGui() {
         Keyboard.enableRepeatEvents(true);
 
+        PacketTerminalPins.applyPendingSnapshot(this.monitorableContainer);
+        this.applyTerminalPinSnapshot(false);
+
         this.maxRows = this.getMaxRows();
         this.perRow = 9;
 
@@ -248,10 +310,32 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.rows = 3;
         }
 
+        int maxPinRows = Math.max(0, this.rows - 1);
+        this.visibleCraftingPinRows = this.getVisibleCraftingPinRows(maxPinRows);
+        this.visiblePlayerPinRows = this.supportsTerminalPins && AEConfig.instance().showPlayerPins()
+                ? Math.min(this.playerPinRows, maxPinRows - this.visibleCraftingPinRows) : 0;
+        this.normalRows = Math.max(1, this.rows - this.visibleCraftingPinRows - this.visiblePlayerPinRows);
+
         this.getMeSlots().clear();
-        for (int y = 0; y < this.rows; y++) {
+        for (int y = 0; y < this.visibleCraftingPinRows; y++) {
             for (int x = 0; x < this.perRow; x++) {
-                this.getMeSlots().add(new InternalSlotME(this.repo, x + y * this.perRow, this.offsetX + x * 18, 18 + y * 18));
+                int index = x + y * this.perRow;
+                this.getMeSlots().add(new InternalPinSlotME(this.repo, index, true,
+                        this.offsetX + x * 18, 18 + y * 18));
+            }
+        }
+        for (int y = 0; y < this.visiblePlayerPinRows; y++) {
+            for (int x = 0; x < this.perRow; x++) {
+                int index = x + y * this.perRow;
+                this.getMeSlots().add(new InternalPinSlotME(this.repo, index, false,
+                        this.offsetX + x * 18, 18 + (this.visibleCraftingPinRows + y) * 18));
+            }
+        }
+        int pinRows = this.visibleCraftingPinRows + this.visiblePlayerPinRows;
+        for (int y = 0; y < this.normalRows; y++) {
+            for (int x = 0; x < this.perRow; x++) {
+                this.getMeSlots().add(new InternalSlotME(this.repo, x + y * this.perRow,
+                        this.offsetX + x * 18, 18 + (pinRows + y) * 18));
             }
         }
 
@@ -305,6 +389,13 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (this.supportsKeyTypeSelection) {
             this.buttonList.add(this.keyTypesBtn = new GuiImgButton(this.guiLeft - 18, offset, Settings.ACTIONS,
                     ActionItems.CONFIGURE_VISIBLE_TYPES));
+        }
+
+
+        if (this.supportsTerminalPins && (AEConfig.instance().showCraftingPins() || AEConfig.instance().showPlayerPins())) {
+            offset += this.supportsKeyTypeSelection ? 20 : 0;
+            this.buttonList.add(this.pinsButton = new GuiPinsButton(this.guiLeft - 18, offset));
+            this.pinsButton.setRows(this.craftingPinRows, this.playerPinRows);
         }
 
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(80, this.offsetX), this.guiTop + 4, 90, 12);
@@ -361,6 +452,67 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         craftingGridOffsetX -= 25;
         craftingGridOffsetY -= 6;
 
+        this.repo.setPins(this.terminalPlayerPins, this.terminalCraftingPins,
+                this.visibleCraftingPinRows, this.visiblePlayerPinRows);
+    }
+
+    public void applyTerminalPinSnapshot(boolean reinitializeLayout) {
+        int version = this.monitorableContainer.getTerminalPinSnapshotVersion();
+        if (version == 0 || version == this.terminalPinSnapshotVersion) {
+            return;
+        }
+        this.terminalPinSnapshotVersion = version;
+        int craftingRows = this.monitorableContainer.getClientCraftingPinRows();
+        int playerRows = this.monitorableContainer.getClientPlayerPinRows();
+        AEKey[] playerPins = this.monitorableContainer.getClientPlayerPins();
+        List<TerminalCraftingPin> craftingPins = this.monitorableContainer.getClientCraftingPins();
+        int oldVisibleCraftingRows = this.visibleCraftingPinRows;
+        int oldVisiblePlayerRows = this.visiblePlayerPinRows;
+        boolean layoutChanged = this.craftingPinRows != craftingRows || this.playerPinRows != playerRows;
+        this.craftingPinRows = craftingRows;
+        this.playerPinRows = playerRows;
+        Arrays.fill(this.terminalPlayerPins, null);
+        System.arraycopy(playerPins, 0, this.terminalPlayerPins, 0,
+                Math.min(playerPins.length, this.terminalPlayerPins.length));
+        this.terminalCraftingPins = new ArrayList<>(craftingPins);
+        int maxPinRows = Math.max(0, this.rows - 1);
+        int newVisibleCraftingRows = this.getVisibleCraftingPinRows(maxPinRows);
+        int newVisiblePlayerRows = this.supportsTerminalPins && AEConfig.instance().showPlayerPins()
+                ? Math.min(this.playerPinRows, maxPinRows - newVisibleCraftingRows) : 0;
+        layoutChanged |= oldVisibleCraftingRows != newVisibleCraftingRows
+                || oldVisiblePlayerRows != newVisiblePlayerRows;
+        if (layoutChanged && reinitializeLayout) {
+            this.reinitalize();
+        } else if (reinitializeLayout) {
+            this.repo.setPins(this.terminalPlayerPins, this.terminalCraftingPins,
+                    this.visibleCraftingPinRows, this.visiblePlayerPinRows);
+            if (this.pinsButton != null) {
+                this.pinsButton.setRows(craftingRows, playerRows);
+            }
+            this.repo.updateView();
+            this.setScrollBar();
+        }
+    }
+
+    private int getVisibleCraftingPinRows(int maxPinRows) {
+        if (!this.supportsTerminalPins || !AEConfig.instance().showCraftingPins()
+                || this.terminalCraftingPins.isEmpty()) {
+            return 0;
+        }
+        int rowsNeeded = (this.terminalCraftingPins.size() + this.perRow - 1) / this.perRow;
+        return Math.min(Math.min(this.craftingPinRows, maxPinRows), rowsNeeded);
+    }
+
+    private void setPinRows(int craftingRows, int playerRows, boolean send) {
+        if (this.craftingPinRows == craftingRows && this.playerPinRows == playerRows) {
+            return;
+        }
+        this.craftingPinRows = craftingRows;
+        this.playerPinRows = playerRows;
+        if (send) {
+            NetworkHandler.instance().sendToServer(PacketTerminalPins.setRows(craftingRows, playerRows));
+        }
+        this.reinitalize();
     }
 
     @Override
@@ -378,6 +530,13 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             exclusionArea.add(viewMode);
         }
 
+
+        int pinRows = this.visibleCraftingPinRows + this.visiblePlayerPinRows;
+        if (pinRows > 0) {
+            exclusionArea.add(new Rectangle(guiLeft + this.offsetX - 1, guiTop + 17,
+                    this.perRow * 18, pinRows * 18 + 1));
+        }
+
         return exclusionArea;
     }
 
@@ -388,6 +547,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         this.currentMouseX = mouseX;
         this.currentMouseY = mouseY;
+
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     @Override
@@ -401,6 +562,120 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
         super.mouseClicked(xCoord, yCoord, btn);
+    }
+
+    @Override
+    protected void handleMouseClick(Slot slot, int slotIdx, int mouseButton, ClickType clickType) {
+        if (slot instanceof PinSlotME && !((PinSlotME) slot).isCraftingPin()) {
+            PinSlotME pinSlot = (PinSlotME) slot;
+            if (isShiftKeyDown() && mouseButton == 1) {
+                this.sendPlayerPin(pinSlot.getPinIndex(), null);
+                return;
+            }
+            GenericStack carried = ContainerItemStrategies.getContainedStack(this.mc.player.inventory.getItemStack());
+            if (carried == null) {
+                carried = GenericStack.resolveItemStack(this.mc.player.inventory.getItemStack());
+            }
+            if (carried != null) {
+                this.sendPlayerPin(pinSlot.getPinIndex(), carried.what());
+                return;
+            }
+            if (!pinSlot.getHasStack()) {
+                return;
+            }
+        } else if (slot instanceof SlotME && !(slot instanceof PinSlotME)
+                && clickType == ClickType.CLONE && isShiftKeyDown()
+                && this.supportsTerminalPins && AEConfig.instance().showPlayerPins()) {
+            GridInventoryEntry entry = ((SlotME) slot).getEntry();
+            if (entry != null) {
+                this.togglePlayerPin(entry.getWhat());
+                return;
+            }
+        }
+        super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
+    }
+
+    private void togglePlayerPin(AEKey key) {
+        for (int i = 0; i < this.terminalPlayerPins.length; i++) {
+            if (key.equals(this.terminalPlayerPins[i])) {
+                this.sendPlayerPin(i, null);
+                return;
+            }
+        }
+
+        int rows = this.playerPinRows;
+        int availableRows = Math.max(0, this.rows - 1 - this.visibleCraftingPinRows);
+        if (rows == 0) {
+            if (availableRows > 0) {
+                rows = 1;
+                this.setPinRows(this.craftingPinRows, rows, true);
+            }
+        }
+        int capacity = Math.min(this.terminalPlayerPins.length,
+                this.visiblePlayerPinRows * IPlayerTerminalPins.SLOTS_PER_ROW);
+        for (int i = 0; i < capacity; i++) {
+            if (this.terminalPlayerPins[i] == null) {
+                this.sendPlayerPin(i, key);
+                return;
+            }
+        }
+
+        if (rows < IPlayerTerminalPins.MAX_ROWS && this.visiblePlayerPinRows == rows && rows < availableRows) {
+            rows++;
+            this.setPinRows(this.craftingPinRows, rows, true);
+            this.sendPlayerPin((rows - 1) * IPlayerTerminalPins.SLOTS_PER_ROW, key);
+            return;
+        }
+
+        this.mc.player.sendStatusMessage(new TextComponentTranslation("gui.appliedenergistics2.playerPinSectionFull"), true);
+        this.mc.world.playSound(this.mc.player, this.mc.player.getPosition(), SoundEvents.BLOCK_NOTE_BASS,
+                SoundCategory.PLAYERS, 0.25F, 0.7F);
+    }
+
+    private void sendPlayerPin(int slot, AEKey key) {
+        try {
+            this.terminalPlayerPins[slot] = key;
+            this.repo.setPins(this.terminalPlayerPins, this.terminalCraftingPins,
+                    this.visibleCraftingPinRows, this.visiblePlayerPinRows);
+            NetworkHandler.instance().sendToServer(PacketTerminalPins.setPin(slot, key));
+        } catch (IOException e) {
+            AELog.debug(e);
+        }
+    }
+
+    public List<IGhostIngredientHandler.Target<?>> getPinGhostTargets(Object ingredient) {
+        final AEKey key;
+        if (ingredient instanceof ItemStack) {
+            GenericStack stack = GenericStack.resolveItemStack((ItemStack) ingredient);
+            key = stack == null ? null : stack.what();
+        } else if (ingredient instanceof FluidStack && ((FluidStack) ingredient).amount > 0) {
+            key = AEFluidKey.of((FluidStack) ingredient);
+        } else {
+            key = null;
+        }
+        if (key == null || this.visiblePlayerPinRows == 0) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
+        int count = this.visiblePlayerPinRows * this.perRow;
+        for (int i = 0; i < count; i++) {
+            final int pinIndex = i;
+            final int x = this.guiLeft + this.offsetX + (i % this.perRow) * 18;
+            final int y = this.guiTop + 18 + (this.visibleCraftingPinRows + i / this.perRow) * 18;
+            targets.add(new IGhostIngredientHandler.Target<Object>() {
+                @Override
+                public Rectangle getArea() {
+                    return new Rectangle(x, y, 16, 16);
+                }
+
+                @Override
+                public void accept(Object ignored) {
+                    sendPlayerPin(pinIndex, key);
+                }
+            });
+        }
+        return targets;
     }
 
     @Override
@@ -428,6 +703,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18 + this.lowerTextureOffset, 0, 106 - 18 - 18, x_width,
                 99 + this.reservedSpace - this.lowerTextureOffset);
 
+        this.drawPinDecorations(offsetX, offsetY);
+
         if (this.viewCell) {
             boolean update = false;
 
@@ -446,6 +723,52 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (this.searchField != null) {
             this.searchField.drawTextBox();
         }
+    }
+
+    private void drawPinDecorations(int offsetX, int offsetY) {
+        int craftingSlots = this.visibleCraftingPinRows * this.perRow;
+        int playerSlots = this.visiblePlayerPinRows * this.perRow;
+        boolean blendWasEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+        GlStateManager.enableBlend();
+        this.bindTexture("guis/states.png");
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 0.4F);
+        for (int i = 0; i < craftingSlots + playerSlots; i++) {
+            int row = i / this.perRow;
+            int x = offsetX + this.offsetX + (i % this.perRow) * 18;
+            int y = offsetY + 18 + row * 18;
+            this.drawTexturedModalRect(x, y, 14 * 16, 5 * 16, 16, 16);
+        }
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+        for (int i = 0; i < craftingSlots; i++) {
+            TerminalCraftingPin status = this.repo.getCraftingPinStatus(i);
+            if (status != null && status.isActive()) {
+                int x = offsetX + this.offsetX + (i % this.perRow) * 18 - 1;
+                int y = offsetY + 18 + (i / this.perRow) * 18 - 1;
+                this.drawCraftingAnimation(x, y);
+            }
+        }
+        if (!blendWasEnabled) {
+            GlStateManager.disableBlend();
+        }
+    }
+
+    private void drawCraftingAnimation(int x, int y) {
+        TextureAtlasSprite sprite = this.mc.getTextureMapBlocks()
+                .getAtlasSprite(AppEng.MOD_ID + ":blocks/molecular_assembler_lights");
+        this.mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        BufferBuilder buffer = Tessellator.getInstance().getBuffer();
+        double minU = sprite.getInterpolatedU(2);
+        double maxU = sprite.getInterpolatedU(14);
+        double minV = sprite.getInterpolatedV(2);
+        double maxV = sprite.getInterpolatedV(14);
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+        buffer.pos(x, y + 18, this.zLevel).tex(minU, maxV).endVertex();
+        buffer.pos(x + 18, y + 18, this.zLevel).tex(maxU, maxV).endVertex();
+        buffer.pos(x + 18, y, this.zLevel).tex(maxU, minV).endVertex();
+        buffer.pos(x, y, this.zLevel).tex(minU, minV).endVertex();
+        Tessellator.getInstance().draw();
     }
 
     protected String getBackground() {

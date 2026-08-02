@@ -23,6 +23,8 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AmountFormat;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.me.SlotME;
+import appeng.client.me.PinSlotME;
+import appeng.container.implementations.TerminalCraftingPin;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
@@ -32,6 +34,7 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.translation.I18n;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -93,6 +96,17 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                 if (myStack.isCraftable() && AEConfig.instance().isShowCraftableTooltip()) {
                     final String local = ButtonToolTips.ItemsCraftable.getLocal();
                     currentToolTip.add(TextFormatting.GRAY + local);
+                }
+
+
+                if (s instanceof PinSlotME && ((PinSlotME) s).isCraftingPin()) {
+                    TerminalCraftingPin pin = ((PinSlotME) s).getCraftingStatus();
+                    if (pin != null) {
+                        String remaining = pin.getWhat().formatAmount(pin.getRemaining(), amountFormat);
+                        String requested = pin.getWhat().formatAmount(pin.getRequested(), amountFormat);
+                        currentToolTip.add(TextFormatting.AQUA + I18n.translateToLocalFormatted(
+                                "gui.appliedenergistics2.craftingPinProgress", remaining, requested));
+                    }
                 }
 
                 this.drawHoveringText(currentToolTip, x, y, this.fontRenderer);

@@ -29,6 +29,8 @@ import appeng.api.storage.AEKeyFilter;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.container.me.GridInventoryEntry;
+import appeng.container.implementations.TerminalCraftingPin;
+import appeng.api.storage.IPlayerTerminalPins;
 import appeng.core.AEConfig;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
@@ -47,6 +49,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.HashSet;
+import java.util.Set;
 
 
 public class ItemRepo {
@@ -76,6 +80,10 @@ public class ItemRepo {
 
     private boolean resort = true;
     private boolean changed = false;
+    private final AEKey[] playerPins = new AEKey[IPlayerTerminalPins.MAX_PINS];
+    private List<TerminalCraftingPin> craftingPins = Collections.emptyList();
+    private int visibleCraftingPinRows;
+    private int visiblePlayerPinRows;
 
 
     public ItemRepo(final IScrollSource src, final ISortSource sortSrc) {
@@ -90,6 +98,41 @@ public class ItemRepo {
             return null;
         }
         return this.view.get(idx);
+    }
+
+    public GridInventoryEntry getCraftingPinEntry(int idx) {
+        if (idx < 0 || idx >= craftingPins.size()) {
+            return null;
+        }
+        AEKey what = craftingPins.get(idx).getWhat();
+        GridInventoryEntry entry = entries.get(what);
+        return entry != null ? entry : new GridInventoryEntry(what, 0, 0, false);
+    }
+
+    public GridInventoryEntry getPlayerPinEntry(int idx) {
+        if (idx < 0 || idx >= playerPins.length || playerPins[idx] == null) {
+            return null;
+        }
+        GridInventoryEntry entry = entries.get(playerPins[idx]);
+        return entry != null ? entry : new GridInventoryEntry(playerPins[idx], 0, 0, false);
+    }
+
+    public TerminalCraftingPin getCraftingPinStatus(int idx) {
+        return idx >= 0 && idx < craftingPins.size() ? craftingPins.get(idx) : null;
+    }
+
+    public AEKey getPlayerPin(int idx) {
+        return idx >= 0 && idx < playerPins.length ? playerPins[idx] : null;
+    }
+
+    public void setPins(AEKey[] playerPins, List<TerminalCraftingPin> craftingPins,
+            int visibleCraftingRows, int visiblePlayerRows) {
+        System.arraycopy(playerPins, 0, this.playerPins, 0,
+                Math.min(playerPins.length, this.playerPins.length));
+        this.craftingPins = new ArrayList<>(craftingPins);
+        this.visibleCraftingPinRows = visibleCraftingRows;
+        this.visiblePlayerPinRows = visiblePlayerRows;
+        this.changed = true;
     }
 
     void setSearch(final String search) {
@@ -178,8 +221,20 @@ public class ItemRepo {
 
             final Comparator<GridInventoryEntry> c = getComparator(sortBy);
 
+            final Set<AEKey> visiblePins = new HashSet<>();
+            int craftingLimit = Math.min(craftingPins.size(), visibleCraftingPinRows * IPlayerTerminalPins.SLOTS_PER_ROW);
+            for (int i = 0; i < craftingLimit; i++) {
+                visiblePins.add(craftingPins.get(i).getWhat());
+            }
+            int playerLimit = Math.min(playerPins.length, visiblePlayerPinRows * IPlayerTerminalPins.SLOTS_PER_ROW);
+            for (int i = 0; i < playerLimit; i++) {
+                if (playerPins[i] != null) visiblePins.add(playerPins[i]);
+            }
+
             for (final GridInventoryEntry entry : this.entries.values()) {
-                addEntry(entry, viewMode);
+                if (!visiblePins.contains(entry.getWhat())) {
+                    addEntry(entry, viewMode);
+                }
             }
 
             view.sort(c);

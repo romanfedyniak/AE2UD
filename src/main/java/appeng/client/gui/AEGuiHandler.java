@@ -166,6 +166,11 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             List<Target<?>> phantomTargets = g.getPhantomTargets(ingredient);
             targets.addAll((List<Target<I>>) (Object) phantomTargets);
         }
+        if (gui instanceof appeng.client.gui.implementations.GuiMEMonitorable) {
+            List<Target<?>> pinTargets = ((appeng.client.gui.implementations.GuiMEMonitorable) gui)
+                    .getPinGhostTargets(ingredient);
+            targets.addAll((List<Target<I>>) (Object) pinTargets);
+        }
         return targets;
     }
 

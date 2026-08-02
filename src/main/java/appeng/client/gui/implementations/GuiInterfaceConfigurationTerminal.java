@@ -283,7 +283,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 29);
         for (int row = 0; row < this.rows; row++) {
             this.drawTexturedModalRect(offsetX, offsetY + 29 + row * ROW_HEIGHT, 0, 29,
-                    this.xSize, ROW_HEIGHT);
+                    188, ROW_HEIGHT);
+            this.drawTexturedModalRect(offsetX + 188, offsetY + 29 + row * ROW_HEIGHT, 188, 31,
+                    this.xSize - 188, ROW_HEIGHT);
         }
         this.drawTexturedModalRect(offsetX, offsetY + 29 + this.rows * ROW_HEIGHT, 0, 137,
                 this.xSize, 98);

@@ -15,6 +15,8 @@ This project continues [AE2 Unofficial Extended Life](https://www.curseforge.com
 Selected fixes, features, implementation ideas, and reference code have also been adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial) and the actively maintained [Applied Energistics 2 upstream project](https://github.com/AppliedEnergistics/Applied-Energistics-2).
 
 See [CHANGES.md](https://github.com/romanfedyniak/AE2UD/blob/main/CHANGES.md) for the current feature and fix list.
+Addon authors can find the new extension points in the [upgrade-card API](docs/UPGRADE_API.md) and
+[terminal pin API](docs/TERMINAL_PIN_API.md) guides.
 
 ## RecipeStages
 

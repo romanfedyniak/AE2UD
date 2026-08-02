@@ -137,7 +137,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         for (final InternalSlotME me : this.meSlots) {
-            slots.add(new SlotME(me));
+            slots.add(me.createSlot());
         }
     }
 

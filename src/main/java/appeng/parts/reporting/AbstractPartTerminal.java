@@ -28,7 +28,10 @@ import appeng.api.networking.storage.IStackWatcher;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.storage.ITerminalPinHost;
+import appeng.api.storage.ITerminalPinStorage;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.TerminalPinStorages;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
@@ -65,11 +68,14 @@ import java.util.List;
  * @since rv3
  */
 public abstract class AbstractPartTerminal extends AbstractPartDisplay implements ITerminalHost, IConfigManagerHost,
-        IViewCellStorage, IAEAppEngInventory, IStorageWatcherNode, KeyTypeSelectionHost, ISubMenuHost {
+        IViewCellStorage, IAEAppEngInventory, IStorageWatcherNode, KeyTypeSelectionHost, ISubMenuHost,
+        ITerminalPinHost {
 
     private final IConfigManager cm = new ConfigManager(this);
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
     private final KeyTypeSelection keyTypeSelection = new KeyTypeSelection(() -> this.getHost().markForSave(), type -> true);
+    private final ITerminalPinStorage terminalPinStorage = TerminalPinStorages.forHost(
+            () -> this.getHost().markForSave());
 
     /**
      * Wave 4 addition (CONTRACT.md §10, "Third case: terminal live updates", case 1 - "network-backed
@@ -117,6 +123,7 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
         this.cm.readFromNBT(data);
         this.viewCell.readFromNBT(data, "viewCell");
         this.keyTypeSelection.readFromNBT(data);
+        this.terminalPinStorage.readFromNBT(data, "terminalPins");
     }
 
     @Override
@@ -125,6 +132,12 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
         this.cm.writeToNBT(data);
         this.viewCell.writeToNBT(data, "viewCell");
         this.keyTypeSelection.writeToNBT(data);
+        this.terminalPinStorage.writeToNBT(data, "terminalPins");
+    }
+
+    @Override
+    public ITerminalPinStorage getTerminalPinStorage() {
+        return this.terminalPinStorage;
     }
 
     @Override
