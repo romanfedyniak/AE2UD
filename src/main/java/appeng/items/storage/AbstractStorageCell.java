@@ -23,7 +23,6 @@ import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
 import appeng.api.exceptions.MissingDefinitionException;
 import appeng.api.implementations.items.IItemGroup;
-import appeng.api.implementations.items.IUpgradeModule;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
@@ -168,7 +167,8 @@ public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCe
                     for (int upgradeIndex = 0; upgradeIndex < upgradesInventory.getSlots(); upgradeIndex++) {
                         final ItemStack upgradeStack = upgradesInventory.getStackInSlot(upgradeIndex);
                         final ItemStack leftStack = ia.addItems(upgradeStack);
-                        if (!leftStack.isEmpty() && upgradeStack.getItem() instanceof IUpgradeModule) {
+                        if (!leftStack.isEmpty()
+                                && AEApi.instance().registries().upgrades().isUpgradeCard(upgradeStack)) {
                             player.dropItem(upgradeStack, false);
                         }
                     }

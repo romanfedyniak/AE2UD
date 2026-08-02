@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after the quantum bridge startup fix.
+2026-08-02, after the item-based upgrade-card API.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,21 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release item-based upgrade API
+
+The fixed `Upgrades` enum and `IUpgradeModule` marker are replaced by `IUpgradeRegistry` associations
+keyed by item and metadata. Addons can register exact cards and hosts, create filtered upgrade inventories
+through `UpgradeInventories`, and query installed cards by stack. Speed and capacity are independent,
+combinable traits: custom cards declare positive points, standard-compatible hosts can be inherited
+automatically, and duplicate conflicts fail during loading. Card NBT is deliberately ignored.
+
+Speed points are uncapped apart from physical upgrade slots. Existing values are preserved for standard
+cards, larger values extend each machine's old curve, power use follows the resulting work, and Guava
+saturating arithmetic prevents wraparound. Matter Cannon compatibility is exact-only for custom speed
+cards to avoid accidental unbounded shot loops. Capacity points are capped by the host's registered limit,
+so a stronger card can replace several standard cards without exposing nonexistent filter slots. Forge
+tooltips describe card points and compatible hosts for AE2UD and addon items alike. See `docs/UPGRADE_API.md`.
 
 ## Post-release quantum bridge startup
 
@@ -31,7 +46,7 @@ the exclusion areas from what is rendered.
 
 ## Post-release import bus inverter support
 
-The generic import bus now accepts one `Upgrades.INVERTER` card and follows modern AE2 semantics: a
+The generic import bus now accepts one Inverter Card and follows modern AE2 semantics: a
 non-empty configured filter becomes a blacklist, while an empty filter continues to import everything.
 `StackTransferContextImpl.getFilter()` exposes the effective whitelist/blacklist predicate to every
 registered import strategy, so fluids and addon key types inherit the behaviour automatically. The item

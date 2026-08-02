@@ -18,6 +18,8 @@
 
 package appeng.parts.misc;
 
+import appeng.api.upgrades.UpgradeCards;
+
 
 import appeng.api.AEApi;
 import appeng.api.behaviors.ExternalStorageStrategy;
@@ -464,9 +466,9 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
         // extraction and visibility on hasReadAccess unconditionally; the new one only does either when told to
         // via setExtractFiltering, so READ (and the whitelist) must always be asked here to reproduce that.
         this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
-        this.handler.setWhitelist(this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+        this.handler.setWhitelist(this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
         this.handler.setPartitionList(this.createFilter());
-        this.handler.setSticky(this.getInstalledUpgrades(Upgrades.STICKY) > 0);
+        this.handler.setSticky(this.getInstalledUpgrades(UpgradeCards.sticky()) > 0);
 
         // update sleep state...
         if (wasSleeping != (this.monitor == null)) {
@@ -495,16 +497,16 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
 
     /**
      * Builds the priority/filter list from the config slots. Overridden by {@link PartOreDicStorageBus} to swap in
-     * an ore-dictionary rule list instead - everything else (ACCESS, STORAGE_FILTER, Upgrades.INVERTER,
-     * Upgrades.STICKY, priority) is shared, unchanged, through {@link #getInternalHandler()}.
+     * an ore-dictionary rule list instead - everything else (ACCESS, STORAGE_FILTER, UpgradeCards.inverter(),
+     * UpgradeCards.sticky(), priority) is shared, unchanged, through {@link #getInternalHandler()}.
      */
     protected IPartitionList createFilter() {
         final IPartitionList.Builder filterBuilder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
             filterBuilder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
 
-        final int slotsToUse = 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
+        final int slotsToUse = 18 + this.getInstalledCapacityPoints() * 9;
         for (int x = 0; x < this.Config.getSlots() && x < slotsToUse; x++) {
             final GenericStack is = this.Config.getAEStackInSlot(x);
             if (is != null) {

@@ -24,7 +24,7 @@
 package appeng.api.implementations;
 
 
-import appeng.api.config.Upgrades;
+import net.minecraft.item.ItemStack;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.util.IConfigurableObject;
 
@@ -34,7 +34,15 @@ public interface IUpgradeableCellHost extends IConfigurableObject, ISegmentedInv
     /**
      * determine how many of an upgrade are installed.
      */
-    default int getInstalledUpgrades(Upgrades u) {
+    default int getInstalledUpgrades(ItemStack upgradeCard) {
+        return 0;
+    }
+
+    default int getInstalledSpeedPoints() {
+        return 0;
+    }
+
+    default int getInstalledCapacityPoints() {
         return 0;
     }
 

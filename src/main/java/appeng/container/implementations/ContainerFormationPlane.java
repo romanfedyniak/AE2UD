@@ -19,6 +19,7 @@
 package appeng.container.implementations;
 
 
+
 import appeng.api.config.*;
 import appeng.container.guisync.GuiSync;
 import appeng.parts.automation.PartFormationPlane;
@@ -65,7 +66,7 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
+        final int upgrades = this.getUpgradeable().getInstalledCapacityPoints();
 
         return upgrades > idx;
     }

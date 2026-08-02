@@ -11,6 +11,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Extensible upgrade cards
+
+- Replaced the fixed upgrade enum with an item-and-metadata registry that lets addons register arbitrary cards and compatible machines.
+- Added public upgrade-inventory factories for addon machines and items, plus automatic compatibility tooltips for registered cards.
+- Added combinable speed and capacity traits with configurable points, inherited standard-machine support, and overflow-safe arithmetic.
+- High-tier speed cards extend the existing machine curves without changing standard-card speeds; custom Matter Cannon support remains explicit opt-in.
+- High-tier capacity cards can replace several standard cards but remain capped by each mechanism's existing filter capacity.
+
 ### Quantum bridge startup
 
 - Quantum Network Bridges connect their grids without requiring both sides to be powered first.

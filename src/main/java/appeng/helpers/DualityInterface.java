@@ -18,6 +18,8 @@
 
 package appeng.helpers;
 
+import appeng.api.upgrades.UpgradeCards;
+
 
 import appeng.api.config.*;
 import appeng.api.implementations.ICraftingPatternItem;
@@ -603,7 +605,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
         List<ItemStack> dropList = new ArrayList<>();
         for (int invSlot = 0; invSlot < patterns.getSlots(); invSlot++) {
-            if (invSlot > 8 + this.getInstalledUpgrades(Upgrades.PATTERN_EXPANSION) * 9) {
+            if (invSlot > 8 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()) * 9) {
                 ItemStack is = patterns.getStackInSlot(invSlot);
                 if (is.isEmpty()) {
                     continue;
@@ -617,7 +619,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             Platform.spawnDrops(world, blockPos, dropList);
         }
 
-        this.gridProxy.setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(Upgrades.PATTERN_EXPANSION))));
+        this.gridProxy.setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(UpgradeCards.patternExpansion()))));
     }
 
     @Override
@@ -896,7 +898,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     private boolean handleCrafting(final int x, final InventoryAdaptor d, final GenericStack itemStack) {
         try {
-            if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0 && itemStack != null) {
+            if (this.getInstalledUpgrades(UpgradeCards.crafting()) > 0 && itemStack != null) {
                 return this.craftingTracker.handleCrafting(x, itemStack.amount(), itemStack.what(), d, this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
             }
         } catch (final GridAccessException e) {
@@ -907,11 +909,21 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
         if (this.upgrades == null) {
             return 0;
         }
-        return this.upgrades.getInstalledUpgrades(u);
+        return this.upgrades.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.upgrades == null ? 0 : this.upgrades.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.upgrades == null ? 0 : this.upgrades.getInstalledCapacityPoints();
     }
 
     @Override
@@ -1007,7 +1019,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     @Override
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
-        if (this.getInstalledUpgrades(Upgrades.CRAFTING) == 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.crafting()) == 0) {
             this.cancelCrafting();
         }
 

@@ -19,11 +19,8 @@
 package appeng.parts.automation;
 
 
-import appeng.api.config.Upgrades;
 import appeng.util.inv.IAEAppEngInventory;
 import net.minecraft.block.Block;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 
 
@@ -36,18 +33,7 @@ public class BlockUpgradeInventory extends UpgradeInventory {
     }
 
     @Override
-    public int getMaxInstalled(final Upgrades upgrades) {
-        int max = 0;
-
-        for (final ItemStack is : upgrades.getSupported().keySet()) {
-            final Item encodedItem = is.getItem();
-
-            if (encodedItem instanceof ItemBlock && Block.getBlockFromItem(encodedItem) == this.block) {
-                max = upgrades.getSupported().get(is);
-                break;
-            }
-        }
-
-        return max;
+    public ItemStack getUpgradableItem() {
+        return new ItemStack(this.block);
     }
 }

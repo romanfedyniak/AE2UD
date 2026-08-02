@@ -19,6 +19,7 @@
 package appeng.tile.crafting;
 
 
+
 import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.definitions.ITileDefinition;
@@ -56,6 +57,7 @@ import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
+import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperChainedItemHandler;
@@ -269,8 +271,18 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
-        return this.upgrades.getInstalledUpgrades(u);
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        return this.upgrades.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.upgrades.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.upgrades.getInstalledCapacityPoints();
     }
 
     @Override
@@ -463,27 +475,9 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         }
 
         this.reboot = false;
-        int speed = 10;
-        switch (this.upgrades.getInstalledUpgrades(Upgrades.SPEED)) {
-            case 0:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 10, 1.0);
-                break;
-            case 1:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 13, 1.3);
-                break;
-            case 2:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 17, 1.7);
-                break;
-            case 3:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 20, 2.0);
-                break;
-            case 4:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 25, 2.5);
-                break;
-            case 5:
-                this.progress += this.userPower(ticksSinceLastCall, speed = 50, 5.0);
-                break;
-        }
+        final int speed = UpgradeSpeedCalculations.molecularAssemblerSpeed(
+                this.upgrades.getInstalledSpeedPoints());
+        this.progress += this.userPower(ticksSinceLastCall, speed, speed / 10.0);
 
         if (this.progress >= 100) {
             for (int x = 0; x < this.craftingInv.getSizeInventory(); x++) {
@@ -558,7 +552,9 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
     private int userPower(final int ticksPassed, final int bonusValue, final double acceleratorTax) {
         try {
-            return (int) (this.getProxy().getEnergy().extractAEPower(ticksPassed * bonusValue * acceleratorTax, Actionable.MODULATE, PowerMultiplier.CONFIG) / acceleratorTax);
+            final double requestedPower = (double) ticksPassed * bonusValue * acceleratorTax;
+            return (int) (this.getProxy().getEnergy()
+                    .extractAEPower(requestedPower, Actionable.MODULATE, PowerMultiplier.CONFIG) / acceleratorTax);
         } catch (final GridAccessException e) {
             return 0;
         }

@@ -23,6 +23,7 @@ import appeng.api.features.*;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
 import appeng.api.parts.IPartModels;
+import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.core.features.registries.charger.ChargerRegistry;
 import appeng.core.features.registries.grinder.GrinderRecipeManager;
 import appeng.core.features.registries.inscriber.InscriberRegistry;
@@ -51,6 +52,7 @@ public class RegistryContainer implements IRegistryContainer {
     private final IPlayerRegistry playerRegistry = new PlayerRegistry();
     private final IRecipeHandlerRegistry recipeReg = new RecipeHandlerRegistry();
     private final IPartModels partModels = new PartModels();
+    private final IUpgradeRegistry upgrades = new UpgradeRegistry();
 
     @Override
     public IMovableRegistry movable() {
@@ -120,6 +122,11 @@ public class RegistryContainer implements IRegistryContainer {
     @Override
     public IPartModels partModels() {
         return this.partModels;
+    }
+
+    @Override
+    public IUpgradeRegistry upgrades() {
+        return this.upgrades;
     }
 
 }

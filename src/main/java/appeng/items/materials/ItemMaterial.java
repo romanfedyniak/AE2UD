@@ -21,11 +21,8 @@ package appeng.items.materials;
 
 import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.config.Upgrades;
 import appeng.api.implementations.IUpgradeableHost;
-import appeng.api.implementations.items.IItemGroup;
 import appeng.api.implementations.items.IStorageComponent;
-import appeng.api.implementations.items.IUpgradeModule;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
@@ -65,12 +62,9 @@ import net.minecraftforge.oredict.OreDictionary;
 
 import javax.annotation.Nonnull;
 import java.util.*;
-import java.util.Map.Entry;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 
-public final class ItemMaterial extends AEBaseItem implements IStorageComponent, IUpgradeModule, ICellWorkbenchItem {
+public final class ItemMaterial extends AEBaseItem implements IStorageComponent, ICellWorkbenchItem {
     public static ItemMaterial instance;
 
     private static final int KILO_SCALAR = 1024;
@@ -108,69 +102,11 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
             lines.add(I18n.translateToLocal("item.appliedenergistics2.material.card_magnet.partition"));
         }
 
-        final Upgrades u = this.getType(stack);
-        if (u != null) {
-            final List<String> textList = new ArrayList<>();
-            for (final Entry<ItemStack, Integer> j : u.getSupported().entrySet()) {
-                String name = null;
-
-                final int limit = j.getValue();
-
-                if (j.getKey().getItem() instanceof IItemGroup) {
-                    final IItemGroup ig = (IItemGroup) j.getKey().getItem();
-                    final String str = ig.getUnlocalizedGroupName(u.getSupported().keySet(), j.getKey());
-                    if (str != null) {
-                        name = Platform.gui_localize(str) + (limit > 1 ? " (" + limit + ')' : "");
-                    }
-                }
-
-                if (name == null) {
-                    name = j.getKey().getDisplayName() + (limit > 1 ? " (" + limit + ')' : "");
-                }
-
-                if (!textList.contains(name)) {
-                    textList.add(name);
-                }
-            }
-
-            final Pattern p = Pattern.compile("(\\d+)[^\\d]");
-            final SlightlyBetterSort s = new SlightlyBetterSort(p);
-            Collections.sort(textList, s);
-            lines.addAll(textList);
-        }
     }
 
     public MaterialType getTypeByStack(final ItemStack is) {
         MaterialType type = this.dmgToMaterial.get(is.getItemDamage());
         return (type != null) ? type : MaterialType.INVALID_TYPE;
-    }
-
-    @Override
-    public Upgrades getType(final ItemStack itemstack) {
-        switch (this.getTypeByStack(itemstack)) {
-            case CARD_CAPACITY:
-                return Upgrades.CAPACITY;
-            case CARD_FUZZY:
-                return Upgrades.FUZZY;
-            case CARD_REDSTONE:
-                return Upgrades.REDSTONE;
-            case CARD_SPEED:
-                return Upgrades.SPEED;
-            case CARD_INVERTER:
-                return Upgrades.INVERTER;
-            case CARD_CRAFTING:
-                return Upgrades.CRAFTING;
-            case CARD_PATTERN_EXPANSION:
-                return Upgrades.PATTERN_EXPANSION;
-            case CARD_MAGNET:
-                return Upgrades.MAGNET;
-            case CARD_QUANTUM_LINK:
-                return Upgrades.QUANTUM_LINK;
-            case CARD_STICKY:
-                return Upgrades.STICKY;
-            default:
-                return null;
-        }
     }
 
     public IStackSrc createMaterial(final MaterialType mat) {
@@ -244,19 +180,15 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
                 upgrades = ((ISegmentedInventory) te).getInventoryByName("upgrades");
             }
 
-            if (upgrades != null && !player.getHeldItem(hand).isEmpty() && player.getHeldItem(hand).getItem() instanceof IUpgradeModule) {
-                final IUpgradeModule um = (IUpgradeModule) player.getHeldItem(hand).getItem();
-                final Upgrades u = um.getType(player.getHeldItem(hand));
-
-                if (u != null) {
-                    if (player.world.isRemote) {
-                        return EnumActionResult.PASS;
-                    }
-
-                    final InventoryAdaptor ad = new AdaptorItemHandler(upgrades);
-                    player.setHeldItem(hand, ad.addItems(player.getHeldItem(hand)));
-                    return EnumActionResult.SUCCESS;
+            if (upgrades != null && AEApi.instance().registries().upgrades()
+                    .isUpgradeCard(player.getHeldItem(hand))) {
+                if (player.world.isRemote) {
+                    return EnumActionResult.PASS;
                 }
+
+                final InventoryAdaptor ad = new AdaptorItemHandler(upgrades);
+                player.setHeldItem(hand, ad.addItems(player.getHeldItem(hand)));
+                return EnumActionResult.SUCCESS;
             }
         }
 
@@ -362,30 +294,6 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
     @Override
     public void setFuzzyMode(final ItemStack is, final FuzzyMode fzMode) {
         Platform.openNbtData(is).setString("FuzzyMode", fzMode.name());
-    }
-
-    private static class SlightlyBetterSort implements Comparator<String> {
-        private final Pattern pattern;
-
-        public SlightlyBetterSort(final Pattern pattern) {
-            this.pattern = pattern;
-        }
-
-        @Override
-        public int compare(final String o1, final String o2) {
-            try {
-                final Matcher a = this.pattern.matcher(o1);
-                final Matcher b = this.pattern.matcher(o2);
-                if (a.find() && b.find()) {
-                    final int ia = Integer.parseInt(a.group(1));
-                    final int ib = Integer.parseInt(b.group(1));
-                    return Integer.compare(ia, ib);
-                }
-            } catch (final Throwable t) {
-                // ek!
-            }
-            return o1.compareTo(o2);
-        }
     }
 
 }

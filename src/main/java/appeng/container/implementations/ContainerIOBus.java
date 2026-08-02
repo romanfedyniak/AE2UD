@@ -26,7 +26,6 @@ import java.util.Map;
 
 import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -96,7 +95,7 @@ public class ContainerIOBus extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        return this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY) > idx;
+        return this.getUpgradeable().getInstalledCapacityPoints() > idx;
     }
 
     @Override

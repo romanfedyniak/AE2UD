@@ -1,5 +1,7 @@
 package appeng.parts.misc;
 
+import appeng.api.upgrades.UpgradeCards;
+
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
@@ -20,8 +22,8 @@ import net.minecraft.util.math.Vec3d;
 /**
  * Ore-dictionary filtering storage bus. AE2UD-specific: upstream AE2 has no ore-dictionary concept at all (see
  * CONTRACT.md §10). The only thing this subclass changes relative to {@link PartStorageBus} is the filter list
- * itself ({@link #createFilter()}) - ACCESS, STORAGE_FILTER, Upgrades.INVERTER (whitelist/blacklist),
- * Upgrades.STICKY and priority are all inherited, unchanged, from {@link PartStorageBus#getInternalHandler()}.
+ * itself ({@link #createFilter()}) - ACCESS, STORAGE_FILTER, UpgradeCards.inverter() (whitelist/blacklist),
+ * UpgradeCards.sticky() and priority are all inherited, unchanged, from {@link PartStorageBus#getInternalHandler()}.
  */
 public class PartOreDicStorageBus extends PartStorageBus {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/oredict_storage_bus_base");

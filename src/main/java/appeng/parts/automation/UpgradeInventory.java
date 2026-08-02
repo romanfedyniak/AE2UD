@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -9,51 +10,50 @@
  *
  * Applied Energistics 2 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ * along with Applied Energistics 2. If not, see <http://www.gnu.org/licenses/lgpl>.
  */
 
 package appeng.parts.automation;
 
+import javax.annotation.Nonnull;
 
-import appeng.api.config.Upgrades;
-import appeng.api.implementations.items.IUpgradeModule;
+import com.google.common.math.IntMath;
+
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.items.IItemHandler;
+
+import appeng.api.AEApi;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeInventoryListener;
+import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.filter.IAEItemFilter;
-import net.minecraft.init.Items;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.items.IItemHandler;
 
-import javax.annotation.Nonnull;
+public abstract class UpgradeInventory extends AppEngInternalInventory
+        implements IAEAppEngInventory, IUpgradeInventory {
 
-
-public abstract class UpgradeInventory extends AppEngInternalInventory implements IAEAppEngInventory {
     private final IAEAppEngInventory parent;
+    private final IUpgradeInventoryListener listener;
 
-    private boolean cached = false;
-    private int fuzzyUpgrades = 0;
-    private int speedUpgrades = 0;
-    private int redstoneUpgrades = 0;
-    private int capacityUpgrades = 0;
-    private int inverterUpgrades = 0;
-    private int craftingUpgrades = 0;
-    private int patternExpansionUpgrades = 0;
-    private int magnetUpgrades = 0;
-    private int quantumUpgrades = 0;
-    private int stickyUpgrades = 0;
+    protected UpgradeInventory(final IAEAppEngInventory parent, final int slots) {
+        this(parent, slots, null);
+    }
 
-    public UpgradeInventory(final IAEAppEngInventory parent, final int s) {
-        super(null, s, 1);
+    protected UpgradeInventory(final IAEAppEngInventory parent, final int slots,
+            final IUpgradeInventoryListener listener) {
+        super(null, slots, 1);
         this.setTileEntity(this);
         this.parent = parent;
+        this.listener = listener;
         this.setFilter(new UpgradeInvFilter());
     }
 
@@ -62,101 +62,50 @@ public abstract class UpgradeInventory extends AppEngInternalInventory implement
         return true;
     }
 
-    public int getInstalledUpgrades(final Upgrades u) {
-        if (!this.cached) {
-            this.updateUpgradeInfo();
+    @Override
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        if (upgradeCard.isEmpty()) {
+            return 0;
         }
 
-        switch (u) {
-            case CAPACITY:
-                return this.capacityUpgrades;
-            case FUZZY:
-                return this.fuzzyUpgrades;
-            case REDSTONE:
-                return this.redstoneUpgrades;
-            case SPEED:
-                return this.speedUpgrades;
-            case INVERTER:
-                return this.inverterUpgrades;
-            case CRAFTING:
-                return this.craftingUpgrades;
-            case PATTERN_EXPANSION:
-                return this.patternExpansionUpgrades;
-            case MAGNET:
-                return this.magnetUpgrades;
-            case QUANTUM_LINK:
-                return this.quantumUpgrades;
-            case STICKY:
-                return this.stickyUpgrades;
-            default:
-                return 0;
-        }
-    }
-
-    public abstract int getMaxInstalled(Upgrades upgrades);
-
-    private void updateUpgradeInfo() {
-        this.cached = true;
-        this.patternExpansionUpgrades = this.inverterUpgrades = this.capacityUpgrades = this.redstoneUpgrades = this.speedUpgrades = this.fuzzyUpgrades = this.craftingUpgrades = magnetUpgrades = quantumUpgrades = stickyUpgrades = 0;
-
-        for (final ItemStack is : this) {
-            if (is == null || is.getItem() == Items.AIR || !(is.getItem() instanceof IUpgradeModule)) {
-                continue;
-            }
-
-            final Upgrades myUpgrade = ((IUpgradeModule) is.getItem()).getType(is);
-            switch (myUpgrade) {
-                case CAPACITY:
-                    this.capacityUpgrades++;
-                    break;
-                case FUZZY:
-                    this.fuzzyUpgrades++;
-                    break;
-                case REDSTONE:
-                    this.redstoneUpgrades++;
-                    break;
-                case SPEED:
-                    this.speedUpgrades++;
-                    break;
-                case INVERTER:
-                    this.inverterUpgrades++;
-                    break;
-                case CRAFTING:
-                    this.craftingUpgrades++;
-                    break;
-                case PATTERN_EXPANSION:
-                    this.patternExpansionUpgrades++;
-                    break;
-                case MAGNET:
-                    this.magnetUpgrades++;
-                    break;
-                case QUANTUM_LINK:
-                    this.quantumUpgrades++;
-                    break;
-                case STICKY:
-                    this.stickyUpgrades++;
-                    break;
-                default:
-                    break;
+        int installed = 0;
+        for (final ItemStack stack : this) {
+            if (!stack.isEmpty() && ItemStack.areItemsEqual(stack, upgradeCard)) {
+                installed = IntMath.saturatedAdd(installed, stack.getCount());
             }
         }
-
-        this.capacityUpgrades = Math.min(this.capacityUpgrades, this.getMaxInstalled(Upgrades.CAPACITY));
-        this.fuzzyUpgrades = Math.min(this.fuzzyUpgrades, this.getMaxInstalled(Upgrades.FUZZY));
-        this.redstoneUpgrades = Math.min(this.redstoneUpgrades, this.getMaxInstalled(Upgrades.REDSTONE));
-        this.speedUpgrades = Math.min(this.speedUpgrades, this.getMaxInstalled(Upgrades.SPEED));
-        this.inverterUpgrades = Math.min(this.inverterUpgrades, this.getMaxInstalled(Upgrades.INVERTER));
-        this.craftingUpgrades = Math.min(this.craftingUpgrades, this.getMaxInstalled(Upgrades.CRAFTING));
-        this.patternExpansionUpgrades = Math.min(this.patternExpansionUpgrades, this.getMaxInstalled(Upgrades.PATTERN_EXPANSION));
-        this.magnetUpgrades = Math.min(this.magnetUpgrades, this.getMaxInstalled(Upgrades.MAGNET));
-        this.quantumUpgrades = Math.min(this.quantumUpgrades, this.getMaxInstalled(Upgrades.QUANTUM_LINK));
-        this.stickyUpgrades = Math.min(this.stickyUpgrades, this.getMaxInstalled(Upgrades.STICKY));
+        return Math.min(installed, this.getMaxInstalled(upgradeCard));
     }
 
     @Override
-    public void readFromNBT(final NBTTagCompound target) {
-        super.readFromNBT(target);
-        this.updateUpgradeInfo();
+    public int getMaxInstalled(final ItemStack upgradeCard) {
+        return registry().getMaxInstallable(upgradeCard, this.getUpgradableItem());
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        int points = 0;
+        final IUpgradeRegistry registry = registry();
+        for (final ItemStack stack : this) {
+            if (!stack.isEmpty() && this.getMaxInstalled(stack) > 0) {
+                points = IntMath.saturatedAdd(points,
+                        IntMath.saturatedMultiply(registry.getSpeedPoints(stack), stack.getCount()));
+            }
+        }
+        return points;
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        int points = 0;
+        final IUpgradeRegistry registry = registry();
+        for (final ItemStack stack : this) {
+            if (!stack.isEmpty() && this.getMaxInstalled(stack) > 0) {
+                points = IntMath.saturatedAdd(points,
+                        IntMath.saturatedMultiply(registry.getCapacityPoints(stack), stack.getCount()));
+            }
+        }
+        return Math.min(points, registry.getCapacityLimit(this.getUpgradableItem()));
     }
 
     @Override
@@ -164,42 +113,60 @@ public abstract class UpgradeInventory extends AppEngInternalInventory implement
         if (this.parent != null) {
             this.parent.saveChanges();
         }
+        if (this.listener != null) {
+            this.listener.onUpgradesChanged(this);
+        }
     }
 
     @Override
-    public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
-        this.cached = false;
+    public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation operation,
+            final ItemStack removedStack, final ItemStack newStack) {
         if (this.parent != null && Platform.isServer()) {
-            this.parent.onChangeInventory(inv, slot, mc, removedStack, newStack);
+            this.parent.onChangeInventory(inv, slot, operation, removedStack, newStack);
         }
+    }
+
+    @Override
+    public void readFromNBT(final NBTTagCompound target) {
+        super.readFromNBT(target);
     }
 
     @Nonnull
     @Override
-    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+    public ItemStack extractItem(final int slot, final int amount, final boolean simulate) {
         return super.extractItem(slot, amount, simulate);
     }
 
-    private class UpgradeInvFilter implements IAEItemFilter {
+    private static IUpgradeRegistry registry() {
+        return AEApi.instance().registries().upgrades();
+    }
+
+    private final class UpgradeInvFilter implements IAEItemFilter {
 
         @Override
-        public boolean allowExtract(IItemHandler inv, int slot, int amount) {
+        public boolean allowExtract(final IItemHandler inv, final int slot, final int amount) {
             return true;
         }
 
         @Override
-        public boolean allowInsert(IItemHandler inv, int slot, ItemStack itemstack) {
-            if (itemstack.isEmpty()) {
+        public boolean allowInsert(final IItemHandler inv, final int slot, final ItemStack stack) {
+            if (stack.isEmpty() || stack.getItem() == Items.AIR) {
                 return false;
             }
-            final Item it = itemstack.getItem();
-            if (it instanceof IUpgradeModule) {
-                final Upgrades u = ((IUpgradeModule) it).getType(itemstack);
-                if (u != null) {
-                    return UpgradeInventory.this.getInstalledUpgrades(u) < UpgradeInventory.this.getMaxInstalled(u);
-                }
+
+            final IUpgradeRegistry registry = registry();
+            if (UpgradeInventory.this.getInstalledUpgrades(stack) >= UpgradeInventory.this.getMaxInstalled(stack)) {
+                return false;
             }
-            return false;
+
+            final int capacityPoints = registry.getCapacityPoints(stack);
+            final int speedPoints = registry.getSpeedPoints(stack);
+            final ItemStack host = UpgradeInventory.this.getUpgradableItem();
+            return capacityPoints == 0 || !registry.isCapacityCardSupported(stack, host)
+                    || (speedPoints > 0
+                            && registry.isSpeedCardSupported(stack, host))
+                    || UpgradeInventory.this.getInstalledCapacityPoints()
+                            < registry.getCapacityLimit(host);
         }
     }
 }

@@ -40,7 +40,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.config.LevelType;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.YesNo;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
@@ -153,7 +153,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
             return false;
         }
 
-        if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.crafting()) > 0) {
             try {
                 return this.getProxy().getCrafting().isRequesting(this.getConfiguredKey());
             } catch (final GridAccessException e) {
@@ -229,7 +229,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
             // :/
         }
 
-        if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.crafting()) > 0) {
             if (this.myCraftingWatcher != null && myStack != null) {
                 this.myCraftingWatcher.add(myStack);
             }
@@ -254,7 +254,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
         }
 
         if (this.myWatcher != null) {
-            if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0 || myStack == null) {
+            if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0 || myStack == null) {
                 this.myWatcher.setWatchAll(true);
             } else {
                 this.myWatcher.setWatchAll(false);
@@ -283,7 +283,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
                     break;
                 }
             }
-        } else if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+        } else if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
             final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
 
             this.lastReportedValue = 0;
@@ -306,7 +306,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
     public void onStackChange(final AEKey what, final long amount) {
         final AEKey myStack = this.getConfiguredKey();
 
-        if (myStack != null && what.equals(myStack) && this.getInstalledUpgrades(Upgrades.FUZZY) == 0) {
+        if (myStack != null && what.equals(myStack) && this.getInstalledUpgrades(UpgradeCards.fuzzy()) == 0) {
             this.lastReportedValue = amount;
             this.updateState();
             return;
@@ -460,7 +460,7 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
 
     @Override
     public void provideCrafting(final ICraftingProviderHelper craftingTracker) {
-        if (this.getInstalledUpgrades(Upgrades.CRAFTING) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.crafting()) > 0) {
             if (this.getConfigManager().getSetting(Settings.CRAFT_VIA_REDSTONE) == YesNo.YES) {
                 final AEKey what = this.getConfiguredKey();
                 if (what != null) {

@@ -31,7 +31,7 @@ import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
@@ -175,13 +175,13 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
         }
 
         final IPartitionList filter = this.buildFilter();
-        final FuzzyMode fzMode = this.getInstalledUpgrades(Upgrades.FUZZY) > 0
+        final FuzzyMode fzMode = this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0
                 ? (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)
                 : null;
 
         final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
                 this.calculateItemsToSend(), filter, fzMode);
-        context.setInverted(this.getInstalledUpgrades(Upgrades.INVERTER) > 0);
+        context.setInverted(this.getInstalledUpgrades(UpgradeCards.inverter()) > 0);
 
         this.importStrategy.transfer(context);
 
@@ -191,12 +191,12 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
     /**
      * Builds the partition list from the bus' configured slots, matching the pre-port behaviour where
      * an unconfigured bus imports anything and a configured one imports either the listed keys or their
-     * complement when an {@link Upgrades#INVERTER} card is installed. Matching is fuzzy or precise depending
-     * on {@code Upgrades.FUZZY}.
+     * complement when an inverter card is installed. Matching is fuzzy or precise depending
+     * on {@code UpgradeCards.fuzzy()}.
      */
     private IPartitionList buildFilter() {
         final var builder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
         for (int x = 0; x < this.availableSlots(); x++) {

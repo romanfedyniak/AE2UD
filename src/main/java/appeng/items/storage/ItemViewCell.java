@@ -20,8 +20,7 @@ package appeng.items.storage;
 
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.config.Upgrades;
-import appeng.api.implementations.items.IUpgradeModule;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -86,19 +85,10 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
 
                 for (int x = 0; x < upgrades.getSlots(); x++) {
                     final ItemStack is = upgrades.getStackInSlot(x);
-                    if (!is.isEmpty() && is.getItem() instanceof IUpgradeModule) {
-                        final Upgrades u = ((IUpgradeModule) is.getItem()).getType(is);
-                        if (u != null) {
-                            switch (u) {
-                                case FUZZY:
-                                    hasFuzzy = true;
-                                    break;
-                                case INVERTER:
-                                    hasInverter = true;
-                                    break;
-                                default:
-                            }
-                        }
+                    if (ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
+                        hasFuzzy = true;
+                    } else if (ItemStack.areItemsEqual(is, UpgradeCards.inverter())) {
+                        hasInverter = true;
                     }
                 }
 

@@ -19,6 +19,7 @@
 package appeng.container.implementations;
 
 
+
 import appeng.api.config.*;
 import appeng.api.stacks.AEKey;
 import appeng.container.guisync.GuiSync;
@@ -84,7 +85,7 @@ public class ContainerStorageBus extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        final int upgrades = this.getUpgradeable().getInstalledUpgrades(Upgrades.CAPACITY);
+        final int upgrades = this.getUpgradeable().getInstalledCapacityPoints();
 
         return upgrades > idx;
     }

@@ -20,7 +20,6 @@ package appeng.parts;
 
 
 import appeng.api.AEApi;
-import appeng.api.config.Upgrades;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.items.IMemoryCard;
@@ -126,7 +125,7 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
         return 0;
     }
 

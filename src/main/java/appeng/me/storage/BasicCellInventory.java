@@ -35,8 +35,7 @@ import net.minecraftforge.items.IItemHandler;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
-import appeng.api.config.Upgrades;
-import appeng.api.implementations.items.IUpgradeModule;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -123,15 +122,12 @@ public class BasicCellInventory implements StorageCell {
         // cell. This is defensive only; it is not what fixed the creative cell (see ItemCreativeStorageCell).
         for (int x = 0; upgrades != null && x < upgrades.getSlots(); x++) {
             final ItemStack is = upgrades.getStackInSlot(x);
-            if (!is.isEmpty() && is.getItem() instanceof IUpgradeModule) {
-                final Upgrades u = ((IUpgradeModule) is.getItem()).getType(is);
-                if (u == Upgrades.FUZZY) {
-                    hasFuzzy = true;
-                } else if (u == Upgrades.INVERTER) {
-                    hasInverter = true;
-                } else if (u == Upgrades.STICKY) {
-                    hasSticky = true;
-                }
+            if (ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
+                hasFuzzy = true;
+            } else if (ItemStack.areItemsEqual(is, UpgradeCards.inverter())) {
+                hasInverter = true;
+            } else if (ItemStack.areItemsEqual(is, UpgradeCards.sticky())) {
+                hasSticky = true;
             }
         }
         this.sticky = hasSticky;

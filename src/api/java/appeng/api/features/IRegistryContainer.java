@@ -28,6 +28,7 @@ import appeng.api.AEInjectable;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
 import appeng.api.parts.IPartModels;
+import appeng.api.upgrades.IUpgradeRegistry;
 
 
 /**
@@ -114,4 +115,9 @@ public interface IRegistryContainer
 	 * Register your IPart models before using them.
 	 */
 	IPartModels partModels();
+
+	/**
+	 * Register upgrade cards and the machines, parts and items that accept them.
+	 */
+	IUpgradeRegistry upgrades();
 }

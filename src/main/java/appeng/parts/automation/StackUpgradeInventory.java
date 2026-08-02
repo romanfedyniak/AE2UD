@@ -19,7 +19,7 @@
 package appeng.parts.automation;
 
 
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.IUpgradeInventoryListener;
 import appeng.util.inv.IAEAppEngInventory;
 import net.minecraft.item.ItemStack;
 
@@ -29,20 +29,17 @@ public class StackUpgradeInventory extends UpgradeInventory {
 
     public StackUpgradeInventory(final ItemStack stack, final IAEAppEngInventory inventory, final int s) {
         super(inventory, s);
-        this.stack = stack;
+        this.stack = stack.copy();
     }
 
     @Override
-    public int getMaxInstalled(final Upgrades upgrades) {
-        int max = 0;
+    public ItemStack getUpgradableItem() {
+        return this.stack.copy();
+    }
 
-        for (final ItemStack is : upgrades.getSupported().keySet()) {
-            if (ItemStack.areItemsEqual(this.stack, is)) {
-                max = upgrades.getSupported().get(is);
-                break;
-            }
-        }
-
-        return max;
+    public StackUpgradeInventory(final ItemStack stack, final IAEAppEngInventory inventory, final int s,
+            final IUpgradeInventoryListener listener) {
+        super(inventory, s, listener);
+        this.stack = stack.copy();
     }
 }

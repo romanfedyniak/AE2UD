@@ -18,11 +18,12 @@
 
 package appeng.tile.misc;
 
+import com.google.common.math.IntMath;
+
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.config.Upgrades;
 import appeng.api.definitions.IComparableDefinition;
 import appeng.api.definitions.ITileDefinition;
 import appeng.api.features.IInscriberRecipe;
@@ -49,6 +50,7 @@ import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
+import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperChainedItemHandler;
 import appeng.util.inv.WrapperFilteredItemHandler;
@@ -341,8 +343,9 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
                 IEnergySource src = this;
 
                 // Base 1, increase by 1 for each card
-                final int speedFactor = 1 + this.upgrades.getInstalledUpgrades(Upgrades.SPEED);
-                final int powerConsumption = 10 * speedFactor;
+                final int speedFactor = UpgradeSpeedCalculations.linearSpeed(
+                        this.upgrades.getInstalledSpeedPoints());
+                final int powerConsumption = IntMath.saturatedMultiply(10, speedFactor);
                 final double powerThreshold = powerConsumption - 0.01;
                 double powerReq = this.extractAEPower(powerConsumption, Actionable.SIMULATE, PowerMultiplier.CONFIG);
 
@@ -354,11 +357,9 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
                 if (powerReq > powerThreshold) {
                     src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
 
-                    if (this.getProcessingTime() == 0) {
-                        this.setProcessingTime(this.getProcessingTime() + speedFactor);
-                    } else {
-                        this.setProcessingTime(this.getProcessingTime() + ticksSinceLastCall * speedFactor);
-                    }
+                    final int increment = this.getProcessingTime() == 0 ? speedFactor
+                            : IntMath.saturatedMultiply(ticksSinceLastCall, speedFactor);
+                    this.setProcessingTime(IntMath.saturatedAdd(this.getProcessingTime(), increment));
                 }
             } catch (final GridAccessException e) {
                 // :P
@@ -411,8 +412,18 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
-        return this.upgrades.getInstalledUpgrades(u);
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        return this.upgrades.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.upgrades.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.upgrades.getInstalledCapacityPoints();
     }
 
     @Override

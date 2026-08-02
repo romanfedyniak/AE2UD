@@ -24,7 +24,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
@@ -152,7 +152,7 @@ public class GuiIOBus extends GuiUpgradeable {
         super.handleButtonVisibility();
 
         if (this.craftMode != null) {
-            this.craftMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CRAFTING) > 0);
+            this.craftMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0);
         }
         if (this.schedulingMode != null) {
             // No capacity card in the condition: it used to stand in for "this bus has more than one

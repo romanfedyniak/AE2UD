@@ -21,7 +21,7 @@ package appeng.tile.misc;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.definitions.IMaterials;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.networking.IGridNode;
@@ -148,7 +148,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
 
         super.onReady();
         this.duality.initialize();
-        this.getProxy().setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(Upgrades.PATTERN_EXPANSION))));
+        this.getProxy().setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(UpgradeCards.patternExpansion()))));
     }
 
     @Override
@@ -271,8 +271,18 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
-        return this.duality.getInstalledUpgrades(u);
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        return this.duality.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.duality.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.duality.getInstalledCapacityPoints();
     }
 
     @Override
@@ -358,7 +368,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
             PlayerMainInvWrapper playerInv = new PlayerMainInvWrapper(player.inventory);
             final IMaterials materials = AEApi.instance().definitions().materials();
             int missingPatternsToEncode = 0;
-            int amountPatternSlots = 8 + this.getInstalledUpgrades(Upgrades.PATTERN_EXPANSION) * 9;
+            int amountPatternSlots = 8 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()) * 9;
 
             for (int i = 0; i < inv.getSlots(); i++) {
                 if (target.getStackInSlot(i).getItem() instanceof ItemEncodedPattern) {

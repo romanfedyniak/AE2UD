@@ -18,6 +18,8 @@
 
 package appeng.tile.storage;
 
+import appeng.api.upgrades.UpgradeCards;
+
 
 import appeng.api.AEApi;
 import appeng.api.config.*;
@@ -53,6 +55,7 @@ import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
+import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.InvOperation;
@@ -206,7 +209,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     }
 
     private boolean isEnabled() {
-        if (this.getInstalledUpgrades(Upgrades.REDSTONE) == 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.redstone()) == 0) {
             return true;
         }
         final RedstoneMode rs = (RedstoneMode) this.manager.getSetting(Settings.REDSTONE_CONTROLLED);
@@ -293,19 +296,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
 
     private TickRateModulation doWork() {
         TickRateModulation ret = TickRateModulation.SLEEP;
-        long itemsToMove = 256;
-
-        switch (this.getInstalledUpgrades(Upgrades.SPEED)) {
-            case 1:
-                itemsToMove *= 2;
-                break;
-            case 2:
-                itemsToMove *= 4;
-                break;
-            case 3:
-                itemsToMove *= 8;
-                break;
-        }
+        long itemsToMove = UpgradeSpeedCalculations.ioPortTransferLimit(this.getInstalledSpeedPoints());
 
         try {
             final IEnergySource energy = this.getProxy().getEnergy();
@@ -355,8 +346,18 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
-        return this.upgrades.getInstalledUpgrades(u);
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        return this.upgrades.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.upgrades.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.upgrades.getInstalledCapacityPoints();
     }
 
     /**

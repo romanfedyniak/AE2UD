@@ -720,3 +720,5 @@ key.open_wireless_terminal.desc=Open Wireless Terminal
 key.open_wireless_crafting_terminal.desc=Open Wireless Crafting Terminal
 key.open_wireless_pattern_terminal.desc=Open Wireless Pattern Terminal
 key.open_wireless_interface_terminal.desc=Open Wireless Interface Terminal
+gui.tooltips.appliedenergistics2.SpeedPoints=Speed: %s points
+gui.tooltips.appliedenergistics2.CapacityPoints=Capacity: %s points

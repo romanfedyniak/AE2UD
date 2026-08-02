@@ -20,7 +20,6 @@ package appeng.container.slot;
 
 
 import appeng.api.AEApi;
-import appeng.api.config.Upgrades;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.definitions.IItems;
 import appeng.api.definitions.IMaterials;
@@ -29,7 +28,6 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.items.IBiometricCard;
 import appeng.api.implementations.items.ISpatialStorageCell;
 import appeng.api.implementations.items.IStorageComponent;
-import appeng.api.implementations.items.IUpgradeModule;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
@@ -205,7 +203,7 @@ public class SlotRestrictedInput extends AppEngSlot {
             case BIOMETRIC_CARD:
                 return i.getItem() instanceof IBiometricCard;
             case UPGRADES:
-                return i.getItem() instanceof IUpgradeModule && ((IUpgradeModule) i.getItem()).getType(i) != null;
+                return AEApi.instance().registries().upgrades().isUpgradeCard(i);
             case CARD_QUANTUM:
                 if (AEApi.instance().definitions().materials().cardQuantumLink().maybeItem().isPresent()) {
                     return AEApi.instance().definitions().materials().cardQuantumLink().maybeItem().get() == i.getItem();

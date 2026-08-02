@@ -18,14 +18,13 @@
 
 package appeng.parts.automation;
 
-
 import appeng.api.config.RedstoneMode;
-import appeng.api.config.Upgrades;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.me.GridAccessException;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.util.InventoryAdaptor;
+import appeng.util.UpgradeSpeedCalculations;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
@@ -106,23 +105,11 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
      * Two rows of the filter are always live, and each capacity card adds one more.
      */
     protected int availableSlots() {
-        return Math.min(18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9, this.getConfig().getSlots());
+        return Math.min(18 + this.getInstalledCapacityPoints() * 9, this.getConfig().getSlots());
     }
 
     protected int calculateItemsToSend() {
-        switch (this.getInstalledUpgrades(Upgrades.SPEED)) {
-            default:
-            case 0:
-                return 1;
-            case 1:
-                return 8;
-            case 2:
-                return 32;
-            case 3:
-                return 64;
-            case 4:
-                return 96;
-        }
+        return UpgradeSpeedCalculations.itemBusOperations(this.getInstalledSpeedPoints());
     }
 
     /**

@@ -142,7 +142,7 @@ public final class StackTransferContextImpl implements StackTransferContext {
     }
 
     /**
-     * Non-null only when the bus has a {@code Upgrades.FUZZY} card installed. Drives whether the
+     * Non-null only when the bus has a fuzzy card installed. Drives whether the
      * item strategies use exact or fuzzy extraction/matching.
      */
     @Nullable

@@ -20,7 +20,7 @@ package appeng.items.contents;
 
 
 import appeng.api.implementations.guiobjects.INetworkTool;
-import appeng.api.implementations.items.IUpgradeModule;
+import appeng.api.AEApi;
 import appeng.api.networking.IGridHost;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
@@ -75,7 +75,7 @@ public class NetworkToolViewer implements INetworkTool, IAEAppEngInventory {
 
         @Override
         public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
-            return stack.getItem() instanceof IUpgradeModule && ((IUpgradeModule) stack.getItem()).getType(stack) != null;
+            return AEApi.instance().registries().upgrades().isUpgradeCard(stack);
         }
     }
 

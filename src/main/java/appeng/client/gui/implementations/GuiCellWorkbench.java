@@ -18,9 +18,10 @@
 
 package appeng.client.gui.implementations;
 
+import appeng.api.upgrades.UpgradeCards;
+
 
 import appeng.api.config.*;
-import appeng.api.implementations.items.IUpgradeModule;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiToggleButton;
 import appeng.container.implementations.ContainerCellWorkbench;
@@ -116,10 +117,8 @@ public class GuiCellWorkbench extends GuiUpgradeable {
         final IItemHandler inv = this.workbench.getCellUpgradeInventory();
         for (int x = 0; x < inv.getSlots(); x++) {
             final ItemStack is = inv.getStackInSlot(x);
-            if (!is.isEmpty() && is.getItem() instanceof IUpgradeModule) {
-                if (((IUpgradeModule) is.getItem()).getType(is) == Upgrades.FUZZY) {
-                    hasFuzzy = true;
-                }
+            if (!is.isEmpty() && ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
+                hasFuzzy = true;
             }
         }
         this.fuzzyMode.setVisibility(hasFuzzy);

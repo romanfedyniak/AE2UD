@@ -22,7 +22,6 @@ package appeng.items.tools.powered;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
-import appeng.api.config.Upgrades;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -49,6 +48,7 @@ import appeng.me.helpers.PlayerSource;
 import appeng.tile.misc.TilePaint;
 import appeng.util.LookDirection;
 import appeng.util.Platform;
+import appeng.util.UpgradeSpeedCalculations;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.util.ITooltipFlag;
@@ -96,7 +96,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
             final CellUpgrades cu = (CellUpgrades) this.getUpgradesInventory(p.getHeldItem(hand));
             if (cu != null) {
-                shots += cu.getInstalledUpgrades(Upgrades.SPEED);
+                shots = UpgradeSpeedCalculations.linearSpeed(cu.getInstalledSpeedPoints());
             }
 
             final MEStorage inv = StorageCells.getCellInventory(p.getHeldItem(hand), null);
@@ -105,6 +105,9 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                 final var firstEntry = itemList.getFirstEntry();
                 if (firstEntry != null && firstEntry.getKey() instanceof AEItemKey ammoKey) {
                     shots = Math.min(shots, (int) Math.min(firstEntry.getLongValue(), Integer.MAX_VALUE));
+                    shots = Math.min(shots,
+                            (int) Math.min((long) (this.getAECurrentPower(p.getHeldItem(hand)) / 1600),
+                                    Integer.MAX_VALUE));
                     for (int sh = 0; sh < shots; sh++) {
                         this.extractAEPower(p.getHeldItem(hand), 1600, Actionable.MODULATE);
 

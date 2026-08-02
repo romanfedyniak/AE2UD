@@ -14,3 +14,5 @@ gui.appliedenergistics2.LightGray=Light Grey
 
 // Items
 item.appliedenergistics2.color_applicator.name=Colour Applicator
+gui.tooltips.appliedenergistics2.SpeedPoints=Speed: %s points
+gui.tooltips.appliedenergistics2.CapacityPoints=Capacity: %s points

@@ -23,7 +23,6 @@ import javax.annotation.Nullable;
 
 import appeng.api.config.CopyMode;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.implementations.IUpgradeableHost;
@@ -144,7 +143,7 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
         return 0;
     }
 

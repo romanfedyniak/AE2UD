@@ -20,7 +20,7 @@ package appeng.parts.automation;
 
 
 import appeng.api.config.RedstoneMode;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.IConfigManager;
 import appeng.parts.PartBasicState;
 import appeng.util.ConfigManager;
@@ -64,7 +64,7 @@ public abstract class PartUpgradeable extends PartBasicState implements IAEAppEn
     }
 
     protected boolean isSleeping() {
-        if (this.getInstalledUpgrades(Upgrades.REDSTONE) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.redstone()) > 0) {
             switch (this.getRSMode()) {
                 case IGNORE:
                     return false;
@@ -95,13 +95,23 @@ public abstract class PartUpgradeable extends PartBasicState implements IAEAppEn
     }
 
     @Override
-    public int getInstalledUpgrades(final Upgrades u) {
-        return this.upgrades.getInstalledUpgrades(u);
+    public int getInstalledUpgrades(final ItemStack upgradeCard) {
+        return this.upgrades.getInstalledUpgrades(upgradeCard);
+    }
+
+    @Override
+    public int getInstalledSpeedPoints() {
+        return this.upgrades.getInstalledSpeedPoints();
+    }
+
+    @Override
+    public int getInstalledCapacityPoints() {
+        return this.upgrades.getInstalledCapacityPoints();
     }
 
     @Override
     public boolean canConnectRedstone() {
-        return this.upgrades.getMaxInstalled(Upgrades.REDSTONE) > 0;
+        return this.upgrades.getMaxInstalled(UpgradeCards.redstone()) > 0;
     }
 
     @Override

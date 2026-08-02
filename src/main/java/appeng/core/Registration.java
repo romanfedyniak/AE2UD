@@ -20,7 +20,8 @@ package appeng.core;
 
 
 import appeng.api.AEApi;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.IUpgradeRegistry;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.definitions.IBlocks;
 import appeng.api.definitions.IItemDefinition;
 import appeng.api.definitions.IItems;
@@ -29,6 +30,7 @@ import appeng.api.features.IRecipeHandlerRegistry;
 import appeng.api.features.IRegistryContainer;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.features.IWorldGen.WorldGenType;
+import appeng.api.implementations.items.IItemGroup;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
 import appeng.api.networking.crafting.ICraftingGrid;
@@ -75,6 +77,7 @@ import appeng.recipes.ores.OreDictionaryHandler;
 import appeng.spatial.BiomeGenStorage;
 import appeng.spatial.StorageWorldProvider;
 import appeng.tile.AEBaseTile;
+import appeng.util.Platform;
 import appeng.worldgen.MeteoriteWorldGen;
 import appeng.worldgen.QuartzWorldGen;
 import com.google.common.base.Preconditions;
@@ -85,9 +88,12 @@ import net.minecraft.block.Block;
 import net.minecraft.client.renderer.ItemMeshDefinition;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.block.statemap.IStateMapper;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
@@ -97,6 +103,7 @@ import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
@@ -116,6 +123,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -124,6 +133,54 @@ final class Registration {
     int storageDimensionID;
     Biome storageBiome;
     AdvancementTriggers advancementTriggers;
+
+    @SubscribeEvent
+    @SideOnly(Side.CLIENT)
+    public void addUpgradeCardTooltip(final ItemTooltipEvent event) {
+        final ItemStack card = event.getItemStack();
+        final IUpgradeRegistry upgrades = Api.INSTANCE.registries().upgrades();
+        if (!upgrades.isUpgradeCard(card)) {
+            return;
+        }
+
+        final List<String> tooltip = event.getToolTip();
+        final int speedPoints = upgrades.getSpeedPoints(card);
+        final int capacityPoints = upgrades.getCapacityPoints(card);
+        if (speedPoints > 0) {
+            tooltip.add(TextFormatting.GRAY + I18n.format(
+                    "gui.tooltips.appliedenergistics2.SpeedPoints", speedPoints));
+        }
+        if (capacityPoints > 0) {
+            tooltip.add(TextFormatting.GRAY + I18n.format(
+                    "gui.tooltips.appliedenergistics2.CapacityPoints", capacityPoints));
+        }
+
+        final Map<ItemStack, Integer> supported = upgrades.getSupportedObjects(card);
+        final List<String> names = new ArrayList<>();
+        for (final Map.Entry<ItemStack, Integer> entry : supported.entrySet()) {
+            final ItemStack host = entry.getKey();
+            final int limit = entry.getValue();
+            String name = null;
+            if (host.getItem() instanceof IItemGroup) {
+                final String groupName = ((IItemGroup) host.getItem())
+                        .getUnlocalizedGroupName(supported.keySet(), host);
+                if (groupName != null) {
+                    name = Platform.gui_localize(groupName);
+                }
+            }
+            if (name == null) {
+                name = host.getDisplayName();
+            }
+            if (limit > 1) {
+                name += " (" + limit + ')';
+            }
+            if (!names.contains(name)) {
+                names.add(name);
+            }
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        tooltip.addAll(names);
+    }
 
     void preInitialize(final FMLPreInitializationEvent event) {
         Capabilities.register();
@@ -342,6 +399,7 @@ final class Registration {
         final IParts parts = definitions.parts();
         final IBlocks blocks = definitions.blocks();
         final IItems items = definitions.items();
+        final IUpgradeRegistry upgrades = registries.upgrades();
 
         this.registerSpatialDimension();
 
@@ -354,107 +412,110 @@ final class Registration {
 
         definitions.getRegistry().getBootstrapComponents(IPostInitComponent.class).forEachRemaining(b -> b.postInitialize(event.getSide()));
 
+        upgrades.registerSpeedCard(UpgradeCards.speed(), 1);
+        upgrades.registerCapacityCard(UpgradeCards.capacity(), 1);
+
         // Interface
-        Upgrades.CRAFTING.registerItem(parts.iface(), 1);
-        Upgrades.CRAFTING.registerItem(blocks.iface(), 1);
-        Upgrades.PATTERN_EXPANSION.registerItem(parts.iface(), 3);
-        Upgrades.PATTERN_EXPANSION.registerItem(blocks.iface(), 3);
+        upgrades.add(UpgradeCards.crafting(), parts.iface(), 1);
+        upgrades.add(UpgradeCards.crafting(), blocks.iface(), 1);
+        upgrades.add(UpgradeCards.patternExpansion(), parts.iface(), 3);
+        upgrades.add(UpgradeCards.patternExpansion(), blocks.iface(), 3);
 
         // Fluid Interface
 
         // IO Port!
-        Upgrades.SPEED.registerItem(blocks.iOPort(), 3);
-        Upgrades.REDSTONE.registerItem(blocks.iOPort(), 1);
+        upgrades.addSpeedCardSupport(blocks.iOPort(), 3);
+        upgrades.add(UpgradeCards.redstone(), blocks.iOPort(), 1);
 
         // Level Emitter!
-        Upgrades.FUZZY.registerItem(parts.levelEmitter(), 1);
-        Upgrades.CRAFTING.registerItem(parts.levelEmitter(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), parts.levelEmitter(), 1);
+        upgrades.add(UpgradeCards.crafting(), parts.levelEmitter(), 1);
 
         // Import Bus
-        Upgrades.FUZZY.registerItem(parts.importBus(), 1);
-        Upgrades.INVERTER.registerItem(parts.importBus(), 1);
-        Upgrades.REDSTONE.registerItem(parts.importBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.importBus(), 5);
-        Upgrades.SPEED.registerItem(parts.importBus(), 4);
+        upgrades.add(UpgradeCards.fuzzy(), parts.importBus(), 1);
+        upgrades.add(UpgradeCards.inverter(), parts.importBus(), 1);
+        upgrades.add(UpgradeCards.redstone(), parts.importBus(), 1);
+        upgrades.addCapacityCardSupport(parts.importBus(), 5, 5);
+        upgrades.addSpeedCardSupport(parts.importBus(), 4);
 
         // Fluid Import Bus
 
         // Export Bus
-        Upgrades.FUZZY.registerItem(parts.exportBus(), 1);
-        Upgrades.REDSTONE.registerItem(parts.exportBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.exportBus(), 5);
-        Upgrades.SPEED.registerItem(parts.exportBus(), 4);
-        Upgrades.CRAFTING.registerItem(parts.exportBus(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), parts.exportBus(), 1);
+        upgrades.add(UpgradeCards.redstone(), parts.exportBus(), 1);
+        upgrades.addCapacityCardSupport(parts.exportBus(), 5, 5);
+        upgrades.addSpeedCardSupport(parts.exportBus(), 4);
+        upgrades.add(UpgradeCards.crafting(), parts.exportBus(), 1);
 
         // Fluid Export Bus
 
         // Storage Cells
-        Upgrades.FUZZY.registerItem(items.cell1k(), 1);
-        Upgrades.INVERTER.registerItem(items.cell1k(), 1);
-        Upgrades.STICKY.registerItem(items.cell1k(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.cell1k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.cell1k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.cell1k(), 1);
 
-        Upgrades.FUZZY.registerItem(items.cell4k(), 1);
-        Upgrades.INVERTER.registerItem(items.cell4k(), 1);
-        Upgrades.STICKY.registerItem(items.cell4k(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.cell4k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.cell4k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.cell4k(), 1);
 
-        Upgrades.FUZZY.registerItem(items.cell16k(), 1);
-        Upgrades.INVERTER.registerItem(items.cell16k(), 1);
-        Upgrades.STICKY.registerItem(items.cell16k(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.cell16k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.cell16k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.cell16k(), 1);
 
-        Upgrades.FUZZY.registerItem(items.cell64k(), 1);
-        Upgrades.INVERTER.registerItem(items.cell64k(), 1);
-        Upgrades.STICKY.registerItem(items.cell64k(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.cell64k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.cell64k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.cell64k(), 1);
 
-        Upgrades.FUZZY.registerItem(items.portableCell(), 1);
-        Upgrades.INVERTER.registerItem(items.portableCell(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.portableCell(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.portableCell(), 1);
 
-        Upgrades.FUZZY.registerItem(items.viewCell(), 1);
-        Upgrades.INVERTER.registerItem(items.viewCell(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), items.viewCell(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.viewCell(), 1);
 
-        Upgrades.FUZZY.registerItem(AEApi.instance().definitions().materials().cardMagnet(), 1);
-        Upgrades.INVERTER.registerItem(AEApi.instance().definitions().materials().cardMagnet(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), AEApi.instance().definitions().materials().cardMagnet(), 1);
+        upgrades.add(UpgradeCards.inverter(), AEApi.instance().definitions().materials().cardMagnet(), 1);
 
         // Fluid Cells
-        Upgrades.INVERTER.registerItem(items.fluidCell1k(), 1);
-        Upgrades.STICKY.registerItem(items.fluidCell1k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.fluidCell1k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.fluidCell1k(), 1);
 
-        Upgrades.INVERTER.registerItem(items.fluidCell4k(), 1);
-        Upgrades.STICKY.registerItem(items.fluidCell4k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.fluidCell4k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.fluidCell4k(), 1);
 
-        Upgrades.INVERTER.registerItem(items.fluidCell16k(), 1);
-        Upgrades.STICKY.registerItem(items.fluidCell16k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.fluidCell16k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.fluidCell16k(), 1);
 
-        Upgrades.INVERTER.registerItem(items.fluidCell64k(), 1);
-        Upgrades.STICKY.registerItem(items.fluidCell64k(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.fluidCell64k(), 1);
+        upgrades.add(UpgradeCards.sticky(), items.fluidCell64k(), 1);
 
         // Storage Bus
-        Upgrades.FUZZY.registerItem(parts.storageBus(), 1);
-        Upgrades.INVERTER.registerItem(parts.storageBus(), 1);
-        Upgrades.CAPACITY.registerItem(parts.storageBus(), 5);
-        Upgrades.STICKY.registerItem(parts.storageBus(), 1);
+        upgrades.add(UpgradeCards.fuzzy(), parts.storageBus(), 1);
+        upgrades.add(UpgradeCards.inverter(), parts.storageBus(), 1);
+        upgrades.addCapacityCardSupport(parts.storageBus(), 5, 5);
+        upgrades.add(UpgradeCards.sticky(), parts.storageBus(), 1);
 
         // OreDict Storage Bus
-        Upgrades.STICKY.registerItem(parts.oreDictStorageBus(), 1);
+        upgrades.add(UpgradeCards.sticky(), parts.oreDictStorageBus(), 1);
 
         // Storage Bus Fluids
 
         // Formation Plane
-        Upgrades.FUZZY.registerItem(parts.formationPlane(), 1);
-        Upgrades.INVERTER.registerItem(parts.formationPlane(), 1);
-        Upgrades.CAPACITY.registerItem(parts.formationPlane(), 5);
+        upgrades.add(UpgradeCards.fuzzy(), parts.formationPlane(), 1);
+        upgrades.add(UpgradeCards.inverter(), parts.formationPlane(), 1);
+        upgrades.addCapacityCardSupport(parts.formationPlane(), 5, 5);
 
         // Matter Cannon
-        Upgrades.FUZZY.registerItem(items.massCannon(), 1);
-        Upgrades.INVERTER.registerItem(items.massCannon(), 1);
-        Upgrades.SPEED.registerItem(items.massCannon(), 4);
+        upgrades.add(UpgradeCards.fuzzy(), items.massCannon(), 1);
+        upgrades.add(UpgradeCards.inverter(), items.massCannon(), 1);
+        upgrades.add(UpgradeCards.speed(), items.massCannon(), 4);
 
         // Molecular Assembler
-        Upgrades.SPEED.registerItem(blocks.molecularAssembler(), 5);
+        upgrades.addSpeedCardSupport(blocks.molecularAssembler(), 5);
 
         // Inscriber
-        Upgrades.SPEED.registerItem(blocks.inscriber(), 3);
+        upgrades.addSpeedCardSupport(blocks.inscriber(), 3);
 
-        Upgrades.QUANTUM_LINK.registerItem(blocks.quantumLink(), 1);
+        upgrades.add(UpgradeCards.quantumLink(), blocks.quantumLink(), 1);
 
         // Wireless Terminal Handler
         ArrayList<IItemDefinition> iids = new ArrayList<>();
@@ -465,7 +526,7 @@ final class Registration {
         for (IItemDefinition id : iids) {
             id.maybeItem().ifPresent(terminal -> {
                 registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal);
-                Upgrades.MAGNET.registerItem(id, 1);
+                upgrades.add(UpgradeCards.magnet(), id, 1);
             });
         }
         items.wirelessInterfaceTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));

@@ -18,6 +18,8 @@
 
 package appeng.client.gui.implementations;
 
+import appeng.api.upgrades.UpgradeCards;
+
 
 import appeng.api.config.*;
 import appeng.api.stacks.AEKey;
@@ -139,7 +141,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        final boolean notCraftingMode = this.bc.getInstalledUpgrades(Upgrades.CRAFTING) == 0;
+        final boolean notCraftingMode = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) == 0;
 
         // configure enabled status...
         this.level.setEnabled(notCraftingMode);
@@ -213,8 +215,8 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     protected void handleButtonVisibility() {
-        this.craftingMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.CRAFTING) > 0);
-        this.fuzzyMode.setVisibility(this.bc.getInstalledUpgrades(Upgrades.FUZZY) > 0);
+        this.craftingMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0);
+        this.fuzzyMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0);
     }
 
     @Override

@@ -21,7 +21,7 @@ import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
 import appeng.api.config.Settings;
-import appeng.api.config.Upgrades;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
@@ -89,7 +89,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
      * expanded into with a Capacity Card), mirroring the pre-port {@code slotsToUse} calculation.
      */
     protected int getFilterSlotsInUse() {
-        return 18 + this.getInstalledUpgrades(Upgrades.CAPACITY) * 9;
+        return 18 + this.getInstalledCapacityPoints() * 9;
     }
 
     @Override
@@ -110,7 +110,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
 
     protected final void updateFilter() {
         var builder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(Upgrades.FUZZY) > 0) {
+        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
         var config = getConfigInventory();
@@ -122,7 +122,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
             }
         }
         this.filter = builder.build();
-        this.filterMode = this.getInstalledUpgrades(Upgrades.INVERTER) > 0 ? IncludeExclude.BLACKLIST
+        this.filterMode = this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST
                 : IncludeExclude.WHITELIST;
     }
 
