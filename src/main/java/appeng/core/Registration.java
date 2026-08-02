@@ -372,6 +372,7 @@ final class Registration {
 
         // Import Bus
         Upgrades.FUZZY.registerItem(parts.importBus(), 1);
+        Upgrades.INVERTER.registerItem(parts.importBus(), 1);
         Upgrades.REDSTONE.registerItem(parts.importBus(), 1);
         Upgrades.CAPACITY.registerItem(parts.importBus(), 5);
         Upgrades.SPEED.registerItem(parts.importBus(), 4);

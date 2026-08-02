@@ -11,6 +11,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Import bus inverter card
+
+- Import buses accept one Inverter Card, changing a configured whitelist into a blacklist for items, fluids, and addon key types.
+- An inverted empty filter still imports everything, matching modern AE2 behaviour.
+- Whitelist and blacklist fluid filters can find an allowed fluid behind a rejected tank in a multi-tank handler.
+
 ### Terminal type filters
 
 - Added per-terminal visible-type selection for network and wireless terminals, using the same extensible type picker as the import bus.

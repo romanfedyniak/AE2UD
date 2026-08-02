@@ -9,6 +9,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
 import appeng.api.behaviors.StackImportStrategy;
 import appeng.api.behaviors.StackTransferContext;
@@ -56,51 +57,54 @@ public class FluidImportStrategy implements StackImportStrategy {
         // exactly, while an item bus tick over the same budget still moves 1..96 items.
         final int amountPerOperation = Math.max(1, AEKeyType.fluids().getAmountPerOperation());
         int maxDrain = (int) Math.min((long) context.getOperationsRemaining() * amountPerOperation, Integer.MAX_VALUE);
-        FluidStack peek = fh.drain(maxDrain, false);
-        if (peek == null || peek.amount <= 0) {
-            return false;
-        }
-
-        AEFluidKey what = AEFluidKey.of(peek);
-        if (what == null) {
-            return false;
-        }
-
-        // The frozen AEKeyFilter, not the concrete context: this strategy runs on whatever context the bus
-        // that owns it builds, and the generic PartImportBus builds its own. An empty bus filter matches
-        // everything, and a fuzzy card is already baked into the partition list behind getFilter().
-        if (!context.getFilter().matches(what)) {
-            return false;
-        }
-
         var internal = context.getInternalStorage();
         var source = context.getActionSource();
 
-        long acceptable = internal.insert(what, peek.amount, Actionable.SIMULATE, source);
-        if (acceptable <= 0) {
-            return false;
+        // An untyped drain only exposes the first tank. Iterate the advertised contents so a whitelisted
+        // fluid behind an unlisted one, or an allowed fluid behind a blacklisted one, can still be found.
+        for (IFluidTankProperties tank : fh.getTankProperties()) {
+            final FluidStack contents = tank.getContents();
+            if (!tank.canDrain() || contents == null || contents.amount <= 0) {
+                continue;
+            }
+
+            final AEFluidKey what = AEFluidKey.of(contents);
+            if (what == null || !context.getFilter().matches(what)) {
+                continue;
+            }
+
+            final int candidateAmount = Math.min(maxDrain, contents.amount);
+            long acceptable = internal.insert(what, candidateAmount, Actionable.SIMULATE, source);
+            if (acceptable <= 0) {
+                continue;
+            }
+
+            // Drain by stack, not by amount: an untyped drain on a multi-tank block may hand back a
+            // different fluid than the one filter-checked above.
+            FluidStack drained = fh.drain(what.toStack((int) Math.min(acceptable, candidateAmount)), true);
+            if (drained == null || drained.amount <= 0) {
+                continue;
+            }
+            if (!what.equals(AEFluidKey.of(drained))) {
+                fh.fill(drained, true);
+                continue;
+            }
+
+            long inserted = internal.insert(what, drained.amount, Actionable.MODULATE, source);
+            if (inserted < drained.amount) {
+                // Be lenient rather than void fluid: try to hand back whatever didn't fit, mirroring the
+                // "unpowered fallback insert" leniency the item-side StorageImportStrategy uses.
+                long leftover = drained.amount - inserted;
+                fh.fill(what.toStack((int) leftover), true);
+            }
+
+            // Spend whole operations, matching the unit the budget was handed out in. Anything that moved
+            // at all costs at least one, so a dribble of fluid can never loop for free.
+            context.reduceOperationsRemaining(Math.max(1, inserted / amountPerOperation));
+            return inserted > 0;
         }
 
-        // Drain by stack, not by amount: an untyped drain on a multi-tank block may hand back a different
-        // fluid than the one peeked and filter-checked above. The pre-port bus drained by stack for the
-        // same reason.
-        FluidStack drained = fh.drain(what.toStack((int) Math.min(acceptable, Integer.MAX_VALUE)), true);
-        if (drained == null || drained.amount <= 0) {
-            return false;
-        }
-
-        long inserted = internal.insert(what, drained.amount, Actionable.MODULATE, source);
-        if (inserted < drained.amount) {
-            // Be lenient rather than void fluid: try to hand back whatever didn't fit, mirroring the
-            // "unpowered fallback insert" leniency the item-side StorageImportStrategy uses.
-            long leftover = drained.amount - inserted;
-            fh.fill(what.toStack((int) leftover), true);
-        }
-
-        // Spend whole operations, matching the unit the budget was handed out in. Anything that moved at
-        // all costs at least one, so a dribble of fluid can never loop for free.
-        context.reduceOperationsRemaining(Math.max(1, inserted / amountPerOperation));
-        return inserted > 0;
+        return false;
     }
 
     @Nullable

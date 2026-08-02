@@ -22,6 +22,7 @@ import javax.annotation.Nullable;
 
 import appeng.api.behaviors.StackTransferContext;
 import appeng.api.config.FuzzyMode;
+import appeng.api.config.IncludeExclude;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.storage.AEKeyFilter;
@@ -56,6 +57,7 @@ public final class StackTransferContextImpl implements StackTransferContext {
     private final FuzzyMode fuzzyMode;
     private final int initialOperations;
     private int operationsRemaining;
+    private boolean inverted;
 
     public StackTransferContextImpl(MEStorage internalStorage, IEnergySource energySource, IActionSource actionSource,
             int operationsRemaining, IPartitionList filter, @Nullable FuzzyMode fuzzyMode) {
@@ -80,7 +82,17 @@ public final class StackTransferContextImpl implements StackTransferContext {
 
     @Override
     public AEKeyFilter getFilter() {
-        return what -> this.filter.isEmpty() || this.filter.isListed(what);
+        final IncludeExclude mode = this.isInverted() ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST;
+        return what -> this.filter.matchesFilter(what, mode);
+    }
+
+    void setInverted(boolean inverted) {
+        this.inverted = inverted;
+    }
+
+    boolean isInverted() {
+        // Like modern AE2, an inverter card does not turn an empty filter into "import nothing".
+        return !this.filter.isEmpty() && this.inverted;
     }
 
     @Override

@@ -53,7 +53,7 @@ public class AdaptorItemHandler extends InventoryAdaptor {
 
             if (destination != null) {
                 if (!destination.canInsert(is)) {
-                    break;
+                    continue;
                 }
 
                 ItemStack extracted = this.itemHandler.extractItem(slot, amount, true);
@@ -94,7 +94,7 @@ public class AdaptorItemHandler extends InventoryAdaptor {
             if (!is.isEmpty() && (filter.isEmpty() || Platform.itemComparisons().isSameItem(is, filter))) {
                 if (destination != null) {
                     if (!destination.canInsert(is)) {
-                        break;
+                        continue;
                     }
                 }
 

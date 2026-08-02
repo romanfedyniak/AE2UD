@@ -18,112 +18,44 @@ public class AdaptorItemRepository extends InventoryAdaptor {
 
     @Override
     public ItemStack removeItems(int amount, ItemStack filter, IInventoryDestination destination) {
-        ItemStack rv = ItemStack.EMPTY;
-        ItemStack extracted = ItemStack.EMPTY;
-
-        if (!filter.isEmpty()) {
-            extracted = this.itemRepository.extractItem(filter, amount, true);
-        } else {
-            for (IItemRepository.ItemRecord record : this.itemRepository.getAllItems()) {
-                extracted = this.itemRepository.extractItem(record.itemPrototype, amount, true);
-                if (!extracted.isEmpty()) {
-                    break;
-                }
-            }
-        }
-
-        if (destination != null) {
-
-            if (extracted.isEmpty() || !destination.canInsert(extracted)) {
-                return rv;
-            }
-
-        }
-
-        extracted = this.itemRepository.extractItem(filter.isEmpty() ? extracted : filter, amount, false);
-
-        return extracted;
+        final ItemStack candidate = this.findExtractable(amount, filter, destination, null);
+        return candidate.isEmpty() ? ItemStack.EMPTY : this.itemRepository.extractItem(candidate, amount, false);
     }
 
     @Override
     public ItemStack simulateRemove(int amount, ItemStack filter, IInventoryDestination destination) {
-        ItemStack rv = ItemStack.EMPTY;
-        ItemStack extracted = ItemStack.EMPTY;
-
-        if (!filter.isEmpty()) {
-            extracted = this.itemRepository.extractItem(filter, amount, true);
-        } else {
-            for (IItemRepository.ItemRecord record : this.itemRepository.getAllItems()) {
-                extracted = this.itemRepository.extractItem(record.itemPrototype, amount, true);
-                if (!extracted.isEmpty()) {
-                    break;
-                }
-            }
-        }
-
-        if (destination != null) {
-
-            if (extracted.isEmpty() || !destination.canInsert(extracted)) {
-                return rv;
-            }
-
-        }
-
-        return extracted;
+        return this.findExtractable(amount, filter, destination, null);
     }
 
     @Override
     public ItemStack removeSimilarItems(int amount, ItemStack filter, FuzzyMode fuzzyMode, IInventoryDestination destination) {
-        ItemStack rv = ItemStack.EMPTY;
-        ItemStack extracted = ItemStack.EMPTY;
-
-        for (IItemRepository.ItemRecord record : this.itemRepository.getAllItems()) {
-            if (Platform.itemComparisons().isFuzzyEqualItem(record.itemPrototype, filter, fuzzyMode)) {
-                extracted = this.itemRepository.extractItem(record.itemPrototype, amount, true);
-            }
-
-            if (!extracted.isEmpty()) {
-                break;
-            }
-        }
-
-        if (destination != null) {
-
-            if (extracted.isEmpty() || !destination.canInsert(extracted)) {
-                return rv;
-            }
-
-        }
-
-        extracted = this.itemRepository.extractItem(extracted, amount, false);
-
-        return extracted;
+        final ItemStack candidate = this.findExtractable(amount, filter, destination, fuzzyMode);
+        return candidate.isEmpty() ? ItemStack.EMPTY : this.itemRepository.extractItem(candidate, amount, false);
     }
 
     @Override
     public ItemStack simulateSimilarRemove(int amount, ItemStack filter, FuzzyMode fuzzyMode, IInventoryDestination destination) {
-        ItemStack rv = ItemStack.EMPTY;
-        ItemStack extracted = ItemStack.EMPTY;
+        return this.findExtractable(amount, filter, destination, fuzzyMode);
+    }
 
+    private ItemStack findExtractable(int amount, ItemStack filter, IInventoryDestination destination,
+            FuzzyMode fuzzyMode) {
         for (IItemRepository.ItemRecord record : this.itemRepository.getAllItems()) {
-            if (Platform.itemComparisons().isFuzzyEqualItem(record.itemPrototype, filter, fuzzyMode)) {
-                extracted = this.itemRepository.extractItem(record.itemPrototype, amount, true);
+            if (!filter.isEmpty()) {
+                final boolean matches = fuzzyMode == null
+                        ? Platform.itemComparisons().isSameItem(record.itemPrototype, filter)
+                        : Platform.itemComparisons().isFuzzyEqualItem(record.itemPrototype, filter, fuzzyMode);
+                if (!matches) {
+                    continue;
+                }
             }
 
-            if (!extracted.isEmpty()) {
-                break;
+            final ItemStack extracted = this.itemRepository.extractItem(record.itemPrototype, amount, true);
+            if (!extracted.isEmpty() && (destination == null || destination.canInsert(extracted))) {
+                return extracted;
             }
         }
-
-        if (destination != null) {
-
-            if (extracted.isEmpty() || !destination.canInsert(extracted)) {
-                return rv;
-            }
-
-        }
-
-        return extracted;
+        return ItemStack.EMPTY;
     }
 
     @Override
@@ -169,4 +101,3 @@ public class AdaptorItemRepository extends InventoryAdaptor {
         return null;
     }
 }
-

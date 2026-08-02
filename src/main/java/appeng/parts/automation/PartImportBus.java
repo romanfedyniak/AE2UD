@@ -181,6 +181,7 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
 
         final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
                 this.calculateItemsToSend(), filter, fzMode);
+        context.setInverted(this.getInstalledUpgrades(Upgrades.INVERTER) > 0);
 
         this.importStrategy.transfer(context);
 
@@ -189,8 +190,9 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
 
     /**
      * Builds the partition list from the bus' configured slots, matching the pre-port behaviour where
-     * an unconfigured bus imports anything and a configured one only imports the listed items (fuzzy
-     * or precise depending on {@code Upgrades.FUZZY}).
+     * an unconfigured bus imports anything and a configured one imports either the listed keys or their
+     * complement when an {@link Upgrades#INVERTER} card is installed. Matching is fuzzy or precise depending
+     * on {@code Upgrades.FUZZY}.
      */
     private IPartitionList buildFilter() {
         final var builder = IPartitionList.builder();

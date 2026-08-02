@@ -71,7 +71,17 @@ class StorageImportStrategy implements StackImportStrategy {
         var fuzzyMode = ctx.getFuzzyMode();
         boolean worked = false;
 
-        if (!partitionList.isEmpty()) {
+        if (ctx.isInverted()) {
+            // A blacklist cannot be enumerated. Ask the adaptor for any item and let the context filter
+            // reject listed candidates until the adaptor finds an allowed one.
+            while (context.hasOperationsLeft()) {
+                if (importOne(ctx, adaptor, ItemStack.EMPTY, null)) {
+                    worked = true;
+                } else {
+                    break;
+                }
+            }
+        } else if (!partitionList.isEmpty()) {
             for (AEKey key : partitionList.getItems()) {
                 if (!(key instanceof AEItemKey itemKey)) {
                     continue;
@@ -107,15 +117,24 @@ class StorageImportStrategy implements StackImportStrategy {
             return false;
         }
 
-        ItemStack simResult = fuzzyMode != null ? adaptor.simulateSimilarRemove(toSend, filter, fuzzyMode, null)
-                : adaptor.simulateRemove(toSend, filter, null);
+        var internal = context.getInternalStorage();
+        var source = context.getActionSource();
+
+        IInventoryDestination destination = stack -> {
+            final AEKey key = AEItemKey.of(stack);
+            return key != null
+                    && context.getFilter().matches(key)
+                    && internal.insert(key, stack.getCount(), Actionable.SIMULATE, source) > 0;
+        };
+
+        // Supplying the destination during simulation is essential for an inverted filter: an adaptor
+        // must skip a blacklisted stack at the front and continue looking for an allowed candidate.
+        ItemStack simResult = fuzzyMode != null ? adaptor.simulateSimilarRemove(toSend, filter, fuzzyMode, destination)
+                : adaptor.simulateRemove(toSend, filter, destination);
 
         if (simResult.isEmpty()) {
             return false;
         }
-
-        var internal = context.getInternalStorage();
-        var source = context.getActionSource();
 
         AEKey candidateKey = AEItemKey.of(simResult);
         long acceptable = internal.insert(candidateKey, simResult.getCount(), Actionable.SIMULATE, source);
@@ -124,9 +143,6 @@ class StorageImportStrategy implements StackImportStrategy {
         }
 
         int actualToSend = (int) Math.min(acceptable, toSend);
-
-        IInventoryDestination destination = stack -> internal.insert(AEItemKey.of(stack), stack.getCount(),
-                Actionable.SIMULATE, source) > 0;
 
         ItemStack removed = fuzzyMode != null ? adaptor.removeSimilarItems(actualToSend, filter, fuzzyMode, destination)
                 : adaptor.removeItems(actualToSend, filter, destination);

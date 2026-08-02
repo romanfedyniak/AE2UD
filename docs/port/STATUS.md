@@ -1,7 +1,7 @@
 # Port status — resume here
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after the terminal visible-type filter was implemented.
+2026-08-02, after Inverter Card support was added to the import bus.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -11,6 +11,17 @@ record of what each wave actually built, and the api it describes is the api tha
 One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
 `ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
 where it belongs, below.
+
+## Post-release import bus inverter support
+
+The generic import bus now accepts one `Upgrades.INVERTER` card and follows modern AE2 semantics: a
+non-empty configured filter becomes a blacklist, while an empty filter continues to import everything.
+`StackTransferContextImpl.getFilter()` exposes the effective whitelist/blacklist predicate to every
+registered import strategy, so fluids and addon key types inherit the behaviour automatically. The item
+strategy handles the non-enumerable blacklist by scanning for any candidate accepted by that predicate;
+item-handler and Storage Drawers adaptors continue past rejected candidates. The fluid strategy likewise
+walks all advertised tanks instead of failing when the first fluid is rejected. Fuzzy matching remains
+baked into the partition list, so an inverted fuzzy filter blacklists every matching variant.
 
 ## Post-release terminal type filter
 
