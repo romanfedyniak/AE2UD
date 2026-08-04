@@ -94,6 +94,7 @@ public class JEIPlugin implements IModPlugin {
         aeGuiHandler = new AEGuiHandler();
         registry.addAdvancedGuiHandlers(aeGuiHandler);
         registry.addGhostIngredientHandler(aeGuiHandler.getGuiContainerClass(), aeGuiHandler);
+        registry.addSlotIngredientProvider(aeGuiHandler.getGuiContainerClass(), aeGuiHandler);
     }
 
     private void registerDescriptions(IDefinitions definitions, IModRegistry registry) {
@@ -206,9 +207,5 @@ public class JEIPlugin implements IModPlugin {
         JEIModule jeiModule = (JEIModule) Integrations.jei();
         jeiModule.setJei(new JeiRuntimeAdapter(jeiRuntime));
         runtime = jeiRuntime;
-
-        // Registered here rather than at mod init: it needs the runtime, and it must not exist at all when
-        // HEI is absent.
-        WrappedKeyRecipeShortcut.register();
     }
 }

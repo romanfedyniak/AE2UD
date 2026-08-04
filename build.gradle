@@ -586,7 +586,7 @@ dependencies {
             // HadEnoughItems, the CleanroomMC fork of JEI, from https://maven.cleanroommc.com. It keeps
             // JEI's mod id and the mezz.jei package, so appeng.integration.modules.jei compiles against
             // it unchanged; it is published with RetroFuturaGradle obfuscation variants, so no rfg.deobf.
-            implementation 'mezz:jei:4.32.0'
+            implementation 'mezz:jei:4.34.0'
         }
         if (!(modId.equals('theoneprobe'))) {
             //noinspection DependencyNotationArgument
