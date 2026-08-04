@@ -21,6 +21,7 @@ package appeng.client.gui;
 
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -149,6 +150,15 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * for its own field; a screen with a field of ours has to answer for it.
      */
     public boolean isTextFieldFocused() {
+        return false;
+    }
+
+    /**
+     * Whether {@code what} is craftable through this screen's own network view, for the small "+" marker
+     * on a fake slot that merely displays a key rather than stocking it - a pattern's crafting grid or
+     * output. Overridden where a repo exists to ask; every other screen has none and stays uncraftable.
+     */
+    public boolean isDisplayedKeyCraftable(final AEKey what) {
         return false;
     }
 
@@ -992,8 +1002,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     this.dragSplitting = wasDragSplitting;
                     // Resolve, not fromItemStack: the latter reads a placeholder as the ordinary item it is -
                     // one WrappedGenericStack - so a slot holding a bucket of water drew "1" for "1000".
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer,
-                            GenericStack.resolveItemStack(stackInSlot), s.xPos, s.yPos);
+                    final GenericStack resolved = GenericStack.resolveItemStack(stackInSlot);
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved,
+                            resolved != null && this.isDisplayedKeyCraftable(resolved.what()), s.xPos, s.yPos);
 
                     return;
                 } else {

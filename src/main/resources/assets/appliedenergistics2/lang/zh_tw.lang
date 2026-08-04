@@ -232,8 +232,6 @@ gui.appliedenergistics2.Excluded=排除
 gui.appliedenergistics2.Partitioned=分區
 gui.appliedenergistics2.Precise=精確
 gui.appliedenergistics2.Fuzzy=模糊
-gui.appliedenergistics2.SmallFontCraft=合成
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=沒有
 
 // GUI Tooltips

@@ -225,8 +225,6 @@ gui.appliedenergistics2.Excluded=Exclus
 gui.appliedenergistics2.Partitioned=Partitionné
 gui.appliedenergistics2.Precise=Précis
 gui.appliedenergistics2.Fuzzy=Brouillon
-gui.appliedenergistics2.SmallFontCraft=Fabrication
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=Rien
 
 // GUI Tooltips

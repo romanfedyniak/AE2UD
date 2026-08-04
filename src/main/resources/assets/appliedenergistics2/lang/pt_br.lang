@@ -240,8 +240,6 @@ gui.appliedenergistics2.Excluded=Excluído
 gui.appliedenergistics2.Partitioned=Particionado
 gui.appliedenergistics2.Precise=Preciso
 gui.appliedenergistics2.Fuzzy=Impreciso
-gui.appliedenergistics2.SmallFontCraft=Fabricação
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=Nada
 
 // Dicas na GUI

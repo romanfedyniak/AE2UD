@@ -160,6 +160,15 @@ public class ItemRepo {
     }
 
     /**
+     * Whether {@code what} is craftable through this network view - for the small "+" marker on a slot
+     * that merely displays a key rather than stocking it, such as a pattern's crafting grid or output.
+     */
+    public boolean isCraftable(final AEKey what) {
+        final GridInventoryEntry e = this.entries.get(what);
+        return e != null && e.isCraftable();
+    }
+
+    /**
      * Every row the server has sent, unfiltered and unsorted — {@link #getReferenceItem(int)} walks the
      * search-filtered view instead. This is what the old {@code ContainerMEMonitorable.items} field gave
      * the JEI integration; the client-side inventory now lives here rather than on the container.

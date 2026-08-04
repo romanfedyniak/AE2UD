@@ -227,8 +227,6 @@ gui.appliedenergistics2.Excluded=Ausschließlich
 gui.appliedenergistics2.Partitioned=Partitioniert
 gui.appliedenergistics2.Precise=Präzise
 gui.appliedenergistics2.Fuzzy=Ungenau
-gui.appliedenergistics2.SmallFontCraft=Craft
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=Nichts
 
 // GUI Tooltips

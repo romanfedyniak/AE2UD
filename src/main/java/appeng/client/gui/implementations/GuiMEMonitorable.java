@@ -714,6 +714,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         });
     }
 
+    @Override
+    public boolean isDisplayedKeyCraftable(final AEKey what) {
+        return this.repo.isCraftable(what);
+    }
+
     /**
      * {@link ItemRepo}'s search string compiles as a regex ({@link Pattern#compile}), so a dropped name
      * carrying one of its metacharacters - parentheses are common in addon item names - has to be escaped

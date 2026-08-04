@@ -65,6 +65,30 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - HEI item panels avoid the side controls in wired and wireless Interface Terminals and the Interface Configuration Terminal.
 - Fixed the Interface Configuration Terminal repeating the scrollbar trough texture at expanded heights.
 
+### Craftable marks
+
+- Terminal rows that are stocked and also craftable show a small "+" in their upper-left corner, next to the amount.
+- Craftable-only rows show "+" in place of the amount instead of the old "Craft" text, following [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2).
+- Pattern terminal grid and output slots carry the same mark for keys the network can craft.
+- HEI recipe screens opened from a terminal mark every ingredient that terminal can already craft, adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).
+- Removed the now unused `GuiText.SmallFontCraft` and `GuiText.LargeFontCraft` translation keys.
+
+### Dependencies
+
+- AE2UD now requires [MixinBooter](https://github.com/CleanroomMC/MixinBooter) 10.7 or newer.
+
+### Terminals and HEI
+
+- Dropping an HEI ingredient onto a terminal search field searches for that ingredient's name, adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
+- HEI resolves fluids and other non-item keys in AE2UD slots through its `ISlotIngredientProvider` API, replacing the previous wrapped-ingredient shortcut.
+- Pattern terminal amount buttons change fluid amounts as well as item amounts.
+- Removed the unreachable Max Count amount button along with its action, tooltip, and translations.
+
+### Autocrafting
+
+- A finished autocraft job fires the item-crafted event for the player who requested it rather than a fake player, so quest and achievement mods credit autocrafting to the right player.
+- The new `AutocraftItemCraftedEvent` feature flag disables the event for packs that do not want it.
+
 ## 1.3.0 - 2026-08-02
 
 This was the first AE2UD release published on CurseForge. It does not require installing any earlier AE2UD release.

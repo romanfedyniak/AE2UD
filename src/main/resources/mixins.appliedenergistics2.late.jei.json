@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "appeng.mixin.hei",
+  "refmap": "mixins.appliedenergistics2.refmap.json",
+  "target": "@env(DEFAULT)",
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": [
+    "AccessorGuiIngredient",
+    "MixinRecipesGui"
+  ],
+  "server": []
+}

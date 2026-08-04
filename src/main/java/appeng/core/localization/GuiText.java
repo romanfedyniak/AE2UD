@@ -213,10 +213,6 @@ public enum GuiText {
     Fuzzy,
     Sticky,
 
-    // Used in a terminal to indicate that an item is craftable
-    SmallFontCraft,
-    LargeFontCraft,
-
     // Used in a ME Interface when no appropriate TileEntity was detected near it
     Nothing,
 

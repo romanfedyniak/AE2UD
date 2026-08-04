@@ -243,8 +243,6 @@ gui.appliedenergistics2.Excluded=Не принимать
 gui.appliedenergistics2.Partitioned=Размечена
 gui.appliedenergistics2.Precise=Точная
 gui.appliedenergistics2.Fuzzy=Неточная
-gui.appliedenergistics2.SmallFontCraft=Сделать
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Renamer=Пользовательское имя: (Введите, чтобы установить)
 gui.appliedenergistics2.Nothing=Ничего
 

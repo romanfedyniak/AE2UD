@@ -230,8 +230,6 @@ gui.appliedenergistics2.Excluded=Kihagyott
 gui.appliedenergistics2.Partitioned=Particionált
 gui.appliedenergistics2.Precise=Precíz
 gui.appliedenergistics2.Fuzzy=Megkülönböztető
-gui.appliedenergistics2.SmallFontCraft=Barkács
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=Semmi
 
 // GUI Tooltips

@@ -71,6 +71,7 @@ public final class AppEng {
     private static final String FORGE_CURRENT_VERSION = ForgeVersion.majorVersion + "." + ForgeVersion.minorVersion + "." + ForgeVersion.revisionVersion + "." + ForgeVersion.buildVersion;
     private static final String FORGE_MAX_VERSION = (ForgeVersion.majorVersion + 1) + ".0.0.0";
     public static final String MOD_DEPENDENCIES = "required-after:forge@[" + FORGE_CURRENT_VERSION + "," + FORGE_MAX_VERSION + ");" +
+            "required-after:mixinbooter@[10.7,);" +
             "after:ctm@[" + CTM.VERSION + ",);" +
             "after:jei@[4.33.0,);" +
             "after:itemstages;" +

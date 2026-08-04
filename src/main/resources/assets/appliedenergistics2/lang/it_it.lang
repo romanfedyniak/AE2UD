@@ -212,8 +212,6 @@ gui.appliedenergistics2.Excluded=Escluso
 gui.appliedenergistics2.Partitioned=Suddiviso
 gui.appliedenergistics2.Precise=Preciso
 gui.appliedenergistics2.Fuzzy=Vago
-gui.appliedenergistics2.SmallFontCraft=Fabbrica
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=Niente
 
 // GUI Tooltips

@@ -16,7 +16,15 @@ Selected fixes, features, implementation ideas, and reference code have also bee
 
 See [CHANGES.md](https://github.com/romanfedyniak/AE2UD/blob/main/CHANGES.md) for the current feature and fix list.
 Addon authors can find the new extension points in the [upgrade-card API](docs/UPGRADE_API.md) and
-[terminal pin API](docs/TERMINAL_PIN_API.md) guides.
+[terminal pin API](docs/TERMINAL_PIN_API.md) guides. Contributors touching the mod integrations should
+read the [mixin notes](docs/MIXINS.md).
+
+## Requirements
+
+* Minecraft 1.12.2 with Minecraft Forge.
+* [MixinBooter](https://github.com/CleanroomMC/MixinBooter) 10.7 or newer. AE2UD uses Mixin for the few
+  integrations that no public API can express, currently the craftable marks drawn over HEI recipe
+  ingredients, and will not load without it.
 
 ## RecipeStages
 

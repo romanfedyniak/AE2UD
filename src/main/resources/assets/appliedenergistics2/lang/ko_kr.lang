@@ -237,8 +237,6 @@ gui.appliedenergistics2.Excluded=제외됨
 gui.appliedenergistics2.Partitioned=분할됨
 gui.appliedenergistics2.Precise=정밀화
 gui.appliedenergistics2.Fuzzy=퍼지
-gui.appliedenergistics2.SmallFontCraft=조합
-gui.appliedenergistics2.LargeFontCraft=+
 gui.appliedenergistics2.Nothing=없음
 
 // GUI Tooltips
