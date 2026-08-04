@@ -72,6 +72,7 @@ public final class AppEng {
     private static final String FORGE_MAX_VERSION = (ForgeVersion.majorVersion + 1) + ".0.0.0";
     public static final String MOD_DEPENDENCIES = "required-after:forge@[" + FORGE_CURRENT_VERSION + "," + FORGE_MAX_VERSION + ");" +
             "after:ctm@[" + CTM.VERSION + ",);" +
+            "after:jei@[4.33.0,);" +
             "after:itemstages;" +
             "after:recipestages;" +
             "before:bogosorter@[1.2.2,);";

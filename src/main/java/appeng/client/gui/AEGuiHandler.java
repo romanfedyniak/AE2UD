@@ -15,6 +15,7 @@ import appeng.container.interfaces.ISpecialSlotIngredient;
 import appeng.container.slot.IJEITargetSlot;
 import mezz.jei.api.gui.IAdvancedGuiHandler;
 import mezz.jei.api.gui.IGhostIngredientHandler;
+import mezz.jei.api.gui.ISlotIngredientProvider;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -26,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngredientHandler<AEBaseGui> {
+public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngredientHandler<AEBaseGui>, ISlotIngredientProvider<AEBaseGui> {
     @Override
     @Nonnull
     public Class<AEBaseGui> getGuiContainerClass() {
@@ -101,6 +102,17 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         }
 
         return result;
+    }
+
+    /**
+     * Tells HEI what an ordinary slot's stack really represents, so recipe lookups, the recipe keybinds,
+     * bookmarks, tooltips, Move Items and cheat-mode clicks all see a fluid instead of its placeholder -
+     * every one of them reads a hovered slot through this before falling back to its raw {@code ItemStack}.
+     */
+    @Nullable
+    @Override
+    public Object getSlotIngredient(@Nonnull AEBaseGui guiContainer, @Nonnull Slot slot, @Nonnull ItemStack stack) {
+        return asIngredient(stack);
     }
 
     /**
