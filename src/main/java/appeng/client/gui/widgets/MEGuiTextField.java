@@ -27,6 +27,8 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import org.lwjgl.input.Keyboard;
 
+import java.awt.Rectangle;
+
 
 /**
  * A modified version of the Minecraft text field.
@@ -93,6 +95,15 @@ public class MEGuiTextField extends GuiTextField {
         final boolean withinYRange = this._yPos <= yCoord && yCoord < this._yPos + this._height;
 
         return withinXRange && withinYRange;
+    }
+
+    /**
+     * The full element span this field was constructed with - what {@link #isMouseIn} actually tests
+     * against. The inherited {@code x}/{@code y}/{@code width}/{@code height} are the padded, narrower box
+     * the caret renders in, not the whole field.
+     */
+    public Rectangle getArea() {
+        return new Rectangle(this._xPos, this._yPos, this._width, this._height);
     }
 
     public boolean textboxKeyTyped(final char keyChar, final int keyID) {

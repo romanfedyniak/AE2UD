@@ -85,11 +85,14 @@ import mezz.jei.api.gui.IGhostIngredientHandler;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import javax.annotation.Nullable;
 import java.awt.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 import org.lwjgl.opengl.GL11;
 
@@ -643,18 +646,25 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
     }
 
-    public List<IGhostIngredientHandler.Target<?>> getPinGhostTargets(Object ingredient) {
-        final AEKey key;
+    /**
+     * @return the key a dragged HEI ingredient stands for, or null for anything a pin or the search field
+     *         has no use for (an empty fluid, or a key type HEI has no wrapper for).
+     */
+    @Nullable
+    private static AEKey resolveDraggedKey(Object ingredient) {
         if (ingredient instanceof ItemStack) {
             GenericStack stack = GenericStack.resolveItemStack((ItemStack) ingredient);
-            key = stack == null ? null : stack.what();
+            return stack == null ? null : stack.what();
         } else if (ingredient instanceof FluidStack && ((FluidStack) ingredient).amount > 0) {
-            key = AEFluidKey.of((FluidStack) ingredient);
-        } else {
-            key = null;
+            return AEFluidKey.of((FluidStack) ingredient);
         }
+        return null;
+    }
+
+    public List<IGhostIngredientHandler.Target<?>> getPinGhostTargets(Object ingredient) {
+        final AEKey key = resolveDraggedKey(ingredient);
         if (key == null || this.visiblePlayerPinRows == 0) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
@@ -676,6 +686,48 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             });
         }
         return targets;
+    }
+
+    /**
+     * Dropping an ingredient from HEI's list onto the search field searches by its name - the same
+     * convention GTNH's NEI integration used.
+     */
+    public List<IGhostIngredientHandler.Target<?>> getSearchFieldGhostTargets(Object ingredient) {
+        final AEKey key = resolveDraggedKey(ingredient);
+        if (key == null) {
+            return Collections.emptyList();
+        }
+
+        final Rectangle area = this.searchField.getArea();
+        return Collections.singletonList(new IGhostIngredientHandler.Target<Object>() {
+            @Override
+            public Rectangle getArea() {
+                return area;
+            }
+
+            @Override
+            public void accept(Object ignored) {
+                searchField.setText(escapeForSearch(key.getDisplayName().getFormattedText()));
+                repo.setSearchString(searchField.getText());
+                setScrollBar();
+            }
+        });
+    }
+
+    /**
+     * {@link ItemRepo}'s search string compiles as a regex ({@link Pattern#compile}), so a dropped name
+     * carrying one of its metacharacters - parentheses are common in addon item names - has to be escaped
+     * to search for the name itself rather than misparsing or matching something else entirely.
+     */
+    private static String escapeForSearch(final String name) {
+        final StringBuilder escaped = new StringBuilder(name.length());
+        for (final char c : name.toCharArray()) {
+            if ("\\.^$|?*+()[]{}".indexOf(c) >= 0) {
+                escaped.append('\\');
+            }
+            escaped.append(c);
+        }
+        return escaped.toString();
     }
 
     @Override

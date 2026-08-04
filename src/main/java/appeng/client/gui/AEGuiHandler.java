@@ -7,6 +7,7 @@ import appeng.client.gui.implementations.GuiCraftAmount;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
 import appeng.client.gui.implementations.GuiExpandedProcessingPatternTerm;
+import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.client.gui.implementations.GuiPatternTerm;
 import appeng.client.gui.implementations.GuiUpgradeable;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -178,10 +179,12 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             List<Target<?>> phantomTargets = g.getPhantomTargets(ingredient);
             targets.addAll((List<Target<I>>) (Object) phantomTargets);
         }
-        if (gui instanceof appeng.client.gui.implementations.GuiMEMonitorable) {
-            List<Target<?>> pinTargets = ((appeng.client.gui.implementations.GuiMEMonitorable) gui)
-                    .getPinGhostTargets(ingredient);
+        if (gui instanceof GuiMEMonitorable meGui) {
+            List<Target<?>> pinTargets = meGui.getPinGhostTargets(ingredient);
             targets.addAll((List<Target<I>>) (Object) pinTargets);
+
+            List<Target<?>> searchFieldTargets = meGui.getSearchFieldGhostTargets(ingredient);
+            targets.addAll((List<Target<I>>) (Object) searchFieldTargets);
         }
         return targets;
     }
