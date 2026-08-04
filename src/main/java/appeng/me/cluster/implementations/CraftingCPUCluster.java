@@ -61,6 +61,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 
 import java.io.IOException;
 import java.util.*;
@@ -356,8 +358,48 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.isComplete = true;
 
         notifyRequester(false);
+        fireCraftedEventForRequester();
         this.requestingPlayerUUID = null;
         this.requestingPlayerName = null;
+    }
+
+    /**
+     * Fires {@link PlayerEvent.ItemCraftedEvent} for the player who requested this job, once, for the item
+     * they asked for - so achievement and quest mods gated on that event see an autocrafted result the same
+     * way they would a hand-crafted one.
+     * <p>
+     * Deliberately not a copy of upstream AE2's equivalent: upstream fires this per finished pattern under a
+     * fixed system identity that belongs to no player and no team, which was verified (against the shipped
+     * mod's bytecode) to satisfy no player-gated quest at all. Firing once here, for the real requester, is
+     * what actually credits them - at the cost of not firing per intermediate ingredient the way upstream
+     * does. Applies to both crafting-mode and processing-mode jobs alike, since a CPU's completed job has no
+     * concept of "which pattern shape produced it" once the network has it - only whether a player asked.
+     */
+    private void fireCraftedEventForRequester() {
+        if (!Platform.isServer()) {
+            return;
+        }
+        if (!AEConfig.instance().isFeatureEnabled(AEFeature.AUTOCRAFT_ITEM_CRAFTED_EVENT)) {
+            return;
+        }
+        if (this.requestingPlayerUUID == null || this.finalOutput == null) {
+            return;
+        }
+        if (!(this.finalOutput.what() instanceof AEItemKey itemKey)) {
+            // Vanilla's crafted event carries an ItemStack; a fluid or addon key type has no honest one.
+            return;
+        }
+
+        final EntityPlayer player = AppEng.proxy.getPlayerByUUID(this.requestingPlayerUUID);
+        if (!(player instanceof EntityPlayerMP playerMP)) {
+            // Offline, or never a real player (a machine-submitted job clears requestingPlayerUUID instead
+            // of pointing at one) - nobody to credit, and no fake-player fallback to credit them with.
+            return;
+        }
+
+        final long amount = this.requestedAmount > 0 ? this.requestedAmount : 1;
+        final ItemStack crafted = itemKey.toStack((int) Math.min(amount, Integer.MAX_VALUE));
+        MinecraftForge.EVENT_BUS.post(new PlayerEvent.ItemCraftedEvent(playerMP, crafted, new InventoryCrafting(new ContainerNull(), 1, 1)));
     }
 
     private void notifyRequester(boolean cancelled) {

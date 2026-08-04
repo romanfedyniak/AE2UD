@@ -158,6 +158,8 @@ public enum AEFeature {
     PATTERNS("Patterns", Constants.CATEGORY_CRAFTING_FEATURES),
     CRAFTING_CPU("CraftingCPU", Constants.CATEGORY_CRAFTING_FEATURES),
     CRAFTING_TOASTS("CraftingToasts", Constants.CATEGORY_CRAFTING_FEATURES),
+    AUTOCRAFT_ITEM_CRAFTED_EVENT("AutocraftItemCraftedEvent", Constants.CATEGORY_CRAFTING_FEATURES,
+            "Fires the item-crafted event for the player who requested a finished autocraft job, so achievement and quest mods that gate on it react to autocrafting the same way as hand-crafting."),
 
     BASIC_CARDS("BasicCards", Constants.CATEGORY_UPGRADES),
     ADVANCED_CARDS("AdvancedCards", Constants.CATEGORY_UPGRADES),
