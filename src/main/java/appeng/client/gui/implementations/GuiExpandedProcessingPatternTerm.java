@@ -54,7 +54,6 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
     private GuiImgButton divTwoBtn;
     private GuiImgButton divThreeBtn;
     private GuiImgButton minusOneBtn;
-    private GuiImgButton maxCountBtn;
     public Map<IGhostIngredientHandler.Target<?>, Object> mapTargetSlot = new HashMap<>();
 
     public GuiExpandedProcessingPatternTerm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -106,10 +105,6 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
 
             if (this.minusOneBtn == btn) {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DecreaseByOne", "1"));
-            }
-
-            if (this.maxCountBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.MaximizeCount", "1"));
             }
 
             if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
@@ -166,10 +161,6 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
         this.minusOneBtn.setHalfSize(true);
         this.buttonList.add(this.minusOneBtn);
 
-        //this.maxCountBtn = new GuiImgButton( this.guiLeft + 128, this.guiTop + this.ySize - 108, Settings.ACTIONS, ActionItems.MAX_COUNT );
-        //this.maxCountBtn.setHalfSize( true );
-        //this.buttonList.add( this.maxCountBtn );
-
         this.encodeBtn = new GuiImgButton(this.guiLeft + 147, this.guiTop + this.ySize - 142, Settings.ACTIONS, ActionItems.ENCODE);
         this.buttonList.add(this.encodeBtn);
     }
@@ -186,7 +177,6 @@ public class GuiExpandedProcessingPatternTerm extends GuiMEMonitorable implement
         this.divThreeBtn.visible = true;
         this.plusOneBtn.visible = true;
         this.minusOneBtn.visible = true;
-        //this.maxCountBtn.visible = true;
 
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
         this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
