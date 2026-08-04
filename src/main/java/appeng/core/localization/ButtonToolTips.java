@@ -163,8 +163,6 @@ public enum ButtonToolTips {
     DivideByThreeDesc,
     DecreaseByOne,
     DecreaseByOneDesc,
-    MaxCount,
-    MaxCountDesc,
     ToggleMolecularAssemblers,
     ToggleMolecularAssemblersOnDesc,
     ToggleMolecularAssemblersOffDesc,
