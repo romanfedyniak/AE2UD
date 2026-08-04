@@ -150,8 +150,6 @@ public class PacketValueConfig extends AppEngPacket {
                     cpt.increase(1);
                 } else if (this.Name.equals("PatternTerminal.DecreaseByOne")) {
                     cpt.decrease(1);
-                } else if (this.Name.equals("PatternTerminal.MaximizeCount")) {
-                    cpt.maximizeCount();
                 } else if (this.Name.equals("PatternTerminal.Substitute")) {
                     cpt.setSubstitute(this.Value.equals("1"));
                 } else if (this.Name.equals("PatternTerminal.SubstituteFluids")) {

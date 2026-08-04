@@ -374,176 +374,163 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     public void multiply(int multiple) {
-        ItemStack[] input = new ItemStack[craftingSlots.length];
         boolean canMultiplyInputs = true;
         boolean canMultiplyOutputs = true;
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
-            if (!input[x].isEmpty() && input[x].getCount() * multiple < 1) {
+        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+            final ItemStack in = craftingSlot.getStack();
+            if (!in.isEmpty() && amountIn(in) * multiple < 1) {
                 canMultiplyInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && out.getCount() * multiple < 1) {
+            if (!out.isEmpty() && amountIn(out) * multiple < 1) {
                 canMultiplyOutputs = false;
             }
         }
         if (canMultiplyInputs && canMultiplyOutputs) {
-            for (SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+                final ItemStack stack = craftingSlot.getStack();
                 if (!stack.isEmpty()) {
-                    craftingSlot.getStack().setCount(stack.getCount() * multiple);
+                    setAmount(craftingSlot, stack, amountIn(stack) * multiple);
                 }
             }
-            for (OptionalSlotFake outputSlot : this.outputSlots) {
-                ItemStack stack = outputSlot.getStack();
+            for (final OptionalSlotFake outputSlot : this.outputSlots) {
+                final ItemStack stack = outputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    outputSlot.getStack().setCount(stack.getCount() * multiple);
+                    setAmount(outputSlot, stack, amountIn(stack) * multiple);
                 }
             }
         }
     }
 
     public void divide(int divide) {
-        ItemStack[] input = new ItemStack[craftingSlots.length];
         boolean canDivideInputs = true;
         boolean canDivideOutputs = true;
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
-            if (!input[x].isEmpty() && input[x].getCount() % divide != 0) {
+        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+            final ItemStack in = craftingSlot.getStack();
+            if (!in.isEmpty() && amountIn(in) % divide != 0) {
                 canDivideInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && out.getCount() % divide != 0) {
+            if (!out.isEmpty() && amountIn(out) % divide != 0) {
                 canDivideOutputs = false;
             }
         }
         if (canDivideInputs && canDivideOutputs) {
-            for (SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+                final ItemStack stack = craftingSlot.getStack();
                 if (!stack.isEmpty()) {
-                    craftingSlot.getStack().setCount(stack.getCount() / divide);
+                    setAmount(craftingSlot, stack, amountIn(stack) / divide);
                 }
             }
-            for (OptionalSlotFake outputSlot : this.outputSlots) {
-                ItemStack stack = outputSlot.getStack();
+            for (final OptionalSlotFake outputSlot : this.outputSlots) {
+                final ItemStack stack = outputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    outputSlot.getStack().setCount(stack.getCount() / divide);
+                    setAmount(outputSlot, stack, amountIn(stack) / divide);
                 }
             }
         }
     }
 
     public void increase(int increase) {
-        ItemStack[] input = new ItemStack[craftingSlots.length];
         boolean canIncreaseInputs = true;
         boolean canIncreaseOutputs = true;
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
-            if (!input[x].isEmpty() && input[x].getCount() + increase < 1) {
+        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+            final ItemStack in = craftingSlot.getStack();
+            if (!in.isEmpty() && amountIn(in) + stepAmount(in, increase) < 1) {
                 canIncreaseInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && out.getCount() + increase < 1) {
+            if (!out.isEmpty() && amountIn(out) + stepAmount(out, increase) < 1) {
                 canIncreaseOutputs = false;
             }
         }
         if (canIncreaseInputs && canIncreaseOutputs) {
-            for (SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+                final ItemStack stack = craftingSlot.getStack();
                 if (!stack.isEmpty()) {
-                    craftingSlot.getStack().setCount(stack.getCount() + increase);
+                    setAmount(craftingSlot, stack, amountIn(stack) + stepAmount(stack, increase));
                 }
             }
-            for (OptionalSlotFake outputSlot : this.outputSlots) {
-                ItemStack stack = outputSlot.getStack();
+            for (final OptionalSlotFake outputSlot : this.outputSlots) {
+                final ItemStack stack = outputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    outputSlot.getStack().setCount(stack.getCount() + increase);
+                    setAmount(outputSlot, stack, amountIn(stack) + stepAmount(stack, increase));
                 }
             }
         }
     }
 
     public void decrease(int decrease) {
-        ItemStack[] input = new ItemStack[craftingSlots.length];
         boolean canDecreaseInputs = true;
         boolean canDecreaseOutputs = true;
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
-            if (!input[x].isEmpty() && input[x].getCount() - decrease < 1) {
+        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+            final ItemStack in = craftingSlot.getStack();
+            if (!in.isEmpty() && amountIn(in) - stepAmount(in, decrease) < 1) {
                 canDecreaseInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && out.getCount() - decrease < 1) {
+            if (!out.isEmpty() && amountIn(out) - stepAmount(out, decrease) < 1) {
                 canDecreaseOutputs = false;
             }
         }
         if (canDecreaseInputs && canDecreaseOutputs) {
-            for (SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
+                final ItemStack stack = craftingSlot.getStack();
                 if (!stack.isEmpty()) {
-                    craftingSlot.getStack().setCount(stack.getCount() - decrease);
+                    setAmount(craftingSlot, stack, amountIn(stack) - stepAmount(stack, decrease));
                 }
             }
-            for (OptionalSlotFake outputSlot : this.outputSlots) {
-                ItemStack stack = outputSlot.getStack();
+            for (final OptionalSlotFake outputSlot : this.outputSlots) {
+                final ItemStack stack = outputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    outputSlot.getStack().setCount(stack.getCount() - decrease);
+                    setAmount(outputSlot, stack, amountIn(stack) - stepAmount(stack, decrease));
                 }
             }
         }
     }
 
-    public void maximizeCount() {
-        ItemStack[] input = new ItemStack[craftingSlots.length];
-        boolean canGrowInputs = true;
-        boolean canGrowOutputs = true;
-        int maxInputStackGrowth = 0;
-        int maxOutputStackGrowth = 0;
+    /**
+     * The count these multiply/divide/+1/-1 buttons actually work on: a wrapped key's amount lives in its
+     * NBT, not in {@link ItemStack#getCount()}, which is always exactly one for a placeholder.
+     */
+    private static long amountIn(final ItemStack stack) {
+        final GenericStack wrapped = GenericStack.unwrapItemStack(stack);
+        return wrapped == null ? stack.getCount() : wrapped.amount();
+    }
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
-            if (!input[x].isEmpty() && input[x].getMaxStackSize() - input[x].getCount() > maxInputStackGrowth) {
-                maxInputStackGrowth = input[x].getMaxStackSize() - input[x].getCount();
-            }
-            if (!input[x].isEmpty() && input[x].getCount() + maxInputStackGrowth > input[x].getMaxStackSize()) {
-                canGrowInputs = false;
-            }
-        }
-        for (final OptionalSlotFake outputSlot : this.outputSlots) {
-            final ItemStack out = outputSlot.getStack();
-            {
-                maxOutputStackGrowth = out.getMaxStackSize() - out.getCount();
-            }
-            if (!out.isEmpty() && out.getCount() + maxOutputStackGrowth > out.getMaxStackSize()) {
-                canGrowOutputs = false;
-            }
-        }
-        if (canGrowInputs && canGrowOutputs) {
-            int maxStackGrowth = Math.min(maxInputStackGrowth, maxOutputStackGrowth);
-            for (SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                ItemStack stack = craftingSlot.getStack();
-                if (!stack.isEmpty()) {
-                    craftingSlot.getStack().setCount(stack.getCount() + maxStackGrowth);
-                }
-            }
-            for (OptionalSlotFake outputSlot : this.outputSlots) {
-                ItemStack stack = outputSlot.getStack();
-                if (!stack.isEmpty()) {
-                    outputSlot.getStack().setCount(stack.getCount() + maxStackGrowth);
-                }
-            }
+    /**
+     * The +1/-1 buttons step by one of the key's own unit - a bucket per press for a fluid, the same
+     * convention {@link appeng.container.AEBaseContainer#adjustAmount} uses for scrolling, since a
+     * millibucket per press would take a thousand presses to fill one.
+     */
+    private static long stepAmount(final ItemStack stack, final int steps) {
+        final GenericStack wrapped = GenericStack.unwrapItemStack(stack);
+        final long unit = wrapped == null ? 1 : Math.max(1, wrapped.what().getAmountPerUnit());
+        return (long) steps * unit;
+    }
+
+    /**
+     * Writes a new amount back the way the slot can actually hold it - a plain count for an ordinary item,
+     * or a freshly wrapped placeholder for a key whose amount cannot live in {@link ItemStack#getCount()}.
+     */
+    private static void setAmount(final Slot slot, final ItemStack stack, final long amount) {
+        final GenericStack wrapped = GenericStack.unwrapItemStack(stack);
+        if (wrapped == null) {
+            stack.setCount((int) amount);
+        } else {
+            slot.putStack(GenericStack.wrapInItemStack(wrapped.what(), amount));
         }
     }
 

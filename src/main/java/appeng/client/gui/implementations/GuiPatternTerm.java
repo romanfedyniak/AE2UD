@@ -95,7 +95,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private GuiImgButton divTwoBtn;
     private GuiImgButton divThreeBtn;
     private GuiImgButton minusOneBtn;
-    private GuiImgButton maxCountBtn;
     public Map<Target<?>, Object> mapTargetSlot = new HashMap<>();
 
     public GuiPatternTerm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -156,10 +155,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
             if (this.minusOneBtn == btn) {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DecreaseByOne", "1"));
-            }
-
-            if (this.maxCountBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.MaximizeCount", "1"));
             }
 
             if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
@@ -234,10 +229,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.minusOneBtn.setHalfSize(true);
         this.buttonList.add(this.minusOneBtn);
 
-        //this.maxCountBtn = new GuiImgButton( this.guiLeft + 128, this.guiTop + this.ySize - 108, Settings.ACTIONS, ActionItems.MAX_COUNT );
-        //this.maxCountBtn.setHalfSize( true );
-        //this.buttonList.add( this.maxCountBtn );
-
         this.encodeBtn = new GuiImgButton(this.guiLeft + 147, this.guiTop + this.ySize - 142, Settings.ACTIONS, ActionItems.ENCODE);
         this.buttonList.add(this.encodeBtn);
     }
@@ -253,7 +244,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.divThreeBtn.visible = false;
             this.plusOneBtn.visible = false;
             this.minusOneBtn.visible = false;
-            //this.maxCountBtn.visible = false;
 
             if (this.container.substitute) {
                 this.substitutionsEnabledBtn.visible = true;
@@ -283,7 +273,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.divThreeBtn.visible = true;
             this.plusOneBtn.visible = true;
             this.minusOneBtn.visible = true;
-            //this.maxCountBtn.visible = true;
         }
 
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
