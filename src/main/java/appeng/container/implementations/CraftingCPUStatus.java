@@ -23,6 +23,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
     private final GenericStack crafting;
     private final long craftingElapsedTime;
     private final String sourcePlayer;
+    private final boolean suspended;
 
     public CraftingCPUStatus() {
         this.serverCluster = null;
@@ -35,6 +36,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.crafting = null;
         this.craftingElapsedTime = 0;
         this.sourcePlayer = null;
+        this.suspended = false;
     }
 
     public CraftingCPUStatus(ICraftingCPU cluster, int serial) {
@@ -56,6 +58,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         }
         this.storage = cluster.getAvailableStorage();
         this.coprocessors = cluster.getCoProcessors();
+        this.suspended = cluster.isSuspended();
     }
 
     public CraftingCPUStatus(NBTTagCompound i) {
@@ -69,6 +72,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.crafting = i.hasKey("crafting") ? GenericStack.readTag(i.getCompoundTag("crafting")) : null;
         this.craftingElapsedTime = i.getLong("craftingElapsedTime");
         this.sourcePlayer = i.hasKey("sourcePlayer") ? i.getString("sourcePlayer") : null;
+        this.suspended = i.getBoolean("suspended");
     }
 
     public CraftingCPUStatus(ByteBuf packet) throws IOException {
@@ -93,6 +97,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         i.setLong("totalItems", totalItems);
         i.setLong("remainingItems", remainingItems);
         i.setLong("craftingElapsedTime", craftingElapsedTime);
+        i.setBoolean("suspended", suspended);
         if (sourcePlayer != null) {
             i.setString("sourcePlayer", sourcePlayer);
         }
@@ -157,6 +162,10 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     public String getSourcePlayer() {
         return sourcePlayer;
+    }
+
+    public boolean isSuspended() {
+        return suspended;
     }
 
     @Override

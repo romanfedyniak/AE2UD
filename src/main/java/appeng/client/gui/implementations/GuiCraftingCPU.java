@@ -75,6 +75,10 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
     private static final int CANCEL_TOP_OFFSET = 25;
     private static final int CANCEL_HEIGHT = 20;
     private static final int CANCEL_WIDTH = 50;
+    private static final int SUSPEND_LEFT_OFFSET = CANCEL_LEFT_OFFSET - CANCEL_WIDTH - 2;
+    private static final int SUSPEND_TOP_OFFSET = 25;
+    private static final int SUSPEND_HEIGHT = 20;
+    private static final int SUSPEND_WIDTH = 50;
 
     private static final int TITLE_TOP_OFFSET = 7;
     private static final int TITLE_LEFT_OFFSET = 8;
@@ -90,6 +94,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
 
     private final List<AEKey> visual = new ArrayList<>();
     private GuiButton cancel;
+    private GuiButton suspend;
     protected GuiImgButton terminalStyleBox;
     protected int rows = MIN_ROWS;
     private int tooltip = -1;
@@ -137,6 +142,14 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
                 AELog.debug(e);
             }
         }
+
+        if (this.suspend == btn) {
+            try {
+                NetworkHandler.instance().sendToServer(new PacketValueConfig("TileCrafting.Suspend", "Suspend"));
+            } catch (final IOException e) {
+                AELog.debug(e);
+            }
+        }
     }
 
     @Override
@@ -150,6 +163,9 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
         this.cancel = new GuiButton(0, this.guiLeft + CANCEL_LEFT_OFFSET, this.guiTop + this.ySize - CANCEL_TOP_OFFSET, CANCEL_WIDTH, CANCEL_HEIGHT, GuiText.Cancel
                 .getLocal());
         this.buttonList.add(this.cancel);
+        this.suspend = new GuiButton(0, this.guiLeft + SUSPEND_LEFT_OFFSET, this.guiTop + this.ySize - SUSPEND_TOP_OFFSET, SUSPEND_WIDTH, SUSPEND_HEIGHT, GuiText.Suspend
+                .getLocal());
+        this.buttonList.add(this.suspend);
         this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
@@ -165,6 +181,8 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
         this.cancel.enabled = !this.visual.isEmpty();
+        this.suspend.enabled = this.cancel.enabled;
+        this.suspend.displayString = this.craftingCpu.suspended ? GuiText.Resume.getLocal() : GuiText.Suspend.getLocal();
 
         final int gx = (this.width - this.xSize) / 2;
         final int gy = (this.height - this.ySize) / 2;

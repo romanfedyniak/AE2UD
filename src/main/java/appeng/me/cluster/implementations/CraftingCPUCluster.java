@@ -129,6 +129,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private boolean isComplete = true;
     private int remainingOperations;
     private boolean somethingChanged;
+    private boolean suspended = false;
 
     private long lastTime;
     private long elapsedTime;
@@ -633,6 +634,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     private void executeCrafting(final IEnergyGrid eg, final CraftingGridCache cc) {
+        if (this.suspended) {
+            return;
+        }
+
         final Iterator<Entry<ICraftingPatternDetails, TaskProgress>> i = this.workableTasks.entrySet().iterator();
 
         while (i.hasNext()) {
@@ -1007,6 +1012,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 this.requestedAmount = this.finalOutput == null ? 0 : this.finalOutput.amount();
                 this.waiting = false;
                 this.isComplete = false;
+                this.suspended = false;
 
                 // Store the requesting player if present.
                 if (src instanceof PlayerSource playerSource && playerSource.player().isPresent()) {
@@ -1067,6 +1073,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
 
         return !this.tasks.isEmpty() || !this.waitingFor.isEmpty();
+    }
+
+    @Override
+    public boolean isSuspended() {
+        return this.suspended;
+    }
+
+    public void setSuspended(final boolean suspended) {
+        this.suspended = suspended;
     }
 
     @Override
@@ -1226,6 +1241,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         data.setTag("inventory", this.writeKeyCounter(this.inventory.getAvailableStacks()));
         data.setBoolean("waiting", this.waiting);
         data.setBoolean("isComplete", this.isComplete);
+        data.setBoolean("suspended", this.suspended);
 
         if (this.myLastLink != null) {
             final NBTTagCompound link = new NBTTagCompound();
@@ -1308,6 +1324,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.waiting = data.getBoolean("waiting");
         this.isComplete = data.getBoolean("isComplete");
+        this.suspended = data.getBoolean("suspended");
 
         if (data.hasKey("link")) {
             final NBTTagCompound link = data.getCompoundTag("link");

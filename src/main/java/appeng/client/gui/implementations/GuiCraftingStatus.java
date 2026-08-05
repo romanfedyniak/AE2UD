@@ -76,15 +76,14 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     private static final int PROGRESS_START_COLOR = 0xFFE60A00;
     private static final int PROGRESS_MIDDLE_COLOR = 0xFFE6E600;
     private static final int PROGRESS_END_COLOR = 0xFF0AE600;
+    private static final int SUSPENDED_OVERLAY_COLOR = 0xA0404040;
 
     private final ContainerCraftingStatus status;
-    private GuiButton selectCPU;
     private GuiScrollbar cpuScrollbar;
 
     private GuiTabButton originalGuiBtn;
     private GuiBridge originalGui;
     private ItemStack myIcon = ItemStack.EMPTY;
-    private String selectedCPUName = "";
 
     public GuiCraftingStatus(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(new ContainerCraftingStatus(inventoryPlayer, te));
@@ -138,11 +137,6 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     public void initGui() {
         super.initGui();
 
-        this.selectCPU = new GuiButton(0, this.guiLeft + 8, this.guiTop + this.ySize - 25, 150, 20, GuiText.CraftingCPU
-                .getLocal() + ": " + GuiText.NoCraftingCPUs);
-        selectCPU.enabled = false;
-        this.buttonList.add(this.selectCPU);
-
         this.cpuScrollbar = new GuiScrollbar();
         this.cpuScrollbar.setLeft(-16);
         this.cpuScrollbar.setTop(19);
@@ -162,14 +156,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
         List<CraftingCPUStatus> cpus = this.status.getCPUs();
-        this.selectedCPUName = null;
         this.cpuScrollbar.setRange(0, Integer.max(0, cpus.size() - this.rows), 1);
-        for (CraftingCPUStatus cpu : cpus) {
-            if (cpu.getSerial() == this.status.selectedCpuSerial) {
-                this.selectedCPUName = cpu.getName();
-            }
-        }
-        this.updateCPUButtonText();
         super.drawScreen(mouseX, mouseY, btn);
     }
 
@@ -250,6 +237,10 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                                 x + 1 + progressWidth,
                                 y + CPU_TABLE_SLOT_HEIGHT - 1,
                                 calculateProgressColor(craftingProgress));
+                    }
+
+                    if (cpu.isSuspended()) {
+                        drawRect(x, y, x + CPU_TABLE_SLOT_WIDTH, y + CPU_TABLE_SLOT_HEIGHT, SUSPENDED_OVERLAY_COLOR);
                     }
                 } else {
                     final int iconIndex = 16 * 4 + 3;
@@ -440,26 +431,6 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
         int cpuId = scrollOffset + (y - 19) / CPU_TABLE_SLOT_HEIGHT;
         List<CraftingCPUStatus> cpus = this.status.getCPUs();
         return (cpuId >= 0 && cpuId < cpus.size()) ? cpus.get(cpuId) : null;
-    }
-
-    private void updateCPUButtonText() {
-        String btnTextText = GuiText.NoCraftingJobs.getLocal();
-
-        if (this.status.selectedCpuSerial >= 0)// && status.selectedCpu < status.cpus.size() )
-        {
-            if (this.selectedCPUName != null && this.selectedCPUName.length() > 0) {
-                final String name = this.selectedCPUName.substring(0, Math.min(20, this.selectedCPUName.length()));
-                btnTextText = GuiText.CPUs.getLocal() + ": " + name;
-            } else {
-                btnTextText = GuiText.CPUs.getLocal() + ": #" + this.status.selectedCpuSerial;
-            }
-        }
-
-        if (this.status.getCPUs().isEmpty()) {
-            btnTextText = GuiText.NoCraftingJobs.getLocal();
-        }
-
-        this.selectCPU.displayString = btnTextText;
     }
 
     @Override

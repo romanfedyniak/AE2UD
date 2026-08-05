@@ -100,4 +100,12 @@ public interface ICraftingCPU
 	{
 		return null;
 	}
+
+	/**
+	 * @return true if this CPU is holding its current job without sending out any new crafting work.
+	 */
+	default boolean isSuspended()
+	{
+		return false;
+	}
 }

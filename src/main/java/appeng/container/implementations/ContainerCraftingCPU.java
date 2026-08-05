@@ -85,6 +85,8 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
      */
     @GuiSync(1)
     public long elapsed = 0;
+    @GuiSync(2)
+    public boolean suspended = false;
     private GuiCraftingCPU guiCraftingCPU;
 
     public ContainerCraftingCPU(final InventoryPlayer ip, final Object te) {
@@ -150,6 +152,12 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
         this.setEstimatedTime(-1);
     }
 
+    public void suspendCrafting() {
+        if (this.getMonitor() != null) {
+            this.getMonitor().setSuspended(!this.getMonitor().isSuspended());
+        }
+    }
+
     @Override
     public void removeListener(final IContainerListener c) {
         super.removeListener(c);
@@ -170,6 +178,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
     @Override
     public void detectAndSendChanges() {
         if (Platform.isServer() && this.getMonitor() != null) {
+            this.suspended = this.getMonitor().isSuspended();
             if (this.getEstimatedTime() >= 0) {
                 final long elapsedTime = this.getMonitor().getElapsedTime();
                 final double remainingItems = this.getMonitor().getRemainingItemCount();

@@ -90,6 +90,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - A finished autocraft job fires the item-crafted event for the player who requested it rather than a fake player, so quest and achievement mods credit autocrafting to the right player.
 - The new `AutocraftItemCraftedEvent` feature flag disables the event for packs that do not want it.
+- A crafting CPU can be suspended and resumed from the Crafting Status screen, adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial). A suspended CPU holds its current job without sending out new crafting work until resumed.
+- The Crafting Status CPU list dims a suspended CPU's tile.
+- Removed the disabled "CPUs: #" label button from Crafting Status; the CPU list on the left already highlights the selected CPU, and the label was overlapping the new Suspend button.
 
 ## 1.3.0 - 2026-08-02
 
