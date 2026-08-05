@@ -15,6 +15,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).
 - Fixed the craftable "+" mark showing on real items already sitting in the crafting terminal's own crafting grid; it still shows on network item lists and the pattern terminal's placeholder ingredient slots.
+- Shift+right-click on a filled fluid container (or any other item a `ContainerItemStrategy` supports) in the player's own inventory pours it into the network instead of just shift-transferring the container; Shift+Ctrl+right-click does the whole stack. Shift+left-click is unchanged. The same Ctrl-for-the-whole-stack modifier also works when filling or emptying a held stack of containers by left/right-clicking a network row. Emptying/filling a whole stack keeps the processed result together - on the cursor (or back in the source slot) if every container was processed, otherwise the leftover unprocessed containers stay there and the processed ones move to the inventory as a single stack.
 
 ## 1.4.0 - 2026-08-05
 

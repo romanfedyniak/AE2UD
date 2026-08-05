@@ -78,6 +78,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.Consumer;
 
 
 public abstract class AEBaseContainer extends Container {
@@ -562,6 +563,13 @@ public abstract class AEBaseContainer extends Container {
                 return;
             }
 
+            // Shift+right-click on a filled container sitting in the player's own inventory: pour it into
+            // the network instead of just shift-transferring the container. See AEBaseGui#handleMouseClick.
+            if ((s instanceof SlotPlayerInv || s instanceof SlotPlayerHotBar) && action == InventoryAction.SHIFT_EMPTY_ITEM) {
+                this.emptySlotContainer(player, s, id != 0);
+                return;
+            }
+
             if (s instanceof SlotFake) {
                 // A filter slot switched off by pulling a capacity card takes no clicks. This used to be
                 // enforced inside AppEngSlot.putStack, where it also swallowed the server's own updates.
@@ -691,7 +699,7 @@ public abstract class AEBaseContainer extends Container {
         // below, because these are the two actions whose whole point is a key type the player's inventory
         // cannot hold directly.
         if (action == InventoryAction.FILL_ITEM || action == InventoryAction.EMPTY_ITEM) {
-            this.handleContainerItemAction(player, action);
+            this.handleContainerItemAction(player, action, id != 0);
             return;
         }
 
@@ -989,7 +997,11 @@ public abstract class AEBaseContainer extends Container {
             final long moved = ctx.insert(what, available, Actionable.MODULATE);
             if (moved > 0) {
                 inv.extract(index, what, moved, Actionable.MODULATE);
-                this.replaceHeldWith(player, held, ctx.getContainer());
+                this.settleStackResult(player, held, ctx.getContainer(), 1,
+                        result -> {
+                            player.inventory.setItemStack(result);
+                            this.updateHeld(player);
+                        });
             }
             return;
         }
@@ -1014,7 +1026,11 @@ public abstract class AEBaseContainer extends Container {
         final long drained = ctx.extract(what, room, Actionable.MODULATE);
         if (drained > 0) {
             inv.insert(index, what, drained, Actionable.MODULATE);
-            this.replaceHeldWith(player, held, ctx.getContainer());
+            this.settleStackResult(player, held, ctx.getContainer(), 1,
+                    result -> {
+                        player.inventory.setItemStack(result);
+                        this.updateHeld(player);
+                    });
         }
     }
 
@@ -1043,7 +1059,7 @@ public abstract class AEBaseContainer extends Container {
      * Replaces the three near-identical copies of this dance that lived in the fluid-only containers. Nothing
      * here mentions fluids: a key type that registers a strategy gets the interaction for free.
      */
-    private void handleContainerItemAction(final EntityPlayerMP player, final InventoryAction action) {
+    private void handleContainerItemAction(final EntityPlayerMP player, final InventoryAction action, final boolean wholeStack) {
         if (this.getPowerSource() == null || this.getCellInventory() == null) {
             return;
         }
@@ -1059,10 +1075,10 @@ public abstract class AEBaseContainer extends Container {
             if (held.isEmpty()) {
                 this.fillBorrowedContainer(player, what);
             } else {
-                this.fillHeldContainer(player, held, what);
+                this.fillHeldContainer(player, held, what, wholeStack);
             }
         } else if (!held.isEmpty()) {
-            this.emptyHeldContainer(player, held);
+            this.emptyHeldContainer(player, held, wholeStack);
         }
     }
 
@@ -1088,37 +1104,67 @@ public abstract class AEBaseContainer extends Container {
             return;
         }
 
-        if (!this.fillHeldContainer(player, container, what)) {
+        final ItemStack filled = this.fillOneContainer(container, what);
+        if (filled.isEmpty()) {
             this.getCellInventory().insert(containerKey, 1, Actionable.MODULATE, this.getActionSource());
+        } else {
+            // The cursor was empty (that is what got us into this branch), so this cannot displace anything.
+            player.inventory.setItemStack(filled);
+            this.updateHeld(player);
         }
     }
 
     /**
-     * @return true if anything was actually moved into the container.
+     * @param wholeStack fill every container held, one at a time, instead of just the first.
      */
-    private boolean fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what) {
+    private void fillHeldContainer(final EntityPlayerMP player, final ItemStack held, final AEKey what, final boolean wholeStack) {
+        final int iterations = wholeStack ? held.getCount() : 1;
+        ItemStack resultTemplate = ItemStack.EMPTY;
+        int processed = 0;
+
+        for (int i = 0; i < iterations; i++) {
+            final ItemStack filled = this.fillOneContainer(held, what);
+            if (filled.isEmpty()) {
+                break;
+            }
+            resultTemplate = filled;
+            processed++;
+        }
+
+        this.settleStackResult(player, held, resultTemplate, processed,
+                result -> {
+                    player.inventory.setItemStack(result);
+                    this.updateHeld(player);
+                });
+    }
+
+    /**
+     * @return the container after being filled, or {@link ItemStack#EMPTY} if nothing was moved. Does not
+     * touch {@code held} or the cursor - the caller decides where the result and any leftover end up.
+     */
+    private ItemStack fillOneContainer(final ItemStack held, final AEKey what) {
         final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
         if (ctx == null) {
-            return false;
+            return ItemStack.EMPTY;
         }
 
         // Room in the container first: asking the network for a bucket we cannot hold would charge power
         // for nothing.
         final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
         if (room <= 0) {
-            return false;
+            return ItemStack.EMPTY;
         }
 
         final long available = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what, room,
                 this.getActionSource(), Actionable.SIMULATE);
         if (available <= 0) {
-            return false;
+            return ItemStack.EMPTY;
         }
 
         final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what,
                 available, this.getActionSource());
         if (extracted <= 0) {
-            return false;
+            return ItemStack.EMPTY;
         }
 
         final long inserted = ctx.insert(what, extracted, Actionable.MODULATE);
@@ -1129,40 +1175,38 @@ public abstract class AEBaseContainer extends Container {
         }
 
         if (inserted <= 0) {
-            return false;
+            return ItemStack.EMPTY;
         }
 
-        this.replaceHeldWith(player, held, ctx.getContainer());
-        return true;
+        return ctx.getContainer();
     }
 
-    private void emptyHeldContainer(final EntityPlayerMP player, final ItemStack held) {
-        // No key type asked for: the container decides what comes out of it.
-        final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
-        if (ctx == null) {
-            return;
-        }
-
+    /**
+     * Drains one unit's worth of content from {@code ctx} into the network.
+     *
+     * @return true if anything was actually moved.
+     */
+    private boolean drainOneUnit(final ContainerItemStrategy.Context ctx) {
         final GenericStack content = ctx.getExtractableContent();
         if (content == null) {
-            return;
+            return false;
         }
 
         final AEKey what = content.what();
         final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
         if (drainable <= 0) {
-            return;
+            return false;
         }
 
         final long storable = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drainable,
                 this.getActionSource(), Actionable.SIMULATE);
         if (storable <= 0) {
-            return;
+            return false;
         }
 
         final long drained = ctx.extract(what, storable, Actionable.MODULATE);
         if (drained <= 0) {
-            return;
+            return false;
         }
 
         final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drained,
@@ -1172,24 +1216,98 @@ public abstract class AEBaseContainer extends Container {
             ctx.insert(what, drained - inserted, Actionable.MODULATE);
         }
 
-        this.replaceHeldWith(player, held, ctx.getContainer());
+        return true;
     }
 
     /**
-     * Swaps one container out of the held stack for its filled/emptied result. The strategy worked on a copy of
-     * size one, so a held stack of several buckets keeps the rest in hand and the changed one goes to the
-     * inventory - or on the floor if there is no room.
+     * @param wholeStack drain every container held, one at a time, instead of just the first.
      */
-    private void replaceHeldWith(final EntityPlayerMP player, final ItemStack held, final ItemStack result) {
-        if (held.getCount() <= 1) {
-            player.inventory.setItemStack(result);
-        } else {
-            held.shrink(1);
-            if (!player.inventory.addItemStackToInventory(result)) {
-                player.dropItem(result, false);
+    private void emptyHeldContainer(final EntityPlayerMP player, final ItemStack held, final boolean wholeStack) {
+        final int iterations = wholeStack ? held.getCount() : 1;
+        ItemStack resultTemplate = ItemStack.EMPTY;
+        int processed = 0;
+
+        for (int i = 0; i < iterations; i++) {
+            // No key type asked for: the container decides what comes out of it. held itself is never
+            // mutated here - drainOneUnit only touches the network - so reopening it every iteration is
+            // just re-reading the same size-one sample, matching openContext's own contract.
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+            if (ctx == null || !this.drainOneUnit(ctx)) {
+                break;
             }
+            resultTemplate = ctx.getContainer();
+            processed++;
         }
-        this.updateHeld(player);
+
+        this.settleStackResult(player, held, resultTemplate, processed,
+                result -> {
+                    player.inventory.setItemStack(result);
+                    this.updateHeld(player);
+                });
+    }
+
+    /**
+     * Shift+right-click on a filled container sitting in the player's own inventory: the slot-based
+     * counterpart to {@link #emptyHeldContainer}, invoked from {@link #doAction} instead of through
+     * {@link #handleContainerItemAction} since it targets a real slot, not the held item.
+     *
+     * @param wholeStack drain every container in the slot, one at a time, instead of just the first.
+     */
+    private void emptySlotContainer(final EntityPlayerMP player, final Slot slot, final boolean wholeStack) {
+        if (this.getPowerSource() == null || this.getCellInventory() == null) {
+            return;
+        }
+
+        final ItemStack initial = slot.getStack();
+        if (initial.isEmpty()) {
+            return;
+        }
+
+        final int iterations = wholeStack ? initial.getCount() : 1;
+        ItemStack resultTemplate = ItemStack.EMPTY;
+        int processed = 0;
+
+        for (int i = 0; i < iterations; i++) {
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(initial, null);
+            if (ctx == null || !this.drainOneUnit(ctx)) {
+                break;
+            }
+            resultTemplate = ctx.getContainer();
+            processed++;
+        }
+
+        this.settleStackResult(player, initial, resultTemplate, processed, slot::putStack);
+    }
+
+    /**
+     * Applies the net effect of filling/emptying {@code processed} out of {@code original}'s units:
+     * if every unit was processed, {@code setPrimary} gets the whole result stack, ready to be poured or
+     * filled further right away; otherwise it gets whatever is left unprocessed, and the processed units
+     * are merged into one stack and handed to the player's inventory - dropped at their feet as that one
+     * stack if there is no room, rather than spilling out one at a time.
+     */
+    private void settleStackResult(final EntityPlayerMP player, final ItemStack original, final ItemStack resultTemplate,
+            final int processed, final Consumer<ItemStack> setPrimary) {
+        if (processed <= 0) {
+            return;
+        }
+
+        final int remaining = original.getCount() - processed;
+        final ItemStack resultStack = resultTemplate.copy();
+        resultStack.setCount(processed);
+
+        if (remaining <= 0) {
+            setPrimary.accept(resultStack);
+            return;
+        }
+
+        final ItemStack remainder = original.copy();
+        remainder.setCount(remaining);
+        setPrimary.accept(remainder);
+
+        if (!player.inventory.addItemStackToInventory(resultStack)) {
+            player.dropItem(resultStack, false);
+        }
     }
 
     protected void updateHeld(final EntityPlayerMP p) {

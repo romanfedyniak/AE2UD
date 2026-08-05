@@ -34,6 +34,7 @@ public enum InventoryAction {
     // fluid term
     FILL_ITEM,
     EMPTY_ITEM,
+    SHIFT_EMPTY_ITEM,
 
     // extra...
     MOVE_REGION,

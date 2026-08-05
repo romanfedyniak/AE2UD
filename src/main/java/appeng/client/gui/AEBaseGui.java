@@ -441,6 +441,18 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
         }
 
+        // Shift+right-click a filled container in the player's own inventory: pour it into the network
+        // instead of just shift-transferring the container itself, same as right-clicking it works on a
+        // terminal row. Shift+left-click is untouched - it stays the ordinary shift-transfer. Ctrl empties
+        // the whole stack instead of just one container.
+        if ((slot instanceof SlotPlayerInv || slot instanceof SlotPlayerHotBar) && clickType == ClickType.QUICK_MOVE
+                && mouseButton == 1 && slot.getHasStack()
+                && ContainerItemStrategies.getContainedStack(slot.getStack()) != null) {
+            NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SHIFT_EMPTY_ITEM,
+                    slotIdx, isCtrlKeyDown() ? 1 : 0));
+            return;
+        }
+
         if (slot instanceof SlotFake) {
             if (mouseButton == 2 && slot.getHasStack() && this.allowsTypedAmount(slot)) {
                 NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SET_AMOUNT, slotIdx, 0));
@@ -627,7 +639,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
             if (action != null) {
                 ((AEBaseContainer) this.inventorySlots).setTargetStack(entry == null ? null : entry.getWhat());
-                final PacketInventoryAction p = new PacketInventoryAction(action, this.getInventorySlots().size(), 0);
+                // Ctrl fills/empties the whole held stack of containers instead of just one.
+                final long id = (action == InventoryAction.EMPTY_ITEM || action == InventoryAction.FILL_ITEM) && isCtrlKeyDown() ? 1 : 0;
+                final PacketInventoryAction p = new PacketInventoryAction(action, this.getInventorySlots().size(), id);
                 NetworkHandler.instance().sendToServer(p);
             }
 
