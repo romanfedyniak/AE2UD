@@ -84,6 +84,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - HEI resolves fluids and other non-item keys in AE2UD slots through its `ISlotIngredientProvider` API, replacing the previous wrapped-ingredient shortcut.
 - Pattern terminal amount buttons change fluid amounts as well as item amounts.
 - Removed the unreachable Max Count amount button along with its action, tooltip, and translations.
+- Fixed the Level Emitter's mB/B unit toggle button not being excluded from the HEI ingredient panel, so it could be covered or miss clicks whenever it was visible.
 
 ### Autocrafting
 

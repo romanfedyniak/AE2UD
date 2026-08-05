@@ -43,7 +43,10 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
+import java.awt.Rectangle;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class GuiLevelEmitter extends GuiUpgradeable {
@@ -211,6 +214,16 @@ public class GuiLevelEmitter extends GuiUpgradeable {
                 this.level.setText(AmountEntry.format(synced, scale));
             }
         }
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        List<Rectangle> exclusionArea = new ArrayList<>(super.getJEIExclusionArea());
+        if (this.unitToggle.visible) {
+            exclusionArea.add(new Rectangle(this.unitToggle.x - 1, this.unitToggle.y - 1,
+                    this.unitToggle.width + 2, this.unitToggle.height + 2));
+        }
+        return exclusionArea;
     }
 
     @Override
