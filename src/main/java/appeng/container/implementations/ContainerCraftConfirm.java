@@ -111,6 +111,14 @@ public class ContainerCraftConfirm extends AEBaseContainer {
     public boolean noCPU = true;
     @GuiSync(7)
     public String myName = "";
+    /**
+     * False when this job was requested with no amount already chosen (e.g. a Ctrl+Move Items HEI
+     * transfer) - Cancel then has nowhere useful to step back to, so it returns to the terminal
+     * instead of an empty {@link ContainerCraftAmount}. True (the default) for every job that went
+     * through that screen, matching the existing "Cancel steps back to it" behaviour.
+     */
+    @GuiSync(8)
+    public boolean hasAmountScreen = true;
     private GuiCraftConfirm guiCraftConfirm;
 
     public ContainerCraftConfirm(final InventoryPlayer ip, final ITerminalHost te) {

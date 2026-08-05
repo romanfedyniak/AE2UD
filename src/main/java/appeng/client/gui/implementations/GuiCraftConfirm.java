@@ -550,9 +550,15 @@ public class GuiCraftConfirm extends AEBaseGui {
         }
 
         if (btn == this.cancel) {
-            // Back to the order, not out of it. The amount screen carries its own way back to the terminal,
-            // so the way out is one button further rather than gone.
-            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_AMOUNT));
+            if (this.ccc.hasAmountScreen) {
+                // Back to the order, not out of it. The amount screen carries its own way back to the
+                // terminal, so the way out is one button further rather than gone.
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_AMOUNT));
+            } else if (this.OriginalGui != null) {
+                // No amount screen preceded this job (e.g. a Ctrl+Move Items HEI transfer), so there is
+                // nothing to step back to - go straight to the terminal instead of an empty amount screen.
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.OriginalGui));
+            }
         }
 
         if (btn == this.start) {

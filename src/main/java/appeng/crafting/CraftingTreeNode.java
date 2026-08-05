@@ -56,6 +56,9 @@ public class CraftingTreeNode {
     private final ArrayList<CraftingTreeProcess> nodes = new ArrayList<>();
     private final ICraftingGrid cc;
     private final int depth;
+    // supplied directly by the caller instead of looked up from the network - see
+    // appeng.crafting.VirtualPatternDetails.
+    private final ICraftingPatternDetails rootPattern;
     private int bytes = 0;
     private boolean canEmit = false;
     private long missing = 0;
@@ -63,6 +66,10 @@ public class CraftingTreeNode {
     private boolean exhausted = false;
 
     public CraftingTreeNode(final ICraftingGrid cc, final CraftingJob job, final AEKey wat, final CraftingTreeProcess par, final int slot, final int depth) {
+        this(cc, job, wat, par, slot, depth, null);
+    }
+
+    public CraftingTreeNode(final ICraftingGrid cc, final CraftingJob job, final AEKey wat, final CraftingTreeProcess par, final int slot, final int depth, final ICraftingPatternDetails rootPattern) {
         this.what = wat;
         this.parent = par;
         this.slot = slot;
@@ -70,12 +77,18 @@ public class CraftingTreeNode {
         this.job = job;
         this.cc = cc;
         this.depth = depth;
+        this.rootPattern = rootPattern;
 
-        this.canEmit = cc.canEmitFor(this.what);
+        this.canEmit = rootPattern == null && cc.canEmitFor(this.what);
     }
 
     public void addNode() {
         if (!nodes.isEmpty()) {
+            return;
+        }
+
+        if (this.rootPattern != null) {
+            this.nodes.add(new CraftingTreeProcess(cc, job, this.rootPattern, this, depth + 1));
             return;
         }
 

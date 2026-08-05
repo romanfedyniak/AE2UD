@@ -69,6 +69,25 @@ public interface ICraftingGrid extends IGridCache
 	Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, ICraftingCallback callback );
 
 	/**
+	 * Begin calculating a crafting job for an ad-hoc combination that has no pattern registered
+	 * anywhere in the network - e.g. a crafting-table recipe assembled on the fly from whatever
+	 * ingredients are missing for it. {@code rootPattern} is used to satisfy {@code craftWhat}
+	 * directly, skipping the usual network pattern lookup for that single step; everything
+	 * {@code rootPattern} itself needs is still resolved the normal way.
+	 *
+	 * @param world crafting world
+	 * @param grid network
+	 * @param actionSrc source
+	 * @param craftWhat result
+	 * @param rootPattern the synthetic pattern that produces {@code craftWhat}
+	 * @param callback optional
+	 *
+	 * @return a future which will at an undetermined point in the future get you the {@link ICraftingJob} do not wait
+	 * on this, your be waiting forever.
+	 */
+	Future<ICraftingJob> beginCraftingJobFromDetails( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, ICraftingPatternDetails rootPattern, ICraftingCallback callback );
+
+	/**
 	 * Submit the job to the Crafting system for processing.
 	 *
 	 * @param job - the crafting job from beginCraftingJob

@@ -652,6 +652,14 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             final ICraftingPatternDetails details = e.getKey();
 
             if (this.canCraft(details, details.getCondensedInputs())) {
+                if (details instanceof VirtualPatternDetails) {
+                    // Not a registered pattern, so no medium will ever claim to provide for it -
+                    // its ingredients are already gathered at this point, so that's the craft done.
+                    this.completeJob();
+                    this.cancel();
+                    return;
+                }
+
                 InventoryCrafting ic = null;
                 GenericStack[] extras = EMPTY_EXTRAS;
                 GenericStack[] fabricated = EMPTY_EXTRAS;

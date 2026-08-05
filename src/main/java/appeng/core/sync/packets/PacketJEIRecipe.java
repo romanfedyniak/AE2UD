@@ -25,18 +25,32 @@ import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
+import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.MEStorage;
+import appeng.container.AEBaseContainer;
+import appeng.container.ContainerNull;
+import appeng.container.ContainerOpenContext;
+import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.implementations.ContainerPatternEncoder;
+import appeng.container.interfaces.IInventorySlotAware;
+import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
+import appeng.crafting.VirtualPatternDetails;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.hooks.TickHandler;
 import appeng.items.storage.ItemViewCell;
+import appeng.util.IWorldCallable;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.AdaptorItemHandler;
@@ -47,10 +61,15 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
+import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import java.io.ByteArrayInputStream;
@@ -59,6 +78,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
@@ -84,6 +104,14 @@ public class PacketJEIRecipe extends AppEngPacket {
     private List<ItemStack> output;
     static ItemStack[] emptyArray = {ItemStack.EMPTY};
 
+    /**
+     * Set by a Ctrl+Move Items transfer - see RecipeTransferHandler. Craft whatever this recipe is
+     * missing instead of just leaving the matching slots empty. Adapted from
+     * https://github.com/NotMyWing/NAE2.
+     */
+    private boolean craftMissing;
+    /** Ctrl+Shift: skip the confirm screen and start that craft immediately. */
+    private boolean craftMissingAutoStart;
 
     // automatic.
     public PacketJEIRecipe(final ByteBuf stream) throws IOException {
@@ -114,6 +142,9 @@ public class PacketJEIRecipe extends AppEngPacket {
                     this.output.add(stackFromNBT(outputList.getCompoundTagAt(z)));
                 }
             }
+
+            this.craftMissing = comp.getBoolean("craftMissing");
+            this.craftMissingAutoStart = comp.getBoolean("craftMissingAutoStart");
         }
 
     }
@@ -286,6 +317,10 @@ public class PacketJEIRecipe extends AppEngPacket {
                     ItemHandlerUtil.setStackInSlot(outputSlots, i, this.output.get(i));
                 }
             }
+
+            if (this.craftMissing) {
+                this.tryCraftMissing(pmp, con, cct, grid, crafting, craftMatrix);
+            }
         }
     }
 
@@ -303,6 +338,173 @@ public class PacketJEIRecipe extends AppEngPacket {
             }
         }
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Ctrl+Move Items: the crafting matrix still has empty slots after the fill pass above, but every
+     * one of them can be filled by a network-craftable item. Builds a {@link VirtualPatternDetails}
+     * for the whole recipe - what's already sitting in the matrix plus one craftable variant per
+     * still-empty slot - and starts a crafting job for it, exactly like requesting an autocraft from
+     * a terminal. Adapted from https://github.com/NotMyWing/NAE2.
+     */
+    private void tryCraftMissing(final EntityPlayerMP player, final Container con, final IContainerCraftingPacket cct,
+            final IGrid grid, final ICraftingGrid crafting, final IItemHandler craftMatrix) {
+        if (!(con instanceof AEBaseContainer) || con instanceof ContainerPatternEncoder) {
+            return;
+        }
+
+        if (craftMatrix.getSlots() != 9 || this.output == null || this.output.size() != 1) {
+            return;
+        }
+
+        final ItemStack wantedOutput = this.output.get(0);
+        if (wantedOutput == null || wantedOutput.isEmpty()) {
+            return;
+        }
+
+        // The client only claims to be missing something; verify it against the real recipe before
+        // trusting it with a crafting job.
+        final InventoryCrafting testFrame = new InventoryCrafting(new ContainerNull(), 3, 3);
+        for (int x = 0; x < craftMatrix.getSlots() && x < this.recipe.size(); x++) {
+            if (this.recipe.get(x) != null && this.recipe.get(x).length > 0) {
+                testFrame.setInventorySlotContents(x, this.recipe.get(x)[0]);
+            }
+        }
+
+        final IRecipe matchingRecipe = CraftingManager.findMatchingRecipe(testFrame, player.world);
+        if (matchingRecipe == null || !ItemStack.areItemStacksEqual(matchingRecipe.getRecipeOutput(), wantedOutput)) {
+            return;
+        }
+
+        final KeyCounter ingredients = new KeyCounter();
+        boolean anyMissing = false;
+
+        for (int x = 0; x < craftMatrix.getSlots(); x++) {
+            final ItemStack inSlot = craftMatrix.getStackInSlot(x);
+
+            if (!inSlot.isEmpty()) {
+                final AEKey key = AEItemKey.of(inSlot);
+                if (key != null) {
+                    ingredients.add(key, inSlot.getCount());
+                }
+                continue;
+            }
+
+            if (x >= this.recipe.size() || this.recipe.get(x) == null) {
+                continue;
+            }
+
+            for (final ItemStack variant : this.recipe.get(x)) {
+                if (variant == null || variant.isEmpty()) {
+                    continue;
+                }
+
+                final AEKey key = AEItemKey.of(variant);
+                if (key == null || crafting.getCraftingFor(key, null, 0, player.world).isEmpty()) {
+                    continue;
+                }
+
+                ingredients.add(key, variant.getCount());
+                anyMissing = true;
+                break;
+            }
+        }
+
+        if (!anyMissing) {
+            return;
+        }
+
+        final GenericStack[] inputs = new GenericStack[ingredients.size()];
+        int i = 0;
+        for (final var entry : ingredients) {
+            inputs[i++] = new GenericStack(entry.getKey(), entry.getLongValue());
+        }
+
+        final AEKey outputKey = AEItemKey.of(wantedOutput);
+        if (outputKey == null) {
+            return;
+        }
+
+        final GenericStack craftWhat = new GenericStack(outputKey, wantedOutput.getCount());
+        final VirtualPatternDetails pattern = new VirtualPatternDetails(inputs, new GenericStack[] { craftWhat });
+
+        Future<ICraftingJob> futureJob = null;
+        try {
+            futureJob = crafting.beginCraftingJobFromDetails(player.world, grid, cct.getActionSource(), craftWhat, pattern, null);
+
+            if (this.craftMissingAutoStart) {
+                // Ctrl+Shift: opening the confirm screen just to auto-submit and immediately close it
+                // again would flash it on screen for a frame. Wait for the job off-screen instead.
+                TickHandler.INSTANCE.addCallable(null, new DeferredCraftSubmit(futureJob, crafting, cct.getActionSource()));
+                return;
+            }
+
+            final AEBaseContainer base = (AEBaseContainer) con;
+            final ContainerOpenContext context = base.getOpenContext();
+            if (context == null) {
+                futureJob.cancel(true);
+                return;
+            }
+
+            final TileEntity te = context.getTile();
+            if (te != null) {
+                Platform.openGUI(player, te, context.getSide(), GuiBridge.GUI_CRAFTING_CONFIRM);
+            } else if (base instanceof IInventorySlotAware) {
+                final IInventorySlotAware slotAware = (IInventorySlotAware) base;
+                Platform.openGUI(player, slotAware.getInventorySlot(), GuiBridge.GUI_CRAFTING_CONFIRM, slotAware.isBaubleSlot());
+            }
+
+            if (player.openContainer instanceof ContainerCraftConfirm) {
+                final ContainerCraftConfirm ccc = (ContainerCraftConfirm) player.openContainer;
+                ccc.setAutoStart(this.craftMissingAutoStart);
+                ccc.setJob(futureJob);
+                // No amount was ever chosen for this job, so Cancel has nothing to step back to.
+                ccc.hasAmountScreen = false;
+            } else {
+                futureJob.cancel(true);
+            }
+        } catch (final Throwable e) {
+            if (futureJob != null) {
+                futureJob.cancel(true);
+            }
+            AELog.debug(e);
+        }
+    }
+
+    /**
+     * Polls a Ctrl+Shift missing-ingredients job every tick until it resolves, then submits it -
+     * without ever opening a GUI for it, so there is nothing on screen to flash.
+     */
+    private static final class DeferredCraftSubmit implements IWorldCallable<Void> {
+
+        private final Future<ICraftingJob> futureJob;
+        private final ICraftingGrid crafting;
+        private final IActionSource actionSrc;
+
+        DeferredCraftSubmit(final Future<ICraftingJob> futureJob, final ICraftingGrid crafting, final IActionSource actionSrc) {
+            this.futureJob = futureJob;
+            this.crafting = crafting;
+            this.actionSrc = actionSrc;
+        }
+
+        @Override
+        public Void call(final World world) {
+            if (!this.futureJob.isDone()) {
+                TickHandler.INSTANCE.addCallable(null, this);
+                return null;
+            }
+
+            try {
+                final ICraftingJob job = this.futureJob.get();
+                if (job != null) {
+                    this.crafting.submitJob(job, null, null, true, this.actionSrc);
+                }
+            } catch (final Exception e) {
+                AELog.debug(e);
+            }
+
+            return null;
+        }
     }
 
 }

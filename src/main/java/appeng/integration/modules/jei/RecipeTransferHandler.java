@@ -37,6 +37,7 @@ import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.transfer.RecipeTransferErrorInternal;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
@@ -167,6 +168,13 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         recipe.setTag("outputs", outputs);
+
+        // Ctrl+Move Items: craft whatever this recipe is missing instead of refusing the transfer.
+        // Ctrl+Shift additionally starts that craft right away instead of opening the confirm screen.
+        if (GuiScreen.isCtrlKeyDown() && (container instanceof ContainerCraftingTerm || container instanceof ContainerWirelessCraftingTerminal)) {
+            recipe.setBoolean("craftMissing", true);
+            recipe.setBoolean("craftMissingAutoStart", maxTransfer);
+        }
 
         try {
             NetworkHandler.instance().sendToServer(new PacketJEIRecipe(recipe));

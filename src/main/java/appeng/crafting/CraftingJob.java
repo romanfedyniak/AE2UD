@@ -75,6 +75,14 @@ public class CraftingJob implements Runnable, ICraftingJob {
     }
 
     public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingCallback callback) {
+        this(w, grid, actionSrc, what, null, callback);
+    }
+
+    /**
+     * @param rootPattern if non-null, satisfies {@code what} directly instead of asking the network
+     * for a registered pattern - see {@link appeng.crafting.VirtualPatternDetails}.
+     */
+    public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingPatternDetails rootPattern, final ICraftingCallback callback) {
         this.world = this.wrapWorld(w);
         this.output = what;
         this.actionSrc = actionSrc;
@@ -85,12 +93,12 @@ public class CraftingJob implements Runnable, ICraftingJob {
         final IStorageService sg = grid.getCache(IStorageService.class);
         this.original = new MECraftingInventory(sg.getCachedInventory());
 
-        this.setTree(this.getCraftingTree(cc, what));
+        this.setTree(this.getCraftingTree(cc, what, rootPattern));
         this.availableCheck = null;
     }
 
-    private CraftingTreeNode getCraftingTree(final ICraftingGrid cc, final GenericStack what) {
-        return new CraftingTreeNode(cc, this, what.what(), null, -1, 0);
+    private CraftingTreeNode getCraftingTree(final ICraftingGrid cc, final GenericStack what, final ICraftingPatternDetails rootPattern) {
+        return new CraftingTreeNode(cc, this, what.what(), null, -1, 0, rootPattern);
     }
 
     void refund(final AEKey what, final long amount) {

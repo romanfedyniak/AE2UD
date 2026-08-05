@@ -401,6 +401,17 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     @Override
+    public Future<ICraftingJob> beginCraftingJobFromDetails(final World world, final IGrid grid, final IActionSource actionSrc, final GenericStack craftWhat, final ICraftingPatternDetails rootPattern, final ICraftingCallback cb) {
+        if (world == null || grid == null || actionSrc == null || craftWhat == null || rootPattern == null) {
+            throw new IllegalArgumentException("Invalid Crafting Job Request");
+        }
+
+        final CraftingJob job = new CraftingJob(world, grid, actionSrc, craftWhat, rootPattern, cb);
+
+        return CRAFTING_POOL.submit(job, job);
+    }
+
+    @Override
     public ICraftingLink submitJob(final ICraftingJob job, final ICraftingRequester requestingMachine, final ICraftingCPU target, final boolean prioritizePower, final IActionSource src) {
         if (job.isSimulation()) {
             return null;

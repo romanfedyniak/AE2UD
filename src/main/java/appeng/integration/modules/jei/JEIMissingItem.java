@@ -13,6 +13,7 @@ import mezz.jei.gui.TooltipRenderer;
 import mezz.jei.gui.recipes.RecipeLayout;
 import mezz.jei.gui.recipes.RecipeTransferButton;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.translation.I18n;
@@ -238,6 +239,28 @@ public class JEIMissingItem implements IRecipeTransferError {
                 }
                 if (errored) {
                     tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.MissingItem"));
+
+                    // Ctrl+Move Items crafts whatever this recipe is missing instead of refusing the
+                    // transfer - see RecipeTransferHandler and PacketJEIRecipe. Adapted from
+                    // https://github.com/NotMyWing/NAE2.
+                    int inputSlots = 0;
+                    for (IGuiIngredient<?> i : recipeLayout.getItemStacks().getGuiIngredients().values()) {
+                        if (i.isInput() && !i.getAllIngredients().isEmpty()) {
+                            inputSlots++;
+                        }
+                    }
+
+                    if (foundAnyCraftable) {
+                        if (this.craftableSlots.size() + this.foundSlots.size() == inputSlots) {
+                            tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.CraftMissingHint"));
+                        } else {
+                            tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.CraftMissingPartialHint"));
+                        }
+                    } else {
+                        tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.CraftMissingBypassHint"));
+                    }
+
+                    b.enabled = GuiScreen.isCtrlKeyDown();
                 }
                 if (foundAnyCraftable) {
                     tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.CraftableItem"));

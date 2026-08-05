@@ -428,6 +428,9 @@ gui.tooltips.appliedenergistics2.SearchFieldNames=Interface Names
 gui.tooltips.appliedenergistics2.PartialTransfer=Move stored items into the crafting grid
 gui.tooltips.appliedenergistics2.MissingItem=§cMissing item
 gui.tooltips.appliedenergistics2.CraftableItem=§9Craftable item
+gui.tooltips.appliedenergistics2.CraftMissingHint=§9Hold Ctrl to craft the missing items
+gui.tooltips.appliedenergistics2.CraftMissingPartialHint=§9Hold Ctrl to craft what it can and transfer the rest
+gui.tooltips.appliedenergistics2.CraftMissingBypassHint=§9Hold Ctrl to transfer anyway
 
 // Units
 gui.appliedenergistics2.units.appliedenergstics=AE

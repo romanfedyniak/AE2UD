@@ -9,6 +9,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - AE2UD is a heavily reworked, API-breaking fork and is not a drop-in replacement for another AE2 build.
 - Back up the world before installing or updating the mod.
 
+## Unreleased
+
+### Terminals and HEI
+
+- Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).
+
 ## 1.4.0 - 2026-08-05
 
 ### Universal storage components
