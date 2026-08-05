@@ -51,7 +51,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
     protected void renderToolTip(final ItemStack stack, final int x, final int y) {
         final Slot s = this.getSlot(x, y);
 
-        final int bigNumber = AEConfig.instance().useTerminalUseLargeFont() ? 999 : 9999;
+        final int bigNumber = 9999;
         final List<String> currentToolTip = this.getItemToolTip(stack);
 
         if (s instanceof SlotME && !stack.isEmpty()) {

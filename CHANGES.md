@@ -72,6 +72,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Pattern terminal grid and output slots carry the same mark for keys the network can craft.
 - HEI recipe screens opened from a terminal mark every ingredient that terminal can already craft, adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).
 - Removed the now unused `GuiText.SmallFontCraft` and `GuiText.LargeFontCraft` translation keys.
+- Removed the `useTerminalUseLargeFont` client setting; slot amounts and the craftable "+" now render at one fixed, larger size that still fits a four-digit count.
 
 ### Dependencies
 

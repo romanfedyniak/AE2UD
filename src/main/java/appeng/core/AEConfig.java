@@ -76,7 +76,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private boolean removeCrashingItemsOnLoad = false;
     private int formationPlaneEntityLimit = 128;
     private boolean enableEffects = true;
-    private boolean useLargeFonts = false;
     private boolean useColoredCraftingStatus;
     private boolean disableColoredCableRecipesInJEI = true;
     private int craftingCalculationTimePerTick = 5;
@@ -258,7 +257,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private void clientSync() {
         this.disableColoredCableRecipesInJEI = this.get("Client", "disableColoredCableRecipesInJEI", true).getBoolean(true);
         this.enableEffects = this.get("Client", "enableEffects", true).getBoolean(true);
-        this.useLargeFonts = this.get("Client", "useTerminalUseLargeFont", false).getBoolean(false);
         this.useColoredCraftingStatus = this.get("Client", "useColoredCraftingStatus", true).getBoolean(true);
         this.showCraftableTooltip = this.get("Client", "showCraftableTooltip", true, "Whether to add \"Craftable\" to item tooltips when they can be crafted automatically.").getBoolean(true);
         this.showPlacementPreview = this.get("Client", "showPlacementPreview", true, "Whether to show a preview of part and facade placement.").getBoolean(true);
@@ -451,10 +449,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         return this.settings;
     }
 
-    public boolean useTerminalUseLargeFont() {
-        return this.useLargeFonts;
-    }
-
     public int craftItemsByStackAmounts(final int i) {
         return this.craftByStacks[i];
     }
@@ -510,10 +504,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public boolean isEnableEffects() {
         return this.enableEffects;
-    }
-
-    public boolean isUseLargeFonts() {
-        return this.useLargeFonts;
     }
 
     public boolean isUseColoredCraftingStatus() {
