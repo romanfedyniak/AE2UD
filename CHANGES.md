@@ -9,7 +9,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - AE2UD is a heavily reworked, API-breaking fork and is not a drop-in replacement for another AE2 build.
 - Back up the world before installing or updating the mod.
 
-## Unreleased
+## 1.4.0 - 2026-08-05
 
 ### Universal storage components
 
