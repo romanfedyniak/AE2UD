@@ -14,6 +14,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 ### Terminals and HEI
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).
+- Fixed the craftable "+" mark showing on real items already sitting in the crafting terminal's own crafting grid; it still shows on network item lists and the pattern terminal's placeholder ingredient slots.
 
 ## 1.4.0 - 2026-08-05
 

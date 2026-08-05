@@ -1003,8 +1003,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     // Resolve, not fromItemStack: the latter reads a placeholder as the ordinary item it is -
                     // one WrappedGenericStack - so a slot holding a bucket of water drew "1" for "1000".
                     final GenericStack resolved = GenericStack.resolveItemStack(stackInSlot);
+                    // SlotCraftingMatrix (the crafting terminal's actual grid) holds a real item already
+                    // placed there, not a browsable network key - marking it craftable would be
+                    // nonsensical. SlotFakeCraftingMatrix (the pattern terminal's ingredient slots) is a
+                    // placeholder for a key and keeps showing it.
                     this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved,
-                            resolved != null && this.isDisplayedKeyCraftable(resolved.what()), s.xPos, s.yPos);
+                            resolved != null && !(s instanceof SlotCraftingMatrix) && this.isDisplayedKeyCraftable(resolved.what()), s.xPos, s.yPos);
 
                     return;
                 } else {
