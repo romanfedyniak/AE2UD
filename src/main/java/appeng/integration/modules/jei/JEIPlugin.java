@@ -88,7 +88,6 @@ public class JEIPlugin implements IModPlugin {
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerCraftingTerm.class), VanillaRecipeCategoryUid.CRAFTING);
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerWirelessCraftingTerminal.class), VanillaRecipeCategoryUid.CRAFTING);
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerPatternTerm.class), Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
-        registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerExpandedProcessingPatternTerm.class), Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerWirelessPatternTerminal.class), Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
 
         aeGuiHandler = new AEGuiHandler();

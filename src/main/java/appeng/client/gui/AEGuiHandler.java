@@ -6,7 +6,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.gui.implementations.GuiCraftAmount;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
-import appeng.client.gui.implementations.GuiExpandedProcessingPatternTerm;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.client.gui.implementations.GuiPatternTerm;
 import appeng.client.gui.implementations.GuiUpgradeable;
@@ -202,7 +201,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
      */
     @Override
     public <I> boolean quickMove(@Nonnull AEBaseGui gui, @Nonnull I ingredient) {
-        if (!(gui instanceof GuiUpgradeable || gui instanceof GuiPatternTerm || gui instanceof GuiExpandedProcessingPatternTerm)) {
+        if (!(gui instanceof GuiUpgradeable || gui instanceof GuiPatternTerm)) {
             return false;
         }
 

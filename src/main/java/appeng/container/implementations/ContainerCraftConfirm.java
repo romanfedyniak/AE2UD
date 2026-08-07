@@ -48,7 +48,6 @@ import appeng.crafting.CraftingJob;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.PlayerSource;
 import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartExpandedProcessingPatternTerminal;
 import appeng.parts.reporting.PartPatternTerminal;
 import appeng.parts.reporting.PartTerminal;
 import appeng.util.Platform;
@@ -347,10 +346,6 @@ public class ContainerCraftConfirm extends AEBaseContainer {
 
         if (ah instanceof PartPatternTerminal) {
             originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
-        }
-
-        if (ah instanceof PartExpandedProcessingPatternTerminal) {
-            originalGui = GuiBridge.GUI_EXPANDED_PROCESSING_PATTERN_TERMINAL;
         }
 
         final IActionHost h = ((IActionHost) this.getTarget());

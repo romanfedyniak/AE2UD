@@ -51,11 +51,23 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
     public static final int CRAFTING_GRID_DIMENSION = 3;
     private static final int CRAFTING_INPUT_LIMIT = CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION;
-    public static final int PROCESSING_INPUT_HEIGHT = 4;
-    public static final int PROCESSING_INPUT_WIDTH = 4;
-    public static final int PROCESSING_INPUT_LIMIT = PROCESSING_INPUT_HEIGHT * PROCESSING_INPUT_WIDTH;
     public static final int CRAFTING_OUTPUT_LIMIT = 1;
-    public static final int PROCESSING_OUTPUT_LIMIT = 6;
+
+    /** The grid a processing pattern is edited through: four by four, on two pages. */
+    public static final int PROCESSING_GRID_DIMENSION = 4;
+    public static final int PROCESSING_PAGES = 2;
+    /**
+     * The expanded side of the terminal - the whole grid, on every page. The other side shows one column
+     * of it at a time and so reaches {@link #PROCESSING_COMPACT_LIMIT} slots; which side is which is the
+     * terminal's inversion. Both inventories are full size regardless, because inverting swaps their roles.
+     */
+    public static final int PROCESSING_INPUT_LIMIT = PROCESSING_GRID_DIMENSION * PROCESSING_GRID_DIMENSION * PROCESSING_PAGES;
+    public static final int PROCESSING_OUTPUT_LIMIT = PROCESSING_INPUT_LIMIT;
+    public static final int PROCESSING_COMPACT_LIMIT = PROCESSING_GRID_DIMENSION * PROCESSING_PAGES;
+
+    /** Shape of the table a processing pattern hands to a machine. Width stays four; the pages stack. */
+    public static final int PROCESSING_INPUT_WIDTH = PROCESSING_GRID_DIMENSION;
+    public static final int PROCESSING_INPUT_HEIGHT = PROCESSING_INPUT_LIMIT / PROCESSING_INPUT_WIDTH;
 
     private final ItemStack patternItem;
     private final InventoryCrafting crafting;
@@ -88,8 +100,8 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         final NBTTagList outTag = encodedValue.getTagList("out", 10);
         this.isCrafting = encodedValue.getBoolean("crafting");
 
-        crafting = new InventoryCrafting(new ContainerNull(), isCrafting ? 3 : 4, isCrafting ? 3 : 4);
-        testFrame = new InventoryCrafting(new ContainerNull(), isCrafting ? 3 : 4, isCrafting ? 3 : 4);
+        crafting = newGrid(isCrafting);
+        testFrame = newGrid(isCrafting);
 
         this.canSubstitute = this.isCrafting && encodedValue.getBoolean("substitute");
         final boolean wantsFluidSubstitution = this.isCrafting && encodedValue.getBoolean("substitutefluids");
@@ -268,6 +280,49 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         final GenericStack[] out = details.getOutputs();
         for (int x = 0; x < outputs.getSlots(); x++) {
             ItemHandlerUtil.setStackInSlot(outputs, x, GenericStack.wrapInItemStack(x < out.length ? out[x] : null));
+        }
+    }
+
+    /** The table a pattern of the given kind is laid out on, and the one machines are handed. */
+    public static InventoryCrafting newGrid(final boolean isCrafting) {
+        return isCrafting
+                ? new InventoryCrafting(new ContainerNull(), CRAFTING_GRID_DIMENSION, CRAFTING_GRID_DIMENSION)
+                : new InventoryCrafting(new ContainerNull(), PROCESSING_INPUT_WIDTH, PROCESSING_INPUT_HEIGHT);
+    }
+
+    /**
+     * Which way round a pattern has to be shown for the terminal to be able to show it at all: the compact
+     * side holds only {@link #PROCESSING_COMPACT_LIMIT} slots, so a recipe with more outputs than that has
+     * to be the expanded one.
+     */
+    public static boolean shouldInvert(final GenericStack[] inputs, final GenericStack[] outputs) {
+        return shouldInvert(count(inputs), count(outputs));
+    }
+
+    public static boolean shouldInvert(final int inputs, final int outputs) {
+        return inputs <= PROCESSING_COMPACT_LIMIT && outputs >= PROCESSING_COMPACT_LIMIT;
+    }
+
+    private static int count(final GenericStack[] stacks) {
+        int found = 0;
+        for (final GenericStack stack : stacks) {
+            if (stack != null) {
+                found++;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Empties whichever side the given inversion leaves out of reach. Without this a recipe could be
+     * entered one way round, inverted, extended on the other side, and encoded into a pattern the terminal
+     * can no longer show.
+     */
+    public static void clearUnreachable(final IItemHandler inputs, final IItemHandler outputs, final boolean inverted) {
+        final IItemHandler compact = inverted ? inputs : outputs;
+
+        for (int x = PROCESSING_COMPACT_LIMIT; x < compact.getSlots(); x++) {
+            ItemHandlerUtil.setStackInSlot(compact, x, ItemStack.EMPTY);
         }
     }
 

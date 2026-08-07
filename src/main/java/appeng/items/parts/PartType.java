@@ -140,7 +140,6 @@ public enum PartType {
 
     PATTERN_TERMINAL(340, "pattern_terminal", EnumSet.of(AEFeature.PATTERNS), EnumSet.noneOf(IntegrationType.class), PartPatternTerminal.class),
 
-    EXPANDED_PROCESSING_PATTERN_TERMINAL(341, "expanded_processing_pattern_terminal", EnumSet.of(AEFeature.PATTERNS), EnumSet.noneOf(IntegrationType.class), PartExpandedProcessingPatternTerminal.class),
 
     CRAFTING_TERMINAL(360, "crafting_terminal", EnumSet.of(AEFeature.CRAFTING_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartCraftingTerminal.class),
 

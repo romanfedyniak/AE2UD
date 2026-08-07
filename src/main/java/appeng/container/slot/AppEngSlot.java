@@ -38,8 +38,9 @@ public class AppEngSlot extends Slot {
     private final IItemHandler itemHandler;
     private final int index;
 
-    private final int defX;
-    private final int defY;
+    private int defX;
+    private int defY;
+    private boolean hidden = false;
     private boolean isDraggable = true;
     private boolean isPlayerSide = false;
     private AEBaseContainer myContainer = null;
@@ -201,11 +202,24 @@ public class AppEngSlot extends Slot {
     @Override
     @SideOnly(Side.CLIENT)
     public boolean isEnabled() {
-        return this.isSlotEnabled();
+        return this.isSlotEnabled() && !this.hidden;
     }
 
     public boolean isSlotEnabled() {
         return true;
+    }
+
+    /**
+     * Deliberately not {@link #isSlotEnabled()}: a disabled slot is one the terminal has no use for, and
+     * {@link OptionalSlotFake} empties it, while a hidden one is merely off-screen for now - the pattern
+     * terminal's second page of ingredients has to survive being scrolled away from.
+     */
+    public boolean isHidden() {
+        return this.hidden;
+    }
+
+    public void setHidden(final boolean hidden) {
+        this.hidden = hidden;
     }
 
     public ItemStack getDisplayStack() {
@@ -238,6 +252,18 @@ public class AppEngSlot extends Slot {
 
     public int getY() {
         return this.defY;
+    }
+
+    /**
+     * Moves the slot's home position. The screen re-derives {@link #xPos}/{@link #yPos} from it, so a
+     * caller that moves a slot while the screen is open has to reposition it as well.
+     */
+    public void setX(final int x) {
+        this.defX = x;
+    }
+
+    public void setY(final int y) {
+        this.defY = y;
     }
 
     private int getIIcon() {

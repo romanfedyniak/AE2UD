@@ -24,8 +24,11 @@ import appeng.api.config.FluidSubstitution;
 import appeng.api.config.ItemSubstitution;
 import appeng.api.config.Settings;
 import appeng.api.storage.ITerminalHost;
+import appeng.api.config.PatternSlotConfig;
 import appeng.client.gui.widgets.GuiImgButton;
+import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiTabButton;
+import appeng.core.AppEng;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
@@ -55,6 +58,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraftforge.fluids.FluidStack;
+import org.lwjgl.input.Mouse;
+
 import javax.annotation.Nullable;
 
 import java.awt.*;
@@ -66,7 +71,8 @@ import java.util.*;
 public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients {
 
     private static final String BACKGROUND_CRAFTING_MODE = "guis/pattern.png";
-    private static final String BACKGROUND_PROCESSING_MODE = "guis/pattern2.png";
+    private static final String BACKGROUND_PROCESSING_MODE = "guis/pattern3.png";
+    private static final String BACKGROUND_PROCESSING_INVERTED_MODE = "guis/pattern4.png";
 
     private static final String SUBSITUTION_DISABLE = "0";
     private static final String SUBSITUTION_ENABLE = "1";
@@ -76,7 +82,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     private static final int FABRICATED_SLOT_TINT = 0x8032CD32;
 
+    /**
+     * The button cluster lives in the gap between the two processing grids, and inverting moves that gap
+     * three slots to the left.
+     */
+    private static final int BUTTONS_LEFT = 88;
+    private static final int BUTTONS_INVERTED_SHIFT = -18 * 3;
+
     private final ContainerPatternEncoder container;
+
+    private final GuiScrollbar pageScrollBar = new GuiScrollbar();
+    private GuiImgButton invertBtn;
+    private int seenPatternLoads = Integer.MIN_VALUE;
 
     private GuiTabButton tabCraftButton;
     private GuiTabButton tabProcessButton;
@@ -100,13 +117,28 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     public GuiPatternTerm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(inventoryPlayer, te, new ContainerPatternTerm(inventoryPlayer, te));
         this.container = (ContainerPatternTerm) this.inventorySlots;
-        this.setReservedSpace(81);
+        this.setUpPages();
     }
 
     public GuiPatternTerm(final InventoryPlayer inventoryPlayer, WirelessTerminalGuiObject te, final ContainerWirelessPatternTerminal wpt) {
         super(inventoryPlayer, te, wpt);
         this.container = (ContainerWirelessPatternTerminal) this.inventorySlots;
+        this.setUpPages();
+    }
+
+    /**
+     * Sends the grid back to its first page. A recipe always fills the grid from the start, so arriving on
+     * the second page shows empty slots and reads as a transfer that did nothing.
+     */
+    public void showFirstPage() {
+        this.pageScrollBar.setCurrentScroll(0);
+    }
+
+    private void setUpPages() {
         this.setReservedSpace(81);
+        this.pageScrollBar.setLeft(6).setWidth(7).setHeight(18 * PatternHelper.PROCESSING_GRID_DIMENSION - 2);
+        this.pageScrollBar.setRange(0, PatternHelper.PROCESSING_PAGES - 1, 1);
+        this.pageScrollBar.setTexture(AppEng.MOD_ID, BACKGROUND_PROCESSING_MODE, 242, 0);
     }
 
     @Override
@@ -119,6 +151,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 NetworkHandler.instance()
                         .sendToServer(
                                 new PacketValueConfig("PatternTerminal.CraftMode", this.tabProcessButton == btn ? CRAFTMODE_CRFTING : CRAFTMODE_PROCESSING));
+            }
+
+            if (this.invertBtn == btn) {
+                NetworkHandler.instance()
+                        .sendToServer(new PacketValueConfig("PatternTerminal.Invert", this.container.isInverted() ? "0" : "1"));
             }
 
             if (this.encodeBtn == btn) {
@@ -231,6 +268,44 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
         this.encodeBtn = new GuiImgButton(this.guiLeft + 147, this.guiTop + this.ySize - 142, Settings.ACTIONS, ActionItems.ENCODE);
         this.buttonList.add(this.encodeBtn);
+
+        this.invertBtn = new GuiImgButton(this.guiLeft + BUTTONS_LEFT, this.guiTop + this.ySize - 165, Settings.ACTIONS, PatternSlotConfig.C_32_8);
+        this.invertBtn.setHalfSize(true);
+        this.buttonList.add(this.invertBtn);
+
+        this.pageScrollBar.setTop(this.ySize - 164);
+    }
+
+    /**
+     * The processing grids move with the page and the orientation, so their positions are re-derived every
+     * frame before anything is drawn from them. The container owns the arithmetic; the screen only feeds
+     * it the page it is showing and reapplies its own offsets to whatever moved.
+     */
+    @Override
+    public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        if (this.seenPatternLoads != this.container.patternLoads) {
+            // The first reading only records where the count already stood - the terminal opens on the
+            // first page anyway, and the initial sync is not a pattern being laid out.
+            if (this.seenPatternLoads != Integer.MIN_VALUE) {
+                this.showFirstPage();
+            }
+            this.seenPatternLoads = this.container.patternLoads;
+        }
+
+        this.container.setActivePage(this.pageScrollBar.getCurrentScroll());
+        this.container.updateSlotVisibility();
+        // Buttons are drawn between the background and the foreground layer, so they have to be placed
+        // here rather than in drawFG, or a mode switch leaves them a frame behind.
+        this.layOutButtons();
+
+        for (final Slot slot : this.inventorySlots.inventorySlots) {
+            if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
+                aeSlot.xPos = aeSlot.getX();
+                this.repositionSlot(aeSlot);
+            }
+        }
+
+        super.drawBG(offsetX, offsetY, mouseX, mouseY);
     }
 
     @Override
@@ -244,6 +319,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.divThreeBtn.visible = false;
             this.plusOneBtn.visible = false;
             this.minusOneBtn.visible = false;
+            this.invertBtn.visible = false;
 
             if (this.container.substitute) {
                 this.substitutionsEnabledBtn.visible = true;
@@ -273,11 +349,54 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.divThreeBtn.visible = true;
             this.plusOneBtn.visible = true;
             this.minusOneBtn.visible = true;
+            this.invertBtn.visible = true;
         }
 
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
         this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
         this.drawFluidSubstitutionHint();
+
+        if (!this.container.isCraftingMode()) {
+            this.pageScrollBar.draw(this);
+        }
+    }
+
+    /**
+     * Crafting mode keeps the row of toggles it always had, above a three-by-three grid. Processing mode
+     * has no room there and stacks them in the gap between its two grids instead, which inverting moves.
+     */
+    private void layOutButtons() {
+        if (this.container.isCraftingMode()) {
+            this.clearBtn.x = this.guiLeft + 74;
+            this.clearBtn.y = this.guiTop + this.ySize - 163;
+            return;
+        }
+
+        final int left = this.guiLeft + BUTTONS_LEFT + (this.container.isInverted() ? BUTTONS_INVERTED_SHIFT : 0);
+        final int right = left + 10;
+        final int top = this.guiTop + this.ySize - 165;
+
+        this.clearBtn.x = left;
+        this.clearBtn.y = top;
+        this.invertBtn.x = right;
+        this.invertBtn.y = top;
+
+        this.divTwoBtn.x = left;
+        this.divTwoBtn.y = top + 10;
+        this.x2Btn.x = right;
+        this.x2Btn.y = top + 10;
+
+        this.divThreeBtn.x = left;
+        this.divThreeBtn.y = top + 20;
+        this.x3Btn.x = right;
+        this.x3Btn.y = top + 20;
+
+        this.minusOneBtn.x = left;
+        this.minusOneBtn.y = top + 30;
+        this.plusOneBtn.x = right;
+        this.plusOneBtn.y = top + 30;
+
+        this.invertBtn.set(this.container.isInverted() ? PatternSlotConfig.C_8_32 : PatternSlotConfig.C_32_8);
     }
 
     /**
@@ -355,7 +474,40 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             return BACKGROUND_CRAFTING_MODE;
         }
 
-        return BACKGROUND_PROCESSING_MODE;
+        return this.container.isInverted() ? BACKGROUND_PROCESSING_INVERTED_MODE : BACKGROUND_PROCESSING_MODE;
+    }
+
+    @Override
+    protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        if (!this.container.isCraftingMode()) {
+            this.pageScrollBar.click(this, xCoord - this.guiLeft, yCoord - this.guiTop);
+        }
+        super.mouseClicked(xCoord, yCoord, btn);
+    }
+
+    @Override
+    protected void mouseClickMove(final int x, final int y, final int c, final long d) {
+        super.mouseClickMove(x, y, c, d);
+        if (!this.container.isCraftingMode()) {
+            this.pageScrollBar.click(this, x - this.guiLeft, y - this.guiTop);
+        }
+    }
+
+    @Override
+    public void handleMouseInput() throws IOException {
+        final int wheel = Mouse.getEventDWheel();
+
+        if (wheel != 0 && !this.container.isCraftingMode()) {
+            final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
+            final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+
+            if (this.pageScrollBar.contains(x - this.guiLeft, y - this.guiTop)) {
+                this.pageScrollBar.wheel(wheel);
+                return;
+            }
+        }
+
+        super.handleMouseInput();
     }
 
     @Override
@@ -391,7 +543,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         }
         List<Target<?>> targets = new ArrayList<>();
         for (Slot slot : this.inventorySlots.inventorySlots) {
-            if (slot instanceof SlotFake) {
+            // A slot scrolled off the page is still in the container; offering it as a drop target would
+            // put the ingredient somewhere the screen cannot show.
+            if (slot instanceof SlotFake && !((SlotFake) slot).isHidden()) {
                 Target<Object> target = new Target<Object>() {
                     @Override
                     public Rectangle getArea() {

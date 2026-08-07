@@ -101,7 +101,6 @@ public interface IParts {
 
     IItemDefinition patternTerminal();
 
-    IItemDefinition expandedProcessingPatternTerminal();
 
     IItemDefinition interfaceConfigurationTerminal();
 

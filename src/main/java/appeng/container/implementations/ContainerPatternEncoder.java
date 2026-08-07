@@ -32,6 +32,7 @@ import appeng.parts.reporting.AbstractPartEncoder;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
+import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
@@ -58,6 +59,13 @@ import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket {
 
+    // Where the processing grid sits on guis/pattern3.png and guis/pattern4.png. The inputs start at the
+    // same column either way; only the outputs move, from a single column on the right to the wide grid.
+    private static final int PROCESSING_TOP = -83;
+    private static final int PROCESSING_INPUT_X = 15;
+    private static final int PROCESSING_OUTPUT_COMPACT_X = 112;
+    private static final int PROCESSING_OUTPUT_EXPANDED_X = 58;
+
     protected AbstractPartEncoder patternTerminal = null;
 
     protected IGuiItemObject iGuiItemObject = null;
@@ -65,13 +73,22 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     final AppEngInternalInventory cOut = new AppEngInternalInventory(null, 1);
 
     protected IItemHandler crafting;
+    protected IItemHandler processing;
     protected SlotPatternTerm craftSlot;
     protected SlotRestrictedInput patternSlotIN;
     protected SlotRestrictedInput patternSlotOUT;
     protected IRecipe currentRecipe;
 
     protected SlotFakeCraftingMatrix[] craftingSlots;
+    protected SlotFakeCraftingMatrix[] processingSlots;
     protected OptionalSlotFake[] outputSlots;
+
+    /**
+     * Which page of the processing grid is on screen. Purely a client-side view: every slot is in the
+     * container and synced whatever the page says, so the server has no use for it and scrolling costs no
+     * round trip.
+     */
+    private int activePage = 0;
 
     @GuiSync(97)
     public boolean craftingMode = true;
@@ -79,6 +96,11 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     public boolean substitute = false;
     @GuiSync(95)
     public boolean substituteFluids = false;
+    @GuiSync(94)
+    public boolean inverted = false;
+    /** See {@link AbstractPartEncoder#getPatternLoads()}; mirrored here so the screen can watch it. */
+    @GuiSync(93)
+    public int patternLoads = 0;
 
     protected ContainerPatternEncoder(InventoryPlayer ip, ITerminalHost monitorable, boolean bindInventory) {
         super(ip, monitorable, bindInventory);
@@ -188,10 +210,29 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         this.setCraftingMode(details.isCraftable());
         this.setSubstitute(details.canSubstitute());
         this.setSubstituteFluids(details.canSubstituteFluids());
+        // Before decoding, never after: setInverted empties the side the orientation cannot reach, and
+        // would take the pattern we are about to lay out with it.
+        this.setInverted(PatternHelper.shouldInvert(details.getInputs(), details.getOutputs()));
 
-        PatternHelper.decodeInto(details, this.crafting, this.getInventoryByName("output"));
+        PatternHelper.decodeInto(details, details.isCraftable() ? this.crafting : this.processing, this.getInventoryByName("output"));
+
+        this.markPatternLoaded();
 
         this.getAndUpdateOutput();
+    }
+
+    /**
+     * Records that the grid was filled in one go rather than slot by slot; see
+     * {@link AbstractPartEncoder#getPatternLoads()}. The part keeps the count when there is one, because
+     * {@link #detectAndSendChanges()} mirrors it back over this field every tick and would otherwise undo
+     * the bump.
+     */
+    public void markPatternLoaded() {
+        if (this.getPart() != null) {
+            this.getPart().markPatternLoaded();
+        } else {
+            this.patternLoads++;
+        }
     }
 
     public AbstractPartEncoder getPart() {
@@ -246,22 +287,50 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         this.getAndUpdateOutput();
     }
 
-    protected void updateOrderOfOutputSlots() {
-        if (!this.isCraftingMode()) {
-            if (craftSlot != null) {
-                this.craftSlot.xPos = -9000;
-            }
+    /**
+     * Decides which slots the screen shows and where. Both grids and both orientations live in the
+     * container at once, so this is the only place that knows what is currently on screen; the screen
+     * feeds it the page and repositions whatever it moved.
+     */
+    public void updateSlotVisibility() {
+        final boolean crafting = this.isCraftingMode();
 
-            for (int y = 0; y < 3; y++) {
-                this.outputSlots[y].xPos = this.outputSlots[y].getX();
-            }
+        if (this.craftSlot != null) {
+            this.craftSlot.setHidden(!crafting);
+        }
+
+        for (final SlotFakeCraftingMatrix slot : this.craftingSlots) {
+            slot.setHidden(!crafting);
+        }
+
+        for (int i = 0; i < this.processingSlots.length; i++) {
+            this.layOut(this.processingSlots[i], i, crafting, this.inverted, PROCESSING_INPUT_X);
+        }
+
+        for (int i = 0; i < this.outputSlots.length; i++) {
+            this.layOut(this.outputSlots[i], i, crafting, !this.inverted,
+                    this.inverted ? PROCESSING_OUTPUT_EXPANDED_X : PROCESSING_OUTPUT_COMPACT_X);
+        }
+    }
+
+    /**
+     * Places one slot of a processing grid. The expanded side fills the whole four-by-four grid and pages
+     * through it; the compact side shows a single column, one page's worth at a time.
+     */
+    private void layOut(final AppEngSlot slot, final int index, final boolean crafting, final boolean compact, final int left) {
+        final int dimension = PatternHelper.PROCESSING_GRID_DIMENSION;
+        final int page = index / (dimension * dimension);
+        final int x = index % dimension;
+        final int y = index / dimension % dimension;
+
+        if (compact) {
+            slot.setHidden(crafting || page != 0 || y != this.activePage);
+            slot.setX(left);
+            slot.setY(PROCESSING_TOP + 18 * x);
         } else {
-            if (craftSlot != null) {
-                this.craftSlot.xPos = this.craftSlot.getX();
-            }
-            for (int y = 0; y < 3; y++) {
-                this.outputSlots[y].xPos = -9000;
-            }
+            slot.setHidden(crafting || page != this.activePage);
+            slot.setX(left + 18 * x);
+            slot.setY(PROCESSING_TOP + 18 * y);
         }
     }
 
@@ -377,8 +446,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canMultiplyInputs = true;
         boolean canMultiplyOutputs = true;
 
-        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-            final ItemStack in = craftingSlot.getStack();
+        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) * multiple < 1) {
                 canMultiplyInputs = false;
             }
@@ -390,10 +459,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canMultiplyInputs && canMultiplyOutputs) {
-            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                final ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+                final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    setAmount(craftingSlot, stack, amountIn(stack) * multiple);
+                    setAmount(inputSlot, stack, amountIn(stack) * multiple);
                 }
             }
             for (final OptionalSlotFake outputSlot : this.outputSlots) {
@@ -409,8 +478,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canDivideInputs = true;
         boolean canDivideOutputs = true;
 
-        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-            final ItemStack in = craftingSlot.getStack();
+        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) % divide != 0) {
                 canDivideInputs = false;
             }
@@ -422,10 +491,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canDivideInputs && canDivideOutputs) {
-            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                final ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+                final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    setAmount(craftingSlot, stack, amountIn(stack) / divide);
+                    setAmount(inputSlot, stack, amountIn(stack) / divide);
                 }
             }
             for (final OptionalSlotFake outputSlot : this.outputSlots) {
@@ -441,8 +510,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canIncreaseInputs = true;
         boolean canIncreaseOutputs = true;
 
-        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-            final ItemStack in = craftingSlot.getStack();
+        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) + stepAmount(in, increase) < 1) {
                 canIncreaseInputs = false;
             }
@@ -454,10 +523,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canIncreaseInputs && canIncreaseOutputs) {
-            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                final ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+                final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    setAmount(craftingSlot, stack, amountIn(stack) + stepAmount(stack, increase));
+                    setAmount(inputSlot, stack, amountIn(stack) + stepAmount(stack, increase));
                 }
             }
             for (final OptionalSlotFake outputSlot : this.outputSlots) {
@@ -473,8 +542,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canDecreaseInputs = true;
         boolean canDecreaseOutputs = true;
 
-        for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-            final ItemStack in = craftingSlot.getStack();
+        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) - stepAmount(in, decrease) < 1) {
                 canDecreaseInputs = false;
             }
@@ -486,10 +555,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canDecreaseInputs && canDecreaseOutputs) {
-            for (final SlotFakeCraftingMatrix craftingSlot : this.craftingSlots) {
-                final ItemStack stack = craftingSlot.getStack();
+            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+                final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
-                    setAmount(craftingSlot, stack, amountIn(stack) - stepAmount(stack, decrease));
+                    setAmount(inputSlot, stack, amountIn(stack) - stepAmount(stack, decrease));
                 }
             }
             for (final OptionalSlotFake outputSlot : this.outputSlots) {
@@ -534,12 +603,18 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
+    /** The grid the current mode encodes from - the three-by-three matrix, or the processing grid. */
+    protected SlotFakeCraftingMatrix[] gridSlots() {
+        return this.isCraftingMode() ? this.craftingSlots : this.processingSlots;
+    }
+
     protected ItemStack[] getInputs() {
-        final ItemStack[] input = new ItemStack[craftingSlots.length];
+        final SlotFakeCraftingMatrix[] slots = this.gridSlots();
+        final ItemStack[] input = new ItemStack[slots.length];
         boolean hasValue = false;
 
-        for (int x = 0; x < this.craftingSlots.length; x++) {
-            input[x] = this.craftingSlots[x].getStack();
+        for (int x = 0; x < slots.length; x++) {
+            input[x] = slots[x].getStack();
             if (!input[x].isEmpty()) {
                 hasValue = true;
             }
@@ -616,14 +691,67 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
             if (nbtTagCompound != null) {
                 nbtTagCompound.setBoolean("isCraftingMode", craftingMode);
-                this.updateOrderOfOutputSlots();
+                this.updateSlotVisibility();
             }
         }
         if (craftingMode) {
+            this.copyToMatrix();
             this.fixCraftingRecipes();
         }
     }
 
+    /**
+     * Carries the processing grid over into the crafting matrix when the tab is switched, so a recipe
+     * typed in one mode does not have to be typed again in the other. Only what a crafting recipe can hold
+     * survives: one of each, and nothing that is not an item.
+     */
+    private void copyToMatrix() {
+        if (this.processing == null || this.crafting == null) {
+            return;
+        }
+
+        for (int i = 0; i < this.crafting.getSlots() && i < this.processing.getSlots(); i++) {
+            final ItemStack stack = this.processing.getStackInSlot(i);
+
+            if (GenericStack.unwrapItemStack(stack) != null) {
+                ItemHandlerUtil.setStackInSlot(this.processing, i, ItemStack.EMPTY);
+                ItemHandlerUtil.setStackInSlot(this.crafting, i, ItemStack.EMPTY);
+            } else {
+                final ItemStack one = stack.copy();
+                if (!one.isEmpty()) {
+                    one.setCount(1);
+                }
+                ItemHandlerUtil.setStackInSlot(this.crafting, i, one);
+            }
+        }
+
+        this.getAndUpdateOutput();
+    }
+
+    public boolean isInverted() {
+        return this.inverted;
+    }
+
+    public void setInverted(final boolean inverted) {
+        this.inverted = inverted;
+        if (getPart() != null) {
+            getPart().setInverted(inverted);
+        } else {
+            PatternHelper.clearUnreachable(this.processing, this.getInventoryByName("output"), inverted);
+            if (iGuiItemObject != null) {
+                final NBTTagCompound tag = iGuiItemObject.getItemStack().getTagCompound();
+                if (tag != null) {
+                    tag.setBoolean("isInverted", inverted);
+                }
+            }
+        }
+        this.updateSlotVisibility();
+    }
+
+    /** Client-side only; see {@link #activePage}. */
+    public void setActivePage(final int activePage) {
+        this.activePage = activePage;
+    }
 
     boolean isSubstitute() {
         return this.substitute;
@@ -664,10 +792,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             if (getPart() != null) {
                 if (this.isCraftingMode() != this.getPart().isCraftingRecipe()) {
                     this.setCraftingMode(this.getPart().isCraftingRecipe());
-                    this.updateOrderOfOutputSlots();
+                    this.updateSlotVisibility();
                 }
                 this.substitute = this.getPart().isSubstitution();
                 this.substituteFluids = this.getPart().isFluidSubstitution();
+                this.inverted = this.getPart().isInverted();
+                this.patternLoads = this.getPart().getPatternLoads();
             } else if (iGuiItemObject != null) {
                 NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
                 if (nbtTagCompound != null) {
@@ -675,7 +805,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                         boolean crafting = nbtTagCompound.getBoolean("isCraftingMode");
                         if (this.isCraftingMode() != crafting) {
                             this.setCraftingMode(crafting);
-                            this.updateOrderOfOutputSlots();
+                            this.updateSlotVisibility();
                         }
                     } else {
                         nbtTagCompound.setBoolean("isCraftingMode", false);
@@ -704,6 +834,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                     } else {
                         nbtTagCompound.setBoolean("isSubstituteFluids", false);
                     }
+
+                    if (nbtTagCompound.hasKey("isInverted")) {
+                        this.inverted = nbtTagCompound.getBoolean("isInverted");
+                    } else {
+                        nbtTagCompound.setBoolean("isInverted", false);
+                    }
                 } else {
                     nbtTagCompound = new NBTTagCompound();
                     nbtTagCompound.setBoolean("isSubstitute", false);
@@ -719,7 +855,11 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
         if (field.equals("craftingMode")) {
             this.getAndUpdateOutput();
-            this.updateOrderOfOutputSlots();
+            this.updateSlotVisibility();
+        }
+
+        if (field.equals("inverted")) {
+            this.updateSlotVisibility();
         }
     }
 
@@ -748,6 +888,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
     public void clear() {
         for (final Slot s : this.craftingSlots) {
+            s.putStack(ItemStack.EMPTY);
+        }
+
+        for (final Slot s : this.processingSlots) {
             s.putStack(ItemStack.EMPTY);
         }
 

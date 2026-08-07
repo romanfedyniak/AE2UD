@@ -185,9 +185,13 @@ public class AppEngInternalInventory extends ItemStackHandler implements Iterabl
         this.deserializeNBT(data);
     }
 
+    /**
+     * The size an inventory was built with wins over the one in the save. Letting the saved value resize
+     * the inventory means any inventory that ever grows loads back at its old size, and the container's
+     * slots then address past its end.
+     */
     @Override
     public void deserializeNBT(NBTTagCompound nbt) {
-        setSize(nbt.hasKey("Size", Constants.NBT.TAG_INT) ? nbt.getInteger("Size") : stacks.size());
         NBTTagList tagList = nbt.getTagList("Items", Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < tagList.tagCount(); i++) {
             NBTTagCompound itemTags = tagList.getCompoundTagAt(i);

@@ -29,24 +29,31 @@ import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.items.IItemHandler;
 
+import static appeng.helpers.PatternHelper.CRAFTING_GRID_DIMENSION;
+import static appeng.helpers.PatternHelper.PROCESSING_INPUT_LIMIT;
+import static appeng.helpers.PatternHelper.PROCESSING_OUTPUT_LIMIT;
+
 
 public class ContainerPatternTerm extends ContainerPatternEncoder {
-    
+
 
     public ContainerPatternTerm(final InventoryPlayer ip, final ITerminalHost monitorable) {
         super(ip, monitorable, false);
 
-        this.craftingSlots = new SlotFakeCraftingMatrix[9];
-        this.outputSlots = new OptionalSlotFake[3];
+        this.craftingSlots = new SlotFakeCraftingMatrix[CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION];
+        this.processingSlots = new SlotFakeCraftingMatrix[PROCESSING_INPUT_LIMIT];
+        this.outputSlots = new OptionalSlotFake[PROCESSING_OUTPUT_LIMIT];
 
         final IItemHandler patternInv = this.getPart().getInventoryByName("pattern");
         final IItemHandler output = this.getPart().getInventoryByName("output");
 
         this.crafting = this.getPart().getInventoryByName("crafting");
+        this.processing = this.getPart().getInventoryByName("processing");
 
-        for (int y = 0; y < 3; y++) {
-            for (int x = 0; x < 3; x++) {
-                this.addSlotToContainer(this.craftingSlots[x + y * 3] = new SlotFakeCraftingMatrix(this.crafting, x + y * 3, 18 + x * 18, -76 + y * 18));
+        for (int y = 0; y < CRAFTING_GRID_DIMENSION; y++) {
+            for (int x = 0; x < CRAFTING_GRID_DIMENSION; x++) {
+                final int idx = x + y * CRAFTING_GRID_DIMENSION;
+                this.addSlotToContainer(this.craftingSlots[idx] = new SlotFakeCraftingMatrix(this.crafting, idx, 18 + x * 18, -76 + y * 18));
             }
         }
 
@@ -54,10 +61,16 @@ public class ContainerPatternTerm extends ContainerPatternEncoder {
                 .getPowerSource(), monitorable, this.crafting, patternInv, this.cOut, 110, -76 + 18, this, 2, this));
         this.craftSlot.setIIcon(-1);
 
-        for (int y = 0; y < this.outputSlots.length; y++) {
-            this.addSlotToContainer(this.outputSlots[y] = new SlotPatternOutputs(output, this, y, 110, -76 + y * 18, 0, 0, 1));
-            this.outputSlots[y].setRenderDisabled(false);
-            this.outputSlots[y].setIIcon(-1);
+        // The processing grids go in at the origin: updateSlotVisibility owns their positions from here
+        // on, and moves them whenever the page or the orientation changes.
+        for (int i = 0; i < PROCESSING_INPUT_LIMIT; i++) {
+            this.addSlotToContainer(this.processingSlots[i] = new SlotFakeCraftingMatrix(this.processing, i, 0, 0));
+        }
+
+        for (int i = 0; i < PROCESSING_OUTPUT_LIMIT; i++) {
+            this.addSlotToContainer(this.outputSlots[i] = new SlotPatternOutputs(output, this, i, 0, 0, 0, 0, 1));
+            this.outputSlots[i].setRenderDisabled(false);
+            this.outputSlots[i].setIIcon(-1);
         }
 
         this.addSlotToContainer(
@@ -70,7 +83,7 @@ public class ContainerPatternTerm extends ContainerPatternEncoder {
         this.patternSlotOUT.setStackLimit(1);
 
         this.bindPlayerInventory(ip, 0, 0);
-        this.updateOrderOfOutputSlots();
+        this.updateSlotVisibility();
     }
 
 

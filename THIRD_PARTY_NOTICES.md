@@ -19,6 +19,10 @@ The pin icon in `textures/guis/states.png` is adapted from the corresponding tex
 Applied Energistics 2 Unofficial. The crafting-pin animation reuses Applied Energistics 2's
 `molecular_assembler_lights` texture and follows the current upstream terminal renderer.
 
+The pattern terminal's processing backgrounds `textures/guis/pattern3.png` and `textures/guis/pattern4.png`,
+and the slot-layout icon in `textures/guis/states.png`, are adapted from the corresponding textures in
+GTNewHorizons' Applied Energistics 2 Unofficial, recoloured onto Applied Energistics 2's palette.
+
 Those projects use the same general licensing split inherited by AE2UD: LGPLv3 for the main mod code, MIT for the API, CC BY-NC-SA 3.0 for textures and models, and CC0 for text and translations, except where an individual file states otherwise.
 
 ## AE2UD modifications

@@ -33,7 +33,8 @@ import net.minecraft.util.ResourceLocation;
 import javax.annotation.Nonnull;
 
 import static appeng.helpers.PatternHelper.CRAFTING_GRID_DIMENSION;
-import static appeng.helpers.PatternHelper.CRAFTING_OUTPUT_LIMIT;
+import static appeng.helpers.PatternHelper.PROCESSING_INPUT_LIMIT;
+import static appeng.helpers.PatternHelper.PROCESSING_OUTPUT_LIMIT;
 
 
 public class PartPatternTerminal extends AbstractPartEncoder {
@@ -51,7 +52,8 @@ public class PartPatternTerminal extends AbstractPartEncoder {
     public PartPatternTerminal(final ItemStack is) {
         super(is);
         this.crafting = new AppEngInternalInventory(this, CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION);
-        this.output = new AppEngInternalInventory(this, 3);
+        this.processing = new AppEngInternalInventory(this, PROCESSING_INPUT_LIMIT);
+        this.output = new AppEngInternalInventory(this, PROCESSING_OUTPUT_LIMIT);
         this.pattern = new AppEngInternalInventory(this, 2);
     }
 
@@ -60,6 +62,8 @@ public class PartPatternTerminal extends AbstractPartEncoder {
         super.readFromNBT(data);
         this.setCraftingRecipe(data.getBoolean("craftingMode"));
         this.setSubstitution(data.getBoolean("substitute"));
+        // Straight to the field: setInverted would empty the far side of what was just read back.
+        this.inverted = data.getBoolean("inverted");
     }
 
     @Override
@@ -67,6 +71,7 @@ public class PartPatternTerminal extends AbstractPartEncoder {
         super.writeToNBT(data);
         data.setBoolean("craftingMode", this.craftingMode);
         data.setBoolean("substitute", this.substitute);
+        data.setBoolean("inverted", this.inverted);
     }
 
     @Override

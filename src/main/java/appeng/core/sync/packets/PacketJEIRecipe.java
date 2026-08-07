@@ -189,7 +189,10 @@ public class PacketJEIRecipe extends AppEngPacket {
         final IEnergyGrid energy = grid.getCache(IEnergyGrid.class);
         final ISecurityGrid security = grid.getCache(ISecurityGrid.class);
         final ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
-        final IItemHandler craftMatrix = cct.getInventoryByName("crafting");
+        // "crafting" is always the three-by-three matrix, so a processing recipe has to be aimed at the
+        // pattern terminal's own grid instead.
+        final boolean processing = con instanceof ContainerPatternEncoder && !((ContainerPatternEncoder) con).isCraftingMode();
+        final IItemHandler craftMatrix = cct.getInventoryByName(processing ? "processing" : "crafting");
         final IItemHandler playerInventory = cct.getInventoryByName("player");
 
         if (inv != null && this.recipe != null && security != null) {
@@ -316,6 +319,10 @@ public class PacketJEIRecipe extends AppEngPacket {
                     }
                     ItemHandlerUtil.setStackInSlot(outputSlots, i, this.output.get(i));
                 }
+            }
+
+            if (con instanceof ContainerPatternEncoder) {
+                ((ContainerPatternEncoder) con).markPatternLoaded();
             }
 
             if (this.craftMissing) {

@@ -46,6 +46,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 
 import static appeng.helpers.PatternHelper.CRAFTING_GRID_DIMENSION;
+import static appeng.helpers.PatternHelper.PROCESSING_INPUT_LIMIT;
+import static appeng.helpers.PatternHelper.PROCESSING_OUTPUT_LIMIT;
 
 
 public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder implements IUpgradeableCellContainer, IInventorySlotAware {
@@ -65,11 +67,13 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
         super(ip, gui, gui, false);
 
         this.crafting = new AppEngInternalInventory(this, CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION);
-        this.output = new AppEngInternalInventory(this, 3);
+        this.processing = new AppEngInternalInventory(this, PROCESSING_INPUT_LIMIT);
+        this.output = new AppEngInternalInventory(this, PROCESSING_OUTPUT_LIMIT);
         this.pattern = new AppEngInternalInventory(this, 2);
 
-        this.craftingSlots = new SlotFakeCraftingMatrix[9];
-        this.outputSlots = new OptionalSlotFake[3];
+        this.craftingSlots = new SlotFakeCraftingMatrix[CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION];
+        this.processingSlots = new SlotFakeCraftingMatrix[PROCESSING_INPUT_LIMIT];
+        this.outputSlots = new OptionalSlotFake[PROCESSING_OUTPUT_LIMIT];
 
         if (gui != null) {
             final int slotIndex = gui.getInventorySlot();
@@ -86,9 +90,10 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
 
         this.loadFromNBT();
 
-        for (int y = 0; y < 3; y++) {
-            for (int x = 0; x < 3; x++) {
-                this.addSlotToContainer(this.craftingSlots[x + y * 3] = new SlotFakeCraftingMatrix(this.crafting, x + y * 3, 18 + x * 18, -76 + y * 18));
+        for (int y = 0; y < CRAFTING_GRID_DIMENSION; y++) {
+            for (int x = 0; x < CRAFTING_GRID_DIMENSION; x++) {
+                final int idx = x + y * CRAFTING_GRID_DIMENSION;
+                this.addSlotToContainer(this.craftingSlots[idx] = new SlotFakeCraftingMatrix(this.crafting, idx, 18 + x * 18, -76 + y * 18));
             }
         }
 
@@ -96,10 +101,16 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
                 .getPowerSource(), gui, this.crafting, pattern, this.cOut, 110, -76 + 18, this, 2, this));
         this.craftSlot.setIIcon(-1);
 
-        for (int y = 0; y < this.outputSlots.length; y++) {
-            this.addSlotToContainer(this.outputSlots[y] = new SlotPatternOutputs(output, this, y, 110, -76 + y * 18, 0, 0, 1));
-            this.outputSlots[y].setRenderDisabled(false);
-            this.outputSlots[y].setIIcon(-1);
+        // The processing grids go in at the origin: updateSlotVisibility owns their positions from here
+        // on, and moves them whenever the page or the orientation changes.
+        for (int i = 0; i < PROCESSING_INPUT_LIMIT; i++) {
+            this.addSlotToContainer(this.processingSlots[i] = new SlotFakeCraftingMatrix(this.processing, i, 0, 0));
+        }
+
+        for (int i = 0; i < PROCESSING_OUTPUT_LIMIT; i++) {
+            this.addSlotToContainer(this.outputSlots[i] = new SlotPatternOutputs(output, this, i, 0, 0, 0, 0, 1));
+            this.outputSlots[i].setRenderDisabled(false);
+            this.outputSlots[i].setIIcon(-1);
         }
 
         this.addSlotToContainer(
@@ -111,7 +122,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
 
         this.patternSlotOUT.setStackLimit(1);
 
-        this.updateOrderOfOutputSlots();
+        this.updateSlotVisibility();
 
         this.bindPlayerInventory(ip, 0, 0);
 
@@ -231,6 +242,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
         if (Platform.isServer()) {
             NBTTagCompound tag = new NBTTagCompound();
             ((AppEngInternalInventory) crafting).writeToNBT(tag, "craftingGrid");
+            ((AppEngInternalInventory) processing).writeToNBT(tag, "processing");
 
             this.output.writeToNBT(tag, "output");
             this.pattern.writeToNBT(tag, "patterns");
@@ -244,6 +256,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
         NBTTagCompound data = wirelessTerminalGUIObject.getItemStack().getTagCompound();
         if (data != null) {
             ((AppEngInternalInventory) crafting).readFromNBT(data, "craftingGrid");
+            ((AppEngInternalInventory) processing).readFromNBT(data, "processing");
             this.output.readFromNBT(data, "output");
             this.pattern.readFromNBT(data, "patterns");
             upgrades.readFromNBT(wirelessTerminalGUIObject.getItemStack().getTagCompound().getCompoundTag("upgrades"));
@@ -269,6 +282,8 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
     public IItemHandler getInventoryByName(String name) {
         if (name.equals("crafting")) {
             return this.crafting;
+        } else if (name.equals("processing")) {
+            return this.processing;
         } else if (name.equals("output")) {
             return this.output;
         }

@@ -35,16 +35,33 @@ public class GuiScrollbar implements IScrollSource {
     private int minScroll = 0;
     private int currentScroll = 0;
 
+    private String textureNamespace = "minecraft";
+    private String texturePath = "gui/container/creative_inventory/tabs.png";
+    private int textureX = 232;
+    private int textureY = 0;
+
     public void draw(final AEBaseGui g) {
-        g.bindTexture("minecraft", "gui/container/creative_inventory/tabs.png");
+        g.bindTexture(this.textureNamespace, this.texturePath);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
 
         if (this.getRange() == 0) {
-            g.drawTexturedModalRect(this.displayX, this.displayY, 232 + this.width, 0, this.width, 15);
+            g.drawTexturedModalRect(this.displayX, this.displayY, this.textureX + this.width, this.textureY, this.width, 15);
         } else {
             final int offset = (this.currentScroll - this.minScroll) * (this.height - 15) / this.getRange();
-            g.drawTexturedModalRect(this.displayX, offset + this.displayY, 232, 0, this.width, 15);
+            g.drawTexturedModalRect(this.displayX, offset + this.displayY, this.textureX, this.textureY, this.width, 15);
         }
+    }
+
+    /**
+     * Draws the handle from somewhere other than the vanilla sheet. A background that carries its own
+     * trough needs a matching handle, and the vanilla one is a fixed twelve pixels wide.
+     */
+    public GuiScrollbar setTexture(final String namespace, final String path, final int x, final int y) {
+        this.textureNamespace = namespace;
+        this.texturePath = path;
+        this.textureX = x;
+        this.textureY = y;
+        return this;
     }
 
     private int getRange() {
@@ -106,6 +123,17 @@ public class GuiScrollbar implements IScrollSource {
     @Override
     public int getCurrentScroll() {
         return this.currentScroll;
+    }
+
+    public void setCurrentScroll(final int currentScroll) {
+        this.currentScroll = currentScroll;
+        this.applyRange();
+    }
+
+    /** Both coordinates are relative to the screen's top-left corner, as {@link #click} expects them. */
+    public boolean contains(final int x, final int y) {
+        return x > this.displayX && x <= this.displayX + this.width
+                && y > this.displayY && y <= this.displayY + this.height;
     }
 
     public void click(final AEBaseGui aeBaseGui, final int x, final int y) {

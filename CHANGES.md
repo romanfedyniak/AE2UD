@@ -11,6 +11,20 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Pattern terminal
+
+- The ME Pattern Terminal now encodes processing patterns on a four-by-four grid holding 32 inputs and 8 outputs, with a button that turns the grid round into 8 inputs and 32 outputs and a scrollbar that pages through it. Crafting patterns keep their three-by-three matrix. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
+- The ME Extended Processing Pattern Terminal has been removed; the pattern terminal covers everything it did. **Terminals already placed in a world disappear when it is loaded, along with any patterns left in their slots, and copies sitting in inventories become an unnamed item.** Patterns those terminals encoded are unaffected and keep working.
+- The wireless pattern terminal gained the same grid, orientation and paging.
+- Removed the `IParts.expandedProcessingPatternTerminal()` API definition along with the part.
+- The pattern terminal's own grid switches over when the crafting/processing tab is switched, carrying one of each item across; a fluid in the processing grid cannot survive in a crafting recipe and is cleared, as it is in GTNewHorizons' build.
+- Recipes transferred from HEI turn the grid round on their own when a recipe has more outputs than the current orientation can show.
+- Filling the grid - transferring a recipe from HEI, or putting an encoded pattern into the terminal - sends it back to its first page, so the result is visible instead of looking like nothing happened.
+
+### Fixes
+
+- An internal inventory that grew between versions loaded back at its old size, because the size stored in the save overrode the one it was built with. Any container addressing the new slots then threw on open. The constructed size now wins and surplus saved slots are dropped.
+
 ### Terminals and HEI
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).

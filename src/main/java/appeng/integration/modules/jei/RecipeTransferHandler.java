@@ -30,6 +30,7 @@ import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketJEIRecipe;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.helpers.PatternHelper;
 import appeng.util.Platform;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
@@ -165,6 +166,20 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         // cannot, and a placeholder pushed into one would be an item that does not exist.
         if (container instanceof ContainerPatternEncoder) {
             this.transferFluids(container, recipeLayout, recipe, outputs);
+        }
+
+        // The grid the recipe is about to land in only reaches eight slots on its compact side, so a
+        // recipe that needs more outputs than that has to arrive with the terminal already turned round.
+        if (container instanceof ContainerPatternEncoder && !recipeType.equals(VanillaRecipeCategoryUid.CRAFTING)) {
+            final boolean invert = PatternHelper.shouldInvert(recipe.getKeySet().size(), outputs.tagCount());
+
+            if (invert != ((ContainerPatternEncoder) container).isInverted()) {
+                try {
+                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Invert", invert ? "1" : "0"));
+                } catch (IOException e) {
+                    AELog.debug(e);
+                }
+            }
         }
 
         recipe.setTag("outputs", outputs);

@@ -18,12 +18,15 @@ import java.util.List;
 public abstract class AbstractPartEncoder extends AbstractPartTerminal {
 
     protected AppEngInternalInventory crafting;
+    protected AppEngInternalInventory processing;
     protected AppEngInternalInventory output;
     protected AppEngInternalInventory pattern;
 
     protected boolean craftingMode = true;
     protected boolean substitute = false;
     protected boolean fluidSubstitute = false;
+    protected boolean inverted = false;
+    private int patternLoads = 0;
 
     public AbstractPartEncoder(ItemStack is) {
         super(is);
@@ -44,6 +47,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
         this.pattern.readFromNBT(data, "pattern");
         this.output.readFromNBT(data, "outputList");
         this.crafting.readFromNBT(data, "crafting");
+        this.processing.readFromNBT(data, "processing");
     }
 
     @Override
@@ -52,6 +56,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
         this.pattern.writeToNBT(data, "pattern");
         this.output.writeToNBT(data, "outputList");
         this.crafting.writeToNBT(data, "crafting");
+        this.processing.writeToNBT(data, "processing");
     }
 
     @Override
@@ -65,8 +70,12 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
                     this.setCraftingRecipe(details.isCraftable());
                     this.setSubstitution(details.canSubstitute());
                     this.setFluidSubstitution(details.canSubstituteFluids());
+                    // Before decoding, never after: setInverted empties the side the orientation cannot
+                    // reach, and would take the pattern we are about to lay out with it.
+                    this.setInverted(PatternHelper.shouldInvert(details.getInputs(), details.getOutputs()));
 
-                    PatternHelper.decodeInto(details, this.crafting, this.output);
+                    PatternHelper.decodeInto(details, details.isCraftable() ? this.crafting : this.processing, this.output);
+                    this.markPatternLoaded();
                 }
             }
         } else if (inv == this.crafting) {
@@ -112,10 +121,36 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
         this.fluidSubstitute = canSubstituteFluids;
     }
 
+    /**
+     * Counts how many times a whole pattern has been laid out over the grid. Only changes matter: the
+     * screen watches this to send the terminal back to its first page, since a pattern always fills the
+     * grid from the start and landing on a later page reads as nothing having happened.
+     */
+    public int getPatternLoads() {
+        return this.patternLoads;
+    }
+
+    public void markPatternLoaded() {
+        this.patternLoads++;
+    }
+
+    public boolean isInverted() {
+        return this.inverted;
+    }
+
+    public void setInverted(final boolean inverted) {
+        this.inverted = inverted;
+        PatternHelper.clearUnreachable(this.processing, this.output, inverted);
+    }
+
     @Override
     public IItemHandler getInventoryByName(final String name) {
         if (name.equals("crafting")) {
             return this.crafting;
+        }
+
+        if (name.equals("processing")) {
+            return this.processing;
         }
 
         if (name.equals("output")) {

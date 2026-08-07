@@ -43,7 +43,6 @@ import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartExpandedProcessingPatternTerminal;
 import appeng.parts.reporting.PartPatternTerminal;
 import appeng.parts.reporting.PartTerminal;
 import appeng.util.Platform;
@@ -114,11 +113,6 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
             this.myIcon = parts.patternTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
 
             this.originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
-        }
-
-        if (target instanceof PartExpandedProcessingPatternTerminal) {
-            myIcon = parts.expandedProcessingPatternTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
-            this.originalGui = GuiBridge.GUI_EXPANDED_PROCESSING_PATTERN_TERMINAL;
         }
     }
 

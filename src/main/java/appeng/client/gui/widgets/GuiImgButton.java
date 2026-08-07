@@ -129,6 +129,8 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(5 + 5 * 16, Settings.ACTIONS, ActionItems.TOGGLE_SHOW_ONLY_INVALID_PATTERNS_ON, ButtonToolTips.ToggleShowOnlyInvalidInterface, ButtonToolTips.ToggleShowOnlyInvalidInterfaceOnDesc);
 
             this.registerApp(8, Settings.ACTIONS, ActionItems.ENCODE, ButtonToolTips.Encode, ButtonToolTips.EncodeDescription);
+            this.registerApp(8 + 16, Settings.ACTIONS, PatternSlotConfig.C_32_8, ButtonToolTips.PatternSlotConfig, ButtonToolTips.PatternSlotConfigDesc32_8);
+            this.registerApp(8 + 16, Settings.ACTIONS, PatternSlotConfig.C_8_32, ButtonToolTips.PatternSlotConfig, ButtonToolTips.PatternSlotConfigDesc8_32);
             this.registerApp(4 + 3 * 16, Settings.ACTIONS, ItemSubstitution.ENABLED, ButtonToolTips.Substitutions, ButtonToolTips.SubstitutionsDescEnabled);
             this.registerApp(7 + 3 * 16, Settings.ACTIONS, ItemSubstitution.DISABLED, ButtonToolTips.Substitutions, ButtonToolTips.SubstitutionsDescDisabled);
             // Bottom row, clear of GuiTabButton: its background is 25x22 drawn from (11*16, 0) and (13*16, 0),
