@@ -30,6 +30,7 @@ import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
@@ -57,7 +58,6 @@ import java.io.IOException;
 import java.awt.Rectangle;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,9 +67,22 @@ public class GuiCraftConfirm extends AEBaseGui {
 
     private static final int MIN_ROWS = 5;
     private static final int ROW_HEIGHT = 23;
-    private static final int FIXED_HEIGHT = 91;
     private static final int TEXTURE_TOP_HEIGHT = 41;
     private static final int TEXTURE_BOTTOM_Y = 110;
+    /**
+     * The last row's own strip, drawn from {@link #TEXTURE_BOTTOM_Y} down to where the blank footer panel
+     * starts in the texture.
+     */
+    private static final int TEXTURE_LAST_ROW_HEIGHT = 24;
+    private static final int TEXTURE_FOOTER_Y = TEXTURE_BOTTOM_Y + TEXTURE_LAST_ROW_HEIGHT;
+    /**
+     * Skipped from the top of the footer: the strip the "Crafting CPU:" button used to sit in, now that the
+     * CPU table on the left has taken its job.
+     */
+    private static final int TEXTURE_FOOTER_TRIM = 24;
+    private static final int FOOTER_HEIGHT = 206 - TEXTURE_FOOTER_Y - TEXTURE_FOOTER_TRIM;
+    private static final int FIXED_HEIGHT = TEXTURE_TOP_HEIGHT + TEXTURE_LAST_ROW_HEIGHT + FOOTER_HEIGHT
+            - 2 * ROW_HEIGHT;
 
     private final ContainerCraftConfirm ccc;
 
@@ -91,8 +104,8 @@ public class GuiCraftConfirm extends AEBaseGui {
     private GuiBridge OriginalGui;
     private GuiButton cancel;
     private GuiButton start;
-    private GuiButton selectCPU;
     private GuiImgButton terminalStyleBox;
+    private final GuiCraftingCPUTable cpuTable;
     private int tooltip = -1;
 
     public GuiCraftConfirm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -105,6 +118,7 @@ public class GuiCraftConfirm extends AEBaseGui {
 
         this.ccc = (ContainerCraftConfirm) this.inventorySlots;
         this.ccc.setGui(this);
+        this.cpuTable = new GuiCraftingCPUTable(this, this.ccc);
 
         if (te instanceof WirelessTerminalGuiObject) {
             ItemStack itemStack = ((WirelessTerminalGuiObject) te).getItemStack();
@@ -140,10 +154,7 @@ public class GuiCraftConfirm extends AEBaseGui {
         this.start.enabled = false;
         this.buttonList.add(this.start);
 
-        this.selectCPU = new GuiButton(0, this.guiLeft + (219 - 180) / 2, this.guiTop + this.ySize - 68, 180, 20, GuiText.CraftingCPU
-                .getLocal() + ": " + GuiText.Automatic);
-        this.selectCPU.enabled = false;
-        this.buttonList.add(this.selectCPU);
+        this.cpuTable.initGui(this.rows);
 
         // Only when there is a screen to go back to. The add used to sit outside the branch, so a terminal
         // host this constructor has no GuiBridge for put a null in buttonList and GuiScreen.drawScreen
@@ -154,17 +165,17 @@ public class GuiCraftConfirm extends AEBaseGui {
             this.buttonList.add(this.cancel);
         }
 
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
+        // On the far side from the CPU table, which now owns the space to the left of this screen.
+        this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
     }
 
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
-        this.updateCPUButtonText();
+        this.cpuTable.updateScrollRange();
 
         this.start.enabled = !(this.ccc.hasNoCPU() || this.isSimulation());
-        this.selectCPU.enabled = !this.isSimulation();
 
         final int gx = (this.width - this.xSize) / 2;
         final int gy = (this.height - this.ySize) / 2;
@@ -196,31 +207,14 @@ public class GuiCraftConfirm extends AEBaseGui {
         super.drawScreen(mouseX, mouseY, btn);
     }
 
-    private void updateCPUButtonText() {
-        String btnTextText = GuiText.CraftingCPU.getLocal() + ": " + GuiText.Automatic.getLocal();
-        if (this.ccc.getSelectedCpu() >= 0)// && status.selectedCpu < status.cpus.size() )
-        {
-            if (this.ccc.getName().length() > 0) {
-                final String name = this.ccc.getName().substring(0, Math.min(20, this.ccc.getName().length()));
-                btnTextText = GuiText.CraftingCPU.getLocal() + ": " + name;
-            } else {
-                btnTextText = GuiText.CraftingCPU.getLocal() + ": #" + this.ccc.getSelectedCpu();
-            }
-        }
-
-        if (this.ccc.hasNoCPU()) {
-            btnTextText = GuiText.NoCraftingCPUs.getLocal();
-        }
-
-        this.selectCPU.displayString = btnTextText;
-    }
-
     private boolean isSimulation() {
         return ((ContainerCraftConfirm) this.inventorySlots).isSimulation();
     }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        this.cpuTable.drawFG(mouseX, mouseY);
+
         final long BytesUsed = this.ccc.getUsedBytes();
         final String byteUsed = NumberFormat.getInstance().format(BytesUsed);
         final String Add = BytesUsed > 0 ? (byteUsed + ' ' + GuiText.BytesUsed.getLocal()) : GuiText.CalculatingWait.getLocal();
@@ -401,11 +395,18 @@ public class GuiCraftConfirm extends AEBaseGui {
 
         if (this.tooltip >= 0 && !dspToolTip.isEmpty()) {
             this.drawTooltip(toolPosX, toolPosY + 10, dspToolTip);
+            return;
+        }
+
+        final String cpuTooltip = this.cpuTable.getTooltip(mouseX, mouseY);
+        if (cpuTooltip != null) {
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, cpuTooltip);
         }
     }
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        this.cpuTable.drawBG(offsetX, offsetY);
         this.setScrollBar();
         this.bindTexture("guis/craftingreport.png");
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, TEXTURE_TOP_HEIGHT);
@@ -416,18 +417,46 @@ public class GuiCraftConfirm extends AEBaseGui {
             y += ROW_HEIGHT;
         }
         this.drawTexturedModalRect(offsetX, offsetY + y, 0, TEXTURE_BOTTOM_Y,
-                this.xSize, 206 - TEXTURE_BOTTOM_Y);
+                this.xSize, TEXTURE_LAST_ROW_HEIGHT);
+        this.drawTexturedModalRect(offsetX, offsetY + y + TEXTURE_LAST_ROW_HEIGHT,
+                0, TEXTURE_FOOTER_Y + TEXTURE_FOOTER_TRIM, this.xSize, FOOTER_HEIGHT);
     }
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        if (this.terminalStyleBox == null) {
-            return Collections.emptyList();
+        final List<Rectangle> area = new ArrayList<>();
+        area.add(this.cpuTable.getExclusionArea());
+
+        if (this.terminalStyleBox != null) {
+            area.add(new Rectangle(this.terminalStyleBox.x - 1, this.terminalStyleBox.y - 1,
+                    this.terminalStyleBox.width + 2, this.terminalStyleBox.height + 2));
         }
 
-        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1,
-                this.terminalStyleBox.y - 1, this.terminalStyleBox.width + 2,
-                this.terminalStyleBox.height + 2));
+        return area;
+    }
+
+    @Override
+    protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        super.mouseClicked(xCoord, yCoord, btn);
+
+        this.cpuTable.mouseClicked(xCoord, yCoord);
+    }
+
+    @Override
+    protected void mouseClickMove(final int x, final int y, final int c, final long d) {
+        super.mouseClickMove(x, y, c, d);
+        this.cpuTable.mouseClickMove(x, y);
+    }
+
+    @Override
+    public void handleMouseInput() throws IOException {
+        final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
+        final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+        if (this.cpuTable.handleMouseWheel(x, y, Mouse.getEventDWheel())) {
+            return;
+        }
+
+        super.handleMouseInput();
     }
 
     private void setScrollBar() {
@@ -534,14 +563,6 @@ public class GuiCraftConfirm extends AEBaseGui {
             this.buttonList.clear();
             this.initGui();
             return;
-        }
-
-        if (btn == this.selectCPU) {
-            try {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Cpu", backwards ? "Prev" : "Next"));
-            } catch (final IOException e) {
-                AELog.debug(e);
-            }
         }
 
         if (btn == this.cancel) {

@@ -1,13 +1,14 @@
 package appeng.core.sync.packets;
 
-import appeng.client.gui.implementations.GuiCraftingStatus;
 import appeng.container.implementations.CraftingCPUStatus;
+import appeng.container.implementations.ICraftingCPUTableHost;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.entity.player.EntityPlayer;
 
 import java.io.IOException;
@@ -45,10 +46,8 @@ public class PacketCraftingCPUsUpdate extends AppEngPacket {
     public void clientPacketData(final INetworkInfo network, final AppEngPacket packet, final EntityPlayer player) {
         final GuiScreen gs = Minecraft.getMinecraft().currentScreen;
 
-        if (gs instanceof GuiCraftingStatus) {
-            GuiCraftingStatus gui = (GuiCraftingStatus) gs;
-            gui.postCPUUpdate(this.cpus);
+        if (gs instanceof GuiContainer gc && gc.inventorySlots instanceof ICraftingCPUTableHost host) {
+            host.getCPUTable().postCPUUpdate(this.cpus);
         }
-
     }
 }

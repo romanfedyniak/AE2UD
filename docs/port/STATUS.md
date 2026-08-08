@@ -1763,6 +1763,33 @@ blank pattern crashed for anyone using the **wireless** pattern terminal, which 
   earlier here.
 - A recipe cache on `PatternHelper`; the owner rejected it as unnecessary.
 
+## The CPU table is shared by both crafting screens (done, awaiting a play-test)
+
+Groundwork for the crafting tree screen, which needs the same table to start a job from. Doing it first
+means `GuiCraftConfirm`'s layout is reworked once rather than twice.
+
+The table the crafting status screen drew inline moved into `GuiCraftingCPUTable`, and the list behind it
+into `CraftingCPUTable`; both screens' containers now implement `ICraftingCPUTableHost`, which supplies the
+three things that actually differ between them - which CPUs belong in the list, whether "leave it to the
+network" is one of the answers, and what to do when the selection changes. `AEBaseContainer` gained
+`sendPacketToListeners`, replacing a copy of that loop in each container. `CraftingCPURecord` is gone; the
+shared `CraftingCPUStatus` carries everything the plan screen read from it.
+
+What changed for the player: the plan screen has the table instead of the "Crafting CPU:" button, with an
+explicit **Automatic** first row standing for the old `-1`, which is still what submits the job without
+naming a CPU. The terminal-style button moved to the right-hand side of that screen, since the table now
+owns the space on the left.
+
+Two details worth keeping in mind if this is revisited:
+
+- **A CPU is named by serial, not by list position.** The plan screen used to select by index into a list
+  it rebuilt whenever the network changed, so a CPU appearing or disappearing moved the selection to a
+  different CPU. The status screen already had serials; sharing the table gave them to both.
+- **The filter depends on the job's byte count**, which is zero until the calculation lands, so every idle
+  CPU matches until then. `CraftingCPUTable.invalidate()` is called where the byte total is set, which is
+  what makes the list narrow down to the CPUs that can actually take the job. Without it the list would sit
+  stale for up to a second, since the rebuild is otherwise driven by the network's CPU set changing.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

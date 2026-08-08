@@ -25,6 +25,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - An internal inventory that grew between versions loaded back at its old size, because the size stored in the save overrode the one it was built with. Any container addressing the new slots then threw on open. The constructed size now wins and surplus saved slots are dropped.
 
+### Autocrafting
+
+- The Crafting Plan screen picks its crafting CPU from the same table the Crafting Status screen uses, replacing the "Crafting CPU:" button that could only be cycled one CPU at a time. Its first row, **Automatic**, is the old default: the network chooses a CPU when the job is submitted. The window is shorter by the height that button occupied. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
+- Both screens now share one table, so a CPU is named by a serial rather than by its position in the list. Previously a CPU appearing or disappearing while the list was open shifted every entry below it, and the selection silently moved to a different CPU.
+
 ### Terminals and HEI
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).

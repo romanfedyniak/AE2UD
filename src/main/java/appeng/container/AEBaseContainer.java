@@ -46,6 +46,7 @@ import appeng.container.implementations.ContainerInterface;
 import appeng.container.slot.*;
 import appeng.container.slot.SlotRestrictedInput.PlacableItemType;
 import appeng.core.AELog;
+import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketTargetItemStack;
@@ -291,6 +292,17 @@ public abstract class AEBaseContainer extends Container {
             return super.addSlotToContainer(newSlot);
         } else {
             throw new IllegalArgumentException("Invalid Slot [" + newSlot + "] for AE Container instead of AppEngSlot.");
+        }
+    }
+
+    /**
+     * Sends a packet to every player watching this container.
+     */
+    public void sendPacketToListeners(final AppEngPacket packet) {
+        for (final IContainerListener listener : this.listeners) {
+            if (listener instanceof EntityPlayerMP) {
+                NetworkHandler.instance().sendTo(packet, (EntityPlayerMP) listener);
+            }
         }
     }
 

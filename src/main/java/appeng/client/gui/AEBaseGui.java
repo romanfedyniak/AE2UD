@@ -804,7 +804,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         this.mc.getTextureManager().bindTexture(loc);
     }
 
-    protected void drawItem(final int x, final int y, final ItemStack is) {
+    public void drawItem(final int x, final int y, final ItemStack is) {
         this.zLevel = 100.0F;
         this.itemRender.zLevel = 100.0F;
 

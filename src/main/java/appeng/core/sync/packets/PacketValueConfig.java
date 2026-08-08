@@ -98,12 +98,8 @@ public class PacketValueConfig extends AppEngPacket {
             final ItemStack is = player.getHeldItem(hand);
             final IMouseWheelItem si = (IMouseWheelItem) is.getItem();
             si.onWheel(is, this.Value.equals("WheelUp"));
-        } else if (this.Name.equals("Terminal.Cpu.Set") && c instanceof ContainerCraftingStatus) {
-            final ContainerCraftingStatus qk = (ContainerCraftingStatus) c;
-            qk.selectCPU(Integer.parseInt(this.Value));
-        } else if (this.Name.equals("Terminal.Cpu") && c instanceof ContainerCraftConfirm) {
-            final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
-            qk.cycleCpu(this.Value.equals("Next"));
+        } else if (this.Name.equals("Terminal.Cpu.Set") && c instanceof ICraftingCPUTableHost host) {
+            host.getCPUTable().selectCPU(Integer.parseInt(this.Value));
         } else if (this.Name.equals("Terminal.Start") && c instanceof ContainerCraftConfirm) {
             final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
             qk.startJob();
