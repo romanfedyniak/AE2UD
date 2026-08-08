@@ -73,6 +73,8 @@ public enum Settings
 
 	TERMINAL_STYLE( EnumSet.allOf( TerminalStyle.class ) ),
 
+	HIDE_STORED( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
 	COPY_MODE( EnumSet.allOf( CopyMode.class ) ),
 
 	INTERFACE_TERMINAL( EnumSet.of( YesNo.YES, YesNo.NO ) ),

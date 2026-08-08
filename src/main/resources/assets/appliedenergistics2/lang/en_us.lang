@@ -364,6 +364,7 @@ gui.tooltips.appliedenergistics2.MoveWhenEmpty=Move to output when empty.
 gui.tooltips.appliedenergistics2.MoveWhenWorkIsDone=Move to output when work is done.
 gui.tooltips.appliedenergistics2.MoveWhenFull=Move to output when full.
 gui.tooltips.appliedenergistics2.Disabled=Disabled
+gui.tooltips.appliedenergistics2.HideStored=Hide stored items
 gui.tooltips.appliedenergistics2.Enable=Enabled
 gui.tooltips.appliedenergistics2.Blocking=Do not push crafting items if inventory contains items.
 gui.tooltips.appliedenergistics2.NonBlocking=Ignore the contents of the target inventory.

@@ -107,6 +107,8 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
 
         this.terminalStyleBox.x = this.guiLeft + this.xSize;
         this.terminalStyleBox.y = this.guiTop + 8;
+        this.toggleHideStored.x = this.terminalStyleBox.x;
+        this.toggleHideStored.y = this.terminalStyleBox.y + 20;
 
         if (!this.myIcon.isEmpty()) {
             this.buttonList.add(

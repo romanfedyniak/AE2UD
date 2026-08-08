@@ -1866,6 +1866,17 @@ which is also what GTNH's own shift-click does, pointing at all the interfaces r
 it, so the interface terminals are untouched. `ICraftingGrid.getMediums()` (no arguments) was added for the
 lookup.
 
+## Hiding gathered rows on the crafting status screen (done, awaiting a play-test)
+
+`Settings.HIDE_STORED`, a client setting like the terminal style, with GTNewHorizons' own two icons (their
+indices 214/215 were placeholders here, so they went in unchanged). A row survives the filter when it has an
+active or a pending amount - stored-only means the CPU already has it and there is nothing left to watch.
+
+The screen keeps two lists: `visual` is everything the CPU reported, `displayed` is what survives the filter.
+They are separate on purpose - a hidden row still tracks its amounts and reappears the moment the filter is
+turned off, and the scrollbar, the drawing loop and the key HEI asks about all read `displayed`, so they
+cannot disagree about which row is which.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.config.TerminalStyle;
 import appeng.api.config.ViewItems;
 import appeng.api.stacks.AEKey;
@@ -95,9 +96,15 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private final KeyCounter pending = new KeyCounter();
 
     private final List<AEKey> visual = new ArrayList<>();
+    /**
+     * What the screen actually shows: {@link #visual} without the rows the filter hides. Kept apart so a
+     * filtered-out row still tracks its amounts and comes back when the filter is turned off.
+     */
+    private final List<AEKey> displayed = new ArrayList<>();
     private GuiButton cancel;
     private GuiButton suspend;
     protected GuiImgButton terminalStyleBox;
+    protected GuiImgButton toggleHideStored;
     protected int rows = MIN_ROWS;
     private int tooltip = -1;
 
@@ -121,11 +128,22 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.active.clear();
         this.pending.clear();
         this.visual.clear();
+        this.displayed.clear();
     }
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.toggleHideStored == btn) {
+            final YesNo next = (YesNo) Platform.rotateEnum(
+                    AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED),
+                    Mouse.isButtonDown(1), Settings.HIDE_STORED.getPossibleValues());
+            AEConfig.instance().getConfigManager().putSetting(Settings.HIDE_STORED, next);
+            this.toggleHideStored.set(next);
+            this.setScrollBar();
+            return;
+        }
 
         if (this.terminalStyleBox == btn) {
             final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
@@ -170,11 +188,34 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.buttonList.add(this.suspend);
         this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
+        // Directly under the terminal-style button, on whichever side that screen puts it.
+        this.toggleHideStored = new GuiImgButton(this.terminalStyleBox.x, this.terminalStyleBox.y + 20,
+                Settings.HIDE_STORED, AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
+        this.buttonList.add(this.toggleHideStored);
+
         this.buttonList.add(this.terminalStyleBox);
     }
 
+    /**
+     * A row with nothing active and nothing pending is work already done - the filter is for watching what
+     * is left rather than what has been gathered.
+     */
+    private void rebuildDisplayed() {
+        final boolean hideStored = AEConfig.instance().getConfigManager()
+                .getSetting(Settings.HIDE_STORED) == YesNo.YES;
+
+        this.displayed.clear();
+        for (final AEKey what : this.visual) {
+            if (!hideStored || this.active.get(what) > 0 || this.pending.get(what) > 0) {
+                this.displayed.add(what);
+            }
+        }
+    }
+
     private void setScrollBar() {
-        final int size = this.visual.size();
+        this.rebuildDisplayed();
+
+        final int size = this.displayed.size();
 
         this.getScrollBar().setTop(SCROLLBAR_TOP).setLeft(SCROLLBAR_LEFT).setHeight(this.rows * ROW_HEIGHT - 1);
         this.getScrollBar().setRange(0, (size + 2) / 3 - this.rows, 1);
@@ -183,6 +224,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
         this.cancel.enabled = !this.visual.isEmpty();
+        this.toggleHideStored.set(AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.suspend.enabled = this.cancel.enabled;
         this.suspend.displayString = this.craftingCpu.suspended ? GuiText.Resume.getLocal() : GuiText.Suspend.getLocal();
 
@@ -242,8 +284,8 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
         final int offY = 23;
 
-        for (int z = viewStart; z < Math.min(viewEnd, this.visual.size()); z++) {
-            final AEKey refKey = this.visual.get(z);// repo.getReferenceItem( z );
+        for (int z = viewStart; z < Math.min(viewEnd, this.displayed.size()); z++) {
+            final AEKey refKey = this.displayed.get(z);// repo.getReferenceItem( z );
             if (refKey != null) {
                 GlStateManager.pushMatrix();
                 GlStateManager.scale(0.5, 0.5, 0.5);
@@ -434,11 +476,11 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
         final int index = this.getListSlotUnderMouse(mouseX, mouseY, this.rows);
-        return index >= 0 && index < this.visual.size() ? this.visual.get(index) : null;
+        return index >= 0 && index < this.displayed.size() ? this.displayed.get(index) : null;
     }
 
     public List<AEKey> getVisual() {
-        return visual;
+        return this.displayed;
     }
 
     public int getDisplayedRows() {

@@ -27,6 +27,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- The Crafting Status screen has a **Hide stored items** toggle in its bottom-right corner: it drops the rows that are only waiting in the CPU, leaving what is still being worked on. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
 - Added a **Crafting Tree** view of a crafting plan, reached by the button in the top-right corner of the Crafting Plan screen and back again. It shows what the plan needs and, under each thing, how it is obtained - taken from storage, crafted from a pattern, requested from a level emitter, or missing - and what that in turn costs. Adapted from [NovaEngineering's AE2CraftingTree](https://github.com/NovaEngineering-Source/AE2CT-Legacy) and [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
 - The tree is dragged and zoomed with the mouse, branches fold away by the arrow under a node, and the search field jumps between matches with Enter and Shift+Enter. The same CPU table and Start button as the plan screen are there, so a job can be sent off without switching back.
 - **Missing only** hides every branch that the network can supply, leaving what it cannot. It turns itself on when a plan came up short, which is when the tree is usually opened.

@@ -158,6 +158,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
         this.settings.registerSetting(Settings.SEARCH_TOOLTIPS, YesNo.YES);
         this.settings.registerSetting(Settings.TERMINAL_STYLE, TerminalStyle.SMALL);
+        this.settings.registerSetting(Settings.HIDE_STORED, YesNo.NO);
         this.settings.registerSetting(Settings.SEARCH_MODE, SearchBoxMode.AUTOSEARCH);
         this.settings.registerSetting(Settings.AMOUNT_ENTRY_UNITS, YesNo.NO);
 

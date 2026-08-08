@@ -93,6 +93,7 @@ public enum ButtonToolTips {
     MoveWhenWorkIsDone,
     MoveWhenFull,
     Disabled,
+    HideStored,
     Enable,
 
     Blocking,
