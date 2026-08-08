@@ -29,9 +29,11 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiImgButton;
+import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
 import appeng.core.AEConfig;
@@ -54,6 +56,7 @@ import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.awt.Rectangle;
 import java.text.NumberFormat;
@@ -63,9 +66,10 @@ import java.util.List;
 import java.util.Map;
 
 
-public class GuiCraftConfirm extends AEBaseGui {
+public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
     private static final int MIN_ROWS = 5;
+    private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
     private static final int ROW_HEIGHT = 23;
     private static final int TEXTURE_TOP_HEIGHT = 41;
     private static final int TEXTURE_BOTTOM_Y = 110;
@@ -104,6 +108,7 @@ public class GuiCraftConfirm extends AEBaseGui {
     private GuiBridge OriginalGui;
     private GuiButton cancel;
     private GuiButton start;
+    private GuiTabButton showTree;
     private GuiImgButton terminalStyleBox;
     private final GuiCraftingCPUTable cpuTable;
     private int tooltip = -1;
@@ -156,6 +161,11 @@ public class GuiCraftConfirm extends AEBaseGui {
 
         this.cpuTable.initGui(this.rows);
 
+        this.showTree = new GuiTabButton(this.guiLeft + this.xSize - 25, this.guiTop - 4, SWITCH_VIEW_ICON,
+                GuiText.CraftingTree.getLocal(), this.itemRender);
+        this.showTree.setHideEdge(1);
+        this.buttonList.add(this.showTree);
+
         // Only when there is a screen to go back to. The add used to sit outside the branch, so a terminal
         // host this constructor has no GuiBridge for put a null in buttonList and GuiScreen.drawScreen
         // dereferenced it on the very first frame. Pre-existing, and unreachable until a host that offers no
@@ -176,6 +186,8 @@ public class GuiCraftConfirm extends AEBaseGui {
         this.cpuTable.updateScrollRange();
 
         this.start.enabled = !(this.ccc.hasNoCPU() || this.isSimulation());
+        // Nothing to draw a tree of until the job has been worked out.
+        this.showTree.enabled = this.ccc.getUsedBytes() > 0;
 
         final int gx = (this.width - this.xSize) / 2;
         final int gy = (this.height - this.ySize) / 2;
@@ -432,6 +444,11 @@ public class GuiCraftConfirm extends AEBaseGui {
                     this.terminalStyleBox.width + 2, this.terminalStyleBox.height + 2));
         }
 
+        if (this.showTree != null) {
+            area.add(new Rectangle(this.showTree.x - 1, this.showTree.y - 1,
+                    this.showTree.width + 2, this.showTree.height + 2));
+        }
+
         return area;
     }
 
@@ -565,6 +582,10 @@ public class GuiCraftConfirm extends AEBaseGui {
             return;
         }
 
+        if (btn == this.showTree) {
+            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_TREE));
+        }
+
         if (btn == this.cancel) {
             if (this.ccc.hasAmountScreen) {
                 // Back to the order, not out of it. The amount screen carries its own way back to the
@@ -584,6 +605,13 @@ public class GuiCraftConfirm extends AEBaseGui {
                 AELog.debug(e);
             }
         }
+    }
+
+    @Nullable
+    @Override
+    public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
+        final int index = this.getListSlotUnderMouse(mouseX, mouseY, this.rows);
+        return index >= 0 && index < this.visual.size() ? this.visual.get(index) : null;
     }
 
     public List<AEKey> getVisual() {

@@ -181,6 +181,12 @@ public enum GuiText {
     ToCraft,
     ToCraftRequests,
     CraftingPlan,
+
+    CraftingTree,
+
+    ShowMissingOnly,
+    SaveAsImage,
+    NothingMissing,
     CalculatingWait,
     Start,
     Bytes,

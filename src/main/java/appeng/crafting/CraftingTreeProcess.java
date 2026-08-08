@@ -31,6 +31,7 @@ import appeng.core.AEConfig;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import com.google.common.collect.ImmutableCollection;
 import it.unimi.dsi.fastutil.objects.Object2LongArrayMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -254,6 +255,25 @@ public class CraftingTreeProcess {
         this.containers.add(container);
     }
 
+    public ICraftingPatternDetails getDetails() {
+        return this.details;
+    }
+
+    /**
+     * How many times this pattern runs in the finished job - the same number that is handed to the CPU.
+     */
+    public long getCrafts() {
+        return this.crafts;
+    }
+
+    /**
+     * This pattern's ingredients, mapped to the amount one craft consumes. The total a branch consumes is
+     * that amount times {@link #getCrafts()}.
+     */
+    public Object2LongMap<CraftingTreeNode> getInputs() {
+        return this.nodes;
+    }
+
     void dive(final CraftingJob job) {
         final GenericStack amountCrafted = this.getAmountCrafted(this.parent.what);
         job.addTask(amountCrafted.what(), amountCrafted.amount() * this.crafts, this.details, this.depth);
@@ -273,7 +293,7 @@ public class CraftingTreeProcess {
      * branch takes the matched output's identity instead (old: {@code is.copy()}) - the two branches
      * are intentionally asymmetric.
      */
-    GenericStack getAmountCrafted(AEKey what2) {
+    public GenericStack getAmountCrafted(AEKey what2) {
         for (final GenericStack is : this.details.getCondensedOutputs()) {
             if (is != null && is.what().equals(what2)) {
                 return new GenericStack(what2, is.amount());

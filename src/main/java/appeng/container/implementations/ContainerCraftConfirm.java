@@ -66,6 +66,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 
 
 public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingCPUTableHost {
@@ -429,6 +430,36 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
         this.requestedKey = what;
         this.requestedAmount = amount;
         this.requestedCraftMissing = craftMissing;
+    }
+
+    @Nullable
+    protected CraftingJob getResult() {
+        return this.result;
+    }
+
+    /**
+     * Moves a finished plan to the screen the player just switched to, so looking at the same plan another
+     * way does not calculate it again. The job is handed over already completed, which is the only shape
+     * {@link #setJob} accepts.
+     */
+    public void handOverTo(final ContainerCraftConfirm to) {
+        if (this.result == null) {
+            return;
+        }
+
+        to.setRequest(this.requestedKey, this.requestedAmount, this.requestedCraftMissing);
+        to.hasAmountScreen = this.hasAmountScreen;
+        to.setAutoStart(false);
+
+        final FutureTask<ICraftingJob> finished = new FutureTask<>(() -> this.result);
+        finished.run();
+        to.setJob(finished);
+
+        if (to instanceof ContainerCraftingTree tree) {
+            tree.requestTree();
+        }
+
+        to.detectAndSendChanges();
     }
 
     /**

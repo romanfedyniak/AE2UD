@@ -43,44 +43,15 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
     @Nullable
     @Override
     public Object getIngredientUnderMouse(@Nonnull AEBaseGui guiContainer, int mouseX, int mouseY) {
-        List<AEKey> visual;
-        int guiSlotIdx;
-        Object result = null;
-        if (guiContainer instanceof GuiCraftConfirm) {
-            guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftConfirm) guiContainer).getDisplayedRows());
-            visual = ((GuiCraftConfirm) guiContainer).getVisual();
-            if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = asIngredient(visual.get(guiSlotIdx), 1);
-            } else {
-                return null;
+        // A screen that draws things outside slots answers for itself; everything below is about slots.
+        if (guiContainer instanceof IKeyUnderMouse source) {
+            final AEKey what = source.getKeyUnderMouse(mouseX, mouseY);
+            if (what != null) {
+                return asIngredient(what, 1);
             }
         }
 
-        if (guiContainer instanceof GuiCraftingCPU) {
-            guiSlotIdx = getSlotidx(guiContainer, mouseX, mouseY, ((GuiCraftingCPU) guiContainer).getDisplayedRows());
-            visual = ((GuiCraftingCPU) guiContainer).getVisual();
-            if (guiSlotIdx < visual.size() && guiSlotIdx != -1) {
-                result = asIngredient(visual.get(guiSlotIdx), 1);
-            } else {
-                return null;
-            }
-        }
-
-        if (guiContainer instanceof GuiCraftAmount) {
-            if (guiContainer.getSlotUnderMouse() != null) {
-                final ItemStack shown = guiContainer.getSlotUnderMouse().getStack();
-                final Object unwrapped = asIngredient(shown);
-                result = unwrapped != null ? unwrapped : shown;
-            } else {
-                return null;
-            }
-        }
-
-        if (result != null) {
-            return result;
-        }
-
-        Slot slot = guiContainer.getSlotUnderMouse();
+        final Slot slot = guiContainer.getSlotUnderMouse();
         if (slot instanceof ISpecialSlotIngredient ss) {
             return ss.getIngredient();
         }
@@ -101,7 +72,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
             }
         }
 
-        return result;
+        return null;
     }
 
     /**
@@ -153,20 +124,6 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
                 mouseX < slot.xPos() + slot.getWidth() + 1 &&
                 mouseY >= slot.yPos() - 1 &&
                 mouseY < slot.yPos() + slot.getHeight() + 1;
-    }
-
-    private int getSlotidx(AEBaseGui guiContainer, int mouseX, int mouseY, int rows) {
-        int guileft = guiContainer.getGuiLeft();
-        int guitop = guiContainer.getGuiTop();
-        int currentScroll = guiContainer.getScrollBar().getCurrentScroll();
-        final int xo = 9;
-        final int yo = 19;
-
-        int guiSlotx = (mouseX - guileft - xo) / 67;
-        if (guiSlotx > 2 || mouseX < guileft + xo) return -1;
-        int guiSloty = (mouseY - guitop - yo) / 23;
-        if (guiSloty > (rows - 1) || mouseY < guitop + yo) return -1;
-        return (guiSloty * 3) + guiSlotx + (currentScroll * 3);
     }
 
     @SuppressWarnings("unchecked")

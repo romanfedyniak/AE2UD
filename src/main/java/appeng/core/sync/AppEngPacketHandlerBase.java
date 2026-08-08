@@ -93,6 +93,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CABLE_BUS_LANDING_PARTICLE(PacketCableBusLandingParticle.class),
 
+        PACKET_CRAFTING_PLAN_TREE(PacketCraftingPlanTree.class),
+
         ;
 
 

@@ -68,12 +68,19 @@ public class PacketSwitchGuis extends AppEngPacket {
             return;
         }
 
+        if (!(c instanceof ContainerCraftConfirm from)) {
+            return;
+        }
+
         // Leaving a crafting plan for the amount screen means going back to edit the order, so the new
         // screen is seeded with it. Every other switch opens a screen that stands on its own.
-        if (c instanceof ContainerCraftConfirm && player.openContainer instanceof ContainerCraftAmount) {
-            final ContainerCraftAmount amount = (ContainerCraftAmount) player.openContainer;
-            ((ContainerCraftConfirm) c).restoreRequestTo(amount);
+        if (player.openContainer instanceof ContainerCraftAmount amount) {
+            from.restoreRequestTo(amount);
             amount.detectAndSendChanges();
+        } else if (player.openContainer instanceof ContainerCraftConfirm to && to != from) {
+            // Switching between the plan's list and its tree - the same plan seen another way, so it is
+            // carried across rather than calculated again.
+            from.handOverTo(to);
         }
     }
 

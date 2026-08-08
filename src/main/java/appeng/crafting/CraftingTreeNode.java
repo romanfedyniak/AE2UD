@@ -407,6 +407,34 @@ public class CraftingTreeNode {
         }
     }
 
+    public AEKey getWhat() {
+        return this.what;
+    }
+
+    /**
+     * What was actually taken out of storage for this node, by key - a substituted ingredient lands here
+     * under the key that was really extracted, not under {@link #what}.
+     */
+    public KeyCounter getUsed() {
+        return this.used;
+    }
+
+    public long getMissing() {
+        return this.missing;
+    }
+
+    public long getEmitted() {
+        return this.howManyEmitted;
+    }
+
+    /**
+     * Every pattern considered for this node, including the ones that were tried and dropped. A caller
+     * showing what the job will do wants {@link CraftingTreeProcess#getCrafts()} above zero.
+     */
+    public List<CraftingTreeProcess> getProcesses() {
+        return this.nodes;
+    }
+
     int getSlot() {
         return this.slot;
     }

@@ -804,6 +804,27 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         this.mc.getTextureManager().bindTexture(loc);
     }
 
+    /**
+     * Which cell of the three-wide, {@code rows}-tall list this screen draws is under the cursor, or -1.
+     * Shared by the screens that lay their contents out that way rather than in slots.
+     */
+    public int getListSlotUnderMouse(final int mouseX, final int mouseY, final int rows) {
+        final int xo = 9;
+        final int yo = 19;
+
+        final int column = (mouseX - this.guiLeft - xo) / 67;
+        if (column > 2 || mouseX < this.guiLeft + xo) {
+            return -1;
+        }
+
+        final int row = (mouseY - this.guiTop - yo) / 23;
+        if (row > rows - 1 || mouseY < this.guiTop + yo) {
+            return -1;
+        }
+
+        return (row * 3) + column + (this.getScrollBar().getCurrentScroll() * 3);
+    }
+
     public void drawItem(final int x, final int y, final ItemStack is) {
         this.zLevel = 100.0F;
         this.itemRender.zLevel = 100.0F;

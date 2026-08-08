@@ -1790,6 +1790,56 @@ Two details worth keeping in mind if this is revisited:
   what makes the list narrow down to the CPUs that can actually take the job. Without it the list would sit
   stale for up to a second, since the rebuild is otherwise driven by the network's CPU set changing.
 
+## The crafting plan drawn as a tree (done, awaiting a play-test)
+
+Ported from NovaEngineering's `AE2CT-Legacy`, which is written against ae2uel and so against our own solver,
+with GTNewHorizons' node model and canvas. Both are LGPL-3.0 and credited in `CHANGES.md`.
+
+**Nothing was added to the solver.** Everything the tree shows was already there and merely unreachable:
+`CraftingTreeProcess.crafts` is the number handed to the CPU, the `nodes` map value is what one craft costs,
+and `CraftingTreeNode` already kept `used` (by the key really extracted, so substitutions are recorded, not
+guessed), `missing` and `howManyEmitted`. The accessors are the whole server-side change. A branch's total is
+the map value times `crafts`, and a process with `crafts == 0` is dropped - the addon this came from keeps
+those, so a pattern that was tried and abandoned shows up in its trees as work that never happens.
+
+`appeng.crafting.tree` turns that into a node/source pair sized for the wire, and the packet GZIPs it. Both
+the build and the read are iterative, with an explicit stack: a plan deep enough to be worth looking at is
+deep enough to overflow a recursive walk. The read limits (depth, node count, children, decompressed size)
+guard against a corrupt packet and are set far above any real plan - the payload is compressed rather than
+trimmed, because a tree cut short is a tree that lies.
+
+`ContainerCraftingTree` **extends** `ContainerCraftConfirm` rather than copying it, so the plan, the CPU
+table, Start and the way back come along for free; it adds only the tree. Switching between the two screens
+goes through the existing `PacketSwitchGuis`, and `handOverTo` moves the finished job across as an
+already-completed `FutureTask`, which is the only shape `setJob` accepts - the plan is never recalculated.
+The tree itself is built in `detectAndSendChanges`, on the tick thread; the note at that call says why, and
+what to do if it ever costs measurable tick time.
+
+Four things this cost more than expected, all worth knowing:
+
+- **`drawFG` is already translated to the window's origin** (`AEBaseGui:306` hands it `guiLeft`/`guiTop`).
+  Widgets given absolute coordinates draw at double the offset, and their hit tests then miss by exactly that
+  much - which reads as "tooltips don't work" rather than as a coordinate bug.
+- **`drawRect` leaves its colour in `GlStateManager`.** Anything textured drawn after it comes out tinted;
+  this turned the CPU table black once and the row text white once. The same trap as the raw `glColor4f` the
+  previous commit removed, from the other direction.
+- **Minecraft dispatches GUI mouse input on game ticks**, about twenty times a second, so a canvas dragged
+  from `mouseClickMove` stutters however high the frame rate is. Dragging is driven from `drawScreen`
+  instead, once a frame.
+- **A vanilla `GuiButton` is drawn as two halves of a 20px texture**, so any other height loses its middle
+  and looks clipped.
+
+Per-frame cost was cut once the shape was right: visibility is a flag settled by one pass rather than a walk
+up the parents per cell, search matches are a flag rather than a linear search, the cell under the cursor is
+found once and reused, tooltips are cached, and only what falls inside the canvas is drawn.
+
+The icons came from GTNewHorizons' `states.png` into ours, at their own indices where those were placeholders
+here (the collapse arrows, the view switch, save-as-image) and at free ones where they were not. Verified by
+hashing every cell before and after: nothing existing was overwritten.
+
+**Deliberately not in this commit:** the machine each pattern runs on, and shift-click to highlight it in the
+world. That needs `ICraftingMedium` to gain identity, which is a public API change and belongs on its own.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

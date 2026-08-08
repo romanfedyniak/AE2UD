@@ -22,10 +22,12 @@ package appeng.client.gui.implementations;
 import appeng.api.AEApi;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.definitions.IParts;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.AmountEntry;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.AEBaseContainer;
@@ -55,7 +57,26 @@ import java.util.Collections;
 import java.util.List;
 
 
-public class GuiCraftAmount extends AEBaseGui {
+public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
+
+    /**
+     * The order's item sits in a slot rather than a list, but HEI still asks the screen first.
+     */
+    @Nullable
+    @Override
+    public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
+        final Slot slot = this.getSlotUnderMouse();
+        if (slot == null) {
+            return null;
+        }
+
+        final GenericStack unwrapped = GenericStack.fromItemStack(slot.getStack());
+        if (unwrapped != null) {
+            return unwrapped.what();
+        }
+        return slot.getStack().isEmpty() ? null : AEItemKey.of(slot.getStack());
+    }
+
 
     /**
      * Prefix a type's base unit carries when it is measured in a larger one - millibuckets. Matches what

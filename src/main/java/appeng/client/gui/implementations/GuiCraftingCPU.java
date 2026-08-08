@@ -30,6 +30,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.AEColor;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.ISortSource;
@@ -48,6 +49,7 @@ import net.minecraft.item.ItemStack;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.lwjgl.input.Mouse;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
@@ -56,7 +58,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 
-public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
+public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderMouse {
     private static final int GUI_HEIGHT = 184;
     private static final int GUI_WIDTH = 238;
 
@@ -426,6 +428,13 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource {
     @Override
     public Enum getSortDisplay() {
         return ViewItems.ALL;
+    }
+
+    @Nullable
+    @Override
+    public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
+        final int index = this.getListSlotUnderMouse(mouseX, mouseY, this.rows);
+        return index >= 0 && index < this.visual.size() ? this.visual.get(index) : null;
     }
 
     public List<AEKey> getVisual() {
