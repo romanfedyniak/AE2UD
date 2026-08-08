@@ -29,9 +29,11 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
+import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerCraftConfirm;
@@ -59,6 +61,7 @@ import org.lwjgl.input.Mouse;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,6 +73,15 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
     private static final int MIN_ROWS = 5;
     private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
+    private static final int SAVE_IMAGE_ICON = 8 * 16 + 4;
+    private static final float IMAGE_SCALE = 2.0f;
+    private static final int IMAGE_PADDING = 4;
+    private static final float[] IMAGE_BACKGROUND = { 0.776F, 0.776F, 0.776F, 1.0F };
+    /** The three cells of one row in the window texture, which is what the screen itself draws them from. */
+    private static final int ROW_TEXTURE_X = 9;
+    private static final int ROW_TEXTURE_WIDTH = 203;
+    /** A cell starts this far above the item in it - the same four pixels the "missing" tint uses. */
+    private static final int CELL_TOP_INSET = 4;
     private static final int ROW_HEIGHT = 23;
     private static final int TEXTURE_TOP_HEIGHT = 41;
     private static final int TEXTURE_BOTTOM_Y = 110;
@@ -110,6 +122,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private GuiButton start;
     private GuiTabButton showTree;
     private GuiImgButton terminalStyleBox;
+    private GuiIconButton saveImage;
     private final GuiCraftingCPUTable cpuTable;
     private int tooltip = -1;
 
@@ -175,6 +188,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             this.buttonList.add(this.cancel);
         }
 
+        this.saveImage = new GuiIconButton(this.guiLeft + this.xSize, this.guiTop + 28, SAVE_IMAGE_ICON,
+                GuiText.SaveAsImage.getLocal());
+        this.buttonList.add(this.saveImage);
+
         // On the far side from the CPU table, which now owns the space to the left of this screen.
         this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
@@ -186,8 +203,9 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.cpuTable.updateScrollRange();
 
         this.start.enabled = !(this.ccc.hasNoCPU() || this.isSimulation());
-        // Nothing to draw a tree of until the job has been worked out.
+        // Nothing to draw a tree or a picture of until the job has been worked out.
         this.showTree.enabled = this.ccc.getUsedBytes() > 0;
+        this.saveImage.enabled = !this.visual.isEmpty();
 
         final int gx = (this.width - this.xSize) / 2;
         final int gy = (this.height - this.ySize) / 2;
@@ -261,147 +279,30 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         final int offY = 23;
 
         for (int z = viewStart; z < Math.min(viewEnd, this.visual.size()); z++) {
-            final AEKey refKey = this.visual.get(z);// repo.getReferenceItem( z );
-            if (refKey != null) {
-                GlStateManager.pushMatrix();
-                GlStateManager.scale(0.5, 0.5, 0.5);
+            final AEKey refKey = this.visual.get(z);
+            if (refKey == null) {
+                continue;
+            }
 
-                final long stored = this.storage.get(refKey);
-                final long pendingAmount = this.pending.get(refKey);
-                final long missingAmount = this.missing.get(refKey);
-                final long steps = this.craftingSteps.get(refKey);
-                final long usedPercent = this.usedPercentages.getOrDefault(refKey, 0L);
+            final boolean hovered = this.tooltip == z - viewStart;
+            this.drawPlanEntry(refKey, x, y, hovered ? lineList : null);
 
-                int lines = 0;
+            if (hovered) {
+                dspToolTip = Platform.getItemDisplayName(refKey);
 
-                if (stored > 0) {
-                    lines++;
-                    if (usedPercent > 0) {
-                        lines++;
-                    }
-                }
-                if (missingAmount > 0) {
-                    lines++;
-                }
-                if (pendingAmount > 0) {
-                    lines++;
-                    if (steps > 0) {
-                        lines++;
-                    }
+                if (lineList.size() > 0) {
+                    dspToolTip = dspToolTip + '\n' + Joiner.on("\n").join(lineList);
                 }
 
-                final int negY = ((lines - 1) * 5) / 2;
-                int downY = 0;
+                toolPosX = x * (1 + sectionLength) + xo + sectionLength - 8;
+                toolPosY = y * offY + yo;
+            }
 
-                if (stored > 0) {
-                    // Through the key's formatter, so a fluid row reads "16B" rather than "16k".
-                    String str = GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.PREVIEW_LARGE);
-                    final int w = 4 + this.fontRenderer.getStringWidth(str);
-                    this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
-                            (y * offY + yo + 6 - negY + downY) * 2, 4210752);
+            x++;
 
-                    if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.FULL));
-                    }
-
-                    downY += 5;
-
-                    if (usedPercent > 0) {
-                        final String percentage = formatUsedPercent(usedPercent, 2);
-                        str = GuiText.FromStoragePercent.getLocal() + ": " + percentage + "%";
-                        final int percentWidth = 4 + this.fontRenderer.getStringWidth(str);
-                        this.fontRenderer.drawString(
-                                str,
-                                (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
-                                        - (percentWidth * 0.5)) * 2),
-                                (y * offY + yo + 6 - negY + downY) * 2,
-                                getUsedPercentColor(usedPercent));
-
-                        if (this.tooltip == z - viewStart) {
-                            lineList.add(GuiText.FromStoragePercent.getLocal() + ": "
-                                    + formatUsedPercent(usedPercent, 4) + "%");
-                        }
-
-                        downY += 5;
-                    }
-                }
-
-                boolean red = false;
-                if (missingAmount > 0) {
-                    String str = GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.PREVIEW_LARGE);
-                    final int w = 4 + this.fontRenderer.getStringWidth(str);
-                    this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
-                            (y * offY + yo + 6 - negY + downY) * 2, 4210752);
-
-                    if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.FULL));
-                    }
-
-                    red = true;
-                    downY += 5;
-                }
-
-                if (pendingAmount > 0) {
-                    String str = GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.PREVIEW_LARGE);
-                    final int w = 4 + this.fontRenderer.getStringWidth(str);
-                    this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
-                            (y * offY + yo + 6 - negY + downY) * 2, 4210752);
-
-                    if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.FULL));
-                    }
-
-                    downY += 5;
-
-                    if (steps > 0) {
-                        str = GuiText.ToCraftRequests.getLocal() + ": "
-                                + ReadableNumberConverter.INSTANCE.toWideReadableForm(steps);
-                        final int stepsWidth = 4 + this.fontRenderer.getStringWidth(str);
-                        this.fontRenderer.drawString(
-                                str,
-                                (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
-                                        - (stepsWidth * 0.5)) * 2),
-                                (y * offY + yo + 6 - negY + downY) * 2,
-                                4210752);
-
-                        if (this.tooltip == z - viewStart) {
-                            lineList.add(GuiText.ToCraftRequests.getLocal() + ": "
-                                    + NumberFormat.getInstance().format(steps));
-                        }
-                    }
-                }
-
-                GlStateManager.popMatrix();
-                final int posX = x * (1 + sectionLength) + xo + sectionLength - 19;
-                final int posY = y * offY + yo;
-
-                final ItemStack is = refKey.wrapForDisplayOrFilter();
-
-                if (this.tooltip == z - viewStart) {
-                    dspToolTip = Platform.getItemDisplayName(refKey);
-
-                    if (lineList.size() > 0) {
-                        dspToolTip = dspToolTip + '\n' + Joiner.on("\n").join(lineList);
-                    }
-
-                    toolPosX = x * (1 + sectionLength) + xo + sectionLength - 8;
-                    toolPosY = y * offY + yo;
-                }
-
-                this.drawItem(posX, posY, is);
-
-                if (red) {
-                    final int startX = x * (1 + sectionLength) + xo;
-                    final int startY = posY - 4;
-                    drawRect(startX, startY, startX + sectionLength, startY + offY, 0x1AFF0000);
-                }
-
-                x++;
-
-                if (x > 2) {
-                    y++;
-                    x = 0;
-                }
+            if (x > 2) {
+                y++;
+                x = 0;
             }
         }
 
@@ -442,6 +343,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         if (this.terminalStyleBox != null) {
             area.add(new Rectangle(this.terminalStyleBox.x - 1, this.terminalStyleBox.y - 1,
                     this.terminalStyleBox.width + 2, this.terminalStyleBox.height + 2));
+        }
+
+        if (this.saveImage != null) {
+            area.add(new Rectangle(this.saveImage.x - 1, this.saveImage.y - 1,
+                    this.saveImage.width + 2, this.saveImage.height + 2));
         }
 
         if (this.showTree != null) {
@@ -582,6 +488,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             return;
         }
 
+        if (btn == this.saveImage) {
+            GuiImageExport.save(this.createPlanImage(), "-crafting-plan");
+        }
+
         if (btn == this.showTree) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_TREE));
         }
@@ -605,6 +515,176 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 AELog.debug(e);
             }
         }
+    }
+
+    /**
+     * One entry of the plan, drawn wherever it is asked for - the screen puts them in its own grid, the
+     * picture puts every one of them in a grid of its own.
+     *
+     * @param tooltipLines collects the entry's lines when it is the one under the cursor, otherwise null
+     */
+    private void drawPlanEntry(final AEKey refKey, final int x, final int y, @Nullable final List<String> tooltipLines) {
+        final int sectionLength = 67;
+        final int xo = 9;
+        final int yo = 22;
+        final int offY = 23;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.scale(0.5, 0.5, 0.5);
+
+        final long stored = this.storage.get(refKey);
+        final long pendingAmount = this.pending.get(refKey);
+        final long missingAmount = this.missing.get(refKey);
+        final long steps = this.craftingSteps.get(refKey);
+        final long usedPercent = this.usedPercentages.getOrDefault(refKey, 0L);
+
+        int lines = 0;
+
+        if (stored > 0) {
+            lines++;
+            if (usedPercent > 0) {
+                lines++;
+            }
+        }
+        if (missingAmount > 0) {
+            lines++;
+        }
+        if (pendingAmount > 0) {
+            lines++;
+            if (steps > 0) {
+                lines++;
+            }
+        }
+
+        final int negY = ((lines - 1) * 5) / 2;
+        int downY = 0;
+
+        if (stored > 0) {
+            // Through the key's formatter, so a fluid row reads "16B" rather than "16k".
+            String str = GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.PREVIEW_LARGE);
+            final int w = 4 + this.fontRenderer.getStringWidth(str);
+            this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
+                    (y * offY + yo + 6 - negY + downY) * 2, 4210752);
+
+            if (tooltipLines != null) {
+                tooltipLines.add(GuiText.FromStorage.getLocal() + ": " + refKey.formatAmount(stored, AmountFormat.FULL));
+            }
+
+            downY += 5;
+
+            if (usedPercent > 0) {
+                final String percentage = formatUsedPercent(usedPercent, 2);
+                str = GuiText.FromStoragePercent.getLocal() + ": " + percentage + "%";
+                final int percentWidth = 4 + this.fontRenderer.getStringWidth(str);
+                this.fontRenderer.drawString(
+                        str,
+                        (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
+                                - (percentWidth * 0.5)) * 2),
+                        (y * offY + yo + 6 - negY + downY) * 2,
+                        getUsedPercentColor(usedPercent));
+
+                if (tooltipLines != null) {
+                    tooltipLines.add(GuiText.FromStoragePercent.getLocal() + ": "
+                            + formatUsedPercent(usedPercent, 4) + "%");
+                }
+
+                downY += 5;
+            }
+        }
+
+        boolean red = false;
+        if (missingAmount > 0) {
+            String str = GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.PREVIEW_LARGE);
+            final int w = 4 + this.fontRenderer.getStringWidth(str);
+            this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
+                    (y * offY + yo + 6 - negY + downY) * 2, 4210752);
+
+            if (tooltipLines != null) {
+                tooltipLines.add(GuiText.Missing.getLocal() + ": " + refKey.formatAmount(missingAmount, AmountFormat.FULL));
+            }
+
+            red = true;
+            downY += 5;
+        }
+
+        if (pendingAmount > 0) {
+            String str = GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.PREVIEW_LARGE);
+            final int w = 4 + this.fontRenderer.getStringWidth(str);
+            this.fontRenderer.drawString(str, (int) ((x * (1 + sectionLength) + xo + sectionLength - 19 - (w * 0.5)) * 2),
+                    (y * offY + yo + 6 - negY + downY) * 2, 4210752);
+
+            if (tooltipLines != null) {
+                tooltipLines.add(GuiText.ToCraft.getLocal() + ": " + refKey.formatAmount(pendingAmount, AmountFormat.FULL));
+            }
+
+            downY += 5;
+
+            if (steps > 0) {
+                str = GuiText.ToCraftRequests.getLocal() + ": "
+                        + ReadableNumberConverter.INSTANCE.toWideReadableForm(steps);
+                final int stepsWidth = 4 + this.fontRenderer.getStringWidth(str);
+                this.fontRenderer.drawString(
+                        str,
+                        (int) ((x * (1 + sectionLength) + xo + sectionLength - 19
+                                - (stepsWidth * 0.5)) * 2),
+                        (y * offY + yo + 6 - negY + downY) * 2,
+                        4210752);
+
+                if (tooltipLines != null) {
+                    tooltipLines.add(GuiText.ToCraftRequests.getLocal() + ": "
+                            + NumberFormat.getInstance().format(steps));
+                }
+            }
+        }
+
+        GlStateManager.popMatrix();
+        final int posX = x * (1 + sectionLength) + xo + sectionLength - 19;
+        final int posY = y * offY + yo;
+
+        this.drawItem(posX, posY, refKey.wrapForDisplayOrFilter());
+
+        if (red) {
+            final int startX = x * (1 + sectionLength) + xo;
+            final int startY = posY - 4;
+            drawRect(startX, startY, startX + sectionLength, startY + offY, 0x1AFF0000);
+        }
+    }
+
+    /**
+     * The whole plan as a picture, however many rows it runs to - the screen shows a window onto the list,
+     * and a plan worth saving is usually longer than that.
+     */
+    @Nullable
+    private BufferedImage createPlanImage() {
+        final int entries = this.visual.size();
+        if (entries == 0) {
+            return null;
+        }
+
+        final int lines = (entries + 2) / 3;
+        final int width = ROW_TEXTURE_WIDTH + 2 * IMAGE_PADDING;
+        final int height = lines * ROW_HEIGHT + 2 * IMAGE_PADDING;
+
+        return GuiImageExport.render(width, height, IMAGE_SCALE, IMAGE_BACKGROUND, () -> {
+            // The screen's own row of cells, straight out of the window texture, so a saved plan looks like
+            // the plan on screen rather than like a drawing of one.
+            this.bindTexture("guis/craftingreport.png");
+            for (int line = 0; line < lines; line++) {
+                this.drawTexturedModalRect(IMAGE_PADDING, IMAGE_PADDING + line * ROW_HEIGHT,
+                        ROW_TEXTURE_X, TEXTURE_TOP_HEIGHT, ROW_TEXTURE_WIDTH, ROW_HEIGHT);
+            }
+
+            GlStateManager.pushMatrix();
+            // The entry draws itself where the screen's own grid would put it, so the offsets that grid
+            // starts from have to be taken back out.
+            GlStateManager.translate(IMAGE_PADDING - 9, IMAGE_PADDING + CELL_TOP_INSET - 22, 0);
+
+            for (int i = 0; i < entries; i++) {
+                this.drawPlanEntry(this.visual.get(i), i % 3, i / 3, null);
+            }
+
+            GlStateManager.popMatrix();
+        });
     }
 
     @Nullable

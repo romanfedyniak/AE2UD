@@ -23,6 +23,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.GuiImageExport;
 import appeng.core.localization.GuiText;
 import appeng.crafting.tree.CraftingPlanNode;
 import appeng.crafting.tree.CraftingPlanSource;
@@ -31,19 +32,14 @@ import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.text.TextFormatting;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 
 import javax.annotation.Nullable;
 import java.awt.image.BufferedImage;
-import java.nio.IntBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -77,6 +73,8 @@ public class GuiCraftingPlanTree extends Gui {
     private static final int OUTLINE_MISSING_COLOR = 0xFFB03030;
     private static final int OUTLINE_SEARCH_COLOR = 0xFFE0C000;
     private static final int OUTLINE_FOCUS_COLOR = 0xFF30D030;
+
+    private static final float[] CANVAS_BACKGROUND = { 0.23F, 0.23F, 0.23F, 1.0F };
 
     private static final float MIN_ZOOM = 0.25f;
     private static final float MAX_ZOOM = 2.0f;
@@ -358,61 +356,16 @@ public class GuiCraftingPlanTree extends Gui {
     }
 
     /**
-     * Renders the tree into an off-screen buffer at its full size, so the picture holds the whole plan
-     * rather than the part that happened to be on screen.
+     * @return the whole tree as a picture, at its own size rather than the canvas's.
      */
     @Nullable
     public BufferedImage createImage(final int padding, final float scale) {
-        if (this.root == null || !OpenGlHelper.isFramebufferEnabled()) {
+        if (this.root == null) {
             return null;
         }
 
-        final Minecraft mc = Minecraft.getMinecraft();
-        final int maxSize = Math.max(1024, GL11.glGetInteger(GL11.GL_MAX_TEXTURE_SIZE) / 2);
-        final int width = Math.min(maxSize, Math.round((this.treeWidth + 2 * padding) * scale));
-        final int height = Math.min(maxSize, Math.round((this.treeHeight + 2 * padding) * scale));
-
-        final Framebuffer buffer = new Framebuffer(width, height, true);
-        try {
-            buffer.setFramebufferColor(0.23F, 0.23F, 0.23F, 1.0F);
-            buffer.framebufferClear();
-            buffer.bindFramebuffer(true);
-
-            GlStateManager.matrixMode(GL11.GL_PROJECTION);
-            GlStateManager.pushMatrix();
-            GlStateManager.loadIdentity();
-            GlStateManager.ortho(0, width / scale, height / scale, 0, 1000, 3000);
-            GlStateManager.matrixMode(GL11.GL_MODELVIEW);
-            GlStateManager.pushMatrix();
-            GlStateManager.loadIdentity();
-            GlStateManager.translate(0.0F, 0.0F, -2000.0F);
-            GlStateManager.disableDepth();
-
-            this.drawWhole(padding, 1.0f);
-
-            GlStateManager.enableDepth();
-            GlStateManager.matrixMode(GL11.GL_PROJECTION);
-            GlStateManager.popMatrix();
-            GlStateManager.matrixMode(GL11.GL_MODELVIEW);
-            GlStateManager.popMatrix();
-
-            final IntBuffer pixels = BufferUtils.createIntBuffer(width * height);
-            GlStateManager.bindTexture(buffer.framebufferTexture);
-            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
-
-            final BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    // The buffer starts at the bottom row, an image at the top.
-                    image.setRGB(x, height - 1 - y, pixels.get(y * width + x));
-                }
-            }
-            return image;
-        } finally {
-            buffer.deleteFramebuffer();
-            mc.getFramebuffer().bindFramebuffer(true);
-            GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
-        }
+        return GuiImageExport.render(this.treeWidth + 2 * padding, this.treeHeight + 2 * padding, scale,
+                CANVAS_BACKGROUND, () -> this.drawWhole(padding, 1.0f));
     }
 
     /**

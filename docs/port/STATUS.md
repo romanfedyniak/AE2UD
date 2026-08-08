@@ -1837,6 +1837,12 @@ The icons came from GTNewHorizons' `states.png` into ours, at their own indices 
 here (the collapse arrows, the view switch, save-as-image) and at free ones where they were not. Verified by
 hashing every cell before and after: nothing existing was overwritten.
 
+The picture export is shared by both crafting screens: `GuiImageExport` sets up the off-screen buffer, reads
+it back and writes the file with its chat link, and each screen only says what to draw and how big. Drawing
+the plan list into it needed one entry's worth of drawing lifted out of `GuiCraftConfirm.drawFG` into
+`drawPlanEntry`, which the screen's own grid and the picture's grid now both call - the tooltip lines it used
+to gather inline travel out through a nullable list instead.
+
 **Deliberately not in this commit:** the machine each pattern runs on, and shift-click to highlight it in the
 world. That needs `ICraftingMedium` to gain identity, which is a public API change and belongs on its own.
 

@@ -24,6 +24,7 @@ import appeng.api.config.TerminalStyle;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiIconButton;
@@ -45,21 +46,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.util.text.event.ClickEvent;
-import org.apache.commons.io.FileUtils;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
-import javax.imageio.ImageIO;
 import java.awt.Rectangle;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +66,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private static final int MAX_WIDTH = 480;
     private static final int IMAGE_PADDING = 8;
     private static final float IMAGE_SCALE = 2.0f;
-    private static final DateTimeFormatter IMAGE_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss");
     private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
     private static final int SAVE_IMAGE_ICON = 8 * 16 + 4;
     private static final int MIN_HEIGHT = 160;
@@ -311,45 +301,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
                 AELog.debug(e);
             }
         } else if (btn == this.saveImage) {
-            this.saveTreeImage();
+            GuiImageExport.save(this.tree.createImage(IMAGE_PADDING, IMAGE_SCALE), "-crafting-tree");
         } else if (btn == this.missingOnly) {
             this.missingOnlyChosen = true;
             this.tree.setMissingOnly(!this.tree.isMissingOnly());
-        }
-    }
-
-    /**
-     * Written where Minecraft keeps its own screenshots, and announced with a link that opens the file - the
-     * picture of a large plan is not something worth hunting for in a folder.
-     */
-    private void saveTreeImage() {
-        final Minecraft mc = Minecraft.getMinecraft();
-        try {
-            final BufferedImage image = this.tree.createImage(IMAGE_PADDING, IMAGE_SCALE);
-            if (image == null) {
-                return;
-            }
-
-            final File directory = new File(mc.gameDir, "screenshots");
-            FileUtils.forceMkdir(directory);
-
-            final String stamp = IMAGE_DATE_FORMAT.format(LocalDateTime.now());
-            File file = new File(directory, stamp + "-crafting-tree.png");
-            for (int i = 1; file.exists() && i < 100; i++) {
-                file = new File(directory, stamp + "-crafting-tree-" + i + ".png");
-            }
-
-            ImageIO.write(image, "png", file);
-            AELog.info("Saved the crafting tree to %s", file.getName());
-
-            final ITextComponent link = new TextComponentString(file.getName());
-            link.getStyle().setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, file.getAbsolutePath()))
-                    .setUnderlined(Boolean.TRUE);
-            mc.player.sendMessage(new TextComponentTranslation("chat.appliedenergistics2.CraftingTreeImageSaved", link));
-        } catch (final Throwable e) {
-            AELog.warn(e, "Could not save the crafting tree image");
-            mc.player.sendMessage(
-                    new TextComponentTranslation("chat.appliedenergistics2.CraftingTreeImageFailed", String.valueOf(e)));
         }
     }
 
