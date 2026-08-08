@@ -20,6 +20,7 @@ package appeng.client.me;
 
 
 import appeng.tile.inventory.AppEngInternalInventory;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.translation.I18n;
 
 import javax.annotation.Nonnull;
@@ -29,9 +30,22 @@ public class ClientDCInternalInv implements Comparable<ClientDCInternalInv> {
 
     private final String unlocalizedName;
     private final AppEngInternalInventory inventory;
+    private ItemStack icon = ItemStack.EMPTY;
 
     private final long id;
     private final long sortBy;
+
+    /**
+     * The machine this interface feeds, for a terminal to draw beside its name. Empty when the interface
+     * stands next to nothing worth showing.
+     */
+    public ItemStack getIcon() {
+        return this.icon;
+    }
+
+    public void setIcon(final ItemStack icon) {
+        this.icon = icon;
+    }
 
     public ClientDCInternalInv(final int size, final long id, final long sortBy, final String unlocalizedName) {
         this.inventory = new AppEngInternalInventory(null, size, 1);

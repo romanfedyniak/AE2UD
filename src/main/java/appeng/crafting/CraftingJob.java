@@ -340,6 +340,13 @@ public class CraftingJob implements Runnable, ICraftingJob {
         this.bytes += crafts;
     }
 
+    /**
+     * The network this job was worked out on, so a caller can ask it what a pattern would be run by.
+     */
+    public ICraftingGrid getCraftingGrid() {
+        return this.cc;
+    }
+
     public CraftingTreeNode getTree() {
         return this.tree;
     }

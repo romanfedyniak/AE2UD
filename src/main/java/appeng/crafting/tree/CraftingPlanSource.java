@@ -21,6 +21,8 @@ package appeng.crafting.tree;
 
 import appeng.api.stacks.AEKey;
 
+import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,6 +55,12 @@ public final class CraftingPlanSource {
      */
     private final long crafts;
     private final List<CraftingPlanNode> inputs = new ArrayList<>();
+    /**
+     * {@link Kind#CRAFT} only: the machine the pattern would be pushed to, or null when the network has
+     * none for it - a pattern can outlive the machine it was encoded for.
+     */
+    @Nullable
+    private AEKey machine;
 
     public CraftingPlanSource(final Kind kind, final AEKey what, final long amount, final long crafts) {
         this.kind = kind;
@@ -75,6 +83,15 @@ public final class CraftingPlanSource {
 
     public long getCrafts() {
         return this.crafts;
+    }
+
+    @Nullable
+    public AEKey getMachine() {
+        return this.machine;
+    }
+
+    public void setMachine(@Nullable final AEKey machine) {
+        this.machine = machine;
     }
 
     public List<CraftingPlanNode> getInputs() {

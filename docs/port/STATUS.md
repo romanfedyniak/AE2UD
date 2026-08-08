@@ -1843,8 +1843,23 @@ the plan list into it needed one entry's worth of drawing lifted out of `GuiCraf
 `drawPlanEntry`, which the screen's own grid and the picture's grid now both call - the tooltip lines it used
 to gather inline travel out through a nullable list instead.
 
-**Deliberately not in this commit:** the machine each pattern runs on, and shift-click to highlight it in the
-world. That needs `ICraftingMedium` to gain identity, which is a public API change and belongs on its own.
+**The machine each pattern runs on** followed as its own commit. `ICraftingMedium` gained
+`getMachineIdentity()` (a name and an item) and `getMachineLocation()`, both with defaults so addons keep
+compiling, and `ICraftingGrid.getMediums(pattern)` became part of the interface rather than only the cache.
+
+The identity is not new work: `DualityInterface.getTermName()` already scanned its neighbours and built the
+attached machine's `ItemStack` to derive a name from - and then threw the stack away. That scan now returns
+both halves as a `MachineIdentity`, and `getTermName()` is a one-line wrapper over it, so the neighbour scan
+still exists once.
+
+Both interface terminals draw that item beside the name they group by, and the tree draws it on craft nodes
+with a small craft marker in the corner. On the wire the machine is just another key id in the same
+deduplicating table the rest of the tree uses, so a network built out of one kind of machine costs almost
+nothing for it.
+
+**Still not done:** shift-click on a craft node to highlight the machine in the world. `getMachineLocation()`
+is there for it, but the tree does not carry positions yet, and `BlockPosHighlighter` still highlights one
+block rather than a named set.
 
 ## Standing rules that have already been broken in practice
 

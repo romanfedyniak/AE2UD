@@ -24,6 +24,7 @@
 package appeng.api.networking.crafting;
 
 
+import appeng.api.util.DimensionalCoord;
 import net.minecraft.inventory.InventoryCrafting;
 
 
@@ -32,6 +33,23 @@ import net.minecraft.inventory.InventoryCrafting;
  */
 public interface ICraftingMedium
 {
+
+	/**
+	 * What this medium looks like to a player - the name a terminal lists it under and an item to draw for
+	 * it. Defaults to nothing, so a medium that has no useful answer is simply not drawn.
+	 */
+	default MachineIdentity getMachineIdentity()
+	{
+		return MachineIdentity.NOTHING;
+	}
+
+	/**
+	 * Where this medium is, so a screen can point a player at it. Null when it is not in the world at all.
+	 */
+	default DimensionalCoord getMachineLocation()
+	{
+		return null;
+	}
 
 	/**
 	 * instruct a medium to create the item represented by the pattern+details, the items on the table, and where if

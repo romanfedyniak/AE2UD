@@ -528,6 +528,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
         return requested;
     }
 
+    @Override
     public List<ICraftingMedium> getMediums(final ICraftingPatternDetails key) {
         List<ICraftingMedium> mediums = this.craftingMethods.get(key);
 

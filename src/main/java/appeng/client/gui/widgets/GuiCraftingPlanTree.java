@@ -56,6 +56,7 @@ public class GuiCraftingPlanTree extends Gui {
 
     private static final int CELL = 16;
     private static final int ARROW = 6;
+    private static final int MARKER = 8;
     private static final int X_SPACING = 24;
     private static final int Y_SPACING = 26;
 
@@ -404,8 +405,16 @@ public class GuiCraftingPlanTree extends Gui {
                     GenericStack.wrapInItemStack(new GenericStack(cell.node.getWhat(), 1)));
             this.drawAmount(font, cell, format(cell.node.getWhat(), cell.node.getAmount()));
         } else {
-            this.drawIcon(cell.x, cell.y, iconFor(cell.source));
             final CraftingPlanSource source = cell.source;
+            // The machine standing in for a craft says more than a generic cog; the marker in the corner
+            // keeps it readable as a craft rather than as another ingredient.
+            if (source.getMachine() != null) {
+                this.parent.drawItem(cell.x, cell.y,
+                        GenericStack.wrapInItemStack(new GenericStack(source.getMachine(), 1)));
+                this.drawIcon(cell.x, cell.y + CELL - MARKER, ICON_CRAFT, MARKER / 16.0f);
+            } else {
+                this.drawIcon(cell.x, cell.y, iconFor(source));
+            }
             final long shown = source.getKind() == CraftingPlanSource.Kind.CRAFT
                     ? source.getCrafts()
                     : source.getAmount();

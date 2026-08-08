@@ -25,6 +25,7 @@ package appeng.api.networking.crafting;
 
 
 import java.util.Set;
+import java.util.List;
 import java.util.concurrent.Future;
 
 import com.google.common.collect.ImmutableCollection;
@@ -52,6 +53,12 @@ public interface ICraftingGrid extends IGridCache
 	 * @return a collection of crafting patterns for the item in question.
 	 */
 	ImmutableCollection<ICraftingPatternDetails> getCraftingFor( AEKey whatToCraft, ICraftingPatternDetails details, int slot, World world );
+
+	/**
+	 * The machines a pattern would be pushed to, in the order they would be tried. Empty when nothing on the
+	 * network can run it - a pattern can outlive the machine it was encoded for.
+	 */
+	List<ICraftingMedium> getMediums( ICraftingPatternDetails pattern );
 
 	/**
 	 * Begin calculating a crafting job.

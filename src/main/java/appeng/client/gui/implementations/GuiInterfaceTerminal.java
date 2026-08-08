@@ -247,14 +247,25 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 }
             } else if (lineObj instanceof String name) {
                 final int rows = this.byName.get(name).size();
+                final ItemStack icon = this.byName.get(name).stream()
+                        .map(ClientDCInternalInv::getIcon)
+                        .filter(stack -> !stack.isEmpty())
+                        .findFirst()
+                        .orElse(ItemStack.EMPTY);
                 if (rows > 1) {
                     name = name + " (" + rows + ')';
                 }
 
-                while (name.length() > 2 && this.fontRenderer.getStringWidth(name) > 158) {
+                final int nameX = OFFSET_X + 3 + (icon.isEmpty() ? 0 : 18);
+
+                while (name.length() > 2 && this.fontRenderer.getStringWidth(name) > 158 - (nameX - OFFSET_X - 3)) {
                     name = name.substring(0, name.length() - 1);
                 }
-                this.fontRenderer.drawString(name, OFFSET_X + 3, 6 + offset, 4210752);
+
+                if (!icon.isEmpty()) {
+                    this.drawItem(OFFSET_X + 3, 1 + offset, icon);
+                }
+                this.fontRenderer.drawString(name, nameX, 6 + offset, 4210752);
                 linesDraw++;
                 offset += 18;
             }
@@ -471,6 +482,9 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                     final long id = Long.parseLong(key.substring(1), Character.MAX_RADIX);
                     final NBTTagCompound invData = in.getCompoundTag(key);
                     final ClientDCInternalInv current = this.getById(id, invData.getLong("sortBy"), invData.getString("un"));
+                    current.setIcon(invData.hasKey("icon")
+                            ? new ItemStack(invData.getCompoundTag("icon"))
+                            : ItemStack.EMPTY);
                     blockPosHashMap.put(current, NBTUtil.getPosFromTag(invData.getCompoundTag("pos")));
                     dimHashMap.put(current, invData.getInteger("dim"));
                     numUpgradesMap.put(current, invData.getInteger("numUpgrades"));

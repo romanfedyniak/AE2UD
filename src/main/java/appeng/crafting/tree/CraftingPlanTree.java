@@ -19,6 +19,10 @@
 package appeng.crafting.tree;
 
 
+import appeng.api.networking.crafting.ICraftingGrid;
+import appeng.api.networking.crafting.ICraftingMedium;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingJob;
@@ -26,6 +30,7 @@ import appeng.crafting.CraftingTreeNode;
 import appeng.crafting.CraftingTreeProcess;
 import appeng.crafting.tree.CraftingPlanSource.Kind;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -84,14 +89,14 @@ public final class CraftingPlanTree {
 
         while (!pending.isEmpty()) {
             final Pending current = pending.pop();
-            addSources(current.solverNode, current.planNode, pending);
+            addSources(current.solverNode, current.planNode, pending, job.getCraftingGrid());
         }
 
         return new CraftingPlanTree(root);
     }
 
     private static void addSources(final CraftingTreeNode solverNode, final CraftingPlanNode planNode,
-            final Deque<Pending> pending) {
+            final Deque<Pending> pending, final ICraftingGrid grid) {
         for (final var entry : solverNode.getUsed()) {
             if (entry.getLongValue() > 0) {
                 planNode.getSources().add(
@@ -121,6 +126,7 @@ public final class CraftingPlanTree {
             final long produced = made == null ? 0 : made.amount() * crafts;
             final CraftingPlanSource source =
                     new CraftingPlanSource(Kind.CRAFT, solverNode.getWhat(), produced, crafts);
+            source.setMachine(machineFor(grid, process.getDetails()));
             planNode.getSources().add(source);
 
             for (final Object2LongMap.Entry<CraftingTreeNode> input : process.getInputs().object2LongEntrySet()) {
@@ -131,6 +137,20 @@ public final class CraftingPlanTree {
                 pending.push(new Pending(child, childPlan));
             }
         }
+    }
+
+    /**
+     * The first machine that would take this pattern - the one a player would go looking for.
+     */
+    @Nullable
+    private static AEKey machineFor(final ICraftingGrid grid, final ICraftingPatternDetails pattern) {
+        for (final ICraftingMedium medium : grid.getMediums(pattern)) {
+            final ItemStack icon = medium.getMachineIdentity().getIcon();
+            if (!icon.isEmpty()) {
+                return AEItemKey.of(icon);
+            }
+        }
+        return null;
     }
 
     public void write(final ByteBuf buf) throws IOException {
@@ -157,6 +177,7 @@ public final class CraftingPlanTree {
                     body.writeInt(keyId(keyIds, keys, source.getWhat()));
                     body.writeLong(source.getAmount());
                     body.writeLong(source.getCrafts());
+                    body.writeInt(source.getMachine() == null ? -1 : keyId(keyIds, keys, source.getMachine()));
                     body.writeInt(source.getInputs().size());
                     pushReversed(stack, source.getInputs());
                 }
@@ -246,9 +267,14 @@ public final class CraftingPlanTree {
         final AEKey what = key(keys, buf.readInt());
         final long amount = buf.readLong();
         final long crafts = buf.readLong();
+        final int machineId = buf.readInt();
         final int inputs = childCount(buf.readInt());
 
-        return new Frame(null, new CraftingPlanSource(kinds[kind], what, amount, crafts), inputs);
+        final CraftingPlanSource source = new CraftingPlanSource(kinds[kind], what, amount, crafts);
+        if (machineId >= 0) {
+            source.setMachine(key(keys, machineId));
+        }
+        return new Frame(null, source, inputs);
     }
 
     private static int childCount(final int count) throws IOException {

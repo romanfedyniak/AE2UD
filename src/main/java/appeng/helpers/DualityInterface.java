@@ -32,6 +32,7 @@ import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingProviderHelper;
+import appeng.api.networking.crafting.MachineIdentity;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.events.MENetworkCraftingPatternChange;
 import appeng.api.networking.security.IActionHost;
@@ -1531,12 +1532,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.craftingTracker.jobStateChange(link);
     }
 
-    public String getTermName() {
+    /**
+     * What this interface stands for in a terminal: the name it is listed under, and the machine it feeds.
+     * One scan of the neighbours answers both - the name was always found by looking at that machine's own
+     * item, which used to be worked out here and then thrown away.
+     */
+    public MachineIdentity getMachineIdentity() {
         final TileEntity hostTile = this.iHost.getTileEntity();
         final World hostWorld = hostTile.getWorld();
 
         if (((ICustomNameObject) this.iHost).hasCustomInventoryName()) {
-            return ((ICustomNameObject) this.iHost).getCustomInventoryName();
+            return new MachineIdentity(((ICustomNameObject) this.iHost).getCustomInventoryName(), ItemStack.EMPTY);
         }
 
         final EnumSet<EnumFacing> possibleDirections = this.iHost.getTargets();
@@ -1571,7 +1577,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 if (Platform.GTLoaded && directedBlock instanceof BlockMachine) {
                     MetaTileEntity metaTileEntity = Platform.getMetaTileEntity(directedTile.getWorld(), directedTile.getPos());
                     if (metaTileEntity != null) {
-                        return metaTileEntity.getMetaFullName();
+                        // A GregTech machine is a meta tile entity: the block it sits in is one shared item
+                        // for every machine there is, so the picture has to come from the entity itself.
+                        final ItemStack machineStack = metaTileEntity.getStackForm();
+                        return new MachineIdentity(metaTileEntity.getMetaFullName(),
+                                machineStack.isEmpty() ? what : machineStack);
                     }
                 }
 
@@ -1599,17 +1609,26 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                      * getUnlocalizedNameInefficiently() returns localized name
                      * Because CoFH Core overrides method getTranslationKey()
                      */
-                    return what.getItem().getTranslationKey(what);
+                    return new MachineIdentity(what.getItem().getTranslationKey(what), what);
                 }
 
                 final Item item = Item.getItemFromBlock(directedBlock);
                 if (item == Items.AIR) {
-                    return directedBlock.getTranslationKey();
+                    return new MachineIdentity(directedBlock.getTranslationKey(), what);
                 }
             }
         }
 
-        return "Nothing";
+        return MachineIdentity.NOTHING;
+    }
+
+    public String getTermName() {
+        return this.getMachineIdentity().getName();
+    }
+
+    @Override
+    public DimensionalCoord getMachineLocation() {
+        return this.getLocation();
     }
 
     public long getSortValue() {

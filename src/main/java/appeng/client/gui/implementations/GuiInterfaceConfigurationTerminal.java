@@ -197,14 +197,27 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             } else if (lineObj instanceof String) {
                 String name = (String) lineObj;
                 final int rows = this.byName.get(name).size();
+                final ItemStack icon = this.byName.get(name).stream()
+                        .map(ClientDCInternalInv::getIcon)
+                        .filter(stack -> !stack.isEmpty())
+                        .findFirst()
+                        .orElse(ItemStack.EMPTY);
                 if (rows > 1) {
                     name = name + " (" + rows + ')';
                 }
 
-                while (name.length() > 2 && this.fontRenderer.getStringWidth(name) > 155) {
+                final int nameOffset = icon.isEmpty() ? 0 : 18;
+
+                while (name.length() > 2 && this.fontRenderer.getStringWidth(name) > 155 - nameOffset) {
                     name = name.substring(0, name.length() - 1);
                 }
-                this.fontRenderer.drawString(name, this.offsetX + 2, 5 + offset, 4210752);
+
+                if (!icon.isEmpty()) {
+                    // Centred on the name beside it: the text sits five pixels into the row and is
+                    // eight tall, so a sixteen-tall icon starts one pixel in.
+                    this.drawItem(this.offsetX + 2, offset + 1, icon);
+                }
+                this.fontRenderer.drawString(name, this.offsetX + 2 + nameOffset, 5 + offset, 4210752);
                 linesDraw++;
                 offset += 18;
             }
@@ -350,6 +363,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                     final long id = Long.parseLong(key.substring(1), Character.MAX_RADIX);
                     final NBTTagCompound invData = in.getCompoundTag(key);
                     final ClientDCInternalInv current = this.getById(id, invData.getLong("sortBy"), invData.getString("un"));
+                    current.setIcon(invData.hasKey("icon")
+                            ? new ItemStack(invData.getCompoundTag("icon"))
+                            : ItemStack.EMPTY);
                     blockPosHashMap.put(current, NBTUtil.getPosFromTag(invData.getCompoundTag("pos")));
                     dimHashMap.put(current, invData.getInteger("dim"));
                     numUpgradesMap.put(current, invData.getInteger("numUpgrades"));

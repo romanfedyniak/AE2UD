@@ -377,6 +377,9 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             tag.setTag("pos", NBTUtil.createPosTag(inv.pos));
             tag.setInteger("dim", inv.dim);
             tag.setInteger("numUpgrades", inv.numUpgrades);
+            if (!inv.icon.isEmpty()) {
+                tag.setTag("icon", inv.icon.writeToNBT(new NBTTagCompound()));
+            }
         }
 
         for (int x = 0; x < length; x++) {
@@ -428,6 +431,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         private final BlockPos pos;
         private final int dim;
         private final int numUpgrades;
+        private final ItemStack icon;
 
         public InvTracker(final DualityInterface dual, final IItemHandler patterns, final String unlocalizedName) {
             this.server = patterns;
@@ -437,6 +441,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             this.pos = dual.getLocation().getPos();
             this.dim = dual.getLocation().getWorld().provider.getDimension();
             this.numUpgrades = dual.getInstalledUpgrades(UpgradeCards.patternExpansion());
+            this.icon = dual.getMachineIdentity().getIcon();
         }
     }
 
