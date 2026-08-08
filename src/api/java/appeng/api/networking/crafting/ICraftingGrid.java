@@ -25,6 +25,7 @@ package appeng.api.networking.crafting;
 
 
 import java.util.Set;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Future;
 
@@ -59,6 +60,12 @@ public interface ICraftingGrid extends IGridCache
 	 * network can run it - a pattern can outlive the machine it was encoded for.
 	 */
 	List<ICraftingMedium> getMediums( ICraftingPatternDetails pattern );
+
+	/**
+	 * Every machine on the network that can be handed a pattern, whatever pattern that is. For pointing a
+	 * player at a machine rather than for crafting.
+	 */
+	Collection<ICraftingMedium> getMediums();
 
 	/**
 	 * Begin calculating a crafting job.

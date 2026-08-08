@@ -186,6 +186,7 @@ public enum GuiText {
 
     ShowMissingOnly,
     SaveAsImage,
+    ShiftClickToLocate,
     NothingMissing,
     CalculatingWait,
     Start,

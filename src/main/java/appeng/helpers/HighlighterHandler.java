@@ -20,8 +20,8 @@ public class HighlighterHandler {
     }
 
     private static void renderHilightedBlock(RenderWorldLastEvent event) {
-        BlockPos c = BlockPosHighlighter.getHilightedBlock();
-        if (c == null) {
+        final java.util.List<BlockPos> blocks = BlockPosHighlighter.getHilightedBlocks();
+        if (blocks.isEmpty()) {
             return;
         }
         Minecraft mc = Minecraft.getMinecraft();
@@ -52,11 +52,10 @@ public class HighlighterHandler {
 
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buffer = tessellator.getBuffer();
-        float mx = c.getX();
-        float my = c.getY();
-        float mz = c.getZ();
         buffer.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-        renderHighLightedBlocksOutline(buffer, mx, my, mz, 1.0f, 0.0f, 0.0f, 1.0f);
+        for (final BlockPos block : blocks) {
+            renderHighLightedBlocksOutline(buffer, block.getX(), block.getY(), block.getZ(), 1.0f, 0.0f, 0.0f, 1.0f);
+        }
 
         tessellator.draw();
 

@@ -1857,9 +1857,14 @@ with a small craft marker in the corner. On the wire the machine is just another
 deduplicating table the rest of the tree uses, so a network built out of one kind of machine costs almost
 nothing for it.
 
-**Still not done:** shift-click on a craft node to highlight the machine in the world. `getMachineLocation()`
-is there for it, but the tree does not carry positions yet, and `BlockPosHighlighter` still highlights one
-block rather than a named set.
+Shift-click on a craft node highlights that kind of machine in the world. **The positions are not in the
+tree**: a craft source is 29 bytes on the wire today, and putting a position and dimension in each would add
+55% to every one of them for something clicked once in a session. The tree already carries the machine's
+key, so the click asks the server, which answers with the positions of every medium whose identity matches -
+which is also what GTNH's own shift-click does, pointing at all the interfaces rather than one.
+`BlockPosHighlighter` now holds a set rather than a single block; the old single-block call is a wrapper over
+it, so the interface terminals are untouched. `ICraftingGrid.getMediums()` (no arguments) was added for the
+lookup.
 
 ## Standing rules that have already been broken in practice
 

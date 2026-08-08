@@ -95,6 +95,10 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CRAFTING_PLAN_TREE(PacketCraftingPlanTree.class),
 
+        PACKET_LOCATE_MACHINE(PacketLocateMachine.class),
+
+        PACKET_HIGHLIGHT_BLOCKS(PacketHighlightBlocks.class),
+
         ;
 
 

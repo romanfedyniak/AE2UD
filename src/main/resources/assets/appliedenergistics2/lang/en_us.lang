@@ -74,6 +74,8 @@ tile.appliedenergistics2.sky_stone_slab.name=Sky Stone Slab
 // Chat Messages
 chat.appliedenergistics2.ChestCannotReadStorageCell=ME Chest cannot read storage cell.
 chat.appliedenergistics2.CraftingImageSaved=Saved to %s
+chat.appliedenergistics2.MachineHighlighted=Highlighted %s machine(s)
+chat.appliedenergistics2.MachineNotFound=No machine of that kind is in range
 chat.appliedenergistics2.CraftingImageFailed=Could not save the picture: %s
 chat.appliedenergistics2.SettingCleared=Memory card cleared.
 chat.appliedenergistics2.MissingPatternsToEncode=Not enough patterns to finish copying
@@ -250,6 +252,7 @@ gui.appliedenergistics2.CraftingPlan=Crafting Plan
 gui.appliedenergistics2.CraftingTree=Crafting Tree
 gui.appliedenergistics2.ShowMissingOnly=Missing only
 gui.appliedenergistics2.SaveAsImage=Save as image
+gui.appliedenergistics2.ShiftClickToLocate=Shift+click to find it in the world
 gui.appliedenergistics2.NothingMissing=Nothing is missing
 gui.appliedenergistics2.Automatic=Automatic
 gui.appliedenergistics2.Start=Start

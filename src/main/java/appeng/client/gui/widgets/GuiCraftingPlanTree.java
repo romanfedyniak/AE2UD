@@ -24,7 +24,10 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
+import appeng.core.AELog;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.PacketLocateMachine;
 import appeng.crafting.tree.CraftingPlanNode;
 import appeng.crafting.tree.CraftingPlanSource;
 import appeng.crafting.tree.CraftingPlanTree;
@@ -33,6 +36,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.input.Mouse;
@@ -40,6 +44,7 @@ import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nullable;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -521,6 +526,16 @@ public class GuiCraftingPlanTree extends Gui {
             text.append(": ");
             text.append(source.getCrafts());
         }
+
+        if (source.getMachine() != null) {
+            text.append('\n');
+            text.append(TextFormatting.GRAY);
+            text.append(Platform.getItemDisplayName(source.getMachine()));
+            text.append('\n');
+            text.append(TextFormatting.DARK_GRAY);
+            text.append(GuiText.ShiftClickToLocate.getLocal());
+        }
+
         return cell.tooltip = text.toString();
     }
 
@@ -552,6 +567,14 @@ public class GuiCraftingPlanTree extends Gui {
     public boolean mouseClicked(final int mouseX, final int mouseY) {
         if (!this.contains(mouseX, mouseY)) {
             return false;
+        }
+
+        if (GuiScreen.isShiftKeyDown()) {
+            final Cell cell = this.hit(mouseX, mouseY);
+            if (cell != null && cell.source != null && cell.source.getMachine() != null) {
+                locate(cell.source.getMachine());
+                return true;
+            }
         }
 
         final Cell arrow = this.hitArrow(mouseX, mouseY);
@@ -587,6 +610,18 @@ public class GuiCraftingPlanTree extends Gui {
         this.dragX = mouseX;
         this.dragY = mouseY;
         this.clampScroll();
+    }
+
+    /**
+     * The tree knows which machine runs a pattern but not where it stands - carrying every position for
+     * every node would cost far more than the rare click that asks for one.
+     */
+    private static void locate(final AEKey machine) {
+        try {
+            NetworkHandler.instance().sendToServer(new PacketLocateMachine(machine));
+        } catch (final IOException e) {
+            AELog.debug(e);
+        }
     }
 
     public void mouseReleased() {
