@@ -53,7 +53,9 @@ public class StackSizeRenderer {
      */
     public void renderStackSize(FontRenderer fontRenderer, @Nullable GridInventoryEntry entry, int xPos, int yPos) {
         if (entry != null) {
-            this.renderStackSize(fontRenderer, entry.getStoredAmount(), entry.isCraftable(), xPos, yPos);
+            // Alt trades a stocked row's amount for the "+", showing what an Alt click on it would do.
+            this.renderStackSize(fontRenderer, entry.getStoredAmount(), entry.isCraftable(),
+                    GuiScreen.isAltKeyDown(), xPos, yPos);
         }
     }
 
@@ -79,6 +81,9 @@ public class StackSizeRenderer {
      * A single item draws no amount, as it does anywhere in Minecraft - a filter, a plane or a cell
      * workbench does not label every configured item "1". The craftable mark is independent of that: it
      * still draws on a single-item slot, since craftability is not an amount.
+     * <p>
+     * Alt does not swap the amount for the mark here as it does on a stocked ME row: there is no Alt click
+     * on a slot that only displays a key, so hiding a pattern's amounts while the key is held is pure loss.
      */
     public void renderStackSize(FontRenderer fontRenderer, @Nullable GenericStack stack, boolean craftable, int xPos, int yPos) {
         if (stack == null) {
@@ -91,14 +96,14 @@ public class StackSizeRenderer {
             return;
         }
 
-        this.renderStackSize(fontRenderer, stack.amount(), craftable, xPos, yPos);
+        this.renderStackSize(fontRenderer, stack.amount(), craftable, false, xPos, yPos);
     }
 
-    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, int xPos, int yPos) {
+    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, boolean markInsteadOfAmount, int xPos, int yPos) {
         final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
         fontRenderer.setUnicodeFlag(false);
 
-        if ((amount == 0 || GuiScreen.isAltKeyDown()) && craftable) {
+        if ((amount == 0 || markInsteadOfAmount) && craftable) {
             // Modern AE2's convention: "+" where the count goes, rather than the word "Craft". Left-inset
             // like drawCraftableMark's own "+", not nudged right the way a multi-digit count is.
             drawLabel(fontRenderer, "+", xPos, yPos, 0.0f);
