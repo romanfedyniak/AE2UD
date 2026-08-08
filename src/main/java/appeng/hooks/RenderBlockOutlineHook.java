@@ -29,7 +29,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -166,7 +165,7 @@ public class RenderBlockOutlineHook {
         GlStateManager.depthMask(false);
 
         if (insideBlock) {
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GlStateManager.disableDepth();
         }
 
         for (AxisAlignedBB box : boxes) {
@@ -179,7 +178,7 @@ public class RenderBlockOutlineHook {
         }
 
         if (insideBlock) {
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GlStateManager.enableDepth();
         }
 
         GlStateManager.depthMask(true);
