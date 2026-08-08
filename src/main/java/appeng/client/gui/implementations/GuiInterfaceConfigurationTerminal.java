@@ -293,11 +293,13 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.bindTexture("guis/interfaceconfigurationterminal.png");
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 29);
+        // The list's top border belongs to the header, not to the rows: a row strip taken from the
+        // border itself repeats it every eighteen pixels and boxes in each empty row.
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 31);
         for (int row = 0; row < this.rows; row++) {
-            this.drawTexturedModalRect(offsetX, offsetY + 29 + row * ROW_HEIGHT, 0, 29,
+            this.drawTexturedModalRect(offsetX, offsetY + 31 + row * ROW_HEIGHT, 0, 31,
                     188, ROW_HEIGHT);
-            this.drawTexturedModalRect(offsetX + 188, offsetY + 29 + row * ROW_HEIGHT, 188, 31,
+            this.drawTexturedModalRect(offsetX + 188, offsetY + 31 + row * ROW_HEIGHT, 188, 31,
                     this.xSize - 188, ROW_HEIGHT);
         }
         this.drawTexturedModalRect(offsetX, offsetY + 29 + this.rows * ROW_HEIGHT, 0, 137,
