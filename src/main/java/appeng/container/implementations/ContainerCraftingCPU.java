@@ -237,6 +237,12 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
     }
 
     @Override
+    public void onCraftingJobFinished(final CraftingCPUCluster cpu, final AEKey what, final boolean cancelled) {
+        // This screen reads authoritative amounts on its own tick; an ended job arrives as everything
+        // dropping to zero, so how it ended adds nothing here.
+    }
+
+    @Override
     public String getCustomInventoryName() {
         return this.cpuName;
     }

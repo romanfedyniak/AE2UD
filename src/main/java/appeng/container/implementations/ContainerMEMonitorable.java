@@ -84,6 +84,7 @@ import java.nio.BufferOverflowException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -152,6 +153,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private Set<AEKey> previousCraftables = Collections.emptySet();
     private final IPlayerTerminalPins terminalPins;
     private final LinkedHashMap<AEKey, TerminalCraftingPin> craftingPins = new LinkedHashMap<>();
+    /** How each pinned key's jobs ended, reported by the CPUs and spent once the key stops being crafted. */
+    private final Map<AEKey, Boolean> finishedPinOutcomes = new HashMap<>();
     private boolean terminalPinsRequested;
     private boolean showCraftingPins;
     private boolean showPlayerPins;
@@ -476,9 +479,18 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             long[] progress = active.remove(entry.getKey());
             if (progress == null) {
                 TerminalCraftingPin old = entry.getValue();
-                entry.setValue(new TerminalCraftingPin(entry.getKey(), old.getRemaining(), old.getRequested(), false));
+                // Nothing is crafting this any more, so an outcome reported while it still was can be spent
+                // now. Without one - a hijacked CPU, a job that stopped being ours - the pin keeps whatever
+                // it already showed, which is UNKNOWN rather than a claim about how the job ended.
+                Boolean cancelled = this.finishedPinOutcomes.remove(entry.getKey());
+                TerminalCraftingPin.Status status = cancelled == null
+                        ? (old.isActive() ? TerminalCraftingPin.Status.UNKNOWN : old.getStatus())
+                        : (cancelled ? TerminalCraftingPin.Status.CANCELLED : TerminalCraftingPin.Status.DONE);
+                entry.setValue(new TerminalCraftingPin(entry.getKey(), old.getRemaining(), old.getRequested(),
+                        status));
             } else {
-                entry.setValue(new TerminalCraftingPin(entry.getKey(), progress[0], progress[1], true));
+                entry.setValue(new TerminalCraftingPin(entry.getKey(), progress[0], progress[1],
+                        TerminalCraftingPin.Status.ACTIVE));
             }
         }
 
@@ -497,12 +509,16 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             }
             if (capacity > 0) {
                 long[] progress = entry.getValue();
-                craftingPins.put(entry.getKey(), new TerminalCraftingPin(entry.getKey(), progress[0], progress[1], true));
+                craftingPins.put(entry.getKey(), new TerminalCraftingPin(entry.getKey(), progress[0], progress[1],
+                        TerminalCraftingPin.Status.ACTIVE));
             }
         }
         while (craftingPins.size() > capacity) {
             craftingPins.remove(craftingPins.keySet().iterator().next());
         }
+        // An outcome whose pin was evicted has nowhere left to show, and an evicted pin never returns to the
+        // same job.
+        this.finishedPinOutcomes.keySet().retainAll(craftingPins.keySet());
 
         List<TerminalCraftingPin> current = new ArrayList<>(craftingPins.values());
         if (force || !current.equals(this.lastSentCraftingPins)) {
@@ -574,6 +590,18 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     @Override
     public void onCraftingCPUChange(AEKey what, IActionSource source) {
+        this.craftingPinsDirty = true;
+    }
+
+    @Override
+    public void onCraftingJobFinished(CraftingCPUCluster cpu, AEKey what, boolean cancelled) {
+        if (!this.craftingPins.containsKey(what) || !this.isOwnCraftingJob(cpu)) {
+            return;
+        }
+        // Held back, not applied: the same key can still be running on another CPU, and the pin only speaks
+        // once every job behind it has ended. A cancellation is not overwritten by a later completion -
+        // part of what was asked for did not arrive, and that is the half worth reporting.
+        this.finishedPinOutcomes.merge(what, cancelled, (existing, added) -> existing || added);
         this.craftingPinsDirty = true;
     }
 

@@ -102,10 +102,21 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                 if (s instanceof PinSlotME && ((PinSlotME) s).isCraftingPin()) {
                     TerminalCraftingPin pin = ((PinSlotME) s).getCraftingStatus();
                     if (pin != null) {
-                        String remaining = pin.getWhat().formatAmount(pin.getRemaining(), amountFormat);
-                        String requested = pin.getWhat().formatAmount(pin.getRequested(), amountFormat);
-                        currentToolTip.add(TextFormatting.AQUA + I18n.translateToLocalFormatted(
-                                "gui.appliedenergistics2.craftingPinProgress", remaining, requested));
+                        switch (pin.getStatus()) {
+                            case ACTIVE -> {
+                                String remaining = pin.getWhat().formatAmount(pin.getRemaining(), amountFormat);
+                                String requested = pin.getWhat().formatAmount(pin.getRequested(), amountFormat);
+                                currentToolTip.add(TextFormatting.AQUA + I18n.translateToLocalFormatted(
+                                        "gui.appliedenergistics2.craftingPinProgress", remaining, requested));
+                            }
+                            case DONE -> currentToolTip.add(TextFormatting.GREEN
+                                    + I18n.translateToLocal("gui.appliedenergistics2.craftingPinDone"));
+                            case CANCELLED -> currentToolTip.add(TextFormatting.RED
+                                    + I18n.translateToLocal("gui.appliedenergistics2.craftingPinCancelled"));
+                            // A pin whose job ended without saying how says nothing rather than guessing.
+                            case UNKNOWN -> {
+                            }
+                        }
                     }
                 }
 

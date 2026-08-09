@@ -195,6 +195,29 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
     }
 
+    /**
+     * Notifies every still-valid listener that this CPU's job ended. Separate from {@link #notifyRequester},
+     * which is gated behind the crafting-toast toggle and behind there being an online requester - neither of
+     * which should decide whether a terminal's crafting pin learns how the job ended.
+     */
+    private void postJobFinished(final boolean cancelled) {
+        if (this.listeners.isEmpty() || this.finalOutput == null) {
+            return;
+        }
+
+        final AEKey what = this.finalOutput.what();
+        final Iterator<Entry<ICraftingCPUListener, Object>> i = this.listeners.entrySet().iterator();
+        while (i.hasNext()) {
+            final Entry<ICraftingCPUListener, Object> entry = i.next();
+
+            if (entry.getKey().isValid(entry.getValue())) {
+                entry.getKey().onCraftingJobFinished(this, what, cancelled);
+            } else {
+                i.remove();
+            }
+        }
+    }
+
     @Override
     public void updateStatus(final boolean updateGrid) {
         for (final TileCraftingTile r : this.tiles) {
@@ -358,6 +381,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.elapsedTime = 0;
         this.isComplete = true;
 
+        postJobFinished(false);
         notifyRequester(false);
         fireCraftedEventForRequester();
         this.requestingPlayerUUID = null;
@@ -541,6 +565,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     public void cancel() {
+        // A completed job is swept through here too (see the VirtualPatternDetails branch in
+        // updateCraftingLogic), and completeJob() has already reported it. Only a job still running is a
+        // cancellation.
+        final boolean wasRunning = !this.isComplete;
+
         if (this.myLastLink != null) {
             this.myLastLink.cancel();
         }
@@ -562,6 +591,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
         this.waitingFor.clear(); // see completeJob(): reset() keeps the keys and isBusy() counts keys
 
+        if (wasRunning) {
+            postJobFinished(true);
+        }
         notifyRequester(true);
         this.requestingPlayerUUID = null;
         this.requestingPlayerName = null;

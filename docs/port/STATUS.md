@@ -39,8 +39,17 @@ than persisting them alongside player pins.
 The server performs an initial `ICraftingGrid` snapshot, subscribes to built-in `CraftingCPUCluster`
 change notifications, and reconciles every 20 ticks for addon CPU implementations that cannot provide
   that internal listener. Matching jobs are aggregated with Guava saturating addition. Crafting rows are
-  created only after a matching job becomes active; finished or cancelled pins become inactive and remain
-  in their stable positions until the terminal closes. A newly opened terminal starts from active jobs only.
+  created only after a matching job becomes active; finished pins stop animating and remain in their stable
+  positions until the terminal closes. A newly opened terminal starts from active jobs only.
+
+  A pin also reports *how* its jobs ended, which the amount-shaped CPU notification cannot express - a
+  completed and a cancelled job both simply leave the CPU idle. `CraftingCPUCluster` therefore pushes a
+  second, job-shaped notification from `completeJob()` and `cancel()`, deliberately outside the
+  crafting-toast toggle and outside the "is the requester online" test that gates toasts. The container
+  parks each outcome and spends it only once no CPU is working that key any more, so a key split across
+  several CPUs speaks once, at the end; a cancellation is never overwritten by a later completion, because
+  part of what was asked for did not arrive. Ending without any reported outcome - a hijacked CPU, a job
+  that stopped being the viewer's - is its own state and shows no status line rather than guessing one.
   Visible pin keys bypass search, sorting, view cells, view mode, and key-type filtering and are removed
   from the ordinary terminal list.
 

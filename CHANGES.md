@@ -77,6 +77,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Pin storage and interaction support every registered `AEKey` type and are exposed to addon terminal hosts through the public API.
 - Added client settings for independently hiding crafting and player pins.
 - Initial pin state is pushed with the opening container, avoiding a delayed row resize after the terminal appears.
+- A crafting pin whose job has ended says so instead of leaving the last "Crafting: 3 / 64" standing: **Done** in green, or **Cancelled** in red if the job was cancelled. A pin only speaks once every job behind it has ended, so an item split across several CPUs keeps counting until the last of them stops, and a cancellation is reported even if another CPU finished its share. A job that ends without saying how - a CPU taken over by someone else, a world reloaded mid-craft - shows no status line rather than guessing one.
+- Added `ICraftingCPUListener.onCraftingJobFinished()`, which reports how a CPU's job ended. **This is a breaking change for anything implementing that interface.**
 
 ### Extensible upgrade cards
 

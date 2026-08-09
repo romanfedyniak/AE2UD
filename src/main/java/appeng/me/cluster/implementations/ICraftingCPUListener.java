@@ -57,4 +57,16 @@ public interface ICraftingCPUListener {
      * @param source the action source responsible for the change.
      */
     void onCraftingCPUChange(AEKey what, IActionSource source);
+
+    /**
+     * Called once when the CPU's job ends, which the amount-shaped {@link #onCraftingCPUChange} cannot express:
+     * a job that finished and one that was cancelled both leave the CPU idle, and only the CPU knows which
+     * happened. Fired independently of the crafting-toast feature toggle, and exactly once per job - a
+     * completed job that is also swept through {@code cancel()} reports completion only.
+     *
+     * @param cpu       the CPU whose job ended, so listeners can apply their own "was this job mine" test.
+     * @param what      the job's final output key.
+     * @param cancelled true if the job was cancelled, false if it ran to completion.
+     */
+    void onCraftingJobFinished(CraftingCPUCluster cpu, AEKey what, boolean cancelled);
 }

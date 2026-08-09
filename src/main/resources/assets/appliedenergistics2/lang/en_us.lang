@@ -737,4 +737,6 @@ gui.appliedenergistics2.pins=Pinned rows
 gui.appliedenergistics2.playerPinRows=Left / Right: player rows (%s)
 gui.appliedenergistics2.craftingPinRows=Ctrl + Left / Right: crafting rows (%s)
 gui.appliedenergistics2.craftingPinProgress=Crafting: %s / %s
+gui.appliedenergistics2.craftingPinDone=Done
+gui.appliedenergistics2.craftingPinCancelled=Cancelled
 gui.appliedenergistics2.playerPinSectionFull=Player pin section is full

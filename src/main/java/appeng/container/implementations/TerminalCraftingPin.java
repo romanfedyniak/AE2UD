@@ -19,27 +19,45 @@ import appeng.api.stacks.AEKey;
 
 /** Aggregated progress for one output shown in the crafting pin section. */
 public final class TerminalCraftingPin {
+
+    /**
+     * What the pin's job did. {@link #UNKNOWN} is a job that stopped being ours without ever reporting an
+     * outcome - a hijacked CPU, a server restart mid-craft - and deliberately shows no status at all.
+     */
+    public enum Status {
+        ACTIVE,
+        DONE,
+        CANCELLED,
+        UNKNOWN;
+
+        private static final Status[] VALUES = values();
+
+        static Status byIndex(int index) {
+            return index >= 0 && index < VALUES.length ? VALUES[index] : UNKNOWN;
+        }
+    }
+
     private final AEKey what;
     private final long remaining;
     private final long requested;
-    private final boolean active;
+    private final Status status;
 
-    public TerminalCraftingPin(AEKey what, long remaining, long requested, boolean active) {
+    public TerminalCraftingPin(AEKey what, long remaining, long requested, Status status) {
         this.what = Objects.requireNonNull(what, "what");
         this.remaining = remaining;
         this.requested = requested;
-        this.active = active;
+        this.status = Objects.requireNonNull(status, "status");
     }
 
     public TerminalCraftingPin(ByteBuf data) throws IOException {
-        this(AEKey.readKey(data), data.readLong(), data.readLong(), data.readBoolean());
+        this(AEKey.readKey(data), data.readLong(), data.readLong(), Status.byIndex(data.readByte()));
     }
 
     public void writeToPacket(ByteBuf data) throws IOException {
         AEKey.writeKey(data, what);
         data.writeLong(remaining);
         data.writeLong(requested);
-        data.writeBoolean(active);
+        data.writeByte(status.ordinal());
     }
 
     public AEKey getWhat() {
@@ -54,8 +72,12 @@ public final class TerminalCraftingPin {
         return requested;
     }
 
+    public Status getStatus() {
+        return status;
+    }
+
     public boolean isActive() {
-        return active;
+        return status == Status.ACTIVE;
     }
 
     @Override
@@ -63,12 +85,12 @@ public final class TerminalCraftingPin {
         if (this == obj) return true;
         if (!(obj instanceof TerminalCraftingPin)) return false;
         TerminalCraftingPin other = (TerminalCraftingPin) obj;
-        return remaining == other.remaining && requested == other.requested && active == other.active
+        return remaining == other.remaining && requested == other.requested && status == other.status
                 && what.equals(other.what);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(what, remaining, requested, active);
+        return Objects.hash(what, remaining, requested, status);
     }
 }
