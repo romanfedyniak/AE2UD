@@ -113,12 +113,12 @@ public interface ICraftingGrid extends IGridCache
 	 * @param src - the action source to use when starting the job, this will be used for extracting items, should
 	 * usually be the same as the one provided to beginCraftingJob.
 	 *
-	 * @return null ( if failed ) or an {@link ICraftingLink} other wise, if you send requestingMachine you need to
-	 * properly keep track of this and handle the nbt saving and loading of the object as well as the
-	 * {@link ICraftingRequester} methods. if you send null, this object should be discarded after verifying the
-	 * return state.
+	 * @return the outcome, never null. On success and only when you sent a requestingMachine,
+	 * {@link ICraftingSubmitResult#link()} holds a link you need to keep track of, handling its nbt saving and
+	 * loading as well as the {@link ICraftingRequester} methods; if you sent null, discard it after checking
+	 * the result. On failure {@link ICraftingSubmitResult#errorCode()} says why the job did not start.
 	 */
-	ICraftingLink submitJob( ICraftingJob job, ICraftingRequester requestingMachine, ICraftingCPU target, boolean prioritizePower, IActionSource src );
+	ICraftingSubmitResult submitJob( ICraftingJob job, ICraftingRequester requestingMachine, ICraftingCPU target, boolean prioritizePower, IActionSource src );
 
 	/**
 	 * @return list of all the crafting cpus on the grid

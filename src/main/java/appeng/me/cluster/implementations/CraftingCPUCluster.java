@@ -1029,17 +1029,21 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.markDirty();
     }
 
-    public ICraftingLink submitJob(final IGrid g, final ICraftingJob job, final IActionSource src, final ICraftingRequester requestingMachine) {
-        if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty()) {
-            return null;
+    public ICraftingSubmitResult submitJob(final IGrid g, final ICraftingJob job, final IActionSource src, final ICraftingRequester requestingMachine) {
+        if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty() || this.isBusy()) {
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_BUSY);
         }
 
         if (!(job instanceof CraftingJob)) {
-            return null;
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.INCOMPLETE_PLAN);
         }
 
-        if (this.isBusy() || !this.isActive() || this.availableStorage < job.getByteTotal()) {
-            return null;
+        if (!this.isActive()) {
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_OFFLINE);
+        }
+
+        if (this.availableStorage < job.getByteTotal()) {
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_TOO_SMALL);
         }
 
         final IStorageService sg = g.getCache(IStorageService.class);
@@ -1076,7 +1080,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 this.prepareElapsedTime();
 
                 if (requestingMachine == null) {
-                    return this.myLastLink;
+                    return CraftingSubmitResult.successful(this.myLastLink);
                 }
 
                 final ICraftingLink whatLink = new CraftingLink(this.generateLinkData(craftID, false, true), requestingMachine);
@@ -1093,16 +1097,17 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     this.postChange(key, this.machineSrc);
                 }
 
-                return whatLink;
+                return CraftingSubmitResult.successful(whatLink);
             } else {
                 this.tasks.clear();
             }
         } catch (final CraftBranchFailure e) {
             this.tasks.clear();
-            // AELog.error( e );
+            // A branch that was there when the job was planned is gone now, so say what went missing.
+            return CraftingSubmitResult.missingIngredient(e.getMissing());
         }
 
-        return null;
+        return CraftingSubmitResult.missingIngredient(null);
     }
 
     @Override

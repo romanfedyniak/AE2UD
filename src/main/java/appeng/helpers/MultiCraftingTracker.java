@@ -94,7 +94,7 @@ public class MultiCraftingTracker {
                         }
 
                         if (job != null) {
-                            final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc);
+                            final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc).link();
 
                             this.setJob(x, null);
 

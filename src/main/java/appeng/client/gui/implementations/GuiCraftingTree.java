@@ -26,6 +26,7 @@ import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
+import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -92,6 +93,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
     private final ContainerCraftingTree container;
     private final GuiCraftingCPUTable cpuTable;
+    private final GuiCraftErrorPanel errorPanel;
     private final GuiCraftingPlanTree tree;
 
     private MEGuiTextField searchField;
@@ -108,6 +110,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         this.container = (ContainerCraftingTree) this.inventorySlots;
         this.cpuTable = new GuiCraftingCPUTable(this, this.container);
+        this.errorPanel = new GuiCraftErrorPanel(this, this.container);
         this.tree = new GuiCraftingPlanTree(this);
     }
 
@@ -146,6 +149,9 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
                 GuiText.Start.getLocal());
         this.buttonList.add(this.start);
 
+        // Over the tree canvas, since Start can fail from this screen just as it can from the plan.
+        this.errorPanel.initGui(6, 36, this.xSize - 12, this.ySize - 66, this.buttonList);
+
         // Under the terminal-style button, on the strip outside the window where this screen keeps its
         // own controls.
         this.saveImage = new GuiIconButton(this.guiLeft + this.xSize, this.guiTop + 28, SAVE_IMAGE_ICON,
@@ -180,6 +186,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         this.cpuTable.updateScrollRange();
 
+        this.errorPanel.update();
         this.start.enabled = !(this.container.hasNoCPU() || this.container.isSimulation());
         this.missingOnly.enabled = this.tree.hasMissing();
         this.missingOnly.displayString = this.missingOnly.enabled
@@ -201,6 +208,8 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.cpuTable.drawBG(offsetX, offsetY);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+        this.errorPanel.drawBG(offsetX, offsetY);
     }
 
     /**
@@ -238,6 +247,12 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.cpuTable.drawFG(mouseX, mouseY);
+
+        // The panel stands in for the tree, and is drawn in the background layer so its own buttons stay on
+        // top of it. Nothing of the tree is drawn underneath.
+        if (this.errorPanel.isShowing()) {
+            return;
+        }
 
         this.searchField.drawTextBox();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
@@ -281,6 +296,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.errorPanel.actionPerformed(btn)) {
+            return;
+        }
 
         if (btn == this.terminalStyleBox) {
             final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);

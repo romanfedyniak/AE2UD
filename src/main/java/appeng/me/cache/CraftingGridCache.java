@@ -40,6 +40,7 @@ import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.crafting.CraftingJob;
 import appeng.crafting.CraftingLink;
+import appeng.crafting.CraftingSubmitResult;
 import appeng.crafting.CraftingLinkNexus;
 import appeng.crafting.CraftingWatcher;
 import appeng.me.helpers.InterestManager;
@@ -412,9 +413,9 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     @Override
-    public ICraftingLink submitJob(final ICraftingJob job, final ICraftingRequester requestingMachine, final ICraftingCPU target, final boolean prioritizePower, final IActionSource src) {
+    public ICraftingSubmitResult submitJob(final ICraftingJob job, final ICraftingRequester requestingMachine, final ICraftingCPU target, final boolean prioritizePower, final IActionSource src) {
         if (job.isSimulation()) {
-            return null;
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.INCOMPLETE_PLAN);
         }
 
         CraftingCPUCluster cpuCluster = null;
@@ -426,17 +427,36 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             // leave such a CPU out of the table they offer, and this is what holds when the request comes from
             // somewhere else - an addon, or a client that sent a stale selection.
             if (!cpuCluster.getSelectionMode().accepts(src)) {
-                return null;
+                return CraftingSubmitResult.noSuitableCpu(new UnsuitableCpus(0, 0, 0, 1));
             }
         }
 
         if (target == null) {
+            if (this.craftingCPUClusters.isEmpty()) {
+                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
+            }
+
             final List<CraftingCPUCluster> validCpusClusters = new ArrayList<>();
+            int offline = 0;
+            int busy = 0;
+            int tooSmall = 0;
+            int excluded = 0;
             for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
-                if (cpu.isActive() && !cpu.isBusy() && cpu.getAvailableStorage() >= job.getByteTotal()
-                        && cpu.getSelectionMode().accepts(src)) {
+                if (!cpu.isActive()) {
+                    offline++;
+                } else if (cpu.isBusy()) {
+                    busy++;
+                } else if (cpu.getAvailableStorage() < job.getByteTotal()) {
+                    tooSmall++;
+                } else if (!cpu.getSelectionMode().accepts(src)) {
+                    excluded++;
+                } else {
                     validCpusClusters.add(cpu);
                 }
+            }
+
+            if (validCpusClusters.isEmpty()) {
+                return CraftingSubmitResult.noSuitableCpu(new UnsuitableCpus(offline, busy, tooSmall, excluded));
             }
 
             Collections.sort(validCpusClusters, (firstCluster, nextCluster) -> {
@@ -455,16 +475,14 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
                 return Long.compare(firstCluster.getAvailableStorage(), nextCluster.getAvailableStorage());
             });
 
-            if (!validCpusClusters.isEmpty()) {
-                cpuCluster = validCpusClusters.get(0);
-            }
+            cpuCluster = validCpusClusters.get(0);
         }
 
-        if (cpuCluster != null) {
-            return cpuCluster.submitJob(this.grid, job, src, requestingMachine);
+        if (cpuCluster == null) {
+            return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
         }
 
-        return null;
+        return cpuCluster.submitJob(this.grid, job, src, requestingMachine);
     }
 
     @Override

@@ -28,11 +28,14 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
-import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
+import appeng.api.networking.crafting.UnsuitableCpus;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
@@ -114,6 +117,28 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
      */
     @GuiSync(8)
     public boolean hasAmountScreen = true;
+    /**
+     * Why the last Start did not take, as an ordinal, or -1 while there is nothing to report. Not the enum
+     * itself: {@link appeng.container.guisync.GuiSync} dereferences a field's value without a null check, so
+     * a null enum would throw on the first tick. The four counts below only mean anything for
+     * {@link CraftingSubmitErrorCode#NO_SUITABLE_CPU_FOUND}.
+     */
+    @GuiSync(9)
+    public int submitError = -1;
+    @GuiSync(10)
+    public int unsuitableOffline = 0;
+    @GuiSync(11)
+    public int unsuitableBusy = 0;
+    @GuiSync(12)
+    public int unsuitableTooSmall = 0;
+    @GuiSync(13)
+    public int unsuitableExcluded = 0;
+    /**
+     * What went missing, for {@link CraftingSubmitErrorCode#MISSING_INGREDIENT}. Sent as its display name
+     * rather than as a stack: the screen only ever prints it.
+     */
+    @GuiSync(14)
+    public String missingIngredient = "";
     private GuiCraftConfirm guiCraftConfirm;
 
     public ContainerCraftConfirm(final InventoryPlayer ip, final ITerminalHost te) {
@@ -297,6 +322,47 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
         return Math.round(percentage * USED_PERCENT_SCALE);
     }
 
+    /**
+     * Records why a Start did not take, so the screen can say so instead of looking as if nothing happened.
+     */
+    private void setSubmitError(final ICraftingSubmitResult result) {
+        this.submitError = result.errorCode() == null ? -1 : result.errorCode().ordinal();
+        this.unsuitableOffline = 0;
+        this.unsuitableBusy = 0;
+        this.unsuitableTooSmall = 0;
+        this.unsuitableExcluded = 0;
+        this.missingIngredient = "";
+
+        if (result.errorDetail() instanceof UnsuitableCpus cpus) {
+            this.unsuitableOffline = cpus.offline();
+            this.unsuitableBusy = cpus.busy();
+            this.unsuitableTooSmall = cpus.tooSmall();
+            this.unsuitableExcluded = cpus.excluded();
+        } else if (result.errorDetail() instanceof GenericStack missing) {
+            this.missingIngredient = missing.what().getDisplayName().getFormattedText();
+        }
+    }
+
+    public void clearSubmitError() {
+        this.submitError = -1;
+    }
+
+    /**
+     * Throws the failed plan away and works out a new one, which is what the screen's Replan does. Until this
+     * screen gained a way to report a failure, a failed Start did exactly this on its own.
+     */
+    public void replan() {
+        final IActionHost host = this.getActionHost();
+        final IGridNode node = host == null ? null : host.getActionableNode();
+        if (node == null || node.getGrid() == null || this.result == null) {
+            return;
+        }
+
+        final ICraftingGrid cc = node.getGrid().getCache(ICraftingGrid.class);
+        this.clearSubmitError();
+        this.setJob(cc.beginCraftingJob(this.getWorld(), node.getGrid(), this.getActionSrc(), this.result.getOutput(), null));
+    }
+
     public void startJob() {
         GuiBridge originalGui = null;
 
@@ -330,10 +396,12 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
         if (this.result != null && !this.isSimulation()) {
             final ICraftingGrid cc = grid.getCache(ICraftingGrid.class);
-            final ICraftingLink g = cc.submitJob(this.result, null, this.cpuTable.getSelectedCpu(), true, this.getActionSrc());
+            final ICraftingSubmitResult submitted = cc.submitJob(this.result, null, this.cpuTable.getSelectedCpu(), true, this.getActionSrc());
             this.setAutoStart(false);
-            if (g == null) {
-                this.setJob(cc.beginCraftingJob(this.getWorld(), grid, this.getActionSrc(), this.result.getOutput(), null));
+            if (!submitted.successful()) {
+                // The plan is kept, so the screen's Retry can submit this very plan again and Replan is a
+                // choice rather than something that happens on its own.
+                this.setSubmitError(submitted);
             } else if (originalGui != null && this.getOpenContext() != null) {
                 final TileEntity te = this.getOpenContext().getTile();
                 if (te != null) {

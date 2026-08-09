@@ -33,4 +33,11 @@ public class CraftBranchFailure extends Exception {
         super("Failed: " + what.getDisplayName().getUnformattedText() + " x " + howMany);
         this.missing = new GenericStack(what, howMany);
     }
+
+    /**
+     * @return what the network could not supply after all.
+     */
+    public GenericStack getMissing() {
+        return this.missing;
+    }
 }

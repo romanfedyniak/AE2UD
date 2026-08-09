@@ -103,6 +103,12 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("Terminal.Start") && c instanceof ContainerCraftConfirm) {
             final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
             qk.startJob();
+        } else if (this.Name.equals("Terminal.Replan") && c instanceof ContainerCraftConfirm) {
+            final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
+            qk.replan();
+        } else if (this.Name.equals("Terminal.ClearError") && c instanceof ContainerCraftConfirm) {
+            final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
+            qk.clearSubmitError();
         } else if (this.Name.equals("TileCrafting.Cancel") && c instanceof ContainerCraftingCPU) {
             final ContainerCraftingCPU qk = (ContainerCraftingCPU) c;
             qk.cancelCrafting();

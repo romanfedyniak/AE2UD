@@ -44,6 +44,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - A CPU kept for players or for automation is marked in the corner of its row in the Crafting Status screen's CPU table, and the tooltip says which it is. A CPU open to everything is the usual case and is left unmarked.
 - The mode is remembered by every block of the CPU rather than by the CPU as a whole, so adding an accelerator - which takes the multiblock apart and forms it again - does not quietly reset it. Blocks that have never been given a mode do not count, so extending a CPU with fresh blocks keeps its mode; merging two CPUs that disagree leaves the result open to everything, and taking them apart again gives each its own mode back.
 - Added `ICraftingCPU.getSelectionMode()` and `appeng.api.config.CpuSelectionMode`, matching modern AE2. **This is a breaking API change:** anything implementing `ICraftingCPU` has to answer it.
+- **A job that cannot start now says why.** The Crafting Plan and Crafting Tree screens put a panel over their contents naming the reason - an incomplete plan, no CPUs at all, the chosen CPU being busy, offline or too small, an ingredient that has gone from the network since the plan was worked out, or no CPU being suitable, which is counted out as "2 busy, 1 too small, 1 kept for other requests". Until now a Start that failed silently threw the plan away and worked out a new one, which looked like nothing happening at all. Adapted from modern Applied Energistics 2.
+- The panel's **Retry** submits the very same plan again, **Replan** works out a fresh one - the old silent behaviour, now a choice - and **Cancel** puts the plan back on screen.
+- Added `appeng.api.networking.crafting.ICraftingSubmitResult`, `CraftingSubmitErrorCode` and `UnsuitableCpus`, and `ICraftingGrid.submitJob` returns the result rather than a link. **This is a breaking API change:** a caller that wants the link now asks the result for it.
 
 ### P2P tunnels
 

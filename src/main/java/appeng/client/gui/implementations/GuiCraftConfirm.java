@@ -32,6 +32,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -124,6 +125,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private GuiImgButton terminalStyleBox;
     private GuiIconButton saveImage;
     private final GuiCraftingCPUTable cpuTable;
+    private final GuiCraftErrorPanel errorPanel;
     private int tooltip = -1;
 
     public GuiCraftConfirm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -137,6 +139,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.ccc = (ContainerCraftConfirm) this.inventorySlots;
         this.ccc.setGui(this);
         this.cpuTable = new GuiCraftingCPUTable(this, this.ccc);
+        this.errorPanel = new GuiCraftErrorPanel(this, this.ccc);
 
         if (te instanceof WirelessTerminalGuiObject) {
             ItemStack itemStack = ((WirelessTerminalGuiObject) te).getItemStack();
@@ -196,11 +199,15 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
+
+        // Over the plan list, leaving the header and the footer line of the screen visible.
+        this.errorPanel.initGui(6, 18, this.xSize - 12, this.ySize - 63, this.buttonList);
     }
 
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
         this.cpuTable.updateScrollRange();
+        this.errorPanel.update();
 
         this.start.enabled = !(this.ccc.hasNoCPU() || this.isSimulation());
         // Nothing to draw a tree or a picture of until the job has been worked out.
@@ -261,6 +268,12 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
         final int offset = (219 - this.fontRenderer.getStringWidth(dsp)) / 2;
         this.fontRenderer.drawString(dsp, offset, this.ySize - 41, 4210752);
+
+        // The panel stands in for the list, and is drawn in the background layer so its own buttons stay on
+        // top of it. Nothing of the list is drawn underneath.
+        if (this.errorPanel.isShowing()) {
+            return;
+        }
 
         final int sectionLength = 67;
 
@@ -333,6 +346,8 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 this.xSize, TEXTURE_LAST_ROW_HEIGHT);
         this.drawTexturedModalRect(offsetX, offsetY + y + TEXTURE_LAST_ROW_HEIGHT,
                 0, TEXTURE_FOOTER_Y + TEXTURE_FOOTER_TRIM, this.xSize, FOOTER_HEIGHT);
+
+        this.errorPanel.drawBG(offsetX, offsetY);
     }
 
     @Override
@@ -475,6 +490,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.errorPanel.actionPerformed(btn)) {
+            return;
+        }
 
         final boolean backwards = Mouse.isButtonDown(1);
 
