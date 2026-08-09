@@ -473,8 +473,8 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
     }
 
     @Override
-    public AEKeyType getKeyType() {
-        return AEKeyType.items();
+    public Set<AEKeyType> getKeyTypes() {
+        return Collections.singleton(AEKeyType.items());
     }
 
     @Override
@@ -494,7 +494,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is, Collections.singleton(this.getKeyType()));
+        return new CellConfig(is, this.getKeyTypes());
     }
 
     @Override

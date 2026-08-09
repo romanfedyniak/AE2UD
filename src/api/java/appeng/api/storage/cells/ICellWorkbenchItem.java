@@ -34,7 +34,7 @@ import appeng.api.config.FuzzyMode;
  * It deliberately declares no content type. What a partition may name is decided by the config inventory
  * this item hands out ({@link #getConfigInventory}), which is the only thing that also governs writes not
  * coming from the workbench screen; a cell that stores one type says so through
- * {@link IBasicCellItem#getKeyType()}.
+ * {@link IBasicCellItem#getKeyTypes()}.
  */
 public interface ICellWorkbenchItem {
 

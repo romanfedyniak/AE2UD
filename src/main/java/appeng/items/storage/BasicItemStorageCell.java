@@ -26,6 +26,9 @@ import appeng.util.InventoryAdaptor;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 
+import java.util.Collections;
+import java.util.Set;
+
 
 public final class BasicItemStorageCell extends AbstractStorageCell {
 
@@ -69,8 +72,8 @@ public final class BasicItemStorageCell extends AbstractStorageCell {
     }
 
     @Override
-    public AEKeyType getKeyType() {
-        return AEKeyType.items();
+    public Set<AEKeyType> getKeyTypes() {
+        return Collections.singleton(AEKeyType.items());
     }
 
     @Override

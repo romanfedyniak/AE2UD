@@ -120,7 +120,7 @@ public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCe
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is, Collections.singleton(this.getKeyType()));
+        return new CellConfig(is, this.getKeyTypes());
     }
 
     @Override

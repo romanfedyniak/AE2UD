@@ -72,6 +72,7 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 
 public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellItem {
@@ -362,7 +363,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is, Collections.singleton(this.getKeyType()));
+        return new CellConfig(is, this.getKeyTypes());
     }
 
     @Override
@@ -425,7 +426,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
     }
 
     @Override
-    public AEKeyType getKeyType() {
-        return AEKeyType.items();
+    public Set<AEKeyType> getKeyTypes() {
+        return Collections.singleton(AEKeyType.items());
     }
 }

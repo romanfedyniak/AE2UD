@@ -3335,6 +3335,19 @@ in a cell's item was the wrong home for the question in the first place, so:
   rather than once per cell; the workbench asks the cell's partition inventory whether a stack is valid.
 
 A cell holding several kinds of content at once is therefore already possible for an addon that ships its own
-`StorageCell`. Making the *standard* cell machinery multi-type — per-type byte accounting in
-`BasicCellInventory` and `IBasicCellItem#getKeyType()` becoming a set — is the following change, and does not
-alter cell NBT: `ic`/`ft` are recomputed caches over the stored key map.
+`StorageCell`. The standard cell machinery followed in the next change:
+
+- **`IBasicCellItem#getKeyType()` is now `Set<AEKeyType> getKeyTypes()`.** Every cell AE2UD ships returns a
+  singleton; an addon returning more gets one cell holding all of them.
+- **`BasicCellInventory` counts bytes per type.** `getUsedBytes()` is
+  `types × bytesPerType + Σ ceil(count_t ÷ amountPerByte_t)`, and `canHoldNewItem`, `getUnusedItemCount` and
+  `getRemainingItemCount` take the `AEKeyType` they are being asked about (`insert` passes
+  `what.getType()`; `getStatus` asks about each type the cell names). For a single-type cell the sum has one
+  term and the result is identical to the old arithmetic.
+- **Cell NBT is unchanged and needs no migration.** `ic`/`it` stay the plain total and type count they always
+  were; the per-type amounts are derived from the stored key map (`ITEMS_TAG`) and cached in memory, thrown
+  away on every `saveChanges()`. The cost is that asking a cell for its byte usage now loads its contents,
+  where the total used to be read straight off the tag.
+
+Deliberately **not** done: AE2UD ships no multi-type cell of its own. The machinery exists for addons, and is
+exercised in-game by every ordinary cell going through the same code path.

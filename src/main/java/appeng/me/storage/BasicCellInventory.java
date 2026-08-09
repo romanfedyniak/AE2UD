@@ -21,7 +21,6 @@ package appeng.me.storage;
 
 import javax.annotation.Nullable;
 
-import java.util.Collections;
 import java.util.Set;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -59,7 +58,12 @@ import appeng.util.prioritylist.IPartitionList;
 
 
 /**
- * The contents of a standard storage cell, for any single {@link AEKeyType}.
+ * The contents of a standard storage cell.
+ * <p/>
+ * Bytes are counted per {@link AEKeyType}, because a cell is allowed to name several
+ * ({@link IBasicCellItem#getKeyTypes()}) and a byte holds a different amount of each - one byte is eight
+ * items or one quarter of a bucket. Every cell Applied Energistics ships names exactly one type, for which
+ * the sum below has a single term and the arithmetic is the same as it ever was.
  * <p/>
  * Replaces {@code AbstractCellInventory}, {@code BasicCellInventory} and {@code BasicCellInventoryHandler}, which
  * were split across a generic base class, a generic {@code ICellInventory} implementation and a
@@ -82,7 +86,7 @@ public class BasicCellInventory implements StorageCell {
     private final ISaveProvider container;
     private final ItemStack i;
     private final IBasicCellItem cellType;
-    private final AEKeyType keyType;
+    private final Set<AEKeyType> keyTypes;
     private final IPartitionList partitionList;
     private final IncludeExclude partitionListMode;
     private final boolean sticky;
@@ -91,12 +95,16 @@ public class BasicCellInventory implements StorageCell {
     private long storedItemCount;
     @Nullable
     private Object2LongMap<AEKey> storedAmounts;
+    // How much of each type is stored, which is what the byte count is built from. Derived from
+    // storedAmounts, never saved: ITEM_COUNT_TAG stays the plain total it has always been.
+    @Nullable
+    private Object2LongMap<AEKeyType> storedAmountsByType;
     private boolean isPersisted = true;
 
     private BasicCellInventory(final IBasicCellItem cellType, final ItemStack o, @Nullable final ISaveProvider container) {
         this.i = o;
         this.cellType = cellType;
-        this.keyType = cellType.getKeyType();
+        this.keyTypes = cellType.getKeyTypes();
         this.maxItemTypes = cellType.getTotalTypes(o);
 
         if (this.maxItemTypes > MAX_ITEM_TYPES) {
@@ -249,17 +257,34 @@ public class BasicCellInventory implements StorageCell {
 
     @Override
     public Set<AEKeyType> getSupportedKeyTypes() {
-        return Collections.singleton(this.keyType);
+        return this.keyTypes;
     }
 
     public int getBytesPerType() {
         return this.cellType.getBytesPerType(this.i);
     }
 
-    public boolean canHoldNewItem() {
+    /**
+     * Whether one more type of {@code type} would fit. A new type costs {@link #getBytesPerType()} bytes, and
+     * those bytes are only worth taking if at least one unit of that type then fits in them.
+     */
+    public boolean canHoldNewItem(final AEKeyType type) {
         final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType() || (bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0))
+        return (bytesFree > this.getBytesPerType()
+                || (bytesFree == this.getBytesPerType() && this.getUnusedItemCount(type) > 0))
                 && this.getRemainingItemTypes() > 0;
+    }
+
+    /**
+     * Whether one more type of <em>anything</em> this cell holds would fit.
+     */
+    public boolean canHoldNewItem() {
+        for (final AEKeyType type : this.keyTypes) {
+            if (this.canHoldNewItem(type)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public long getTotalBytes() {
@@ -278,6 +303,14 @@ public class BasicCellInventory implements StorageCell {
         return this.storedItemCount;
     }
 
+    /**
+     * How much of one type is stored. Meaningful on its own in a way the total is not: a total mixing items
+     * and millibuckets counts two things that are not the same size.
+     */
+    public long getStoredItemCount(final AEKeyType type) {
+        return this.getStoredAmountsByType().getLong(type);
+    }
+
     public long getStoredItemTypes() {
         return this.storedItemTypes;
     }
@@ -289,23 +322,34 @@ public class BasicCellInventory implements StorageCell {
     }
 
     public long getUsedBytes() {
-        final long bytesForItemCount = (this.getStoredItemCount() + this.getUnusedItemCount()) / this.keyType.getAmountPerByte();
+        long bytesForItemCount = 0;
+        for (final Object2LongMap.Entry<AEKeyType> entry : this.getStoredAmountsByType().object2LongEntrySet()) {
+            final int amountPerByte = entry.getKey().getAmountPerByte();
+            // Rounded up, per type: a byte holding part of a bucket is spent whole, and cannot be shared
+            // with the items stored beside it.
+            bytesForItemCount += (entry.getLongValue() + amountPerByte - 1) / amountPerByte;
+        }
         return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
     }
 
-    public long getRemainingItemCount() {
-        final long remaining = this.getFreeBytes() * this.keyType.getAmountPerByte() + this.getUnusedItemCount();
+    /**
+     * How much more of {@code type} would fit: every free byte, plus the tail of the byte that type is
+     * already halfway through.
+     */
+    public long getRemainingItemCount(final AEKeyType type) {
+        final long remaining = this.getFreeBytes() * type.getAmountPerByte() + this.getUnusedItemCount(type);
         return remaining > 0 ? remaining : 0;
     }
 
-    public int getUnusedItemCount() {
-        final int div = (int) (this.getStoredItemCount() % this.keyType.getAmountPerByte());
+    public int getUnusedItemCount(final AEKeyType type) {
+        final int amountPerByte = type.getAmountPerByte();
+        final int div = (int) (this.getStoredItemCount(type) % amountPerByte);
 
         if (div == 0) {
             return 0;
         }
 
-        return this.keyType.getAmountPerByte() - div;
+        return amountPerByte - div;
     }
 
     @Override
@@ -321,8 +365,10 @@ public class BasicCellInventory implements StorageCell {
         if (this.canHoldNewItem()) {
             return CellState.NOT_EMPTY;
         }
-        if (this.getRemainingItemCount() > 0) {
-            return CellState.TYPES_FULL;
+        for (final AEKeyType type : this.keyTypes) {
+            if (this.getRemainingItemCount(type) > 0) {
+                return CellState.TYPES_FULL;
+            }
         }
         return CellState.FULL;
     }
@@ -334,7 +380,8 @@ public class BasicCellInventory implements StorageCell {
 
     @Override
     public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
-        if (amount <= 0 || !this.keyType.contains(what)) {
+        final AEKeyType type = what.getType();
+        if (amount <= 0 || !this.keyTypes.contains(type)) {
             return 0;
         }
 
@@ -355,15 +402,15 @@ public class BasicCellInventory implements StorageCell {
         }
 
         final long currentAmount = this.getCellItems().getLong(what);
-        long remainingItemCount = this.getRemainingItemCount();
+        long remainingItemCount = this.getRemainingItemCount(type);
 
         if (currentAmount <= 0) {
-            if (!this.canHoldNewItem()) {
+            if (!this.canHoldNewItem(type)) {
                 // No room for a new type.
                 return 0;
             }
 
-            remainingItemCount -= (long) this.getBytesPerType() * this.keyType.getAmountPerByte();
+            remainingItemCount -= (long) this.getBytesPerType() * type.getAmountPerByte();
             if (remainingItemCount <= 0) {
                 return 0;
             }
@@ -467,6 +514,27 @@ public class BasicCellInventory implements StorageCell {
         return this.storedAmounts;
     }
 
+    /**
+     * Recomputed from the contents rather than saved, which is why this change needs no migration: the cell's
+     * NBT has always held the keys themselves, and the totals beside them are a cache.
+     * <p>
+     * It does mean asking a cell for its byte usage loads its contents, where the plain total was read
+     * straight off the tag. That is one pass over a list already in memory, and the alternative - trusting a
+     * total that mixes items with millibuckets - cannot answer the question at all.
+     */
+    private Object2LongMap<AEKeyType> getStoredAmountsByType() {
+        if (this.storedAmountsByType == null) {
+            final Object2LongMap<AEKeyType> byType = new Object2LongOpenHashMap<>();
+            for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
+                final AEKeyType type = entry.getKey().getType();
+                byType.put(type, byType.getLong(type) + entry.getLongValue());
+            }
+            this.storedAmountsByType = byType;
+        }
+
+        return this.storedAmountsByType;
+    }
+
     private void loadCellItems() {
         final NBTTagList list = this.tagCompound.getTagList(ITEMS_TAG, Constants.NBT.TAG_COMPOUND);
         boolean needsUpdate = false;
@@ -504,6 +572,7 @@ public class BasicCellInventory implements StorageCell {
 
     private void saveChanges() {
         this.storedItemTypes = this.getCellItems().size();
+        this.storedAmountsByType = null;
 
         long count = 0;
         for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {

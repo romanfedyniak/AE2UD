@@ -28,6 +28,9 @@ import appeng.util.InventoryAdaptor;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 
+import java.util.Collections;
+import java.util.Set;
+
 
 /**
  * @author DrummerMC
@@ -76,8 +79,8 @@ public final class BasicFluidStorageCell extends AbstractStorageCell {
     }
 
     @Override
-    public AEKeyType getKeyType() {
-        return AEKeyType.fluids();
+    public Set<AEKeyType> getKeyTypes() {
+        return Collections.singleton(AEKeyType.fluids());
     }
 
     @Override

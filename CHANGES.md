@@ -66,6 +66,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - The ME Chest asks the installed cell what it can hold instead of reading a type off the cell item: it offers itself to neighbours as a tank when the cell holds fluids, and its input slot accepts whatever the cell would actually take. A creative cell set to a fluid therefore works as a tank, and one set to items does not pretend to be one.
 - The IO Port counts a transfer per key rather than per cell, so a cell holding items and fluids together moves an item at a time and a bucket at a time as appropriate.
 - **A View Cell can now be filtered by fluids** (and by any content type an addon registers), not by items alone.
+- **An addon can now ship a storage cell that holds several kinds of content in one cell.** `IBasicCellItem.getKeyType()` became `getKeyTypes()`, and a cell's bytes are counted per content type - a byte holds eight items or a quarter of a bucket, so each type pays its own way and a byte is never shared between two of them. Every cell AE2UD itself ships names one type, for which the arithmetic is unchanged, and no cell in an existing world needs migrating: what a cell holds has always been saved as the keys themselves, and the totals beside them are only a cache.
 
 ### Terminals and HEI
 

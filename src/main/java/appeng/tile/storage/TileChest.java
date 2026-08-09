@@ -87,6 +87,8 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Set;
 
 
 public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminalHost, IPriorityHost, IConfigManagerHost, IColorableTile, ISaveProvider, ITickable {
@@ -562,12 +564,13 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             return false;
         }
 
-        // Only a cell that declares one kind of content can have a screen of its own; anything else - the
+        // Only a cell that holds exactly one kind of content can have a screen of its own; anything else - the
         // creative cell, or an addon cell holding several kinds at once - goes to the terminal, which serves
         // every key type anyway.
-        final AEKeyType keyType = cellStack.getItem() instanceof IBasicCellItem basicCell
-                ? basicCell.getKeyType()
-                : null;
+        final Set<AEKeyType> keyTypes = cellStack.getItem() instanceof IBasicCellItem basicCell
+                ? basicCell.getKeyTypes()
+                : Collections.emptySet();
+        final AEKeyType keyType = keyTypes.size() == 1 ? keyTypes.iterator().next() : null;
         final ICellGuiHandler chg = keyType == null ? null : StorageCells.getGuiHandler(keyType, cellStack);
 
         if (chg != null) {

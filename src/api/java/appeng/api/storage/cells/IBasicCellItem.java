@@ -25,25 +25,29 @@ package appeng.api.storage.cells;
 
 import javax.annotation.Nonnull;
 
+import java.util.Set;
+
 import net.minecraft.item.ItemStack;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 
 /**
- * A standard storage cell item: bytes, types, and one {@link AEKeyType} it stores.
+ * A standard storage cell item: bytes, types, and the {@link AEKeyType}s it stores.
  * <p>
- * Replaces {@code IStorageCell<T>}. {@link #getKeyType()} is what makes "a cell for gas" possible
+ * Replaces {@code IStorageCell<T>}. {@link #getKeyTypes()} is what makes "a cell for gas" possible
  * without touching the core: an addon registers its key type, ships an item returning that type
  * here, and drives, chests, the workbench and the terminal keep working unchanged.
  */
 public interface IBasicCellItem extends ICellWorkbenchItem {
 
     /**
-     * The kind of content this cell stores.
+     * The kinds of content this cell stores. Every cell Applied Energistics ships names exactly one; a cell
+     * naming several holds them side by side in one cell, each key paying for its own bytes at its own
+     * {@link AEKeyType#getAmountPerByte()}.
      */
     @Nonnull
-    AEKeyType getKeyType();
+    Set<AEKeyType> getKeyTypes();
 
     int getBytes(@Nonnull ItemStack cellItem);
 
