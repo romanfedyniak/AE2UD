@@ -544,19 +544,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         return null;
     }
 
-    /**
-     * @return true if the drop being handled right now came from the right mouse button, meaning the
-     *         container item itself is wanted rather than its contents - the same rule as clicking a config
-     *         slot by hand, and the same one {@code GuiUpgradeable} follows for filter slots.
-     *         <p>
-     *         HEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
-     *         It is accurate here because {@code accept} runs synchronously inside the click that ends the
-     *         drag, while that button is still down.
-     */
-    private static boolean dropsContainerItself() {
-        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
-    }
-
     private ClientDCInternalInv getById(final long id, final long sortBy, final String string) {
         ClientDCInternalInv o = this.byId.get(id);
 

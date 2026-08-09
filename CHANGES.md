@@ -24,6 +24,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 ### Fixes
 
 - An internal inventory that grew between versions loaded back at its old size, because the size stored in the save overrode the one it was built with. Any container addressing the new slots then threw on open. The constructed size now wins and surplus saved slots are dropped.
+- Dragging a filled container out of HEI onto a processing pattern's grid left the container in the slot instead of the fluid inside it, while clicking the same bucket by hand set the fluid. The drag follows the same rule as the click now - left button takes what the container holds, right button takes the container itself - which is what filter slots and the interface configuration terminal already did. A fluid dragged onto the crafting matrix is refused instead, since a crafting recipe cannot hold one.
 - HEI drew its item list straight over the buttons beside the Crafting CPU and Crafting Status screens. Those screens told HEI about the terminal-style button alone, so every button added beneath it since - **Hide stored items**, and now the CPU's selection mode - was left uncovered. Every button in the column is reported now.
 
 ### Autocrafting

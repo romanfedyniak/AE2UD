@@ -232,6 +232,19 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         return fluid != null && fluid.amount > 0;
     }
 
+    /**
+     * @return true if the HEI drop being handled right now came from the right mouse button, meaning the
+     *         container item itself is wanted rather than its contents - the same rule as clicking a fake
+     *         slot by hand.
+     *         <p>
+     *         HEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
+     *         It is accurate because {@code accept} runs synchronously inside the click that ends the drag,
+     *         while that button is still down.
+     */
+    protected static boolean dropsContainerItself() {
+        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
+    }
+
     protected void drawGuiSlot(GuiCustomSlot slot, int mouseX, int mouseY, float partialTicks) {
         if (slot.isSlotEnabled()) {
             final int left = slot.xPos();

@@ -58,6 +58,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
@@ -518,27 +519,44 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     }
 
     /**
-     * @return the key and amount a dragged HEI ingredient stands for, or null if it is neither an item nor
-     *         a fluid. Extracted so both pattern terminals answer identically.
+     * @return the key and amount a dragged HEI ingredient stands for, or null if this grid cannot hold it.
+     * <p>
+     * Only the processing grid can hold a fluid. The crafting matrix is item-only - a recipe there is
+     * matched against real items, and a wrapped key in it would encode an item that does not exist - so a
+     * dragged fluid is refused rather than converted, which leaves the slot unhighlighted while the drag
+     * is in flight.
+     * <p>
+     * Must be called while the drop is being handled, never while merely listing targets: which of the two
+     * things a filled container stands for is read off the mouse button, and HEI asks for targets on hover,
+     * with nothing held down yet.
      */
     @Nullable
-    private static GenericStack ghostPayloadOf(final Object ingredient) {
-        if (ingredient instanceof ItemStack stack) {
-            return stack.isEmpty() ? null : GenericStack.resolveItemStack(stack);
-        }
+    private static GenericStack ghostPayloadOf(final Object ingredient, final boolean processing) {
         if (ingredient instanceof FluidStack fluid) {
-            return fluid.amount <= 0 ? null : new GenericStack(AEFluidKey.of(fluid), fluid.amount);
+            return processing && fluid.amount > 0 ? new GenericStack(AEFluidKey.of(fluid), fluid.amount) : null;
+        }
+        if (ingredient instanceof ItemStack stack && !stack.isEmpty()) {
+            // Same rule as clicking a pattern slot with the container in hand: left button takes what it
+            // HOLDS, right button takes the container itself. Dragging a bucket used to be the one way in
+            // that ignored this and always left a bucket behind.
+            if (processing && !dropsContainerItself()) {
+                final FluidStack contained = FluidUtil.getFluidContained(stack);
+                if (contained != null && contained.amount > 0) {
+                    return new GenericStack(AEFluidKey.of(contained), contained.amount);
+                }
+            }
+            return GenericStack.resolveItemStack(stack);
         }
         return null;
     }
 
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
-        // A fluid dragged out of HEI arrives as a FluidStack, not an ItemStack, and used to be refused
-        // outright. A bucket stays a bucket on purpose: a pattern slot holding a bucket usually means the
-        // recipe wants the bucket, so only an explicitly dragged fluid becomes a fluid.
-        final GenericStack payload = ghostPayloadOf(ingredient);
-        if (payload == null) {
+        final boolean processing = !this.container.isCraftingMode();
+
+        // Whether the grid can take this at all, which is all that can be settled now - the answer is null
+        // or not-null the same way whichever button ends the drag, and only the value depends on it.
+        if (ghostPayloadOf(ingredient, processing) == null) {
             return Collections.emptyList();
         }
         List<Target<?>> targets = new ArrayList<>();
@@ -554,10 +572,13 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
                     @Override
                     public void accept(Object ingredient) {
-                        final PacketInventoryAction p;
+                        final GenericStack payload = ghostPayloadOf(ingredient, processing);
+                        if (payload == null) {
+                            return;
+                        }
                         try {
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotFake) slot, payload);
-                            NetworkHandler.instance().sendToServer(p);
+                            NetworkHandler.instance().sendToServer(
+                                    new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, (SlotFake) slot, payload));
 
                         } catch (IOException e) {
                             e.printStackTrace();

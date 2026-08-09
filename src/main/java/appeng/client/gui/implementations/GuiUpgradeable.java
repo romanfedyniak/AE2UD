@@ -166,18 +166,6 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
         }
     }
 
-    /**
-     * @return true if the drop that is being handled right now came from the right mouse button, meaning
-     *         the container item itself is wanted rather than its contents.
-     *         <p>
-     *         JEI hands a {@code Target} no button, so the live mouse state is the only thing left to read.
-     *         It is accurate here because {@code accept} runs synchronously inside the click that ends the
-     *         drag, while that button is still down.
-     */
-    private static boolean dropsContainerItself() {
-        return Mouse.getEventButton() == 1 || Mouse.isButtonDown(1);
-    }
-
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
         mapTargetSlot.clear();

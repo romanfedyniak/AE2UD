@@ -65,6 +65,11 @@ switch. They are addressed by name, and the names mean exactly what they say:
 Switching to crafting mode copies the processing grid into the matrix, one of each, dropping anything a
 crafting recipe cannot hold - a fluid in the processing grid is cleared from both. This mirrors GTNH.
 
+That asymmetry is why `getPhantomTargets` asks the mode before deciding what a dragged HEI ingredient
+means. Over the processing grid a filled container stands for its contents, the same as clicking it by
+hand, unless the drag ended on the right button. Over the matrix it stands for itself, and a fluid
+dragged straight from the ingredient list is refused - no target is offered, so the slot never lights up.
+
 ## Machines
 
 A processing pattern is handed to machines as an `InventoryCrafting` four wide and eight tall
