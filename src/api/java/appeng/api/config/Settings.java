@@ -87,6 +87,8 @@ public enum Settings
 
 	SCHEDULING_MODE( EnumSet.allOf( SchedulingMode.class ) ),
 
+	CPU_SELECTION_MODE( EnumSet.allOf( CpuSelectionMode.class ) ),
+
 	STICKY_MODE( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 
 	/**

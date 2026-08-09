@@ -70,6 +70,11 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ICr
     }
 
     @Override
+    public boolean allowsConfiguration() {
+        return false;
+    }
+
+    @Override
     public void onCpuSelected(@Nullable final ICraftingCPU cpu) {
         if (cpu != this.getMonitor()) {
             this.setCPU(cpu);

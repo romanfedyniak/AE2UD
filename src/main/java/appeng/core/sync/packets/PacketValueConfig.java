@@ -109,6 +109,9 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("TileCrafting.Suspend") && c instanceof ContainerCraftingCPU) {
             final ContainerCraftingCPU qk = (ContainerCraftingCPU) c;
             qk.suspendCrafting();
+        } else if (this.Name.equals("TileCrafting.SelectionMode") && c instanceof ContainerCraftingCPU) {
+            final ContainerCraftingCPU qk = (ContainerCraftingCPU) c;
+            qk.cycleSelectionMode(this.Value.equals("Backwards"));
         } else if (this.Name.equals("QuartzKnife.Name") && c instanceof ContainerQuartzKnife) {
             final ContainerQuartzKnife qk = (ContainerQuartzKnife) c;
             qk.setName(this.Value);

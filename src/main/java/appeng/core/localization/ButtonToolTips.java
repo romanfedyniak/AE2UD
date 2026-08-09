@@ -99,6 +99,11 @@ public enum ButtonToolTips {
     Blocking,
     NonBlocking,
 
+    CpuSelectionMode,
+    CpuSelectionModeAny,
+    CpuSelectionModePlayersOnly,
+    CpuSelectionModeAutomationOnly,
+
     LockCraftingMode,
     LockCraftingModeNone,
     LockCraftingUntilRedstonePulse,

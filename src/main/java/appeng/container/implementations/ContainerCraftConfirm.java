@@ -21,6 +21,7 @@ package appeng.container.implementations;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -135,11 +136,13 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
     }
 
     /**
-     * Only a CPU that could actually take this job is worth offering.
+     * Only a CPU that could actually take this job is worth offering, which leaves out one kept for automation:
+     * this screen only ever submits on a player's behalf.
      */
     @Override
     public boolean cpuMatches(final ICraftingCPU c) {
-        return c.getAvailableStorage() >= this.getUsedBytes() && !c.isBusy();
+        return c.getAvailableStorage() >= this.getUsedBytes() && !c.isBusy()
+                && c.getSelectionMode() != CpuSelectionMode.MACHINE_ONLY;
     }
 
     /**

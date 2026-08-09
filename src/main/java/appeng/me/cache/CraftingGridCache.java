@@ -421,12 +421,20 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
 
         if (target instanceof CraftingCPUCluster) {
             cpuCluster = (CraftingCPUCluster) target;
+
+            // A CPU kept for players or for automation is kept for them however it was asked for. The screens
+            // leave such a CPU out of the table they offer, and this is what holds when the request comes from
+            // somewhere else - an addon, or a client that sent a stale selection.
+            if (!cpuCluster.getSelectionMode().accepts(src)) {
+                return null;
+            }
         }
 
         if (target == null) {
             final List<CraftingCPUCluster> validCpusClusters = new ArrayList<>();
             for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
-                if (cpu.isActive() && !cpu.isBusy() && cpu.getAvailableStorage() >= job.getByteTotal()) {
+                if (cpu.isActive() && !cpu.isBusy() && cpu.getAvailableStorage() >= job.getByteTotal()
+                        && cpu.getSelectionMode().accepts(src)) {
                     validCpusClusters.add(cpu);
                 }
             }

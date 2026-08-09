@@ -99,6 +99,15 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
         }
     }
 
+    /**
+     * The CPU shown here is whichever the table points at, and configuring one from across the network is not
+     * what this screen is for. The mode is set on the CPU itself.
+     */
+    @Override
+    protected boolean canEditSelectionMode() {
+        return false;
+    }
+
     @Override
     public void initGui() {
         super.initGui();

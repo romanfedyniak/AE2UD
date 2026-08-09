@@ -54,7 +54,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -105,6 +104,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private GuiButton suspend;
     protected GuiImgButton terminalStyleBox;
     protected GuiImgButton toggleHideStored;
+    private GuiImgButton selectionMode;
     protected int rows = MIN_ROWS;
     private int tooltip = -1;
 
@@ -170,6 +170,23 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                 AELog.debug(e);
             }
         }
+
+        if (this.selectionMode == btn) {
+            try {
+                NetworkHandler.instance().sendToServer(new PacketValueConfig("TileCrafting.SelectionMode",
+                        Mouse.isButtonDown(1) ? "Backwards" : "Forwards"));
+            } catch (final IOException e) {
+                AELog.debug(e);
+            }
+        }
+    }
+
+    /**
+     * @return whether this screen may configure the CPU it is showing. Mirrors
+     * {@link ContainerCraftingCPU#allowsConfiguration()}, which is what actually holds on the server.
+     */
+    protected boolean canEditSelectionMode() {
+        return true;
     }
 
     @Override
@@ -192,6 +209,12 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.toggleHideStored = new GuiImgButton(this.terminalStyleBox.x, this.terminalStyleBox.y + 20,
                 Settings.HIDE_STORED, AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.buttonList.add(this.toggleHideStored);
+
+        if (this.canEditSelectionMode()) {
+            this.selectionMode = new GuiImgButton(this.terminalStyleBox.x, this.toggleHideStored.y + 20,
+                    Settings.CPU_SELECTION_MODE, this.craftingCpu.selectionMode);
+            this.buttonList.add(this.selectionMode);
+        }
 
         this.buttonList.add(this.terminalStyleBox);
     }
@@ -227,6 +250,9 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.toggleHideStored.set(AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.suspend.enabled = this.cancel.enabled;
         this.suspend.displayString = this.craftingCpu.suspended ? GuiText.Resume.getLocal() : GuiText.Suspend.getLocal();
+        if (this.selectionMode != null) {
+            this.selectionMode.set(this.craftingCpu.selectionMode);
+        }
 
         final int gx = (this.width - this.xSize) / 2;
         final int gy = (this.height - this.ySize) / 2;
@@ -404,15 +430,19 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.drawTexturedModalRect(offsetX, offsetY + y, 0, GUI_HEIGHT - 51, this.xSize, 51);
     }
 
+    /**
+     * Every button in the side column, not just the first: they stand outside the window, so anything left out
+     * here has HEI's item list drawn straight over it.
+     */
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        if (this.terminalStyleBox == null) {
-            return Collections.emptyList();
+        final List<Rectangle> areas = new ArrayList<>(3);
+        for (final GuiImgButton button : new GuiImgButton[] { this.terminalStyleBox, this.toggleHideStored, this.selectionMode }) {
+            if (button != null && button.visible) {
+                areas.add(new Rectangle(button.x - 1, button.y - 1, button.width + 2, button.height + 2));
+            }
         }
-
-        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1,
-                this.terminalStyleBox.y - 1, this.terminalStyleBox.width + 2,
-                this.terminalStyleBox.height + 2));
+        return areas;
     }
 
     public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {

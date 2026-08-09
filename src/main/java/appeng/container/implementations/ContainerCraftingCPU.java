@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import appeng.api.config.CpuSelectionMode;
+import appeng.api.config.Settings;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CraftingItemList;
 import appeng.api.networking.crafting.ICraftingCPU;
@@ -87,6 +89,8 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
     public long elapsed = 0;
     @GuiSync(2)
     public boolean suspended = false;
+    @GuiSync(3)
+    public CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
     private GuiCraftingCPU guiCraftingCPU;
 
     public ContainerCraftingCPU(final InventoryPlayer ip, final Object te) {
@@ -158,6 +162,23 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
         }
     }
 
+    /**
+     * @return whether this screen may change the CPU's settings. The crafting status terminal shows whichever
+     * CPU is picked in its table, and configuring a CPU from across the network is not what it is for.
+     */
+    public boolean allowsConfiguration() {
+        return true;
+    }
+
+    public void cycleSelectionMode(final boolean backwards) {
+        if (!this.allowsConfiguration() || this.getMonitor() == null) {
+            return;
+        }
+
+        this.getMonitor().setSelectionMode(Platform.rotateEnum(this.getMonitor().getSelectionMode(),
+                backwards, Settings.CPU_SELECTION_MODE.getPossibleValues()));
+    }
+
     @Override
     public void removeListener(final IContainerListener c) {
         super.removeListener(c);
@@ -179,6 +200,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
     public void detectAndSendChanges() {
         if (Platform.isServer() && this.getMonitor() != null) {
             this.suspended = this.getMonitor().isSuspended();
+            this.selectionMode = this.getMonitor().getSelectionMode();
             if (this.getEstimatedTime() >= 0) {
                 final long elapsedTime = this.getMonitor().getElapsedTime();
                 final double remainingItems = this.getMonitor().getRemainingItemCount();

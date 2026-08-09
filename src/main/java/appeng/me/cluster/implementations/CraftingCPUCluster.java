@@ -20,6 +20,7 @@ package appeng.me.cluster.implementations;
 
 
 import appeng.api.config.Actionable;
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.implementations.ICraftingPatternItem;
@@ -130,6 +131,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private int remainingOperations;
     private boolean somethingChanged;
     private boolean suspended = false;
+    private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
     private long lastTime;
     private long elapsedTime;
@@ -1353,6 +1355,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.updateCPU();
         this.updateName();
+        this.updateSelectionMode();
     }
 
     public void readFromNBT(final NBTTagCompound data) {
@@ -1404,6 +1407,44 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.requestingPlayerName = data.hasKey("requestingPlayerName")
                 ? data.getString("requestingPlayerName")
                 : null;
+    }
+
+    @Override
+    public CpuSelectionMode getSelectionMode() {
+        return this.selectionMode;
+    }
+
+    /**
+     * Sets the mode and records it in every block of the CPU, so that it survives the cluster being formed again.
+     */
+    public void setSelectionMode(final CpuSelectionMode mode) {
+        this.selectionMode = mode;
+        for (final TileCraftingTile te : this.tiles) {
+            te.setSelectionMode(mode);
+        }
+    }
+
+    /**
+     * Takes the mode from the blocks the CPU was formed from. Blocks that have never been told a mode do not
+     * count, so extending a CPU with fresh blocks keeps its mode; blocks that disagree - two CPUs with different
+     * modes merged into one - leave it {@link CpuSelectionMode#ANY}. Nothing is written back, so taking the
+     * merged CPU apart again gives each half the mode its own blocks still remember.
+     */
+    private void updateSelectionMode() {
+        CpuSelectionMode found = null;
+        for (final TileCraftingTile te : this.tiles) {
+            final CpuSelectionMode mode = te.getSelectionMode();
+            if (mode == null) {
+                continue;
+            }
+            if (found != null && found != mode) {
+                found = CpuSelectionMode.ANY;
+                break;
+            }
+            found = mode;
+        }
+
+        this.selectionMode = found == null ? CpuSelectionMode.ANY : found;
     }
 
     public void updateName() {

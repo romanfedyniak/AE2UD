@@ -19,12 +19,14 @@
 package appeng.client.gui.widgets;
 
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.container.implementations.CraftingCPUStatus;
 import appeng.container.implementations.ICraftingCPUTableHost;
 import appeng.core.AELog;
+import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
@@ -213,6 +215,32 @@ public class GuiCraftingCPUTable extends Gui {
             font.drawString(cpu.formatStorage(), 0, 0, TEXT_COLOR);
         }
         GL11.glPopMatrix();
+
+        this.drawSelectionModeBadge(cpu, x, y);
+    }
+
+    /**
+     * A CPU kept for players or for automation is marked in the corner of its row, at half size and drawn last
+     * so it sits over the crafted item on a row that is busy - the plate has no free corner while a job runs.
+     * A CPU open to everything is the usual case and is left unmarked.
+     */
+    private void drawSelectionModeBadge(final CraftingCPUStatus cpu, final int x, final int y) {
+        final int icon;
+        switch (cpu.getSelectionMode()) {
+            case PLAYER_ONLY:
+                icon = 16 * 14 + 4;
+                break;
+            case MACHINE_ONLY:
+                icon = 16 * 14 + 5;
+                break;
+            default:
+                return;
+        }
+
+        GL11.glPushMatrix();
+        GL11.glTranslatef(x + SLOT_WIDTH - 9, y + SLOT_HEIGHT - 10, 0);
+        this.drawIcon(icon);
+        GL11.glPopMatrix();
     }
 
     /**
@@ -337,6 +365,14 @@ public class GuiCraftingCPUTable extends Gui {
             tooltip.append(GuiText.CoProcessors.getLocal());
             tooltip.append(": ");
             tooltip.append(cpu.getCoprocessors());
+            tooltip.append('\n');
+        }
+        if (cpu.getSelectionMode() != CpuSelectionMode.ANY) {
+            tooltip.append(TextFormatting.GRAY);
+            tooltip.append(cpu.getSelectionMode() == CpuSelectionMode.PLAYER_ONLY
+                    ? ButtonToolTips.CpuSelectionModePlayersOnly.getLocal()
+                    : ButtonToolTips.CpuSelectionModeAutomationOnly.getLocal());
+            tooltip.append(TextFormatting.RESET);
             tooltip.append('\n');
         }
 

@@ -24,6 +24,7 @@
 package appeng.api.networking.crafting;
 
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.GenericStack;
 
@@ -57,6 +58,11 @@ public interface ICraftingCPU
 	 * @return an empty string or the name of the cpu.
 	 */
 	String getName();
+
+	/**
+	 * @return which requests this CPU may be picked for.
+	 */
+	CpuSelectionMode getSelectionMode();
 
 
 	/**

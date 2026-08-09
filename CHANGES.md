@@ -24,6 +24,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 ### Fixes
 
 - An internal inventory that grew between versions loaded back at its old size, because the size stored in the save overrode the one it was built with. Any container addressing the new slots then threw on open. The constructed size now wins and surplus saved slots are dropped.
+- HEI drew its item list straight over the buttons beside the Crafting CPU and Crafting Status screens. Those screens told HEI about the terminal-style button alone, so every button added beneath it since - **Hide stored items**, and now the CPU's selection mode - was left uncovered. Every button in the column is reported now.
 
 ### Autocrafting
 
@@ -39,6 +40,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - HEI's recipe keybinds, bookmarks and tooltips work over the tree's nodes, over the Crafting Plan and Crafting Status lists, and over the amount screen's slot, through one shared way of asking a screen what the cursor is over.
 - The Crafting Plan screen picks its crafting CPU from the same table the Crafting Status screen uses, replacing the "Crafting CPU:" button that could only be cycled one CPU at a time. Its first row, **Automatic**, is the old default: the network chooses a CPU when the job is submitted. The window is shorter by the height that button occupied. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
 - Both screens now share one table, so a CPU is named by a serial rather than by its position in the list. Previously a CPU appearing or disappearing while the list was open shifted every entry below it, and the selection silently moved to a different CPU.
+- A crafting CPU can be **kept for players or for automation**, through a button on its own screen - right-click any block of the CPU to open it. A CPU set to *Only for requests by players* is passed over when a level emitter, an interface or an export bus asks for a craft; one set to *Only for requests by automation* is left out of the CPU table on the Crafting Plan screen and refuses a job sent to it by a player anyway. Set it on CPUs you keep for pre-crafting and a player's request will never queue behind them. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial), under the name modern Applied Energistics 2 gives it.
+- A CPU kept for players or for automation is marked in the corner of its row in the Crafting Status screen's CPU table, and the tooltip says which it is. A CPU open to everything is the usual case and is left unmarked.
+- The mode is remembered by every block of the CPU rather than by the CPU as a whole, so adding an accelerator - which takes the multiblock apart and forms it again - does not quietly reset it. Blocks that have never been given a mode do not count, so extending a CPU with fresh blocks keeps its mode; merging two CPUs that disagree leaves the result open to everything, and taking them apart again gives each its own mode back.
+- Added `ICraftingCPU.getSelectionMode()` and `appeng.api.config.CpuSelectionMode`, matching modern AE2. **This is a breaking API change:** anything implementing `ICraftingCPU` has to answer it.
 
 ### P2P tunnels
 

@@ -21,6 +21,7 @@ package appeng.tile.crafting;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.implementations.IPowerChannelState;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridHost;
@@ -46,6 +47,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 
@@ -55,6 +57,12 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     private NBTTagCompound previousState = null;
     private boolean isCoreBlock = false;
     private CraftingCPUCluster cluster;
+    /**
+     * This block's opinion on the CPU's selection mode, or null for a block that has never been told one. The
+     * mode lives in every block rather than in the cluster's own state so that it survives the cluster being
+     * taken apart and formed again, which happens whenever a block is added to or removed from the CPU.
+     */
+    private CpuSelectionMode selectionMode = null;
 
     public TileCraftingTile() {
         this.getProxy().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL);
@@ -167,6 +175,9 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     public NBTTagCompound writeToNBT(final NBTTagCompound data) {
         super.writeToNBT(data);
         data.setBoolean("core", this.isCoreBlock());
+        if (this.selectionMode != null) {
+            data.setString("selectionMode", this.selectionMode.name());
+        }
         if (this.isCoreBlock() && this.cluster != null) {
             this.cluster.writeToNBT(data);
         }
@@ -177,6 +188,7 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     public void readFromNBT(final NBTTagCompound data) {
         super.readFromNBT(data);
         this.setCoreBlock(data.getBoolean("core"));
+        this.selectionMode = readSelectionMode(data);
         if (this.isCoreBlock()) {
             if (this.cluster != null) {
                 this.cluster.readFromNBT(data);
@@ -184,6 +196,25 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
                 this.setPreviousState(data.copy());
             }
         }
+    }
+
+    /**
+     * Reads the mode by name, so that a save written by a build with more modes than this one loads as a block
+     * without an opinion rather than throwing.
+     */
+    @Nullable
+    private static CpuSelectionMode readSelectionMode(final NBTTagCompound data) {
+        if (!data.hasKey("selectionMode")) {
+            return null;
+        }
+
+        final String name = data.getString("selectionMode");
+        for (final CpuSelectionMode mode : CpuSelectionMode.values()) {
+            if (mode.name().equals(name)) {
+                return mode;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -308,5 +339,20 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
 
     public void setPreviousState(final NBTTagCompound previousState) {
         this.previousState = previousState;
+    }
+
+    /**
+     * @return this block's opinion on the selection mode, or null if it has none.
+     */
+    @Nullable
+    public CpuSelectionMode getSelectionMode() {
+        return this.selectionMode;
+    }
+
+    public void setSelectionMode(final CpuSelectionMode selectionMode) {
+        if (this.selectionMode != selectionMode) {
+            this.selectionMode = selectionMode;
+            this.saveChanges();
+        }
     }
 }

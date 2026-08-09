@@ -1,5 +1,6 @@
 package appeng.container.implementations;
 
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.GenericStack;
 import appeng.util.ItemSorters;
@@ -24,6 +25,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
     private final long craftingElapsedTime;
     private final String sourcePlayer;
     private final boolean suspended;
+    private final CpuSelectionMode selectionMode;
 
     public CraftingCPUStatus() {
         this.serverCluster = null;
@@ -37,6 +39,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.craftingElapsedTime = 0;
         this.sourcePlayer = null;
         this.suspended = false;
+        this.selectionMode = CpuSelectionMode.ANY;
     }
 
     public CraftingCPUStatus(ICraftingCPU cluster, int serial) {
@@ -59,6 +62,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.storage = cluster.getAvailableStorage();
         this.coprocessors = cluster.getCoProcessors();
         this.suspended = cluster.isSuspended();
+        this.selectionMode = cluster.getSelectionMode();
     }
 
     public CraftingCPUStatus(NBTTagCompound i) {
@@ -73,6 +77,10 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.craftingElapsedTime = i.getLong("craftingElapsedTime");
         this.sourcePlayer = i.hasKey("sourcePlayer") ? i.getString("sourcePlayer") : null;
         this.suspended = i.getBoolean("suspended");
+        final int mode = i.getInteger("selectionMode");
+        this.selectionMode = mode >= 0 && mode < CpuSelectionMode.values().length
+                ? CpuSelectionMode.values()[mode]
+                : CpuSelectionMode.ANY;
     }
 
     public CraftingCPUStatus(ByteBuf packet) throws IOException {
@@ -98,6 +106,9 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         i.setLong("remainingItems", remainingItems);
         i.setLong("craftingElapsedTime", craftingElapsedTime);
         i.setBoolean("suspended", suspended);
+        if (selectionMode != CpuSelectionMode.ANY) {
+            i.setInteger("selectionMode", selectionMode.ordinal());
+        }
         if (sourcePlayer != null) {
             i.setString("sourcePlayer", sourcePlayer);
         }
@@ -166,6 +177,10 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     public boolean isSuspended() {
         return suspended;
+    }
+
+    public CpuSelectionMode getSelectionMode() {
+        return selectionMode;
     }
 
     @Override
