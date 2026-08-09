@@ -58,6 +58,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **An ME Interface now attunes a P2P tunnel to this type rather than to the item tunnel.** A hopper, a chest, a storage/import/export bus and the other item-related triggers still give the item tunnel.
 - Added `ICraftingMachine.of(tile, side)`, which finds a crafting machine on a neighbour whether it is the block itself or a part on that side of a cable bus. Patterns were offered to block entities only, so a part could never be a crafting machine.
 
+### Storage cells
+
+- **The Creative ME Storage Cell and the Creative ME Fluid Storage Cell have been merged into one.** The surviving Creative ME Storage Cell holds an endless amount of every kind of content at once, items and fluids together, and is configured the same way as before. Mirrors upstream [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2), which ships a single type-agnostic creative cell. **A Creative ME Fluid Storage Cell already placed in a world disappears when it is loaded, along with what it was set to hold; the ordinary Creative ME Storage Cell replaces it in full.**
+- Removed the `IItems.fluidCellCreative()` API definition along with the item.
+- A cell no longer declares what it stores through `ICellWorkbenchItem`; that method is gone, and the kind of content a cell holds is now decided by the cell's own partition inventory (`CellConfig`, which takes the key types it accepts) and reported by its contents through the new `StorageCell.getSupportedKeyTypes()`. A cell is free to hold several kinds of content at once.
+- The ME Chest asks the installed cell what it can hold instead of reading a type off the cell item: it offers itself to neighbours as a tank when the cell holds fluids, and its input slot accepts whatever the cell would actually take. A creative cell set to a fluid therefore works as a tank, and one set to items does not pretend to be one.
+- The IO Port counts a transfer per key rather than per cell, so a cell holding items and fluids together moves an item at a time and a bucket at a time as appropriate.
+- **A View Cell can now be filtered by fluids** (and by any content type an addon registers), not by items alone.
+
 ### Terminals and HEI
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).

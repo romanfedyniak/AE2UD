@@ -23,8 +23,6 @@ import javax.annotation.Nullable;
 
 import appeng.api.config.CopyMode;
 import appeng.api.config.Settings;
-import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.GenericStack;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.util.IConfigManager;
@@ -94,24 +92,6 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
         return null;
     }
 
-    /**
-     * The key type the installed cell stores, or null when the workbench is empty.
-     * <p>
-     * A cell that declares no type at all - the creative cell - reads as items, the same fallback
-     * {@code TileChest} and {@code TileIOPort} use, because it has always behaved as an item cell.
-     */
-    @Nullable
-    public AEKeyType getCellKeyType() {
-        final ItemStack is = this.cell.getStackInSlot(0);
-        if (is.isEmpty()) {
-            return null;
-        }
-
-        return is.getItem() instanceof ICellWorkbenchItem workbenchItem
-                ? workbenchItem.getKeyType()
-                : AEKeyType.items();
-    }
-
     @Override
     public NBTTagCompound writeToNBT(final NBTTagCompound data) {
         super.writeToNBT(data);
@@ -169,7 +149,7 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
                     for (int x = 0; x < this.config.getSlots(); x++) {
                         this.config.setStackInSlot(x, configInventory.getStackInSlot(x));
                     }
-                } else if (this.configFits(this.getCellKeyType())) {
+                } else if (this.configFits(configInventory)) {
                     ItemHandlerUtil.copy(this.config, configInventory, false);
                 } else {
                     // A blank cell of another kind: it starts empty, so the screen has to as well.
@@ -194,19 +174,21 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
     }
 
     /**
-     * Whether everything configured on screen is something a cell of {@code type} could hold.
+     * Whether everything configured on screen is something this cell's partition would accept.
      * <p>
-     * A blank cell inherits what is on screen, which only means something between cells of the same kind.
-     * Without this a fluid filter followed a swap into an item cell, where those keys can never be stored.
+     * A blank cell inherits what is on screen, which only means something between cells that hold the same
+     * kind of content. Without this a fluid filter followed a swap into an item cell, where those keys can
+     * never be stored. The cell's own partition is asked rather than the cell item, because it is the
+     * partition that decides - and a cell may hold several kinds of content at once.
      */
-    private boolean configFits(@Nullable final AEKeyType type) {
-        if (type == null) {
+    private boolean configFits(@Nullable final IItemHandler cellConfig) {
+        if (cellConfig == null) {
             return false;
         }
 
         for (int x = 0; x < this.config.getSlots(); x++) {
-            final GenericStack configured = GenericStack.resolveItemStack(this.config.getStackInSlot(x));
-            if (configured != null && configured.what().getType() != type) {
+            final ItemStack configured = this.config.getStackInSlot(x);
+            if (!configured.isEmpty() && !cellConfig.isItemValid(x, configured)) {
                 return false;
             }
         }
@@ -221,7 +203,12 @@ public class TileCellWorkbench extends AEBaseTile implements IUpgradeableHost, I
         this.saveChanges();
     }
 
-    private IItemHandler getCellConfigInventory() {
+    /**
+     * The installed cell's own partition, or null when the workbench is empty. Public because it is also what
+     * decides which keys the screen's partition slots accept.
+     */
+    @Nullable
+    public IItemHandler getCellConfigInventory() {
         if (this.cacheConfig == null) {
             final ICellWorkbenchItem cell = this.getCell();
             if (cell == null) {

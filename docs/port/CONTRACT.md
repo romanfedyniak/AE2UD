@@ -3307,3 +3307,34 @@ Two consequences worth knowing before someone "fixes" them:
 
 - For any type without a range concept, the percentage modes are *stricter* than `IGNORE_ALL`, not looser. The GUI still offers all four, because the setting is registered by the part and the part cannot know which types its filter will hold. That is not a bug in the part.
 - Wave 5 made `PartFluidImportBus` and `PartFluidStorageBus` read the setting they had registered since before the port but never consulted, so the legacy fluid parts now behave like the generic `PartImportBus`/`PartStorageBus`. This removed an inconsistency rather than adding a fluid-only feature: a Fuzzy Card in a legacy fluid bus used to do nothing at all.
+
+## Post-campaign correction: one creative cell, and no content type on a cell item
+
+This supersedes the **Post-merge creative-cell correction** above and the line in §"a cell's key type" that
+reads `is.getItem() instanceof IBasicCellItem c ? c.getKeyType() : AEKeyType.items()` as a general rule.
+
+The two creative-cell variants (item and fluid) were merged into one `creative_storage_cell`, which holds
+every registered key type at once; `IItems.fluidCellCreative()` and the item behind it are gone. `AEKeyType`
+in a cell's item was the wrong home for the question in the first place, so:
+
+- **`ICellWorkbenchItem#getKeyType()` is deleted.** It survives only on `IBasicCellItem`, where it means
+  "this standard cell stores exactly this one type", and nothing outside `BasicCellInventory` and a cell's
+  own config inventory reads it any more. `ItemCreativeStorageCell` still must not implement
+  `IBasicCellItem` — the reason above is unchanged.
+- **`StorageCell#getSupportedKeyTypes()` is added, abstract.** It is answered by the cell's *contents*, not
+  its item: `BasicCellInventory` returns its one type, `CreativeCellInventory` returns the types its
+  partition names. Deliberately without a default, because both possible defaults are silently wrong (a gas
+  cell inheriting "everything" would claim it can hold essentia; one inheriting "nothing" would be invisible
+  to every bridge, and neither reports an error).
+- **`CellConfig` takes the key types it accepts** and enforces them on every write, which is what stops a
+  fluid landing in a 64k's partition now that the workbench slot no longer knows the cell's type.
+  `FluidCellConfig` is deleted; it was this class with the set fixed to fluids.
+- **The ME Chest, IO Port and Cell Workbench ask a cell nothing about its type.** The chest offers a tank
+  when `getSupportedKeyTypes()` contains fluids and accepts into its input slot whatever a simulated insert
+  says the cell would take; the IO Port converts operations to amounts per key (`AEKey#getAmountPerOperation`)
+  rather than once per cell; the workbench asks the cell's partition inventory whether a stack is valid.
+
+A cell holding several kinds of content at once is therefore already possible for an addon that ships its own
+`StorageCell`. Making the *standard* cell machinery multi-type — per-type byte accounting in
+`BasicCellInventory` and `IBasicCellItem#getKeyType()` becoming a set — is the following change, and does not
+alter cell NBT: `ic`/`ft` are recomputed caches over the stored key map.

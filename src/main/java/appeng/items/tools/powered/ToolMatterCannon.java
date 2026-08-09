@@ -70,6 +70,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -361,7 +362,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        return new CellConfig(is, Collections.singleton(this.getKeyType()));
     }
 
     @Override

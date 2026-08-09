@@ -23,6 +23,9 @@
 
 package appeng.api.storage.cells;
 
+import java.util.Set;
+
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.MEStorage;
 
 /**
@@ -31,6 +34,16 @@ import appeng.api.storage.MEStorage;
  * is an {@link MEStorage} and therefore not tied to a type.
  */
 public interface StorageCell extends MEStorage {
+
+    /**
+     * The kinds of content this cell is able to hold, which is what an ME Chest asks before offering the
+     * cell to its neighbours as a tank (and what an addon's own bridge would ask for its own key type).
+     * <p>
+     * Deliberately without a default: both possible defaults are silently wrong. "Everything" makes a gas
+     * cell claim it can hold essentia, "nothing" makes it invisible to every bridge, and neither reports an
+     * error. Answering it is the implementor's job.
+     */
+    Set<AEKeyType> getSupportedKeyTypes();
 
     CellState getStatus();
 

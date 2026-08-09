@@ -494,7 +494,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        return new CellConfig(is, Collections.singleton(this.getKeyType()));
     }
 
     @Override

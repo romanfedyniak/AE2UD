@@ -23,6 +23,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.cells.ICellWorkbenchItem;
@@ -146,7 +147,8 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        // Every type: a view cell filters what the terminal shows, and the terminal shows everything.
+        return new CellConfig(is, AEKeyTypes.getAll());
     }
 
     @Override

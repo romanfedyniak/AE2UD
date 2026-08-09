@@ -34,7 +34,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
-import appeng.items.contents.CellConfig;
 import appeng.items.storage.ItemCreativeStorageCell;
 
 
@@ -53,17 +52,17 @@ public class CreativeCellInventory implements StorageCell {
     private static final long STORED_AMOUNT = (1L << 52) - 1;
 
     private final Set<AEKey> configured = new HashSet<>();
+    private final Set<AEKeyType> supportedTypes = new HashSet<>();
     private final ItemStack stack;
 
     private CreativeCellInventory(final ItemStack o) {
         this.stack = o;
-        final AEKeyType keyType = ((ItemCreativeStorageCell) o.getItem()).getKeyType();
 
-        final CellConfig cc = new CellConfig(o);
-        for (final ItemStack is : cc) {
+        for (final ItemStack is : ItemCreativeStorageCell.configOf(o)) {
             final GenericStack configured = GenericStack.resolveItemStack(is);
-            if (configured != null && configured.what().getType() == keyType) {
+            if (configured != null) {
                 this.configured.add(configured.what());
+                this.supportedTypes.add(configured.what().getType());
             }
         }
     }
@@ -92,6 +91,16 @@ public class CreativeCellInventory implements StorageCell {
     @Override
     public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
         return this.configured.contains(input);
+    }
+
+    /**
+     * Only the types actually named in the partition, never every registered type: this cell holds what it
+     * was configured to hold and refuses everything else, so claiming more would have an ME Chest offer
+     * itself to neighbours as a tank while a bucket bounces off it.
+     */
+    @Override
+    public Set<AEKeyType> getSupportedKeyTypes() {
+        return this.supportedTypes;
     }
 
     @Override

@@ -1379,9 +1379,11 @@ The live version guards fake slots explicitly, drops the limit branch, and ident
 **Swapping cells in the workbench carried a filter across key types.** `TileCellWorkbench` copies what is
 on screen into a newly inserted cell whenever that cell is blank — a deliberate convenience for cloning
 settings between cells. It never checked that the two cells store the same thing, so a fluid filter
-followed a swap into an item cell. It now compares against `getCellKeyType()` and clears the screen
-instead when they differ; nothing is lost, because the config is written into the cell on every edit, so
-the cell that was removed already carries its own copy.
+followed a swap into an item cell. It now asks the newly inserted cell's own partition inventory whether it
+would accept what is on screen (originally a comparison against a `getCellKeyType()` on the workbench, which
+went away once a cell was allowed to hold several kinds of content), and clears the screen instead when it
+would not; nothing is lost, because the config is written into the cell on every edit, so the cell that was
+removed already carries its own copy.
 
 ### The level emitter, second pass
 

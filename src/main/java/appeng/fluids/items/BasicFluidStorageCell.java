@@ -22,13 +22,11 @@ package appeng.fluids.items;
 import appeng.api.AEApi;
 import appeng.api.exceptions.MissingDefinitionException;
 import appeng.api.stacks.AEKeyType;
-import appeng.fluids.helper.FluidCellConfig;
 import appeng.items.materials.MaterialType;
 import appeng.items.storage.AbstractStorageCell;
 import appeng.util.InventoryAdaptor;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
 
 
 /**
@@ -85,11 +83,6 @@ public final class BasicFluidStorageCell extends AbstractStorageCell {
     @Override
     public int getTotalTypes(final ItemStack cellItem) {
         return 5;
-    }
-
-    @Override
-    public IItemHandler getConfigInventory(final ItemStack is) {
-        return new FluidCellConfig(is);
     }
 
     @Override

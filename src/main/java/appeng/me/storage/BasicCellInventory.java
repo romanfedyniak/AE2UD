@@ -21,6 +21,9 @@ package appeng.me.storage;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
+import java.util.Set;
+
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
@@ -242,6 +245,11 @@ public class BasicCellInventory implements StorageCell {
 
     public IItemHandler getUpgradesInventory() {
         return this.cellType.getUpgradesInventory(this.i);
+    }
+
+    @Override
+    public Set<AEKeyType> getSupportedKeyTypes() {
+        return Collections.singleton(this.keyType);
     }
 
     public int getBytesPerType() {

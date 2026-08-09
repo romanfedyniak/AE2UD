@@ -45,8 +45,8 @@ import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
+import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ICellHandler;
-import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEColor;
@@ -105,7 +105,6 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     private DriveWatcher driveWatcher;
     // the security-checked MEStorage actually mounted into the network / handed out through capabilities
     private MEStorage cellStorage;
-    private AEKeyType cellKeyType;
     private Accessor accessor;
     private IFluidHandler fluidHandler;
 
@@ -178,14 +177,6 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     }
 
     /**
-     * Rebuilds {@link #driveWatcher}/{@link #cellStorage}/{@link #cellKeyType} from whatever is in the cell slot.
-     * Replaces the old per-channel loop over {@code AEApi.instance().storage().storageChannels()}: a
-     * {@link StorageCell} is not tied to one channel any more, so there is only ever at most one to build. The
-     * cell's type (used to gate item vs. fluid access) is read off the cell item itself via
-     * {@link IBasicCellItem#getKeyType()}; a cell item that does not declare one (the creative cell, which has
-     * always behaved as an item cell here) defaults to {@link AEKeyType#items()}.
-     */
-    /**
      * Writes the installed cell's contents back into its {@link ItemStack}.
      * <p>
      * A cell reports a change by calling {@link ISaveProvider#saveChanges()} on whatever holds it, and only
@@ -207,11 +198,19 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         super.saveChanges();
     }
 
+    /**
+     * Rebuilds {@link #driveWatcher}/{@link #cellStorage} from whatever is in the cell slot. Replaces the old
+     * per-channel loop over {@code AEApi.instance().storage().storageChannels()}: a {@link StorageCell} is not
+     * tied to one channel any more, so there is only ever at most one to build.
+     * <p>
+     * The chest asks the cell nothing about its type. Which content it takes is decided by the cell, either
+     * here through {@link StorageCell#getSupportedKeyTypes()} for the tank it offers to neighbours, or by
+     * simulating the insert.
+     */
     private void updateHandler() {
         if (!this.isCached) {
             this.driveWatcher = null;
             this.cellStorage = null;
-            this.cellKeyType = null;
             this.fluidHandler = null;
             this.accessor = null;
 
@@ -225,13 +224,11 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
 
                     this.driveWatcher = new DriveWatcher(cell, () -> this.blinkCell(0));
                     this.cellStorage = new SecurityAwareCellStorage(this.driveWatcher);
-                    this.cellKeyType = is.getItem() instanceof ICellWorkbenchItem workbenchItem
-                            ? workbenchItem.getKeyType()
-                            : AEKeyType.items();
-
                     this.accessor = new Accessor();
 
-                    if (this.cellKeyType == AEKeyType.fluids()) {
+                    // Asked of the cell's contents, not of its item: a cell is free to hold several kinds of
+                    // content at once (the creative cell does), and only the contents know which.
+                    if (cell.getSupportedKeyTypes().contains(AEKeyType.fluids())) {
                         this.fluidHandler = new FluidHandler();
                     }
                 }
@@ -472,7 +469,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         if (!ItemHandlerUtil.isEmpty(this.inputInventory)) {
             this.updateHandler();
 
-            if (this.cellStorage != null && this.cellKeyType == AEKeyType.items()) {
+            if (this.cellStorage != null) {
                 final ItemStack toStore = this.inputInventory.getStackInSlot(0);
                 final AEItemKey what = AEItemKey.of(toStore);
 
@@ -565,9 +562,16 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             return false;
         }
 
-        final ICellGuiHandler chg = StorageCells.getGuiHandler(this.cellKeyType, cellStack);
+        // Only a cell that declares one kind of content can have a screen of its own; anything else - the
+        // creative cell, or an addon cell holding several kinds at once - goes to the terminal, which serves
+        // every key type anyway.
+        final AEKeyType keyType = cellStack.getItem() instanceof IBasicCellItem basicCell
+                ? basicCell.getKeyType()
+                : null;
+        final ICellGuiHandler chg = keyType == null ? null : StorageCells.getGuiHandler(keyType, cellStack);
+
         if (chg != null) {
-            chg.openChestGui(p, this, ch, this.driveWatcher.getCell(), cellStack, this.cellKeyType);
+            chg.openChestGui(p, this, ch, this.driveWatcher.getCell(), cellStack, keyType);
         } else {
             Platform.openGUI(p, this, AEPartLocation.fromFacing(this.getUp()), GuiBridge.GUI_ME);
         }
@@ -687,7 +691,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         @Override
         public int fill(final FluidStack resource, final boolean doFill) {
             TileChest.this.updateHandler();
-            if (TileChest.this.cellStorage != null && TileChest.this.cellKeyType == AEKeyType.fluids()) {
+            if (TileChest.this.cellStorage != null) {
                 final AEFluidKey what = AEFluidKey.of(resource);
                 if (what == null) {
                     return 0;
@@ -713,7 +717,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         public IFluidTankProperties[] getTankProperties() {
             TileChest.this.updateHandler();
 
-            if (TileChest.this.cellStorage != null && TileChest.this.cellKeyType == AEKeyType.fluids()) {
+            if (TileChest.this.cellStorage != null) {
                 return this.TANK_PROPS;
             }
             return null;
@@ -730,7 +734,19 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
             if (TileChest.this.isPowered()) {
                 TileChest.this.updateHandler();
-                return TileChest.this.cellStorage != null && TileChest.this.cellKeyType == AEKeyType.items();
+                if (TileChest.this.cellStorage == null) {
+                    return false;
+                }
+
+                final AEItemKey what = AEItemKey.of(stack);
+                if (what == null) {
+                    return false;
+                }
+
+                // The cell answers, rather than a type comparison: a creative cell takes only what its
+                // partition names, and a cell holding several kinds of content has no single type to compare.
+                return TileChest.this.cellStorage.insert(what, stack.getCount(), Actionable.SIMULATE,
+                        TileChest.this.mySrc) > 0;
             }
             return false;
         }
@@ -761,7 +777,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         // One terminal for every key type, so the chest no longer picks a screen per type. This used to
         // answer null for anything that was neither items nor fluids, which meant a key type registered by
         // an addon gave the chest no GUI at all.
-        return this.cellKeyType == null ? null : GuiBridge.GUI_ME;
+        return this.cellStorage == null ? null : GuiBridge.GUI_ME;
     }
 
 }

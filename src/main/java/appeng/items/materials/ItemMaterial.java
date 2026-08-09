@@ -26,6 +26,7 @@ import appeng.api.implementations.items.IStorageComponent;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
@@ -278,7 +279,8 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        // The magnet card, the only editable material: it filters what gets picked up off the ground.
+        return new CellConfig(is, Collections.singleton(AEKeyType.items()));
     }
 
     @Override

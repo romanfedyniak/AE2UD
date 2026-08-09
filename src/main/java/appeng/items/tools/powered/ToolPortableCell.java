@@ -50,6 +50,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -138,7 +139,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return new CellConfig(is);
+        return new CellConfig(is, Collections.singleton(this.getKeyType()));
     }
 
     @Override

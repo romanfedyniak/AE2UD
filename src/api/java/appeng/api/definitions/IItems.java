@@ -83,8 +83,6 @@ public interface IItems {
 
 	IItemDefinition cellCreative();
 
-	IItemDefinition fluidCellCreative();
-
 	IItemDefinition viewCell();
 
 	IItemDefinition cell1k();

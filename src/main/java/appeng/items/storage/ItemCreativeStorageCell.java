@@ -20,12 +20,11 @@ package appeng.items.storage;
 
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
-import appeng.fluids.helper.FluidCellConfig;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import net.minecraft.client.util.ITooltipFlag;
@@ -39,7 +38,8 @@ import java.util.List;
 
 
 /**
- * The creative storage cell. It is an {@link ICellWorkbenchItem} and deliberately <strong>not</strong> an
+ * The creative storage cell: one cell for every kind of content, holding an endless amount of whatever its
+ * partition names. It is an {@link ICellWorkbenchItem} and deliberately <strong>not</strong> an
  * {@link appeng.api.storage.cells.IBasicCellItem}, matching upstream's {@code CreativeCellItem} and the
  * pre-port class.
  * <p/>
@@ -51,26 +51,13 @@ import java.util.List;
  * silently moved the creative cell from {@link appeng.me.storage.CreativeCellInventory} to
  * {@code BasicCellInventory}, which then dereferenced this class's null upgrades inventory.
  * <p/>
- * Its content type is exposed through {@link ICellWorkbenchItem#getKeyType()} instead. This keeps creative
- * cells on their dedicated handler while allowing separate item and fluid variants to share the same item
- * and inventory implementation.
+ * There used to be a separate fluid variant carrying its own {@code AEKeyType}; the two were merged once
+ * nothing downstream asked a cell item what it stores.
  */
 public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenchItem {
 
-    private final AEKeyType keyType;
-
     public ItemCreativeStorageCell() {
-        this(AEKeyType.items());
-    }
-
-    public ItemCreativeStorageCell(final AEKeyType keyType) {
-        this.keyType = keyType;
         this.setMaxStackSize(1);
-    }
-
-    @Override
-    public AEKeyType getKeyType() {
-        return this.keyType;
     }
 
     @Override
@@ -85,7 +72,15 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
 
     @Override
     public IItemHandler getConfigInventory(final ItemStack is) {
-        return this.keyType == AEKeyType.fluids() ? new FluidCellConfig(is) : new CellConfig(is);
+        return configOf(is);
+    }
+
+    /**
+     * The partition, typed as what it is so the tooltip can walk it. Every registered key type is allowed:
+     * this cell stores whatever it is told to.
+     */
+    public static CellConfig configOf(final ItemStack is) {
+        return new CellConfig(is, AEKeyTypes.getAll());
     }
 
     @Override
@@ -104,11 +99,9 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
         final StorageCell inventory = StorageCells.getCellInventory(stack, null);
 
         if (inventory != null) {
-            final CellConfig cc = new CellConfig(stack);
-
-            for (final ItemStack is : cc) {
+            for (final ItemStack is : configOf(stack)) {
                 final GenericStack configured = GenericStack.resolveItemStack(is);
-                if (configured != null && configured.what().getType() == this.keyType) {
+                if (configured != null) {
                     lines.add(configured.what().getDisplayName().getFormattedText());
                 }
             }

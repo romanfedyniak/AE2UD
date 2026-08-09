@@ -34,11 +34,9 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
-import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
@@ -310,14 +308,10 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                         final StorageCell inv = this.getInv(is);
 
                         if (inv != null) {
-                            final AEKeyType keyType = is.getItem() instanceof ICellWorkbenchItem workbenchItem
-                                    ? workbenchItem.getKeyType()
-                                    : AEKeyType.items();
-
                             if (this.manager.getSetting(Settings.OPERATION_MODE) == OperationMode.EMPTY) {
-                                itemsToMove = this.transferContents(energy, inv, network, itemsToMove, keyType);
+                                itemsToMove = this.transferContents(energy, inv, network, itemsToMove);
                             } else {
-                                itemsToMove = this.transferContents(energy, network, inv, itemsToMove, keyType);
+                                itemsToMove = this.transferContents(energy, network, inv, itemsToMove);
                             }
 
                             shouldMove = this.shouldMove(inv);
@@ -373,10 +367,13 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         return this.cachedCell;
     }
 
-    private long transferContents(final IEnergySource energy, final MEStorage src, final MEStorage destination, long itemsToMove, final AEKeyType keyType) {
+    /**
+     * Moves at most {@code itemsToMove} operations' worth of content, counted per key rather than per cell: a
+     * cell may hold several kinds of content at once, and one operation moves a single item but a whole
+     * bucket of fluid.
+     */
+    private long transferContents(final IEnergySource energy, final MEStorage src, final MEStorage destination, long itemsToMove) {
         final KeyCounter myList = src.getAvailableStacks();
-
-        itemsToMove *= keyType.getAmountPerOperation();
 
         boolean didStuff;
 
@@ -387,10 +384,11 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                 final AEKey what = entry.getKey();
                 final long totalStackSize = entry.getLongValue();
                 if (totalStackSize > 0) {
+                    final int amountPerOperation = what.getAmountPerOperation();
                     final long insertable = destination.insert(what, totalStackSize, Actionable.SIMULATE, this.mySrc);
 
                     if (insertable > 0) {
-                        final long possibleBeforeExtract = Math.min(insertable, itemsToMove);
+                        final long possibleBeforeExtract = Math.min(insertable, itemsToMove * amountPerOperation);
 
                         final long extracted = src.extract(what, possibleBeforeExtract, Actionable.MODULATE, this.mySrc);
                         if (extracted > 0) {
@@ -402,7 +400,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                             }
 
                             if (actuallyInserted > 0) {
-                                itemsToMove -= actuallyInserted;
+                                itemsToMove -= Math.max(1, actuallyInserted / amountPerOperation);
                                 didStuff = true;
                             }
 
@@ -414,7 +412,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         }
         while (itemsToMove > 0 && didStuff);
 
-        return itemsToMove / keyType.getAmountPerOperation();
+        return itemsToMove;
     }
 
     private boolean shouldMove(final MEStorage inv) {

@@ -19,7 +19,6 @@
 package appeng.container.slot;
 
 
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.misc.TileCellWorkbench;
@@ -33,14 +32,13 @@ import java.util.function.Supplier;
 /**
  * A cell workbench partition slot, which only accepts what the installed cell can actually store.
  * <p>
- * Config inventories became type-agnostic so that a fluid could be put in a fluid filter; the side effect
- * was that a fluid could also be put into an <em>item</em> cell's partition, where it is not merely useless
- * but harmful. The partition would then list a key the cell can never hold, nothing would match it, and the
- * cell would quietly stop accepting anything at all - with no error, and no visible difference from a cell
- * that simply refuses to fill.
+ * Putting a fluid into an <em>item</em> cell's partition is not merely useless but harmful: the partition
+ * lists a key the cell can never hold, nothing matches it, and the cell quietly stops accepting anything at
+ * all - with no error, and no visible difference from a cell that simply refuses to fill.
  * <p>
- * The check lives here rather than in the inventory because only the workbench knows which cell is in the
- * slot; the same inventory class serves filters that have no type restriction whatsoever.
+ * The slot does not decide this itself. It forwards the question to the installed cell's own partition
+ * inventory, which is the only gate every write passes through, and which is free to accept several kinds of
+ * content at once.
  */
 public class SlotCellWorkbenchConfig extends SlotFakeTypeOnly {
 
@@ -107,13 +105,12 @@ public class SlotCellWorkbenchConfig extends SlotFakeTypeOnly {
             return true;
         }
 
-        final AEKeyType allowed = te.getCellKeyType();
-        if (allowed == null) {
+        final IItemHandler cellConfig = te.getCellConfigInventory();
+        if (cellConfig == null) {
             // No cell in the workbench: there is nothing to partition, so nothing to check against either.
             return true;
         }
 
-        final GenericStack stack = AppEngInternalAEInventory.toGenericStack(is);
-        return stack == null || stack.what().getType() == allowed;
+        return cellConfig.isItemValid(this.getSlotIndex(), is);
     }
 }
