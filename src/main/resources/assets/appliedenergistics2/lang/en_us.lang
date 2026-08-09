@@ -104,6 +104,7 @@ itemGroup.appliedenergistics2.facades=Applied Energistics 2 - Facades
 // GUI
 gui.appliedenergistics2.CraftingTerminal=Crafting Terminal
 gui.appliedenergistics2.METunnel=ME
+gui.appliedenergistics2.InterfaceTunnel=ME Interface
 gui.appliedenergistics2.ItemTunnel=Item
 gui.appliedenergistics2.FluidTunnel=Fluid
 gui.appliedenergistics2.RedstoneTunnel=Redstone

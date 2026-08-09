@@ -43,6 +43,16 @@ public class AttunementRegistry {
     }
 
     @ZenMethod
+    public static void attuneInterface(IIngredient itemStack) {
+        attune(itemStack, TunnelType.INTERFACE);
+    }
+
+    @ZenMethod
+    public static void attuneInterface(String modId) {
+        attune(modId, TunnelType.INTERFACE);
+    }
+
+    @ZenMethod
     public static void attuneItem(IIngredient itemStack) {
         attune(itemStack, TunnelType.ITEM);
     }

@@ -24,14 +24,48 @@
 package appeng.api.implementations.tiles;
 
 
+import javax.annotation.Nullable;
+
 import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.parts.IPart;
+import appeng.api.parts.IPartHost;
 
 
 public interface ICraftingMachine
 {
+
+	/**
+	 * The crafting machine a neighbour offers on the given side, be it the block itself or a part sitting on
+	 * that side of a cable bus - a part is a machine to an interface just as much as a block is.
+	 *
+	 * @param te the neighbouring tile entity, may be null
+	 * @param side the side of that neighbour which faces the interface
+	 *
+	 * @return the machine, or null if there is none
+	 */
+	@Nullable
+	static ICraftingMachine of( @Nullable final TileEntity te, final EnumFacing side )
+	{
+		if( te instanceof ICraftingMachine )
+		{
+			return (ICraftingMachine) te;
+		}
+
+		if( te instanceof IPartHost )
+		{
+			final IPart part = ( (IPartHost) te ).getPart( side );
+			if( part instanceof ICraftingMachine )
+			{
+				return (ICraftingMachine) part;
+			}
+		}
+
+		return null;
+	}
 
 	/**
 	 * inserts a crafting plan, and the necessary items into the crafting machine.

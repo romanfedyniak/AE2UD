@@ -73,6 +73,8 @@ public interface IParts {
 
     IItemDefinition p2PTunnelME();
 
+    IItemDefinition p2PTunnelInterface();
+
     IItemDefinition p2PTunnelRedstone();
 
     IItemDefinition p2PTunnelItems();

@@ -40,6 +40,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - The Crafting Plan screen picks its crafting CPU from the same table the Crafting Status screen uses, replacing the "Crafting CPU:" button that could only be cycled one CPU at a time. Its first row, **Automatic**, is the old default: the network chooses a CPU when the job is submitted. The window is shorter by the height that button occupied. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
 - Both screens now share one table, so a CPU is named by a serial rather than by its position in the list. Previously a CPU appearing or disappearing while the list was open shifted every entry below it, and the selection silently moved to a different CPU.
 
+### P2P tunnels
+
+- Added the **ME Interface P2P Tunnel**, which lends an ME Interface's faces to somewhere else: the input stands in front of an interface and every output stands in for it beside a machine of its own, so one interface can drive as many machines as there are outputs. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial) and [NAE2](https://github.com/AE2-UEL/NAE2).
+- The interface sees the tunnel as an ordinary crafting machine standing on that face, so nothing about how it looks for a machine changes. The tunnel hands each pattern to the next output in turn, and every output keeps its own queue of what its machine has not taken yet - a machine that has backed up does not stop the interface feeding the others. Blocking mode is judged per output for the same reason.
+- Each output also offers its neighbour the interface's stocked items and fluids, which is how a machine there both draws what the interface stocks and hands its results back. Network access is deliberately not offered: a storage bus on an output would otherwise see the whole network without paying for a channel, which is what the ME P2P Tunnel is for.
+- An output may face another tunnel's input, so tunnels chain, stock and results included; a pair pointed at each other is caught rather than recursing forever.
+- A terminal lists the interface under the machine its outputs stand beside, naming that machine when every output has the same kind and the tunnel itself when they differ.
+- **An ME Interface now attunes a P2P tunnel to this type rather than to the item tunnel.** A hopper, a chest, a storage/import/export bus and the other item-related triggers still give the item tunnel.
+- Added `ICraftingMachine.of(tile, side)`, which finds a crafting machine on a neighbour whether it is the block itself or a part on that side of a cable bus. Patterns were offered to block entities only, so a part could never be a crafting machine.
+
 ### Terminals and HEI
 
 - Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).

@@ -128,8 +128,10 @@ public final class P2PTunnelRegistry implements IP2PTunnelRegistry {
          * attune based on lots of random item related stuff
          */
 
-        this.addNewAttunement(blocks.iface(), TunnelType.ITEM);
-        this.addNewAttunement(parts.iface(), TunnelType.ITEM);
+        // An interface attunes to the tunnel that carries an interface, not to the plain item one - the
+        // hopper, the chest and the buses below still cover that.
+        this.addNewAttunement(blocks.iface(), TunnelType.INTERFACE);
+        this.addNewAttunement(parts.iface(), TunnelType.INTERFACE);
         this.addNewAttunement(parts.storageBus(), TunnelType.ITEM);
         this.addNewAttunement(parts.importBus(), TunnelType.ITEM);
         this.addNewAttunement(parts.exportBus(), TunnelType.ITEM);

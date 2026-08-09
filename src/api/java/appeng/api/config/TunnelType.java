@@ -38,6 +38,7 @@ import java.util.function.Supplier;
 
 public enum TunnelType {
     ME(tryPartStack(IParts::p2PTunnelME)),
+    INTERFACE(tryPartStack(IParts::p2PTunnelInterface)),
     IC2_POWER(tryPartStack(IParts::p2PTunnelEU)),
     FE_POWER(tryPartStack(IParts::p2PTunnelFE)),
     GTEU_POWER(tryPartStack(IParts::p2PTunnelGTEU)),

@@ -59,6 +59,7 @@ public final class ApiParts implements IParts {
     private final IItemDefinition annihilationPlane;
     private final IItemDefinition formationPlane;
     private final IItemDefinition p2PTunnelME;
+    private final IItemDefinition p2PTunnelInterface;
     private final IItemDefinition p2PTunnelRedstone;
     private final IItemDefinition p2PTunnelItems;
     private final IItemDefinition p2PTunnelFluids;
@@ -109,6 +110,7 @@ public final class ApiParts implements IParts {
         this.annihilationPlane = new DamagedItemDefinition("part.plane.annihilation", itemPart.createPart(PartType.ANNIHILATION_PLANE));
         this.formationPlane = new DamagedItemDefinition("part.plane.formation", itemPart.createPart(PartType.FORMATION_PLANE));
         this.p2PTunnelME = new DamagedItemDefinition("part.tunnel.me", itemPart.createPart(PartType.P2P_TUNNEL_ME));
+        this.p2PTunnelInterface = new DamagedItemDefinition("part.tunnel.interface", itemPart.createPart(PartType.P2P_TUNNEL_INTERFACE));
         this.p2PTunnelRedstone = new DamagedItemDefinition("part.tunnel.redstone", itemPart.createPart(PartType.P2P_TUNNEL_REDSTONE));
         this.p2PTunnelItems = new DamagedItemDefinition("part.tunnel.item", itemPart.createPart(PartType.P2P_TUNNEL_ITEMS));
         this.p2PTunnelFluids = new DamagedItemDefinition("part.tunnel.fluid", itemPart.createPart(PartType.P2P_TUNNEL_FLUIDS));
@@ -250,6 +252,11 @@ public final class ApiParts implements IParts {
     @Override
     public IItemDefinition p2PTunnelME() {
         return this.p2PTunnelME;
+    }
+
+    @Override
+    public IItemDefinition p2PTunnelInterface() {
+        return this.p2PTunnelInterface;
     }
 
     @Override

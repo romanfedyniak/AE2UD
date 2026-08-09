@@ -69,6 +69,7 @@ import appeng.me.storage.NullInventory;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.parts.misc.PartInterface;
+import appeng.parts.p2p.PartP2PInterface;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.networking.TileCableBus;
@@ -1166,11 +1167,18 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             // nothing here can stop it - and since that container was assembled out of a fluid, taking it
             // back would mint a bucket every craft. Note our own molecular assembler arrives here too: this
             // is the only route from an interface to one.
-            if (te instanceof ICraftingMachine cm && extraInputs.length == 0
+            final ICraftingMachine cm = ICraftingMachine.of(te, s.getOpposite());
+            if (cm != null && extraInputs.length == 0
                     && (!fabricated || cm.acceptsFabricatedContainers())) {
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
                     if (cm.pushPattern(patternDetails, table, s.getOpposite())) {
+                        // Taking the face out of the rotation spreads consecutive patterns over the machines
+                        // around the interface. A tunnel is not one of those machines but the way to many,
+                        // and it spreads them itself, so its face has to stay in.
+                        if (cm instanceof PartP2PInterface) {
+                            this.visitedFaces.clear();
+                        }
                         onPushPatternSuccess(patternDetails);
                         return true;
                     }
@@ -1321,6 +1329,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     continue;
                 }
 
+                // A tunnel is only as busy as the machines behind its outputs: one of them still free is
+                // what lets the other nineteen keep working while this one drains.
+                final ICraftingMachine neighbour = ICraftingMachine.of(te, s.getOpposite());
+                if (neighbour instanceof PartP2PInterface) {
+                    if (!((PartP2PInterface) neighbour).isBlocked(true)) {
+                        allAreBusy = false;
+                        break;
+                    }
+                    continue;
+                }
+
                 final InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
                 if (ad != null) {
                     if (Platform.isModLoaded("actuallyadditions") && Platform.GTLoaded && te instanceof IPhantomTile phantomTE) {
@@ -1360,7 +1379,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return grid == this.gridProxy.getGrid();
     }
 
-    private boolean isBlocking() {
+    public boolean isBlocking() {
         return this.cm.getSetting(Settings.BLOCK) == YesNo.YES;
     }
 
@@ -1417,7 +1436,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 side.getOpposite());
     }
 
-    private boolean acceptsItems(final InventoryAdaptor ad, final InventoryCrafting table) {
+    public static boolean acceptsItems(final InventoryAdaptor ad, final InventoryCrafting table) {
         for (int x = 0; x < table.getSizeInventory(); x++) {
             final ItemStack is = table.getStackInSlot(x);
             if (is.isEmpty()) {
@@ -1545,12 +1564,20 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return new MachineIdentity(((ICustomNameObject) this.iHost).getCustomInventoryName(), ItemStack.EMPTY);
         }
 
-        final EnumSet<EnumFacing> possibleDirections = this.iHost.getTargets();
-        for (final EnumFacing direction : possibleDirections) {
-            final BlockPos targ = hostTile.getPos().offset(direction);
-            final TileEntity directedTile = hostWorld.getTileEntity(targ);
+        for (final EnumFacing direction : this.iHost.getTargets()) {
+            final TileEntity directedTile = hostWorld.getTileEntity(hostTile.getPos().offset(direction));
 
             if (directedTile == null) {
+                continue;
+            }
+
+            // A P2P tunnel is no machine of its own - it answers for the ones its outputs stand beside.
+            final ICraftingMachine neighbour = ICraftingMachine.of(directedTile, direction.getOpposite());
+            if (neighbour instanceof PartP2PInterface) {
+                final MachineIdentity remote = ((PartP2PInterface) neighbour).getRemoteMachineIdentity();
+                if (remote != MachineIdentity.NOTHING) {
+                    return remote;
+                }
                 continue;
             }
 
@@ -1564,58 +1591,79 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 }
             }
 
-            final InventoryAdaptor adaptor = InventoryAdaptor.getAdaptor(directedTile, direction.getOpposite());
-            if (directedTile instanceof ICraftingMachine || adaptor != null) {
-                if (adaptor != null && !adaptor.hasSlots()) {
-                    continue;
+            final MachineIdentity identity = identifyMachine(hostWorld, hostTile.getPos(), direction);
+            if (identity != MachineIdentity.NOTHING) {
+                return identity;
+            }
+        }
+
+        return MachineIdentity.NOTHING;
+    }
+
+    /**
+     * What the machine on the given side of a block calls itself, and the item that pictures it. Split out
+     * of the neighbour scan above so a P2P tunnel can name the machines standing beside its outputs by the
+     * same rules an interface names the ones standing beside itself.
+     */
+    public static MachineIdentity identifyMachine(final World hostWorld, final BlockPos hostPos, final EnumFacing direction) {
+        final BlockPos targ = hostPos.offset(direction);
+        final TileEntity directedTile = hostWorld.getTileEntity(targ);
+
+        if (directedTile == null) {
+            return MachineIdentity.NOTHING;
+        }
+
+        final InventoryAdaptor adaptor = InventoryAdaptor.getAdaptor(directedTile, direction.getOpposite());
+        if (ICraftingMachine.of(directedTile, direction.getOpposite()) != null || adaptor != null) {
+            if (adaptor != null && !adaptor.hasSlots()) {
+                return MachineIdentity.NOTHING;
+            }
+
+            final IBlockState directedBlockState = hostWorld.getBlockState(targ);
+            final Block directedBlock = directedBlockState.getBlock();
+            ItemStack what = new ItemStack(directedBlock, 1, directedBlock.getMetaFromState(directedBlockState));
+
+            if (Platform.GTLoaded && directedBlock instanceof BlockMachine) {
+                MetaTileEntity metaTileEntity = Platform.getMetaTileEntity(directedTile.getWorld(), directedTile.getPos());
+                if (metaTileEntity != null) {
+                    // A GregTech machine is a meta tile entity: the block it sits in is one shared item
+                    // for every machine there is, so the picture has to come from the entity itself.
+                    final ItemStack machineStack = metaTileEntity.getStackForm();
+                    return new MachineIdentity(metaTileEntity.getMetaFullName(),
+                            machineStack.isEmpty() ? what : machineStack);
                 }
+            }
 
-                final IBlockState directedBlockState = hostWorld.getBlockState(targ);
-                final Block directedBlock = directedBlockState.getBlock();
-                ItemStack what = new ItemStack(directedBlock, 1, directedBlock.getMetaFromState(directedBlockState));
-
-                if (Platform.GTLoaded && directedBlock instanceof BlockMachine) {
-                    MetaTileEntity metaTileEntity = Platform.getMetaTileEntity(directedTile.getWorld(), directedTile.getPos());
-                    if (metaTileEntity != null) {
-                        // A GregTech machine is a meta tile entity: the block it sits in is one shared item
-                        // for every machine there is, so the picture has to come from the entity itself.
-                        final ItemStack machineStack = metaTileEntity.getStackForm();
-                        return new MachineIdentity(metaTileEntity.getMetaFullName(),
-                                machineStack.isEmpty() ? what : machineStack);
-                    }
-                }
-
-                try {
-                    Vec3d from = new Vec3d(hostTile.getPos().getX() + 0.5, hostTile.getPos().getY() + 0.5, hostTile.getPos().getZ() + 0.5);
-                    from = from.add(direction.getXOffset() * 0.501, direction.getYOffset() * 0.501, direction.getZOffset() * 0.501);
-                    final Vec3d to = from.add(direction.getXOffset(), direction.getYOffset(), direction.getZOffset());
-                    final RayTraceResult mop = hostWorld.rayTraceBlocks(from, to, true);
-                    if (mop != null && !BAD_BLOCKS.contains(directedBlock)) {
-                        if (mop.getBlockPos().equals(directedTile.getPos())) {
-                            final ItemStack g = directedBlock.getPickBlock(directedBlockState, mop, hostWorld, directedTile.getPos(), null);
-                            if (!g.isEmpty()) {
-                                what = g;
-                            }
+            try {
+                Vec3d from = new Vec3d(hostPos.getX() + 0.5, hostPos.getY() + 0.5, hostPos.getZ() + 0.5);
+                from = from.add(direction.getXOffset() * 0.501, direction.getYOffset() * 0.501, direction.getZOffset() * 0.501);
+                final Vec3d to = from.add(direction.getXOffset(), direction.getYOffset(), direction.getZOffset());
+                final RayTraceResult mop = hostWorld.rayTraceBlocks(from, to, true);
+                if (mop != null && !BAD_BLOCKS.contains(directedBlock)) {
+                    if (mop.getBlockPos().equals(directedTile.getPos())) {
+                        final ItemStack g = directedBlock.getPickBlock(directedBlockState, mop, hostWorld, directedTile.getPos(), null);
+                        if (!g.isEmpty()) {
+                            what = g;
                         }
                     }
-                } catch (final Throwable t) {
-                    BAD_BLOCKS.add(directedBlock); // nope!
                 }
+            } catch (final Throwable t) {
+                BAD_BLOCKS.add(directedBlock); // nope!
+            }
 
-                if (what.getItem() != Items.AIR) {
-                    /* getTranslationKey() and getUnlocalizedNameInefficiently() have different return values in some mod
-                     * For the Thermal Expansion
-                     * getTranslationKey() returns complete key ending with ".name".
-                     * getUnlocalizedNameInefficiently() returns localized name
-                     * Because CoFH Core overrides method getTranslationKey()
-                     */
-                    return new MachineIdentity(what.getItem().getTranslationKey(what), what);
-                }
+            if (what.getItem() != Items.AIR) {
+                /* getTranslationKey() and getUnlocalizedNameInefficiently() have different return values in some mod
+                 * For the Thermal Expansion
+                 * getTranslationKey() returns complete key ending with ".name".
+                 * getUnlocalizedNameInefficiently() returns localized name
+                 * Because CoFH Core overrides method getTranslationKey()
+                 */
+                return new MachineIdentity(what.getItem().getTranslationKey(what), what);
+            }
 
-                final Item item = Item.getItemFromBlock(directedBlock);
-                if (item == Items.AIR) {
-                    return new MachineIdentity(directedBlock.getTranslationKey(), what);
-                }
+            final Item item = Item.getItemFromBlock(directedBlock);
+            if (item == Items.AIR) {
+                return new MachineIdentity(directedBlock.getTranslationKey(), what);
             }
         }
 

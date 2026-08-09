@@ -115,6 +115,7 @@ public enum AEFeature {
     DENSE_ENERGY_CELLS("DenseEnergyCells", Constants.CATEGORY_ENERGY),
 
     P2P_TUNNEL_ME("P2PTunnelME", Constants.CATEGORY_P2P_TUNNELS),
+    P2P_TUNNEL_INTERFACE("P2PTunnelInterface", Constants.CATEGORY_P2P_TUNNELS),
     P2P_TUNNEL_ITEMS("P2PTunnelItems", Constants.CATEGORY_P2P_TUNNELS),
     P2P_TUNNEL_REDSTONE("P2PTunnelRedstone", Constants.CATEGORY_P2P_TUNNELS),
     P2P_TUNNEL_EU("P2PTunnelEU", Constants.CATEGORY_P2P_TUNNELS),

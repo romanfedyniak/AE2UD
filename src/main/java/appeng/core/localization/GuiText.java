@@ -97,6 +97,7 @@ public enum GuiText {
 
     // tunnel names
     METunnel,
+    InterfaceTunnel,
     ItemTunnel,
     RedstoneTunnel,
     EUTunnel,
