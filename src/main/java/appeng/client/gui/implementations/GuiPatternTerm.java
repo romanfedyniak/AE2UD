@@ -138,7 +138,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.setReservedSpace(81);
         this.pageScrollBar.setLeft(6).setWidth(7).setHeight(18 * PatternHelper.PROCESSING_GRID_DIMENSION - 2);
         this.pageScrollBar.setRange(0, PatternHelper.PROCESSING_PAGES - 1, 1);
-        this.pageScrollBar.setTexture(AppEng.MOD_ID, BACKGROUND_PROCESSING_MODE, 242, 0);
+        this.pageScrollBar.setTexture(AppEng.MOD_ID, BACKGROUND_PROCESSING_MODE, 243, 0);
     }
 
     @Override
