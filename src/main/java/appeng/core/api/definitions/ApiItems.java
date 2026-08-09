@@ -25,7 +25,6 @@ import appeng.api.util.AEColoredItemDefinition;
 import appeng.bootstrap.FeatureFactory;
 import appeng.bootstrap.components.IEntityRegistrationComponent;
 import appeng.bootstrap.components.IOreDictComponent;
-import appeng.client.render.crafting.ItemEncodedPatternRendering;
 import appeng.core.CreativeTabFacade;
 import appeng.core.features.AEFeature;
 import appeng.debug.ToolDebugCard;
@@ -250,7 +249,6 @@ public final class ApiItems implements IItems {
         // rv1
         this.encodedPattern = registry.item("encoded_pattern", ItemEncodedPattern::new)
                 .features(AEFeature.PATTERNS)
-                .rendering(new ItemEncodedPatternRendering())
                 .build();
 
         this.paintBall = registry.item("paint_ball", ItemPaintBall::new)

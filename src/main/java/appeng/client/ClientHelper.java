@@ -23,14 +23,12 @@ import appeng.api.parts.CableRenderMode;
 import appeng.api.util.AEColor;
 import appeng.block.AEBaseBlock;
 import appeng.client.gui.AEBaseGui;
-import appeng.client.render.crafting.ItemEncodedPatternBakedModel;
 import appeng.client.render.effects.*;
 import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
-import appeng.core.Api;
 import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketAssemblerAnimation;
@@ -106,9 +104,6 @@ public class ClientHelper extends ServerHelper {
             ClientRegistry.registerKeyBinding(k.getKeyBinding());
             this.keyBindings.add(k.getKeyBinding());
         }
-
-        Api.INSTANCE.definitions().items().encodedPattern().maybeItem().ifPresent(pattern ->
-                Minecraft.getMinecraft().getItemColors().registerItemColorHandler(ItemEncodedPatternBakedModel.PATTERN_ITEM_COLOR_HANDLER, pattern));
     }
 
     @SubscribeEvent

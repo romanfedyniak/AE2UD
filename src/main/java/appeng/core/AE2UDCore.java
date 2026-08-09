@@ -20,20 +20,32 @@
 package appeng.core;
 
 import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
+import zone.rong.mixinbooter.IEarlyMixinLoader;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @IFMLLoadingPlugin.Name("AE2UDCore")
 @IFMLLoadingPlugin.MCVersion("1.12.2")
 @IFMLLoadingPlugin.SortingIndex(1001)
 @IFMLLoadingPlugin.TransformerExclusions("appeng.core.transformer")
-public class AE2UDCore implements IFMLLoadingPlugin {
+public class AE2UDCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
     @Override
     public String[] getASMTransformerClass() {
         return new String[]{
                 "appeng.core.transformer.AE2UDTransformer"
         };
+    }
+
+    /**
+     * Mixins onto Minecraft's own classes, which are loaded long before any mod's and so cannot wait for the
+     * late phase {@link appeng.mixin.AE2UDLateMixinLoader} serves.
+     */
+    @Override
+    public List<String> getMixinConfigs() {
+        return Collections.singletonList("mixins.appliedenergistics2.early.minecraft.json");
     }
 
     @Override

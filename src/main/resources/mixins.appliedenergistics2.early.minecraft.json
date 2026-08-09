@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "appeng.mixin.minecraft",
+  "refmap": "mixins.appliedenergistics2.refmap.json",
+  "target": "@env(DEFAULT)",
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": [
+    "MixinGuiContainer",
+    "MixinRenderItem"
+  ],
+  "server": []
+}

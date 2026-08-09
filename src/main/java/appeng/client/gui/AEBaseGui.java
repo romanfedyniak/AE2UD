@@ -42,7 +42,6 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
 import appeng.helpers.InventoryAction;
-import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -962,39 +961,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     }
                 }
                 if (s instanceof SlotPlayerInv || s instanceof SlotPlayerHotBar) {
-                    if (!is.isEmpty() && is.getItem() instanceof ItemEncodedPattern) {
-                        final ItemEncodedPattern iep = (ItemEncodedPattern) is.getItem();
-                        final ItemStack out = iep.getOutput(is);
-                        if (!out.isEmpty()) {
-                            AppEngSlot appEngSlot = ((AppEngSlot) s);
-                            appEngSlot.setDisplay(true);
-                            appEngSlot.setReturnAsSingleStack(true);
-
-                            this.zLevel = 100.0F;
-                            this.itemRender.zLevel = 100.0F;
-
-                            if (!this.isPowered()) {
-                                drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
-                            }
-
-                            this.zLevel = 0.0F;
-                            this.itemRender.zLevel = 0.0F;
-
-                            // Annoying but easier than trying to splice into render item
-                            super.drawSlot(s);
-
-                            if (isShiftKeyDown()) {
-                                // getOutput wraps the pattern's output key, so a fluid arrives here as a
-                                // placeholder and has to be resolved rather than read (CONTRACT.md §9.1d).
-                                this.stackSizeRenderer.renderStackSize(this.fontRenderer, GenericStack.resolveItemStack(out), s.xPos, s.yPos);
-                            } else {
-                                super.drawSlot(s);
-                            }
-                            return;
-                        }
-                    } else {
-                        super.drawSlot(s);
-                    }
+                    // A pattern held in the player's own inventory previews as its output like it does in
+                    // any other screen: MixinGuiContainer draws it, one level down in super.drawSlot.
+                    super.drawSlot(s);
                 } else if (s instanceof AppEngSlot) {
                     AppEngSlot appEngSlot = ((AppEngSlot) s);
                     if (s.getStack().isEmpty()) {
