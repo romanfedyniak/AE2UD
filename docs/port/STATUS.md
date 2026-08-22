@@ -1,7 +1,11 @@
 # Port status — resume here
 
-Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*. Last updated
-2026-08-02, after the item-based upgrade-card API.
+Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*.
+
+**This file is a record of the port, not a running changelog** - `CHANGES.md` is that, and it is the one
+kept per commit. What is maintained here after the port is the api-amendment registry at the end, which is
+where an api that has drifted from upstream says why. Everything from the 1.5.0 cycle is in `CHANGES.md`;
+only its api changes are here, as items 8-13.
 
 **The port is done and the follow-up list is empty.** All seven waves, the `appeng.fluids` decomposition
 and the play-testing are finished; `feature/generic-storage` is merged, and so is everything under "After
@@ -1910,9 +1914,9 @@ Every remaining wave must check this. Note the inverse also exists and is correc
 
 ## Amendments made to the frozen API
 
-Post-freeze edits to §1-§4 are the owner's call (§7). Eight have been approved - §8.5
-(`wrapForDisplayOrFilter()` wraps with amount 0) was the last, on 2026-08-01, and was the only one that had
-gone in ahead of its review:
+Post-freeze edits to §1-§4 are the owner's call (§7). Items 1-7 are the port's own; items 8-13 went in
+during the 1.5.0 cycle and were recorded here afterwards, on 2026-08-23. §8.5 (`wrapForDisplayOrFilter()`
+wraps with amount 0) was the only one that ever went in ahead of its review.
 
 1. **§8.3** — `ICraftingGrid.getCraftables(AEKeyFilter)` + `default isCraftable(AEKey)`. Keys carry no
    craftable flag, so the crafting grid answers instead. Mirrors upstream verbatim; additive.
@@ -1936,6 +1940,39 @@ gone in ahead of its review:
    crafting pattern can take a bucket's contents from the network instead of the bucket. Upstream carries
    the same two facts on `IInput`, a type this version does not have. The empty-container rule stays in
    `Platform` for the `src/api` reason again.
+8. **`ICraftingMedium.getMachineIdentity()` and `getMachineLocation()`, plus `ICraftingGrid.getMediums(pattern)`**
+   (`d558481d5`) — so a craft node in the tree and a row in either interface terminal can show the machine
+   a pattern would be pushed to. Both medium methods have defaults, so existing addons keep compiling.
+   Additive.
+9. **`ICraftingMachine.of(tile, side)`** (`995716b66`) — finds a crafting machine on a neighbour whether it
+   is the block itself or a part on that side of a cable bus. Patterns were offered to block entities only,
+   so a part could never be a crafting machine, which the ME Interface P2P tunnel needed. Additive.
+10. **`ICraftingCPU.getSelectionMode()` and `appeng.api.config.CpuSelectionMode`** (`ee3b06df2`) —
+    **breaking**: anything implementing `ICraftingCPU` has to answer it. Named as modern AE2 names it.
+11. **`ICraftingSubmitResult`, `CraftingSubmitErrorCode`, `UnsuitableCpus`, and `ICraftingGrid.submitJob`
+    returning the result rather than the link** (`e404d71bb`) — **breaking**: a caller that wants the link
+    asks the result for it. Ported from modern AE2 so a Start that fails can say why instead of silently
+    throwing the plan away. **Read the note below before extending this.**
+12. **Two api definitions removed with their part and item**: `IParts.expandedProcessingPatternTerminal()`
+    (`87b3a5361`, the pattern terminal absorbed it) and `IItems.fluidCellCreative()` (`beff6c552`, the two
+    creative cells became one). Both break saves, which is the exception the owner separately agreed to.
+13. **The cell api stopped asking the item what it stores** (`beff6c552`, `3c152c64a`) — `ICellWorkbenchItem`
+    lost that method, `StorageCell.getSupportedKeyTypes()` is added and abstract, and
+    `IBasicCellItem.getKeyType()` became `getKeyTypes()`. **Breaking.** Recorded in full in `CONTRACT.md`,
+    unlike items 8-12, which is why this one is a pointer rather than a description.
+
+### The crafting api is being aligned piecemeal, and that was not the plan
+
+`CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
+autocrafting is a separate large redesign - and it names `ICraftingSubmitResult` specifically as belonging
+to *"a separate phase after v1"*.
+
+Item 11 is that type, and it is now in. Nothing is wrong with it, but the boundary §4.4 drew no longer
+matches what is in the tree, so a future session reading §4.4 alone would conclude the submit-result family
+cannot be here. Two ways out, and it is the owner's call which: declare the crafting-alignment phase open
+and work through `IPatternDetails`/`ICraftingPlan`/`CalculationStrategy` deliberately, or amend §4.4 to say
+that individual pieces are taken when a feature needs them. **What must not happen is a third breaking
+crafting change landing without either.**
 
 ## How the waves are executed
 
