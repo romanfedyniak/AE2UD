@@ -4,6 +4,7 @@ import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.GenericStack;
 import appeng.util.ItemSorters;
+import appeng.util.ReadableNumberConverter;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
@@ -190,6 +191,13 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
             return a;
         }
         return ItemSorters.compareLong(o.getStorage(), this.getStorage());
+    }
+
+    /**
+     * Shortened the way a stack size is, because the table's row has a few pixels for it beside the bytes.
+     */
+    public String formatCoprocessors() {
+        return ReadableNumberConverter.INSTANCE.toWideReadableForm(coprocessors);
     }
 
     public String formatStorage() {

@@ -50,6 +50,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **A job that cannot start now says why.** The Crafting Plan and Crafting Tree screens put a panel over their contents naming the reason - an incomplete plan, no CPUs at all, the chosen CPU being busy, offline or too small, an ingredient that has gone from the network since the plan was worked out, or no CPU being suitable, which is counted out as "2 busy, 1 too small, 1 kept for other requests". Until now a Start that failed silently threw the plan away and worked out a new one, which looked like nothing happening at all. Adapted from modern Applied Energistics 2.
 - The panel's **Retry** submits the very same plan again, **Replan** works out a fresh one - the old silent behaviour, now a choice - and **Cancel** puts the plan back on screen.
 - Added `appeng.api.networking.crafting.ICraftingSubmitResult`, `CraftingSubmitErrorCode` and `UnsuitableCpus`, and `ICraftingGrid.submitJob` returns the result rather than a link. **This is a breaking API change:** a caller that wants the link now asks the result for it.
+- A crafting CPU that is idle now shows **how many accelerators it has** in its row of the CPU table, beside the bytes it holds, so a CPU can be picked by speed as well as by size without waiting for the tooltip. A CPU with none is left unmarked. Adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial).
 
 ### P2P tunnels
 

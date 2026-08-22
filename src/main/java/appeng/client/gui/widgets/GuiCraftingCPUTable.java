@@ -30,11 +30,13 @@ import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.api.AEApi;
 import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 import org.apache.commons.lang3.time.DurationFormatUtils;
 import org.lwjgl.opengl.GL11;
@@ -74,6 +76,8 @@ public class GuiCraftingCPUTable extends Gui {
     private final GuiScrollbar scrollbar = new GuiScrollbar();
 
     private int rows = 1;
+
+    private static ItemStack ACCELERATOR_ICON = ItemStack.EMPTY;
 
     public GuiCraftingCPUTable(final AEBaseGui parent, final ICraftingCPUTableHost host) {
         this.parent = parent;
@@ -210,13 +214,42 @@ public class GuiCraftingCPUTable extends Gui {
             }
         } else {
             this.drawIcon(16 * 4 + 3);
-            GL11.glTranslatef(18.0f, 2.0f, 0.0f);
-            GL11.glScalef(1.5f, 1.5f, 1.0f);
-            font.drawString(cpu.formatStorage(), 0, 0, TEXT_COLOR);
+            this.drawIdleNumbers(font, cpu);
         }
         GL11.glPopMatrix();
 
         this.drawSelectionModeBadge(cpu, x, y);
+    }
+
+    /**
+     * The bytes an idle CPU holds and, beside them, how many accelerators it has. Both numbers are smaller
+     * than the bytes alone used to be, because two of them have to share the width one had.
+     * The accelerator is drawn after the text: {@link AEBaseGui#drawItem} leaves the item renderer's
+     * lighting behind it, which the font would pick up.
+     */
+    private void drawIdleNumbers(final FontRenderer font, final CraftingCPUStatus cpu) {
+        final boolean accelerated = cpu.getCoprocessors() > 0;
+
+        GL11.glPushMatrix();
+        GL11.glTranslatef(18.0f, accelerated ? 6.0f : 2.0f, 0.0f);
+        GL11.glScalef(accelerated ? 1.1f : 1.5f, accelerated ? 1.1f : 1.5f, 1.0f);
+        font.drawString(cpu.formatStorage(), 0, 0, TEXT_COLOR);
+        if (accelerated) {
+            font.drawString(cpu.formatCoprocessors(), 16 * 4 - 5, 0, TEXT_COLOR);
+        }
+        GL11.glPopMatrix();
+
+        if (accelerated) {
+            this.parent.drawItem(16 * 4, 0, acceleratorIcon());
+        }
+    }
+
+    private static ItemStack acceleratorIcon() {
+        if (ACCELERATOR_ICON.isEmpty()) {
+            ACCELERATOR_ICON = AEApi.instance().definitions().blocks().craftingAccelerator()
+                    .maybeStack(1).orElse(ItemStack.EMPTY);
+        }
+        return ACCELERATOR_ICON;
     }
 
     /**
