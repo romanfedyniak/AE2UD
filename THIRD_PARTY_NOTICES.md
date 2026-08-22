@@ -28,6 +28,8 @@ GTNewHorizons' Applied Energistics 2 Unofficial, recoloured onto Applied Energis
 
 The Applied Energistics 2 forks above use the same general licensing split inherited by AE2UD: LGPLv3 for the main mod code, MIT for the API, CC BY-NC-SA 3.0 for textures and models, and CC0 for text and translations, except where an individual file states otherwise.
 
+[RandomComplement](https://github.com/Circulate233/RandomComplement) is under the GNU General Public License v3 rather than that split. What AE2UD took from it is the approach to marking craftable ingredients on a HadEnoughItems recipe screen - which method to hook and which of that mod's internals to reach for - and not its code: the implementation, its data model and what it draws are AE2UD's own.
+
 ## AE2UD modifications
 
 Copyright (c) 2025-2026 Roman Feduniak and AE2UD contributors.

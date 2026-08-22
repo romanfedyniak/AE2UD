@@ -144,7 +144,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Terminal rows that are stocked and also craftable show a small "+" in their upper-left corner, next to the amount.
 - Craftable-only rows show "+" in place of the amount instead of the old "Craft" text, following [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2).
 - Pattern terminal grid and output slots carry the same mark for keys the network can craft.
-- HEI recipe screens opened from a terminal mark every ingredient that terminal can already craft, adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).
+- HEI recipe screens opened from a terminal mark every ingredient that terminal can already craft. The way in came from [RandomComplement](https://github.com/Circulate233/RandomComplement) - which method to hook and which of HEI's own internals to reach for - and the code doing it is AE2UD's.
 - Removed the now unused `GuiText.SmallFontCraft` and `GuiText.LargeFontCraft` translation keys.
 - Removed the `useTerminalUseLargeFont` client setting; slot amounts and the craftable "+" now render at one fixed, larger size that still fits a four-digit count.
 
