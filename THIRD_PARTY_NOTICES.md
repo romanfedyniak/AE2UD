@@ -14,6 +14,9 @@ Selected fixes, features, implementation ideas, and reference code in AE2UD have
 
 * [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial)
 * The actively maintained [Applied Energistics 2 upstream project](https://github.com/AppliedEnergistics/Applied-Energistics-2)
+* [NAE2](https://github.com/AE2-UEL/NAE2)
+* [NovaEngineering's AE2CT-Legacy](https://github.com/NovaEngineering-Source/AE2CT-Legacy)
+* [RandomComplement](https://github.com/Circulate233/RandomComplement)
 
 The pin icon in `textures/guis/states.png` is adapted from the corresponding texture in GTNewHorizons'
 Applied Energistics 2 Unofficial. The crafting-pin animation reuses Applied Energistics 2's
@@ -23,7 +26,7 @@ The pattern terminal's processing backgrounds `textures/guis/pattern3.png` and `
 and the slot-layout icon in `textures/guis/states.png`, are adapted from the corresponding textures in
 GTNewHorizons' Applied Energistics 2 Unofficial, recoloured onto Applied Energistics 2's palette.
 
-Those projects use the same general licensing split inherited by AE2UD: LGPLv3 for the main mod code, MIT for the API, CC BY-NC-SA 3.0 for textures and models, and CC0 for text and translations, except where an individual file states otherwise.
+The Applied Energistics 2 forks above use the same general licensing split inherited by AE2UD: LGPLv3 for the main mod code, MIT for the API, CC BY-NC-SA 3.0 for textures and models, and CC0 for text and translations, except where an individual file states otherwise.
 
 ## AE2UD modifications
 

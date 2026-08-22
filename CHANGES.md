@@ -75,7 +75,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Terminals and HEI
 
-- Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/NotMyWing/NAE2).
+- Ctrl+Move Items on a HEI recipe now crafts whatever ingredients the crafting terminal is missing instead of refusing the transfer; Ctrl+Shift starts that craft immediately instead of opening the confirmation screen. Adapted from [NAE2](https://github.com/AE2-UEL/NAE2).
 - Fixed the craftable "+" mark showing on real items already sitting in the crafting terminal's own crafting grid; it still shows on network item lists and the pattern terminal's placeholder ingredient slots.
 - Holding Alt no longer replaces the amounts in the ME Pattern Terminal's encoding slots with the craftable "+". Alt still does so on a network row, where it previews what an Alt click would craft; a slot that only displays a key has no such click, so it keeps showing what the pattern is set to.
 - Fixed the ME Interface Configuration Terminal drawing an empty frame around every row: the row background was taken from the list's top border, which repeated it every eighteen pixels. The border now belongs to the header, as it does in the ME Interface Terminal, and the rows below the last interface are plain background.
@@ -326,6 +326,6 @@ The initial AE2UD release completed the API-breaking migration from AE2 Unoffici
 
 ## Credits
 
-AE2UD continues [AE2 Unofficial Extended Life](https://www.curseforge.com/minecraft/mc-mods/ae2-extended-life), which is based on [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2). Selected fixes, features, implementation ideas, and reference code were also adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial) and the actively maintained [Applied Energistics 2 upstream project](https://github.com/AppliedEnergistics/Applied-Energistics-2).
+AE2UD continues [AE2 Unofficial Extended Life](https://www.curseforge.com/minecraft/mc-mods/ae2-extended-life), which is based on [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2). Selected fixes, features, implementation ideas, and reference code were also adapted from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial), the actively maintained [Applied Energistics 2 upstream project](https://github.com/AppliedEnergistics/Applied-Energistics-2), [NAE2](https://github.com/AE2-UEL/NAE2), [NovaEngineering's AE2CT-Legacy](https://github.com/NovaEngineering-Source/AE2CT-Legacy) and [RandomComplement](https://github.com/Circulate233/RandomComplement).
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for complete attribution and licensing information.
