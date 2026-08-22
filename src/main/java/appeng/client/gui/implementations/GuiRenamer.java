@@ -1,6 +1,7 @@
 package appeng.client.gui.implementations;
 
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.widgets.GuiSmallButton;
 import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.container.implementations.ContainerRenamer;
 import appeng.core.AELog;
@@ -35,7 +36,7 @@ public class GuiRenamer extends AEBaseGui {
 
         this.textField.setFocused(true);
 
-        this.buttonList.add(this.confirmButton = new GuiButton(0, this.guiLeft + 238, this.guiTop + 33, 12, 12, "↵"));
+        this.buttonList.add(this.confirmButton = new GuiSmallButton(0, this.guiLeft + 238, this.guiTop + 33, 12, 12, "↵"));
 
         ((ContainerRenamer) this.inventorySlots).setTextField(this.textField);
     }
