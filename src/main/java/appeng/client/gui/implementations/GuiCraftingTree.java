@@ -74,6 +74,8 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private static final int BORDER = 3;
     private static final int HEADER_HEIGHT = 32;
     private static final int FOOTER_HEIGHT = 28;
+    private static final int START_LEFT = 6;
+    private static final int START_WIDTH = 54;
 
     private static final int CANVAS_COLOR = 0xFF3B3B3B;
     private static final int SEARCH_X = BORDER + 5;
@@ -141,8 +143,8 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         this.back.setHideEdge(1);
         this.buttonList.add(this.back);
 
-        this.start = new GuiButton(0, this.guiLeft + 6, this.guiTop + this.ySize - 24, 54, 20,
-                GuiText.Start.getLocal());
+        this.start = new GuiButton(0, this.guiLeft + START_LEFT, this.guiTop + this.ySize - 24, START_WIDTH,
+                20, GuiText.Start.getLocal());
         this.buttonList.add(this.start);
 
         // Over the tree canvas, since Start can fail from this screen just as it can from the plan.
@@ -183,7 +185,13 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         this.cpuTable.updateScrollRange();
 
         this.errorPanel.update();
-        this.start.enabled = !(this.container.hasNoCPU() || this.container.isSimulation());
+        // A plan that came up short can be started from here on the same terms as from the plan list.
+        final boolean force = this.container.isSimulation() && !this.container.hasNoCPU();
+        this.start.enabled = !this.container.hasNoCPU();
+        this.start.displayString = (force ? GuiText.ForceStart : GuiText.Start).getLocal();
+        // Grows rightwards, since this screen keeps the button against its left edge rather than its right.
+        this.start.width = Math.max(START_WIDTH,
+                this.fontRenderer.getStringWidth(this.start.displayString) + 12);
         this.missingOnly.enabled = this.tree.hasMissing();
         this.missingOnly.displayString = this.missingOnly.enabled
                 ? GuiText.ShowMissingOnly.getLocal() + ": "
@@ -300,7 +308,8 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_CONFIRM));
         } else if (btn == this.start) {
             try {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start", "Start"));
+                NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start",
+                        this.container.isSimulation() ? "Force" : "Start"));
             } catch (final Throwable e) {
                 AELog.debug(e);
             }
