@@ -13,6 +13,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Patterns
 
+- A recipe transferred from HEI into a processing pattern now fills the grid from the first slot onwards instead of copying the gaps out of the recipe screen. A machine category that draws its inputs spread across a wider layout was leaving the ingredients scattered through the pattern with empty slots between them. A crafting recipe still keeps its shape, because there the position is the recipe.
+
 - Pressing **P** over an encoded pattern anywhere - the player's own inventory, a chest, an ME terminal row, another mod's screen - opens a read-only view of what it makes and what it takes, so a pattern no longer has to be carried to the pattern terminal just to be read. The key is rebindable from Options - Controls, and the pattern's tooltip names it. Adapted from [ExtendedAE](https://github.com/GlodBlock/ExtendedAE).
 - Ingredients sit to the left of an arrow and results to its right, the way a recipe reads everywhere else, with the shorter side centred against the taller one. The arrow is the pattern terminal's own.
 - The view sizes itself to the pattern rather than paging, so nothing scrolls at any size. A crafting pattern keeps its grid shape, taken from how many slots the pattern actually has rather than assumed to be three by three, so a pattern encoded on a larger bench by an addon lays out correctly. A processing pattern has no shape to keep, so its ingredients are packed into the fewest rows that hold them and then into the width that leaves the fewest gaps - ten ingredients read as five and five rather than as eight and a stub.

@@ -51,8 +51,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static appeng.helpers.ItemStackHelper.stackToNBT;
 
@@ -110,6 +112,16 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         final NBTTagList outputs = new NBTTagList();
 
 
+        // A crafting recipe is a shape, so an empty square in it has to stay an empty square and still take
+        // its place in the grid. A processing recipe is not: the recipe screen's own layout may leave gaps
+        // between the slots a machine happens to draw, and carrying those gaps into the pattern scattered
+        // the ingredients about. Bound for the processing grid, an ingredient takes the next free slot.
+        //
+        // Decided by the recipe rather than by the terminal's current mode: the switch above is a packet
+        // the server has not answered yet, so isCraftingMode() here is still the mode being left behind.
+        final boolean packed = container instanceof ContainerPatternEncoder
+                && !recipeType.equals(VanillaRecipeCategoryUid.CRAFTING);
+
         int slotIndex = 0;
         for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> ingredientEntry : ingredients.entrySet()) {
             IGuiIngredient<ItemStack> ingredient = ingredientEntry.getValue();
@@ -122,29 +134,34 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
                 continue;
             }
 
+            final List<ItemStack> list = new ArrayList<>();
+            final ItemStack displayed = ingredient.getDisplayedIngredient();
+
+            // prefer currently displayed item
+            if (displayed != null && !displayed.isEmpty()) {
+                list.add(displayed);
+            }
+
+            // prefer pure crystals.
+            for (ItemStack stack : ingredient.getAllIngredients()) {
+                if (stack == null) {
+                    continue;
+                }
+                if (Platform.isRecipePrioritized(stack)) {
+                    list.add(0, stack);
+                } else {
+                    list.add(stack);
+                }
+            }
+
+            if (packed && list.isEmpty()) {
+                continue;
+            }
+
             for (final Slot slot : container.inventorySlots) {
                 if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
                     if (slot.getSlotIndex() == slotIndex) {
                         final NBTTagList tags = new NBTTagList();
-                        final List<ItemStack> list = new ArrayList<>();
-                        final ItemStack displayed = ingredient.getDisplayedIngredient();
-
-                        // prefer currently displayed item
-                        if (displayed != null && !displayed.isEmpty()) {
-                            list.add(displayed);
-                        }
-
-                        // prefer pure crystals.
-                        for (ItemStack stack : ingredient.getAllIngredients()) {
-                            if (stack == null) {
-                                continue;
-                            }
-                            if (Platform.isRecipePrioritized(stack)) {
-                                list.add(0, stack);
-                            } else {
-                                list.add(stack);
-                            }
-                        }
 
                         for (final ItemStack is : list) {
                             final NBTTagCompound tag = stackToNBT(is);
@@ -200,6 +217,20 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         return null;
     }
 
+    private static Set<Integer> collectFreeSlots(final Container container, final NBTTagCompound recipe) {
+        final Set<Integer> free = new LinkedHashSet<>();
+
+        for (final Slot slot : container.inventorySlots) {
+            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
+                if (!recipe.hasKey("#" + slot.getSlotIndex())) {
+                    free.add(slot.getSlotIndex());
+                }
+            }
+        }
+
+        return free;
+    }
+
     /**
      * Writes the layout's fluid ingredients into the recipe alongside the items: inputs into whichever matrix
      * slots the item pass left empty, outputs appended to the output list. Each one travels as the same
@@ -213,15 +244,10 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             return;
         }
 
-        // Matrix slots the item pass did not claim, in slot order.
-        final List<Integer> freeSlots = new ArrayList<>();
-        for (final Slot slot : container.inventorySlots) {
-            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
-                if (!recipe.hasKey("#" + slot.getSlotIndex())) {
-                    freeSlots.add(slot.getSlotIndex());
-                }
-            }
-        }
+        // Matrix slots the item pass did not claim, in slot order. A set, not a list: the crafting matrix
+        // and the processing grid are both made of the same slot class and both number from zero, so the
+        // low indices turn up twice and two fluids would otherwise be handed the same one.
+        final List<Integer> freeSlots = new ArrayList<>(collectFreeSlots(container, recipe));
 
         int nextFree = 0;
         for (final IGuiIngredient<FluidStack> ingredient : fluids.values()) {
