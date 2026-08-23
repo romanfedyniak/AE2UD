@@ -11,6 +11,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Fixes
+
+- HEI drew its item list over the setting buttons beside a level emitter, an interface, a bus and every other screen of that kind whenever one of those buttons was greyed out rather than hidden - a level emitter carrying a crafting card greys its level and redstone buttons, and the column reported to HEI came up that much short. The area is measured from where the buttons actually are now, so a greyed one, a gap in the column or an odd spacing all report correctly.
+- A level emitter carrying both a fuzzy card and a crafting card drew both of their buttons in the same slot, one on top of the other, leaving the lower one unclickable. Only the crafting one is shown now: while a crafting card is in, the emitter reports whether the network is asking for its item and never reaches the level comparison that fuzzy matching applies to, so the fuzzy button governs nothing.
+
 ### Autocrafting
 
 - A crafting plan that came up short can now be started anyway: the Start button on the Crafting Plan screen reads **Force Start** when the network cannot supply everything, and pressing it plans the job again treating what is lacking as promised. The CPU takes the job and waits for those ingredients to be put into the network, the same way it waits for a level emitter's share, then carries on. The plan still lists what is missing, so it says what has to be brought. The mode is named `CraftingMode` after [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial); the approach is adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).

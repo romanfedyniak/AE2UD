@@ -81,15 +81,31 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
         this.addButtons();
     }
 
+    /** Where the column of setting buttons runs down the left edge of every screen of this kind. */
+    protected static final int SIDE_BUTTON_LEFT = -18;
+
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        List<Rectangle> exclusionArea = new ArrayList<>();
+        final List<Rectangle> exclusionArea = new ArrayList<>();
 
-        int yOffset = guiTop + 8;
+        // Measured from where the buttons actually are rather than counted. Counting asked for enabled
+        // ones, and a button that is greyed out is still drawn - a level emitter with a crafting card greys
+        // its level and redstone buttons, so the column reported to HEI came up two short and HEI drew its
+        // item list over them. Reading the geometry also stops a screen with a gap or an odd spacing in the
+        // column from having to say so twice.
+        int top = Integer.MAX_VALUE;
+        int bottom = Integer.MIN_VALUE;
 
-        int visibleButtons = (int) this.buttonList.stream().filter(v -> v.enabled && v.x < guiLeft).count();
-        Rectangle sortDir = new Rectangle(guiLeft - 18, yOffset, 18, visibleButtons * 18 + visibleButtons - 2);
-        exclusionArea.add(sortDir);
+        for (final GuiButton button : this.buttonList) {
+            if (button.visible && button.x == this.guiLeft + SIDE_BUTTON_LEFT) {
+                top = Math.min(top, button.y);
+                bottom = Math.max(bottom, button.y + button.height);
+            }
+        }
+
+        if (top <= bottom) {
+            exclusionArea.add(new Rectangle(this.guiLeft + SIDE_BUTTON_LEFT, top, 18, bottom - top));
+        }
 
         return exclusionArea;
     }

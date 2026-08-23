@@ -228,8 +228,14 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     protected void handleButtonVisibility() {
-        this.craftingMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0);
-        this.fuzzyMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0);
+        final boolean crafting = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+
+        // These two share a slot in the column, and a level emitter takes a fuzzy card and a crafting card
+        // at once, so both were drawn one on top of the other. The crafting one wins because the other
+        // governs nothing while it is there: isLevelEmitterOn answers with isRequesting and returns before
+        // it ever reaches the level comparison that fuzzy matching applies to.
+        this.craftingMode.setVisibility(crafting);
+        this.fuzzyMode.setVisibility(!crafting && this.bc.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0);
     }
 
     @Override
