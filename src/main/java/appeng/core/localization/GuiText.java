@@ -192,6 +192,7 @@ public enum GuiText {
     NothingMissing,
     CalculatingWait,
     Start,
+    ForceStart,
     Bytes,
 
     CraftingCPU,

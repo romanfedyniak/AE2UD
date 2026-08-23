@@ -19,6 +19,7 @@
 package appeng.me.cache;
 
 
+import appeng.api.config.CraftingMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
@@ -391,12 +392,12 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     @Override
-    public Future<ICraftingJob> beginCraftingJob(final World world, final IGrid grid, final IActionSource actionSrc, final GenericStack craftWhat, final ICraftingCallback cb) {
+    public Future<ICraftingJob> beginCraftingJob(final World world, final IGrid grid, final IActionSource actionSrc, final GenericStack craftWhat, final CraftingMode mode, final ICraftingCallback cb) {
         if (world == null || grid == null || actionSrc == null || craftWhat == null) {
             throw new IllegalArgumentException("Invalid Crafting Job Request");
         }
 
-        final CraftingJob job = new CraftingJob(world, grid, actionSrc, craftWhat, cb);
+        final CraftingJob job = new CraftingJob(world, grid, actionSrc, craftWhat, mode, cb);
 
         return CRAFTING_POOL.submit(job, job);
     }

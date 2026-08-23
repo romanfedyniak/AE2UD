@@ -20,6 +20,7 @@ package appeng.crafting;
 
 
 import appeng.api.config.Actionable;
+import appeng.api.config.CraftingMode;
 import appeng.api.config.FuzzyMode;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
@@ -281,7 +282,11 @@ public class CraftingTreeNode {
             }
         }
 
-        if (job.isSimulation()) {
+        // Nothing in storage, no emitter, and no pattern that can make the rest. Ordinarily that is where
+        // the branch fails and CraftingJob catches it into a simulation. Asked to ignore what is missing,
+        // the shortfall is booked here instead and the job stays a real one - setJob then promises it to
+        // the cpu the way an emitter's share is promised, and the cpu waits for it to be brought.
+        if (job.isSimulation() || this.job.getCraftingMode() == CraftingMode.IGNORE_MISSING) {
             this.bytes += l;
             if (parent != null && this.what instanceof AEItemKey whatItemKey
                     && whatItemKey.getItem().hasContainerItem(whatItemKey.getReadOnlyStack())) {
@@ -374,6 +379,12 @@ public class CraftingTreeNode {
 
         if (this.howManyEmitted > 0) {
             craftingCPUCluster.addEmitable(this.what, this.howManyEmitted);
+        }
+
+        // What the job was told to ignore is waited for in exactly the same way. It stays counted as
+        // missing rather than as emitted, so the plan still shows it as something the network has not got.
+        if (this.missing > 0 && this.job.getCraftingMode() == CraftingMode.IGNORE_MISSING) {
+            craftingCPUCluster.addEmitable(this.what, this.missing);
         }
 
         for (final CraftingTreeProcess pro : this.nodes) {

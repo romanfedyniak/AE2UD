@@ -22,6 +22,7 @@ package appeng.container.implementations;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.config.CraftingMode;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -361,6 +362,28 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
         final ICraftingGrid cc = node.getGrid().getCache(ICraftingGrid.class);
         this.clearSubmitError();
         this.setJob(cc.beginCraftingJob(this.getWorld(), node.getGrid(), this.getActionSrc(), this.result.getOutput(), null));
+    }
+
+    /**
+     * Works the plan out again as though the network had been promised what it lacks, and starts it as soon
+     * as that comes back - {@link #detectAndSendChanges} submits a finished job on its own once
+     * {@link #setAutoStart} is set, and a job planned this way is never a simulation.
+     * <p>
+     * A recalculation rather than a reuse of the plan on screen: a simulated job has no branches built for
+     * what it could not get, so there is nothing in it to run.
+     */
+    public void forceStart() {
+        final IActionHost host = this.getActionHost();
+        final IGridNode node = host == null ? null : host.getActionableNode();
+        if (node == null || node.getGrid() == null || this.result == null) {
+            return;
+        }
+
+        final ICraftingGrid cc = node.getGrid().getCache(ICraftingGrid.class);
+        this.clearSubmitError();
+        this.setAutoStart(true);
+        this.setJob(cc.beginCraftingJob(this.getWorld(), node.getGrid(), this.getActionSrc(),
+                this.result.getOutput(), CraftingMode.IGNORE_MISSING, null));
     }
 
     public void startJob() {

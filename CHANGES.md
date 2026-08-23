@@ -11,6 +11,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Autocrafting
+
+- A crafting plan that came up short can now be started anyway: the Start button on the Crafting Plan screen reads **Force Start** when the network cannot supply everything, and pressing it plans the job again treating what is lacking as promised. The CPU takes the job and waits for those ingredients to be put into the network, the same way it waits for a level emitter's share, then carries on. The plan still lists what is missing, so it says what has to be brought. The mode is named `CraftingMode` after [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial); the approach is adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).
+- `ICraftingGrid.beginCraftingJob` takes a `CraftingMode`, and `ICraftingJob` reports the one it was planned in.
+
 ### Patterns
 
 - A recipe transferred from HEI into a processing pattern now fills the grid from the first slot onwards instead of copying the gaps out of the recipe screen. A machine category that draws its inputs spread across a wider layout was leaving the ingredients scattered through the pattern with empty slots between them. A crafting recipe still keeps its shape, because there the position is the recipe.

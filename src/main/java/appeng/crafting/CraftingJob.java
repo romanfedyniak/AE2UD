@@ -20,6 +20,7 @@ package appeng.crafting;
 
 
 import appeng.api.config.Actionable;
+import appeng.api.config.CraftingMode;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
@@ -61,6 +62,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
     private CraftingTreeNode tree;
     private final GenericStack output;
     private boolean simulate = false;
+    private final CraftingMode craftingMode;
     private MECraftingInventory availableCheck;
     private long bytes = 0;
     private final IActionSource actionSrc;
@@ -75,7 +77,11 @@ public class CraftingJob implements Runnable, ICraftingJob {
     }
 
     public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingCallback callback) {
-        this(w, grid, actionSrc, what, null, callback);
+        this(w, grid, actionSrc, what, null, CraftingMode.STANDARD, callback);
+    }
+
+    public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final CraftingMode mode, final ICraftingCallback callback) {
+        this(w, grid, actionSrc, what, null, mode, callback);
     }
 
     /**
@@ -83,9 +89,14 @@ public class CraftingJob implements Runnable, ICraftingJob {
      * for a registered pattern - see {@link appeng.crafting.VirtualPatternDetails}.
      */
     public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingPatternDetails rootPattern, final ICraftingCallback callback) {
+        this(w, grid, actionSrc, what, rootPattern, CraftingMode.STANDARD, callback);
+    }
+
+    public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingPatternDetails rootPattern, final CraftingMode mode, final ICraftingCallback callback) {
         this.world = this.wrapWorld(w);
         this.output = what;
         this.actionSrc = actionSrc;
+        this.craftingMode = mode;
 
         this.callback = callback;
 
@@ -250,6 +261,11 @@ public class CraftingJob implements Runnable, ICraftingJob {
     @Override
     public boolean isSimulation() {
         return this.simulate;
+    }
+
+    @Override
+    public CraftingMode getCraftingMode() {
+        return this.craftingMode;
     }
 
     @Override

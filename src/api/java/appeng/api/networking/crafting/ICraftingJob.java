@@ -24,6 +24,7 @@
 package appeng.api.networking.crafting;
 
 
+import appeng.api.config.CraftingMode;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -37,6 +38,15 @@ public interface ICraftingJob
 	 * crafting job with fake items.
 	 */
 	boolean isSimulation();
+
+	/**
+	 * @return the mode this job was planned in. A job in {@link CraftingMode#IGNORE_MISSING} is not a
+	 * simulation even though it lacks ingredients - the cpu waits for them.
+	 */
+	default CraftingMode getCraftingMode()
+	{
+		return CraftingMode.STANDARD;
+	}
 
 	/**
 	 * @return total number of bytes to process this job.

@@ -1957,6 +1957,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `IBasicCellItem.getKeyType()` became `getKeyTypes()`. **Breaking.** Recorded in full in `CONTRACT.md`,
     unlike items 8-12, which is why this one is a pointer rather than a description.
 
+14. **`CraftingMode` and the mode on a crafting job** (`appeng.api.config.CraftingMode`, plus
+    `ICraftingGrid.beginCraftingJob(..., CraftingMode, callback)` and a `default
+    ICraftingJob.getCraftingMode()`) - **breaking for an implementor of `ICraftingGrid`**, which now has to
+    answer the mode-carrying overload; the old five-argument one became a `default` that delegates with
+    `STANDARD`, so every caller is unaffected. Named as GTNewHorizons' Applied Energistics 2 Unofficial
+    names it. This is the §4.4 rule below working as intended: one piece, taken because Force Start needed
+    it, and no nearer to swapping `ICraftingJob` for `ICraftingPlan`.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

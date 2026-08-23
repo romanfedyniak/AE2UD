@@ -102,7 +102,11 @@ public class PacketValueConfig extends AppEngPacket {
             host.getCPUTable().selectCPU(Integer.parseInt(this.Value));
         } else if (this.Name.equals("Terminal.Start") && c instanceof ContainerCraftConfirm) {
             final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
-            qk.startJob();
+            if (this.Value.equals("Force")) {
+                qk.forceStart();
+            } else {
+                qk.startJob();
+            }
         } else if (this.Name.equals("Terminal.Replan") && c instanceof ContainerCraftConfirm) {
             final ContainerCraftConfirm qk = (ContainerCraftConfirm) c;
             qk.replan();

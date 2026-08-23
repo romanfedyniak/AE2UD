@@ -72,6 +72,10 @@ import java.util.Map;
 
 public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
+    /** The Start button hangs off this edge and grows leftwards, so its right side never moves. */
+    private static final int START_RIGHT = 212;
+    private static final int START_WIDTH = 50;
+
     private static final int MIN_ROWS = 5;
     private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
     private static final int SAVE_IMAGE_ICON = 8 * 16 + 4;
@@ -171,7 +175,8 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
-        this.start = new GuiButton(0, this.guiLeft + 162, this.guiTop + this.ySize - 25, 50, 20, GuiText.Start.getLocal());
+        this.start = new GuiButton(0, this.guiLeft + START_RIGHT - START_WIDTH, this.guiTop + this.ySize - 25,
+                START_WIDTH, 20, GuiText.Start.getLocal());
         this.start.enabled = false;
         this.buttonList.add(this.start);
 
@@ -209,7 +214,15 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.cpuTable.updateScrollRange();
         this.errorPanel.update();
 
-        this.start.enabled = !(this.ccc.hasNoCPU() || this.isSimulation());
+        // A plan that came up short can still be started, on the understanding that the cpu will sit waiting
+        // until the missing ingredients are put into the network. The button says so rather than going dead.
+        final boolean force = this.isSimulation() && !this.ccc.hasNoCPU();
+        this.start.enabled = !this.ccc.hasNoCPU();
+        this.start.displayString = (force ? GuiText.ForceStart : GuiText.Start).getLocal();
+        // Grows leftwards for the longer label, keeping its right edge where the eye expects it. Measured
+        // rather than nudged by a fixed amount, so a translation longer than either English word still fits.
+        this.start.width = Math.max(START_WIDTH, this.fontRenderer.getStringWidth(this.start.displayString) + 12);
+        this.start.x = this.guiLeft + START_RIGHT - this.start.width;
         // Nothing to draw a tree or a picture of until the job has been worked out.
         this.showTree.enabled = this.ccc.getUsedBytes() > 0;
         this.saveImage.enabled = !this.visual.isEmpty();
@@ -529,7 +542,8 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
         if (btn == this.start) {
             try {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start", "Start"));
+                NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start",
+                        this.isSimulation() ? "Force" : "Start"));
             } catch (final Throwable e) {
                 AELog.debug(e);
             }

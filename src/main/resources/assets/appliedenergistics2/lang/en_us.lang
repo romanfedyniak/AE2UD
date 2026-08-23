@@ -258,6 +258,7 @@ gui.appliedenergistics2.ShiftClickToLocate=Shift+click to find it in the world
 gui.appliedenergistics2.NothingMissing=Nothing is missing
 gui.appliedenergistics2.Automatic=Automatic
 gui.appliedenergistics2.Start=Start
+gui.appliedenergistics2.ForceStart=Force Start
 gui.appliedenergistics2.Missing=Missing
 gui.appliedenergistics2.Bytes=Storage
 gui.appliedenergistics2.Simulation=Simulation

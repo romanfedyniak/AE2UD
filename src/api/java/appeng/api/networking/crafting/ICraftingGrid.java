@@ -39,6 +39,7 @@ import appeng.api.networking.IGridCache;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.AEKeyFilter;
+import appeng.api.config.CraftingMode;
 import appeng.api.stacks.GenericStack;
 
 
@@ -80,7 +81,19 @@ public interface ICraftingGrid extends IGridCache
 	 * @return a future which will at an undetermined point in the future get you the {@link ICraftingJob} do not wait
 	 * on this, your be waiting forever.
 	 */
-	Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, ICraftingCallback callback );
+	default Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, ICraftingCallback callback )
+	{
+		return beginCraftingJob( world, grid, actionSrc, craftWhat, CraftingMode.STANDARD, callback );
+	}
+
+	/**
+	 * As {@link #beginCraftingJob(World, IGrid, IActionSource, GenericStack, ICraftingCallback)}, saying what
+	 * the job should do about an ingredient the network can neither supply nor make.
+	 *
+	 * @param mode {@link CraftingMode#IGNORE_MISSING} plans a real job around what is lacking instead of
+	 * returning a simulation
+	 */
+	Future<ICraftingJob> beginCraftingJob( World world, IGrid grid, IActionSource actionSrc, GenericStack craftWhat, CraftingMode mode, ICraftingCallback callback );
 
 	/**
 	 * Begin calculating a crafting job for an ad-hoc combination that has no pattern registered
