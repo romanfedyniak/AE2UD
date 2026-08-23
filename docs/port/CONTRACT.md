@@ -577,6 +577,17 @@ public interface ISaveProvider {
 
 **Why crafting is not aligned too:** in AE2-original autocrafting is a separate large redesign (`IPatternDetails`, `ICraftingPlan`, `CalculationStrategy`, `ICraftingSubmitResult`), not a rename. Dragging it in here would merge two independent projects into one campaign that is already running without a compiler. Aligning the crafting API is a candidate for a separate phase after v1.
 
+> **Amended 2026-08-23, owner's call.** The paragraph above drew a boundary the tree no longer respects,
+> and it named `ICraftingSubmitResult` as belonging to that later phase while the type is in fact already
+> here (`e404d71bb`), alongside `CpuSelectionMode` (`ee3b06df2`) and `ICraftingGrid.getMediums()`
+> (`d558481d5`). The rule from now on is that **individual pieces of the modern crafting api are taken
+> when a feature needs them**, one at a time, each recorded in `STATUS.md`'s amendment registry with the
+> commit that brought it. What is still deferred is the *wholesale* redesign - swapping
+> `ICraftingPatternDetails` for `IPatternDetails` and `ICraftingJob` for `ICraftingPlan`, which reaches 27
+> files and changes how a pattern is described rather than what it is called. That remains a phase of its
+> own, to be opened deliberately when a feature cannot be built without it - not drifted into one piece at
+> a time. A piecemeal take that would force that swap is the signal to stop and open the phase instead.
+
 The same rule applies to `MENetworkStorageEvent`, `IPortableCell`, `IPartStorageMonitor`, `IClientHelper` and `ICellGuiHandler` — names stay, types change by the same mapping.
 
 ## 5. Out of scope for wave 0

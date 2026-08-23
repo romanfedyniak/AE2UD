@@ -1969,10 +1969,17 @@ to *"a separate phase after v1"*.
 
 Item 11 is that type, and it is now in. Nothing is wrong with it, but the boundary §4.4 drew no longer
 matches what is in the tree, so a future session reading §4.4 alone would conclude the submit-result family
-cannot be here. Two ways out, and it is the owner's call which: declare the crafting-alignment phase open
-and work through `IPatternDetails`/`ICraftingPlan`/`CalculationStrategy` deliberately, or amend §4.4 to say
-that individual pieces are taken when a feature needs them. **What must not happen is a third breaking
-crafting change landing without either.**
+cannot be here. 
+**Settled 2026-08-23: §4.4 is amended, the alignment phase stays shut.** Of the two ways out - declare the
+phase open and work through `IPatternDetails`/`ICraftingPlan`/`CalculationStrategy` deliberately, or amend
+§4.4 to say that individual pieces are taken when a feature needs them - the owner chose the second. §4.4
+now carries that amendment, so the paragraph above is history rather than a live question.
+
+What this permits: taking one more piece of the modern crafting api because a feature needs it, breaking
+or not, recorded here as items 8-13 were. What it does not permit: reaching
+`ICraftingPatternDetails` → `IPatternDetails` or `ICraftingJob` → `ICraftingPlan` this way. Those touch 27
+files and replace the model rather than the name, which is the phase itself; a feature that cannot be
+built without one of them is the signal to stop and open the phase, not to take it piecemeal.
 
 ## How the waves are executed
 
