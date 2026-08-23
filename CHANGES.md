@@ -14,6 +14,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 ### Autocrafting
 
 - A crafting plan that came up short can now be started anyway: the Start button on the Crafting Plan screen reads **Force Start** when the network cannot supply everything, and pressing it plans the job again treating what is lacking as promised. The CPU takes the job and waits for those ingredients to be put into the network, the same way it waits for a level emitter's share, then carries on. The plan still lists what is missing, so it says what has to be brought. The mode is named `CraftingMode` after [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial); the approach is adapted from [RandomComplement](https://github.com/Circulate233/RandomComplement).
+- The Crafting Status screen tells the two apart: a row a machine is working on still reads **Crafting**, while one the CPU can only wait for - a level emitter's promise, or what a forced job was short of - reads **Waiting**. Both used to read Crafting, which was wrong for a level emitter long before Force Start existed and made it common. A waiting row is tinted orange rather than the green that marks work in progress, and orange wins over both green and yellow on a row that is partly each: those two say the network is getting on with it, and orange says it cannot until someone brings the rest.
 - `ICraftingGrid.beginCraftingJob` takes a `CraftingMode`, and `ICraftingJob` reports the one it was planned in.
 
 ### Patterns

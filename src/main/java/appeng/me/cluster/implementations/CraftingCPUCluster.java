@@ -124,6 +124,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private long requestedAmount;
     private boolean waiting = false;
     private KeyCounter waitingFor = new KeyCounter();
+    /**
+     * The share of {@link #waitingFor} that nothing in the network is making: a level emitter's promise,
+     * or what a job started in {@link appeng.api.config.CraftingMode#IGNORE_MISSING} was short of. Kept
+     * apart only so the crafting status can say the cpu is waiting for these rather than crafting them.
+     */
+    private KeyCounter promised = new KeyCounter();
     private long availableStorage = 0;
     private MachineSource machineSrc = null;
     private int accelerator = 0;
@@ -308,6 +314,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.waiting = false;
         this.postChange(what, src);
         this.waitingFor.remove(what, used);
+        // Retire the promise first: what arrived is more likely to be the thing nobody was making.
+        final long wasPromised = this.promised.get(what);
+        if (wasPromised > 0) {
+            this.promised.remove(what, Math.min(wasPromised, used));
+        }
         // The pre-port code called updateRemainingItemCount(what) here. Without it the counter stays at
         // the job's starting value, so the crafting status tooltip reads "10 / 10" for the whole job and
         // ContainerCraftingCPU's ETA divides by max(1, start - remaining) == 1, making the estimate
@@ -377,6 +388,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // here, isBusy() stayed true forever and the CPU was never released - no further job could be
         // submitted until the crafting storage was broken and replaced.
         this.waitingFor.clear();
+        this.promised.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
@@ -592,6 +604,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
         this.waitingFor.clear(); // see completeJob(): reset() keeps the keys and isBusy() counts keys
+        this.promised.clear();
 
         if (wasRunning) {
             postJobFinished(true);
@@ -1052,6 +1065,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         try {
             this.waitingFor.clear(); // see completeJob()
+        this.promised.clear();
             ((CraftingJob) job).getTree().setJob(ci, this, src);
             if (ci.commit(src)) {
                 this.finalOutput = job.getOutput();
@@ -1239,7 +1253,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public void addEmitable(final AEKey what, final long amount) {
         this.waitingFor.add(what, amount);
+        this.promised.add(what, amount);
         this.postCraftingStatusChange(what);
+    }
+
+    /** How much of what the cpu waits for is merely promised - see {@link #promised}. */
+    public long getPromised(final AEKey what) {
+        return this.promised.get(what);
     }
 
     public void addCrafting(final ICraftingPatternDetails details, final long crafts) {
@@ -1305,6 +1325,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         data.setTag("tasks", list);
 
         data.setTag("waitingFor", this.writeKeyCounter(this.waitingFor));
+        data.setTag("promised", this.writeKeyCounter(this.promised));
 
         data.setLong("elapsedTime", this.getElapsedTime());
         data.setLong("requestedAmount", this.requestedAmount);
@@ -1396,6 +1417,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
 
         this.waitingFor = this.readKeyCounter((NBTTagList) data.getTag("waitingFor"));
+        this.promised = this.readKeyCounter((NBTTagList) data.getTag("promised"));
         for (final var entry : this.waitingFor) {
             this.postCraftingStatusChange(entry.getKey());
         }

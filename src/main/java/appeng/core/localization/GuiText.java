@@ -165,6 +165,7 @@ public enum GuiText {
     Stored,
     Crafting,
     Scheduled,
+    Waiting,
     CraftingStatus,
     Cancel,
     Suspend,

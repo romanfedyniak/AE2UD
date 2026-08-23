@@ -221,7 +221,11 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
                         final GenericStack pending = this.getMonitor().getItemStack(what, CraftingItemList.PENDING);
 
                         a.appendItem(new GridInventoryEntry(what, stored.amount(), 0, false));
-                        b.appendItem(new GridInventoryEntry(what, active.amount(), 0, false));
+                        // The active list carries a second number: how much of it nothing is making, which
+                        // the screen shows as waited for rather than as being crafted. It rides in the
+                        // entry's requestable amount, which these three lists have never used.
+                        b.appendItem(new GridInventoryEntry(what, active.amount(),
+                                this.getMonitor().getPromised(what), false));
                         c.appendItem(new GridInventoryEntry(what, pending.amount(), 0, false));
                     }
 

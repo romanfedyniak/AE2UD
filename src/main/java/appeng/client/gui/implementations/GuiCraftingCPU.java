@@ -93,6 +93,8 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private final KeyCounter storage = new KeyCounter();
     private final KeyCounter active = new KeyCounter();
     private final KeyCounter pending = new KeyCounter();
+    /** The part of {@link #active} that nothing is making - see {@link CraftingCPUCluster#getPromised}. */
+    private final KeyCounter waiting = new KeyCounter();
 
     private final List<AEKey> visual = new ArrayList<>();
     /**
@@ -320,15 +322,24 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                 final long activeAmount = this.active.get(refKey);
                 final long pendingAmount = this.pending.get(refKey);
 
+                // What the cpu expects to arrive splits in two: a machine is making some of it, and the
+                // rest was only promised - by a level emitter, or by a job started short of it. Calling
+                // both "Crafting" said something untrue about the second.
+                final long waitingAmount = Math.min(activeAmount, this.waiting.get(refKey));
+                final long craftingAmount = activeAmount - waitingAmount;
+
                 int lines = 0;
 
                 if (stored > 0) {
                     lines++;
                 }
                 boolean active = false;
-                if (activeAmount > 0) {
+                if (craftingAmount > 0) {
                     lines++;
                     active = true;
+                }
+                if (waitingAmount > 0) {
+                    lines++;
                 }
                 boolean scheduled = false;
                 if (pendingAmount > 0) {
@@ -336,8 +347,15 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                     scheduled = true;
                 }
 
-                if (AEConfig.instance().isUseColoredCraftingStatus() && (active || scheduled)) {
-                    final int bgColor = (active ? AEColor.GREEN.blackVariant : AEColor.YELLOW.blackVariant) | BACKGROUND_ALPHA;
+                final boolean stalled = waitingAmount > 0;
+
+                if (AEConfig.instance().isUseColoredCraftingStatus() && (stalled || active || scheduled)) {
+                    // Orange outranks the other two: green and yellow both mean the network is getting on
+                    // with it, and orange means it cannot until someone brings this. A row where a machine
+                    // is making part of the amount and the rest is waited for is still a row to look at.
+                    final int bgColor = (stalled ? AEColor.ORANGE.blackVariant
+                            : active ? AEColor.GREEN.blackVariant
+                            : AEColor.YELLOW.blackVariant) | BACKGROUND_ALPHA;
                     final int startX = (x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET) * 2;
                     final int startY = ((y * offY + ITEMSTACK_TOP_OFFSET) - 3) * 2;
                     drawRect(startX, startY, startX + (SECTION_LENGTH * 2), startY + (offY * 2) - 2, bgColor);
@@ -359,18 +377,14 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                     downY += 5;
                 }
 
-                if (activeAmount > 0) {
-                    final String str = GuiText.Crafting.getLocal() + ": " + refKey.formatAmount(activeAmount, AmountFormat.PREVIEW_LARGE);
-                    final int w = 4 + this.fontRenderer.getStringWidth(str);
+                if (craftingAmount > 0) {
+                    downY = this.drawAmountLine(GuiText.Crafting, refKey, craftingAmount, x, y, offY, negY,
+                            downY, lineList, z - viewStart);
+                }
 
-                    this.fontRenderer.drawString(str, (int) ((x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19 - (w * 0.5)) * 2),
-                            (y * offY + ITEMSTACK_TOP_OFFSET + 6 - negY + downY) * 2, TEXT_COLOR);
-
-                    if (this.tooltip == z - viewStart) {
-                        lineList.add(GuiText.Crafting.getLocal() + ": " + refKey.formatAmount(activeAmount, AmountFormat.FULL));
-                    }
-
-                    downY += 5;
+                if (waitingAmount > 0) {
+                    downY = this.drawAmountLine(GuiText.Waiting, refKey, waitingAmount, x, y, offY, negY,
+                            downY, lineList, z - viewStart);
                 }
 
                 if (pendingAmount > 0) {
@@ -456,6 +470,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
             case 1:
                 for (final GridInventoryEntry l : list) {
                     this.handleInput(this.active, l);
+                    this.waiting.set(l.getWhat(), l.getRequestableAmount());
                 }
                 break;
 
@@ -477,6 +492,24 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         }
 
         this.setScrollBar();
+    }
+
+    /** One "<label>: <amount>" line of a row, centred the way all three of them are. */
+    private int drawAmountLine(final GuiText label, final AEKey what, final long amount, final int x,
+            final int y, final int offY, final int negY, final int downY, final List<String> lineList,
+            final int row) {
+        final String str = label.getLocal() + ": " + what.formatAmount(amount, AmountFormat.PREVIEW_LARGE);
+        final int w = 4 + this.fontRenderer.getStringWidth(str);
+
+        this.fontRenderer.drawString(str,
+                (int) ((x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19 - (w * 0.5)) * 2),
+                (y * offY + ITEMSTACK_TOP_OFFSET + 6 - negY + downY) * 2, TEXT_COLOR);
+
+        if (this.tooltip == row) {
+            lineList.add(label.getLocal() + ": " + what.formatAmount(amount, AmountFormat.FULL));
+        }
+
+        return downY + 5;
     }
 
     private void handleInput(final KeyCounter s, final GridInventoryEntry l) {

@@ -245,6 +245,7 @@ gui.appliedenergistics2.CPUSourcePlayer=Requester
 gui.appliedenergistics2.CPUSourceMachineRequested=Machine Requested
 gui.appliedenergistics2.Crafting=Crafting
 gui.appliedenergistics2.Scheduled=Scheduled
+gui.appliedenergistics2.Waiting=Waiting
 gui.appliedenergistics2.CraftingStatus=Crafting Status
 gui.appliedenergistics2.FromStorage=Available
 gui.appliedenergistics2.FromStoragePercent=Used
