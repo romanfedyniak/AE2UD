@@ -445,6 +445,10 @@ public class GuiCraftingPlanTree extends Gui {
     }
 
     private void drawIcon(final int cellX, final int cellY, final int iconIndex, final float scale) {
+        // A state icon is mostly empty field around its glyph, and the cell outline is drawn with drawRect,
+        // which leaves blending switched off behind it - without this the field draws as solid black.
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         this.parent.bindTexture("guis/states.png");
         final int v = iconIndex / 16;
         final int u = iconIndex - v * 16;
