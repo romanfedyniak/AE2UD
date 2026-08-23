@@ -25,6 +25,7 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
+import appeng.client.ActionKey;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
@@ -185,6 +186,22 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         }
 
         addAuthor(stack, lines);
+        addViewHint(lines);
+    }
+
+    /**
+     * Only said when the key is actually bound - an unbound key has no name to print, and telling the player
+     * to press nothing is worse than saying nothing.
+     */
+    @SideOnly(Side.CLIENT)
+    private static void addViewHint(final List<String> lines) {
+        final String key = AppEng.proxy.getActionKeyName(ActionKey.VIEW_PATTERN);
+
+        if (key != null) {
+            lines.add(TextFormatting.DARK_GRAY
+                    + I18n.format(GuiText.ViewPatternHint.getUnlocalized(), TextFormatting.GRAY + key
+                            + TextFormatting.DARK_GRAY));
+        }
     }
 
     private static void addAuthor(final ItemStack stack, final List<String> lines) {
@@ -201,7 +218,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
      * The ingredients as the pattern will actually ask for them: a slot the network fills in shows its
      * contents rather than the container, because the container is never taken out of storage.
      */
-    private static List<GenericStack> displayInputs(final ICraftingPatternDetails details) {
+    public static List<GenericStack> displayInputs(final ICraftingPatternDetails details) {
         final GenericStack[] sparse = details.getInputs();
         final Map<AEKey, GenericStack> merged = new LinkedHashMap<>();
 

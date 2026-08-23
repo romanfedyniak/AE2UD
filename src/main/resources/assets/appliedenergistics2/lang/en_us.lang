@@ -204,6 +204,7 @@ gui.appliedenergistics2.CraftingPattern=Crafting Pattern
 gui.appliedenergistics2.MolecularAssembler=Molecular Assembler
 gui.appliedenergistics2.ProcessingPattern=Processing Pattern
 gui.appliedenergistics2.Crafts=Crafts
+gui.appliedenergistics2.ViewPatternHint=Press %s to view
 gui.appliedenergistics2.And=and
 gui.appliedenergistics2.Creates=Creates
 gui.appliedenergistics2.With=with
@@ -745,6 +746,7 @@ stat.ae2.TurnedCranks=Turned Cranks
 //Keys
 key.appliedenergistics2.category=Applied Energistics 2
 key.toggle_focus.desc=Toggle search box focus
+key.view_pattern.desc=View pattern under cursor
 key.open_wireless_terminal.desc=Open Wireless Terminal
 key.open_wireless_crafting_terminal.desc=Open Wireless Crafting Terminal
 key.open_wireless_pattern_terminal.desc=Open Wireless Pattern Terminal

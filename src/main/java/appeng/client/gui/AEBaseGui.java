@@ -92,6 +92,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
     private final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
+
+    protected static final int PANEL_BORDER = 3;
+    protected static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
+    protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
+    protected static final int PANEL_SHADOW_COLOR = 0xFF555555;
+    protected static final int PANEL_OUTLINE_COLOR = 0xFF000000;
+    private static final int SLOT_SHADOW_COLOR = 0xFF373737;
+    private static final int SLOT_FILL_COLOR = 0xFF8B8B8B;
     private GuiScrollbar myScrollBar = null;
     private boolean disableShiftClick = false;
     private Stopwatch dbl_clickTimer = Stopwatch.createStarted();
@@ -1039,6 +1047,32 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
         // do the usual for non-ME Slots.
         super.drawSlot(s);
+    }
+
+    /**
+     * The AE window frame is flat colour - a black outline, a light bevel, the panel, and a dark bevel - so
+     * it can be drawn at any size instead of being stretched out of a fixed texture. Every screen whose size
+     * follows its contents rather than a background image draws itself with this.
+     * <p>
+     * {@code drawRect} leaves its colour in {@code GlStateManager}, so reset it before drawing anything
+     * textured after this.
+     */
+    protected static void drawPanel(final int x, final int y, final int width, final int height) {
+        drawRect(x, y, x + width, y + height, PANEL_OUTLINE_COLOR);
+        drawRect(x + 1, y + 1, x + width - 1, y + height - 1, PANEL_SHADOW_COLOR);
+        drawRect(x + 1, y + 1, x + width - PANEL_BORDER, y + height - PANEL_BORDER, PANEL_LIGHT_COLOR);
+        drawRect(x + PANEL_BORDER, y + PANEL_BORDER, x + width - PANEL_BORDER, y + height - PANEL_BORDER,
+                PANEL_FILL_COLOR);
+    }
+
+    /**
+     * One sunken slot well, in the vanilla colours. Takes the slot's own origin - where the item is drawn -
+     * and puts the well the one pixel up and left that a slot sits in.
+     */
+    protected static void drawSlotWell(final int x, final int y) {
+        drawRect(x - 1, y - 1, x + 17, y + 17, SLOT_SHADOW_COLOR);
+        drawRect(x, y, x + 17, y + 17, PANEL_LIGHT_COLOR);
+        drawRect(x, y, x + 16, y + 16, SLOT_FILL_COLOR);
     }
 
     protected boolean isPowered() {

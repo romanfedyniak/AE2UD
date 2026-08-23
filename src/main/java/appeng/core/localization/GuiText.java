@@ -127,6 +127,7 @@ public enum GuiText {
     EncodedBy,
     Substitute,
     UsesFluidsDirectly,
+    ViewPatternHint,
     Yes,
     No,
 

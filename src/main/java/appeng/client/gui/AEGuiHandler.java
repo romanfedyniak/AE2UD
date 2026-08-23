@@ -115,6 +115,16 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         return wrapped == null ? null : asIngredient(wrapped.what(), wrapped.amount());
     }
 
+    /**
+     * The same reading as {@link #getSlotIngredient}, for a caller that has to hand HEI an ingredient
+     * itself rather than answer a question about a slot: an ordinary stack stands for itself, and a
+     * placeholder for the fluid or other key inside it.
+     */
+    public static Object ingredientOf(ItemStack stack) {
+        final Object wrapped = asIngredient(stack);
+        return wrapped != null ? wrapped : stack;
+    }
+
     private boolean checkSlotArea(GuiContainer gui, GuiCustomSlot slot, int mouseX, int mouseY) {
         int i = gui.guiLeft;
         int j = gui.guiTop;

@@ -37,20 +37,27 @@ import appeng.core.sync.packets.PacketValueConfig;
 import appeng.entity.EntityFloatingItem;
 import appeng.entity.EntityTinyTNTPrimed;
 import appeng.entity.RenderFloatingItem;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.implementations.GuiPatternView;
 import appeng.entity.RenderTinyTNTPrimed;
 import appeng.helpers.HighlighterHandler;
 import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.TickHandler;
 import appeng.hooks.TickHandler.PlayerColor;
+import appeng.items.misc.ItemEncodedPattern;
 import appeng.items.tools.powered.Terminal;
 import appeng.server.ServerHelper;
 import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.RayTraceResult;
@@ -66,6 +73,7 @@ import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
@@ -95,7 +103,8 @@ public class ClientHelper extends ServerHelper {
     @Override
     public void init() {
         for (ActionKey key : ActionKey.values()) {
-            final KeyBinding binding = new KeyBinding(key.getTranslationKey(), key.getDefaultKey(), KEY_CATEGORY);
+            final KeyBinding binding = new KeyBinding(key.getTranslationKey(), key.getConflictContext(),
+                    key.getDefaultKey(), KEY_CATEGORY);
             ClientRegistry.registerKeyBinding(binding);
             this.bindings.put(key, binding);
         }
@@ -304,6 +313,52 @@ public class ClientHelper extends ServerHelper {
                 }
             }
         }
+    }
+
+    @Override
+    public String getActionKeyName(ActionKey key) {
+        final KeyBinding binding = this.bindings.get(key);
+        return binding == null || binding.getKeyCode() == Keyboard.KEY_NONE ? null : binding.getDisplayName();
+    }
+
+    /**
+     * Opens the pattern view for the encoded pattern under the cursor, from whatever screen the player is
+     * in - ours, a vanilla one or another mod's. The stack comes from {@code getSlotUnderMouse()}, which is
+     * vanilla and covers the ME terminal too, because a terminal row is a real slot.
+     */
+    @SubscribeEvent
+    public void onGuiKeyInput(final GuiScreenEvent.KeyboardInputEvent.Pre event) {
+        if (!Keyboard.getEventKeyState() || !this.isActionKey(ActionKey.VIEW_PATTERN, Keyboard.getEventKey())) {
+            return;
+        }
+
+        final GuiScreen screen = event.getGui();
+
+        // A field with the keyboard is typing, not acting; and the view has no reason to open over itself.
+        if (!(screen instanceof GuiContainer) || screen instanceof GuiPatternView
+                || (screen instanceof AEBaseGui && ((AEBaseGui) screen).isTextFieldFocused())) {
+            return;
+        }
+
+        final Slot slot = ((GuiContainer) screen).getSlotUnderMouse();
+
+        if (slot == null || !(slot.getStack().getItem() instanceof ItemEncodedPattern)) {
+            return;
+        }
+
+        final ItemStack pattern = slot.getStack();
+        final EntityPlayer player = Minecraft.getMinecraft().player;
+        final ICraftingPatternDetails details =
+                ((ItemEncodedPattern) pattern.getItem()).getPatternForItem(pattern, player.world);
+
+        // A pattern that will not decode has nothing to show; its tooltip already says it is invalid.
+        if (details == null) {
+            return;
+        }
+
+        event.setCanceled(true);
+        Minecraft.getMinecraft().displayGuiScreen(new GuiPatternView(player.inventory, details,
+                ItemEncodedPattern.displayInputs(details), details.getCondensedOutputs(), screen));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)

@@ -31,6 +31,7 @@ import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -67,6 +68,13 @@ public abstract class CommonHelper {
     public abstract boolean isKeyPressed(@Nonnull final ActionKey key);
 
     public abstract boolean isActionKey(@Nonnull final ActionKey key, int pressedKeyCode);
+
+    /**
+     * @return the key this action is bound to, as the controls screen names it, or null when it is bound
+     *         to nothing.
+     */
+    @Nullable
+    public abstract String getActionKeyName(@Nonnull final ActionKey key);
 
     public abstract EntityPlayer getPlayerByUUID(UUID uuid);
 }

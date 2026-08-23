@@ -170,6 +170,11 @@ public class ServerHelper extends CommonHelper {
     }
 
     @Override
+    public String getActionKeyName(ActionKey key) {
+        return null;
+    }
+
+    @Override
     public EntityPlayer getPlayerByUUID(UUID uuid) {
         if (!Platform.isClient()) {
             final MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();

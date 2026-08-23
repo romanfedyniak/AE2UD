@@ -75,10 +75,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private static final int HEADER_HEIGHT = 32;
     private static final int FOOTER_HEIGHT = 28;
 
-    private static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
-    private static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
-    private static final int PANEL_SHADOW_COLOR = 0xFF555555;
-    private static final int PANEL_OUTLINE_COLOR = 0xFF000000;
     private static final int CANVAS_COLOR = 0xFF3B3B3B;
     private static final int SEARCH_X = BORDER + 5;
     private static final int SEARCH_Y = BORDER + 6;
@@ -210,17 +206,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
         this.errorPanel.drawBG(offsetX, offsetY);
-    }
-
-    /**
-     * The AE window frame is flat colour - a black outline, a light bevel, the panel, and a dark bevel - so
-     * it can be drawn at any size instead of being stretched out of a fixed texture.
-     */
-    private static void drawPanel(final int x, final int y, final int width, final int height) {
-        drawRect(x, y, x + width, y + height, PANEL_OUTLINE_COLOR);
-        drawRect(x + 1, y + 1, x + width - 1, y + height - 1, PANEL_SHADOW_COLOR);
-        drawRect(x + 1, y + 1, x + width - BORDER, y + height - BORDER, PANEL_LIGHT_COLOR);
-        drawRect(x + BORDER, y + BORDER, x + width - BORDER, y + height - BORDER, PANEL_FILL_COLOR);
     }
 
     /**

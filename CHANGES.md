@@ -9,6 +9,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - AE2UD is a heavily reworked, API-breaking fork and is not a drop-in replacement for another AE2 build.
 - Back up the world before installing or updating the mod.
 
+## Unreleased
+
+### Patterns
+
+- Pressing **P** over an encoded pattern anywhere - the player's own inventory, a chest, an ME terminal row, another mod's screen - opens a read-only view of what it makes and what it takes, so a pattern no longer has to be carried to the pattern terminal just to be read. The key is rebindable from Options - Controls, and the pattern's tooltip names it. Adapted from [ExtendedAE](https://github.com/GlodBlock/ExtendedAE).
+- Ingredients sit to the left of an arrow and results to its right, the way a recipe reads everywhere else, with the shorter side centred against the taller one. The arrow is the pattern terminal's own.
+- The view sizes itself to the pattern rather than paging, so nothing scrolls at any size. A crafting pattern keeps its grid shape, taken from how many slots the pattern actually has rather than assumed to be three by three, so a pattern encoded on a larger bench by an addon lays out correctly. A processing pattern has no shape to keep, so its ingredients are packed into the fewest rows that hold them and then into the width that leaves the fewest gaps - ten ingredients read as five and five rather than as eight and a stub.
+- A crafting pattern's view shows whether it substitutes ingredients and whether it takes fluids out of the containers holding them, as the same two icons the pattern terminal toggles those settings with - lit or unlit, so both states are visible rather than only the one that is on. Hovering either gives the setting's own description, and hovering the fluid one tints the ingredients the network fills in for, in the same green the pattern terminal marks them with while a pattern is being written. A processing pattern does neither, so it shows nothing. Adapted from [ExtendedAE](https://github.com/GlodBlock/ExtendedAE).
+- Ingredients sit in real slots, so HEI looks recipes up from them with its own keys, and a fluid reads as the fluid rather than as the placeholder holding it. Clicking one asks HEI directly, the way a click in its own item list does - left for what makes it, right for what it is used for - since a click in a read-only view has nothing else to do. Closing HEI comes back to the pattern, and closing the pattern comes back to where it was opened from.
+- Nothing is asked of the server: the recipe is decoded from the pattern the cursor is already on. The screen opens over whichever one was already there and puts it back when it closes, so looking into a pattern does not cost the terminal being browsed.
+
 ## 1.5.0 - 2026-08-23
 
 ### Pattern terminal
