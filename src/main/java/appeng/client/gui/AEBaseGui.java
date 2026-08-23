@@ -845,6 +845,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         return (row * 3) + column + (this.getScrollBar().getCurrentScroll() * 3);
     }
 
+    /**
+     * Blending for the mod's sprite sheet, where each glyph sits in a mostly empty field. {@code drawRect}
+     * switches blending off and {@link #drawItem} switches the alpha test off; with both gone that field
+     * fills in black, so everything drawing a sprite sets this up for itself rather than inheriting it.
+     */
+    public static void enableSpriteBlending() {
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+    }
+
     public void drawItem(final int x, final int y, final ItemStack is) {
         this.zLevel = 100.0F;
         this.itemRender.zLevel = 100.0F;

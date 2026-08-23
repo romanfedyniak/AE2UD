@@ -1,6 +1,7 @@
 package appeng.client.gui.widgets;
 
 import appeng.api.config.LockCraftingMode;
+import appeng.client.gui.AEBaseGui;
 import appeng.api.config.Settings;
 import appeng.core.localization.GuiText;
 import net.minecraft.client.Minecraft;
@@ -46,6 +47,7 @@ public class GuiImgLabel extends GuiLabel implements ITooltip {
             if (iconIndex == -1) {
                 return;
             }
+            AEBaseGui.enableSpriteBlending();
             mc.renderEngine.bindTexture(new ResourceLocation("appliedenergistics2", "textures/guis/states.png"));
             GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
             final int uv_y = (int) Math.floor(iconIndex / 16);

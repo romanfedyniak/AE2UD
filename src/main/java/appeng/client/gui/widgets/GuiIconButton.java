@@ -19,6 +19,7 @@
 package appeng.client.gui.widgets;
 
 
+import appeng.client.gui.AEBaseGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -55,6 +56,7 @@ public class GuiIconButton extends GuiButton implements ITooltip {
             return;
         }
 
+        AEBaseGui.enableSpriteBlending();
         GlStateManager.color(this.enabled ? 1.0f : 0.5f, this.enabled ? 1.0f : 0.5f,
                 this.enabled ? 1.0f : 0.5f, 1.0f);
         minecraft.renderEngine.bindTexture(TEXTURE);

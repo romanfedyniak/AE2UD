@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.translation.I18n;
 
+import appeng.client.gui.AEBaseGui;
 import appeng.core.AppEng;
 
 public final class GuiPinsButton extends GuiButton implements ITooltip {
@@ -38,6 +39,7 @@ public final class GuiPinsButton extends GuiButton implements ITooltip {
             return;
         }
         hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
+        AEBaseGui.enableSpriteBlending();
         mc.getTextureManager().bindTexture(STATES);
         GlStateManager.color(enabled ? 1.0F : 0.6F, enabled ? 1.0F : 0.6F, enabled ? 1.0F : 0.6F, 1.0F);
         drawTexturedModalRect(x, y, 256 - 16, 256 - 16, 16, 16);

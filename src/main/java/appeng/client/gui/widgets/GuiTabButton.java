@@ -19,6 +19,7 @@
 package appeng.client.gui.widgets;
 
 
+import appeng.client.gui.AEBaseGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -70,6 +71,7 @@ public class GuiTabButton extends GuiButton implements ITooltip {
     @Override
     public void drawButton(final Minecraft minecraft, final int x, final int y, float partial) {
         if (this.visible) {
+            AEBaseGui.enableSpriteBlending();
             GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
             minecraft.renderEngine.bindTexture(new ResourceLocation("appliedenergistics2", "textures/guis/states.png"));
             this.hovered = x >= this.x && y >= this.y && x < this.x + this.width && y < this.y + this.height;

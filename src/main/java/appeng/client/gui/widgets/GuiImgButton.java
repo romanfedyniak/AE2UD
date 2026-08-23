@@ -20,6 +20,7 @@ package appeng.client.gui.widgets;
 
 
 import appeng.api.config.*;
+import appeng.client.gui.AEBaseGui;
 import appeng.core.localization.ButtonToolTips;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -203,6 +204,8 @@ public class GuiImgButton extends GuiButton implements ITooltip {
     public void drawButton(final Minecraft par1Minecraft, final int par2, final int par3, float partial) {
         if (this.visible) {
             final int iconIndex = this.getIconIndex();
+
+            AEBaseGui.enableSpriteBlending();
 
             if (this.halfSize) {
                 this.width = 8;

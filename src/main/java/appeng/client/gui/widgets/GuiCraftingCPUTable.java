@@ -142,7 +142,7 @@ public class GuiCraftingCPUTable extends Gui {
             } else {
                 GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             }
-            enableTransparency();
+            AEBaseGui.enableSpriteBlending();
             this.parent.bindTexture("guis/cpu_selector.png");
             this.parent.drawTexturedModalRect(x, y, SLOT_XOFF, SLOT_YOFF, SLOT_WIDTH, SLOT_HEIGHT);
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
@@ -298,7 +298,7 @@ public class GuiCraftingCPUTable extends Gui {
     }
 
     private void drawIcon(final int iconIndex) {
-        enableTransparency();
+        AEBaseGui.enableSpriteBlending();
         this.parent.bindTexture("guis/states.png");
         final int uv_y = iconIndex / 16;
         final int uv_x = iconIndex - uv_y * 16;
@@ -308,15 +308,6 @@ public class GuiCraftingCPUTable extends Gui {
         this.parent.drawTexturedModalRect(0, 0, uv_x * 16, uv_y * 16, 16, 16);
     }
 
-    /**
-     * Blending, which {@link Gui#drawRect} leaves switched off behind it. The plate's bottom row is
-     * transparent so the rows have a gap, and a state icon is mostly empty field around its glyph; without
-     * this both draw that transparency as solid black.
-     */
-    private static void enableTransparency() {
-        GlStateManager.enableBlend();
-        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-    }
 
     @Nullable
     public String getTooltip(final int mouseX, final int mouseY) {

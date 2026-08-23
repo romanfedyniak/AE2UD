@@ -19,6 +19,7 @@
 package appeng.client.gui.widgets;
 
 
+import appeng.client.gui.AEBaseGui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -59,6 +60,7 @@ public class GuiToggleButton extends GuiButton implements ITooltip {
         if (this.visible) {
             final int iconIndex = this.getIconIndex();
 
+            AEBaseGui.enableSpriteBlending();
             GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
             par1Minecraft.renderEngine.bindTexture(new ResourceLocation("appliedenergistics2", "textures/guis/states.png"));
             this.hovered = par2 >= this.x && par3 >= this.y && par2 < this.x + this.width && par3 < this.y + this.height;
