@@ -12,9 +12,9 @@ and the play-testing are finished; `feature/generic-storage` is merged, and so i
 the merge" below. Read §9 of `CONTRACT.md` before calling into any of this — it is the class-by-class
 record of what each wave actually built, and the api it describes is the api that shipped.
 
-One thing is open and **it is not code we can write today**: registering AE2UD as an HEI
-`ISlotIngredientProvider`, which waits on a released HEI carrying the api the owner PR'd. It is described
-where it belongs, below.
+Nothing is open. The last item that was - registering AE2UD as an HEI `ISlotIngredientProvider` - landed
+in `a3d22b1b3` once the owner's api request shipped in HEI 4.34.0, and the keyboard hack it replaced was
+deleted in the same commit.
 
 ## Post-release universal storage components
 
@@ -1115,7 +1115,7 @@ pattern is otherwise refused. That matches what `acceptsItems` already required 
 second, parallel queue - but it does mean a machine whose tank is momentarily full defers the craft rather
 than buffering it.
 
-## HEI recipe keybinds over a fluid row (done, awaiting a play-test)
+## HEI recipe keybinds over a fluid row (done, and later solved properly)
 
 Pressing HEI's show-recipes key over a fluid in a terminal did nothing, while an item row worked.
 
@@ -1123,19 +1123,12 @@ The first attempt - answering `IAdvancedGuiHandler.getIngredientUnderMouse` with
 wrong lever, and the reason is worth keeping: **HEI asks the hovered slot for its ingredient before it asks
 any plugin.** A wrapped key is a genuine `ItemStack` in a genuine `Slot`, so HEI finds it, is satisfied, and
 looks up recipes for a display shim. Telling HEI what the slot really holds cannot help when it never asks.
-(The handler is still worth having - it covers the screens whose rows are *not* vanilla slots, like the
-craft-plan list.)
 
-So the answer has to arrive before the question: `WrappedKeyRecipeShortcut` listens to the keyboard event at
-`EventPriority.HIGHEST`, ahead of HEI's own handler, and takes over **only** when the slot under the mouse
-holds a wrapped key. Every item slot in the mod, and every other screen, is left untouched. The bindings are
-read from HEI's own `KeyBindings`, so a rebind is followed automatically.
-
-Registered from `onRuntimeAvailable`, so it needs the runtime to exist and does not exist at all without HEI.
-
-**Deferred here, pending an HEI API request.** This covers the two recipe keybinds and nothing else -
-bookmarks, HEI's own tooltips, recipe transfer and cheat-mode clicks all still see the placeholder, because
-each of them reaches the slot through the same path and would each need its own interception.
+So the answer had to arrive before the question. The stopgap was `WrappedKeyRecipeShortcut`: it listened to
+the keyboard event at `EventPriority.HIGHEST`, ahead of HEI's own handler, and took over **only** when the
+slot under the mouse held a wrapped key. It covered the two recipe keybinds and nothing else - bookmarks,
+HEI's own tooltips, recipe transfer and cheat-mode clicks all still saw the placeholder, because each of
+them reaches the slot through the same path and would each have needed its own interception.
 
 `AE2FluidCraft-Rework-Unofficial` solves the whole class at once with a **Mixin into HEI's internal
 `GuiContainerWrapper.getIngredientUnderMouse`**, wrapping the `ClickedIngredient.create(...)` call so their
@@ -1144,12 +1137,15 @@ an ingredient. That is the right place - it is *one* point, and everything downs
 mixin into a private class of a JEI fork, plus turning on mixins here at all (`usesMixins = false`; the fork
 has an ASM coremod but no Mixin).
 
-What would remove the need for either hack: **a way to tell HEI what a slot's stack really represents.**
-Something like an `ISlotIngredientProvider` consulted inside `GuiContainerWrapper.getIngredientUnderMouse`,
-or simply having HEI ask the registered `IAdvancedGuiHandler`s *before* falling back to the slot's own
-`ItemStack` rather than after. Either one turns this whole problem into a handler we already have. The owner
-is raising it with HEI, who have extended their API before; until then the two keybinds are worth having and
-the rest waits.
+**Resolved without either hack.** What was needed was a way to tell HEI what a slot's stack really
+represents; the owner requested it and HEI shipped it as `ISlotIngredientProvider` in 4.34.0, consulted
+inside `GuiContainerWrapper.getIngredientUnderMouse` before the slot's own `ItemStack` is used. `a3d22b1b3`
+raised the dependency, made `AEGuiHandler` implement it, registered it from `JEIPlugin`, and deleted
+`WrappedKeyRecipeShortcut` outright. Everything that reaches a slot through that path - the two keybinds,
+bookmarks, tooltips, recipe transfer, cheat-mode clicks - now sees the real ingredient.
+
+The `IAdvancedGuiHandler` is still registered and still earns its place: it covers the screens whose rows
+are *not* vanilla slots, like the craft-plan list, which no slot-level provider can reach.
 
 ## After the merge — the follow-up list, worked through
 
@@ -1969,7 +1965,8 @@ to *"a separate phase after v1"*.
 
 Item 11 is that type, and it is now in. Nothing is wrong with it, but the boundary §4.4 drew no longer
 matches what is in the tree, so a future session reading §4.4 alone would conclude the submit-result family
-cannot be here. 
+cannot be here.
+
 **Settled 2026-08-23: §4.4 is amended, the alignment phase stays shut.** Of the two ways out - declare the
 phase open and work through `IPatternDetails`/`ICraftingPlan`/`CalculationStrategy` deliberately, or amend
 §4.4 to say that individual pieces are taken when a feature needs them - the owner chose the second. §4.4
