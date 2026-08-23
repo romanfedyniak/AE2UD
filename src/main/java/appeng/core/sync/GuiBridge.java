@@ -213,6 +213,30 @@ public enum GuiBridge implements IGuiHandler {
         return null;
     }
 
+    /**
+     * The terminal a job was ordered from, so a screen opened on top of one knows where "back" is. Null for a
+     * host that is not a terminal at all, which is the case a caller has to leave itself no way out of.
+     */
+    @Nullable
+    public static GuiBridge terminalFor(final Object host) {
+        if (host instanceof WirelessTerminalGuiObject) {
+            final ItemStack terminal = ((WirelessTerminalGuiObject) host).getItemStack();
+            final IWirelessTermHandler handler = AEApi.instance().registries().wireless()
+                    .getWirelessTerminalHandler(terminal);
+            return handler == null ? null : (GuiBridge) handler.getGuiHandler(terminal);
+        }
+        if (host instanceof PartCraftingTerminal) {
+            return GUI_CRAFTING_TERMINAL;
+        }
+        if (host instanceof PartPatternTerminal) {
+            return GUI_PATTERN_TERMINAL;
+        }
+        if (host instanceof PartTerminal) {
+            return GUI_ME;
+        }
+        return null;
+    }
+
     GuiBridge(final Class containerClass, final SecurityPermissions requiredPermission) {
         this.requiredPermission = requiredPermission;
         this.containerClass = containerClass;

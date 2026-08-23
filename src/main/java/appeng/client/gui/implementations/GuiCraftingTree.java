@@ -74,8 +74,9 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private static final int BORDER = 3;
     private static final int HEADER_HEIGHT = 32;
     private static final int FOOTER_HEIGHT = 28;
-    private static final int START_LEFT = 6;
-    private static final int START_WIDTH = 54;
+    /** Cancel against the left edge and Start against the right, as on the plan screen. */
+    private static final int BUTTON_MARGIN = 6;
+    private static final int BUTTON_WIDTH = 54;
 
     private static final int CANVAS_COLOR = 0xFF3B3B3B;
     private static final int SEARCH_X = BORDER + 5;
@@ -97,15 +98,20 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private MEGuiTextField searchField;
     private GuiTabButton back;
     private GuiButton start;
+    private GuiButton cancel;
     private GuiButton missingOnly;
     private GuiImgButton terminalStyleBox;
     private GuiIconButton saveImage;
 
     private boolean missingOnlyChosen;
 
+    /** Where Cancel leads when no amount screen preceded this job. Null when there is nowhere to go back to. */
+    private final GuiBridge originalGui;
+
     public GuiCraftingTree(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(new ContainerCraftingTree(inventoryPlayer, te));
 
+        this.originalGui = GuiBridge.terminalFor(te);
         this.container = (ContainerCraftingTree) this.inventorySlots;
         this.cpuTable = new GuiCraftingCPUTable(this, this.container);
         this.errorPanel = new GuiCraftErrorPanel(this, this.container);
@@ -143,9 +149,17 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         this.back.setHideEdge(1);
         this.buttonList.add(this.back);
 
-        this.start = new GuiButton(0, this.guiLeft + START_LEFT, this.guiTop + this.ySize - 24, START_WIDTH,
-                20, GuiText.Start.getLocal());
+        final int buttonTop = this.guiTop + this.ySize - 24;
+        this.start = new GuiButton(0, this.guiLeft + this.xSize - BUTTON_MARGIN - BUTTON_WIDTH, buttonTop,
+                BUTTON_WIDTH, 20, GuiText.Start.getLocal());
         this.buttonList.add(this.start);
+
+        // Only when there is a screen to go back to, the same condition the plan screen puts on its own.
+        if (this.originalGui != null || this.container.hasAmountScreen) {
+            this.cancel = new GuiButton(0, this.guiLeft + BUTTON_MARGIN, buttonTop, BUTTON_WIDTH, 20,
+                    GuiText.Cancel.getLocal());
+            this.buttonList.add(this.cancel);
+        }
 
         // Over the tree canvas, since Start can fail from this screen just as it can from the plan.
         this.errorPanel.initGui(6, 36, this.xSize - 12, this.ySize - 66, this.buttonList);
@@ -189,9 +203,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         final boolean force = this.container.isSimulation() && !this.container.hasNoCPU();
         this.start.enabled = !this.container.hasNoCPU();
         this.start.displayString = (force ? GuiText.ForceStart : GuiText.Start).getLocal();
-        // Grows rightwards, since this screen keeps the button against its left edge rather than its right.
-        this.start.width = Math.max(START_WIDTH,
+        // Grows leftwards for the longer label, keeping its right edge where the eye expects it.
+        this.start.width = Math.max(BUTTON_WIDTH,
                 this.fontRenderer.getStringWidth(this.start.displayString) + 12);
+        this.start.x = this.guiLeft + this.xSize - BUTTON_MARGIN - this.start.width;
         this.missingOnly.enabled = this.tree.hasMissing();
         this.missingOnly.displayString = this.missingOnly.enabled
                 ? GuiText.ShowMissingOnly.getLocal() + ": "
@@ -306,6 +321,14 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         if (btn == this.back) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_CONFIRM));
+        } else if (btn == this.cancel) {
+            // Back to the order rather than out of it, and out to the terminal only when no amount screen
+            // preceded this job - exactly what Cancel does on the plan screen.
+            if (this.container.hasAmountScreen) {
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_AMOUNT));
+            } else if (this.originalGui != null) {
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.originalGui));
+            }
         } else if (btn == this.start) {
             try {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start",

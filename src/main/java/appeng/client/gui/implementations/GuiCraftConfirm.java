@@ -19,7 +19,6 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.features.IWirelessTermHandler;
@@ -45,17 +44,12 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.helpers.WirelessTerminalGuiObject;
-import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartPatternTerminal;
-import appeng.parts.reporting.PartTerminal;
 import appeng.util.Platform;
 import appeng.util.ReadableNumberConverter;
 import com.google.common.base.Joiner;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -145,22 +139,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.cpuTable = new GuiCraftingCPUTable(this, this.ccc);
         this.errorPanel = new GuiCraftErrorPanel(this, this.ccc);
 
-        if (te instanceof WirelessTerminalGuiObject) {
-            ItemStack itemStack = ((WirelessTerminalGuiObject) te).getItemStack();
-            this.OriginalGui = (GuiBridge) AEApi.instance().registries().wireless().getWirelessTerminalHandler(itemStack).getGuiHandler(itemStack);
-        }
-
-        if (te instanceof PartTerminal) {
-            this.OriginalGui = GuiBridge.GUI_ME;
-        }
-
-        if (te instanceof PartCraftingTerminal) {
-            this.OriginalGui = GuiBridge.GUI_CRAFTING_TERMINAL;
-        }
-
-        if (te instanceof PartPatternTerminal) {
-            this.OriginalGui = GuiBridge.GUI_PATTERN_TERMINAL;
-        }
+        this.OriginalGui = GuiBridge.terminalFor(te);
     }
 
     boolean isAutoStart() {
