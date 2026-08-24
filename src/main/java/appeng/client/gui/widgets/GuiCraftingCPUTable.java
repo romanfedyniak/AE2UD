@@ -204,9 +204,10 @@ public class GuiCraftingCPUTable extends Gui {
             GL11.glPushMatrix();
 
             final double craftingProgress = getCraftingProgress(cpu);
-            final int progressWidth = (int) ((SLOT_WIDTH - 2) * craftingProgress);
+            final int progressWidth = (int) (SLOT_WIDTH * craftingProgress);
             if (progressWidth > 0) {
-                drawRect(x + 1, y + SLOT_HEIGHT - 2, x + 1 + progressWidth, y + SLOT_HEIGHT - 1,
+                // Edge to edge: the plate's bottom border is a flat dark row, with no corner to leave alone.
+                drawRect(x, y + SLOT_HEIGHT - 2, x + progressWidth, y + SLOT_HEIGHT - 1,
                         calculateProgressColor(craftingProgress));
             }
 
