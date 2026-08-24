@@ -24,6 +24,7 @@ import appeng.block.AEBaseTileBlock;
 import appeng.client.UnlistedProperty;
 import appeng.client.render.crafting.CraftingCubeState;
 import appeng.core.sync.GuiBridge;
+import appeng.items.tools.quartz.ToolQuartzCuttingKnife;
 import appeng.tile.crafting.TileCraftingTile;
 import appeng.util.Platform;
 import net.minecraft.block.Block;
@@ -145,7 +146,11 @@ public class BlockCraftingUnit extends AEBaseTileBlock {
     public boolean onBlockActivated(final World w, final BlockPos pos, final IBlockState state, final EntityPlayer p, final EnumHand hand, final EnumFacing side, final float hitX, final float hitY, final float hitZ) {
         final TileCraftingTile tg = this.getTileEntity(w, pos);
 
-        if (tg != null && !p.isSneaking() && tg.isFormed() && tg.isActive()) {
+        // A knife is let through to the renamer in AEBaseTileBlock, which a formed CPU would otherwise
+        // swallow - and a sneaking player never reaches this method at all while holding an item.
+        final boolean renaming = p.getHeldItem(hand).getItem() instanceof ToolQuartzCuttingKnife;
+
+        if (tg != null && !renaming && !p.isSneaking() && tg.isFormed() && tg.isActive()) {
             if (Platform.isClient()) {
                 return true;
             }

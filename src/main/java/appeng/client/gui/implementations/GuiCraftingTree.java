@@ -128,7 +128,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         super.initGui();
 
-        this.cpuTable.initGui(Math.max(1, (this.ySize - GuiCraftingCPUTable.FIXED_HEIGHT) / 23));
+        this.cpuTable.initGui(Math.max(1, (this.ySize - GuiCraftingCPUTable.FIXED_HEIGHT) / 23), this.buttonList);
 
         // Placed in the window's own coordinates: the foreground layer this is drawn in is already
         // translated there, and so are the clicks handed to it.
@@ -305,6 +305,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
 
+        if (this.cpuTable.actionPerformed(btn)) {
+            return;
+        }
+
         if (this.errorPanel.actionPerformed(btn)) {
             return;
         }
@@ -346,6 +350,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     protected void keyTyped(final char character, final int key) throws IOException {
+        if (this.cpuTable.keyTyped(character, key)) {
+            return;
+        }
+
         if (this.searchField.isFocused()) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
                 this.tree.goToMatch(!isShiftKeyDown());
@@ -364,7 +372,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         super.mouseClicked(xCoord, yCoord, btn);
 
         this.searchField.mouseClicked(xCoord - this.guiLeft, yCoord - this.guiTop, btn);
-        this.cpuTable.mouseClicked(xCoord, yCoord);
+        this.cpuTable.mouseClicked(xCoord, yCoord, btn);
         this.tree.mouseClicked(xCoord, yCoord);
     }
 

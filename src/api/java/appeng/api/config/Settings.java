@@ -97,6 +97,18 @@ public enum Settings
 	 */
 	AMOUNT_ENTRY_UNITS( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 
+	/**
+	 * Client-side only: how a CPU list is filtered and ordered. Never leaves the client - the list itself
+	 * is built on the server, and these only decide what is drawn out of it.
+	 */
+	CPU_FILTER_ACTIVITY( EnumSet.allOf( CpuActivityFilter.class ) ),
+
+	CPU_FILTER_MODE( EnumSet.allOf( CpuModeFilter.class ) ),
+
+	CPU_SORT_BY( EnumSet.allOf( CpuSortOrder.class ) ),
+
+	CPU_SORT_DIRECTION( EnumSet.allOf( SortDir.class ) ),
+
 	;
 
 	private final EnumSet<? extends Enum<?>> values;

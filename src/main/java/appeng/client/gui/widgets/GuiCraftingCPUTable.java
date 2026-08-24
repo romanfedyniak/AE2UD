@@ -19,32 +19,43 @@
 package appeng.client.gui.widgets;
 
 
+import appeng.api.AEApi;
+import appeng.api.config.CpuActivityFilter;
+import appeng.api.config.CpuModeFilter;
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.config.CpuSortOrder;
+import appeng.api.config.Settings;
+import appeng.api.config.SortDir;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
+import appeng.api.util.IConfigManager;
 import appeng.client.gui.AEBaseGui;
 import appeng.container.implementations.CraftingCPUStatus;
 import appeng.container.implementations.ICraftingCPUTableHost;
+import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.api.AEApi;
 import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.item.ItemStack;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.util.text.TextFormatting;
 import org.apache.commons.lang3.time.DurationFormatUtils;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nullable;
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -71,9 +82,30 @@ public class GuiCraftingCPUTable extends Gui {
     private static final int PROGRESS_END_COLOR = 0xFF0AE600;
     private static final int SUSPENDED_OVERLAY_COLOR = 0xA0404040;
 
+    /**
+     * The filter buttons sit in a row above the panel, in the band these screens already hang their tabs in.
+     * Beside the panel they would not fit: at the narrowest the game runs, its left edge is the screen's.
+     */
+    private static final int BUTTON_ROW_HEIGHT = 20;
+    private static final int BUTTON_LEFT = 3;
+    private static final int BUTTON_SPACING = 20;
+    private static final int SEARCH_LEFT = 3;
+    private static final int SEARCH_TOP = 3;
+    private static final int SEARCH_WIDTH = 88;
+    private static final int SEARCH_HEIGHT = 12;
+
     private final AEBaseGui parent;
     private final ICraftingCPUTableHost host;
     private final GuiScrollbar scrollbar = new GuiScrollbar();
+
+    /** What the filters and the ordering leave of the container's list, rebuilt every frame. */
+    private final List<CraftingCPUStatus> displayed = new ArrayList<>();
+
+    private MEGuiTooltipTextField searchField;
+    private GuiImgButton activityFilter;
+    private GuiImgButton modeFilter;
+    private GuiImgButton sortBy;
+    private GuiImgButton sortDirection;
 
     private int rows = 1;
 
@@ -84,19 +116,162 @@ public class GuiCraftingCPUTable extends Gui {
         this.host = host;
     }
 
-    public void initGui(final int rows) {
+    public void initGui(final int rows, final List<GuiButton> buttonList) {
         this.rows = rows;
         this.scrollbar.setLeft(-16);
         this.scrollbar.setTop(SLOT_TOP);
         this.scrollbar.setWidth(12);
         this.scrollbar.setHeight(rows * SLOT_HEIGHT - 1);
+
+        final IConfigManager config = AEConfig.instance().getConfigManager();
+        int left = this.parent.getGuiLeft() - WIDTH + BUTTON_LEFT;
+        final int top = this.parent.getGuiTop() - BUTTON_ROW_HEIGHT;
+
+        this.activityFilter = new GuiImgButton(left, top, Settings.CPU_FILTER_ACTIVITY,
+                config.getSetting(Settings.CPU_FILTER_ACTIVITY));
+        this.modeFilter = new GuiImgButton(left += BUTTON_SPACING, top, Settings.CPU_FILTER_MODE,
+                config.getSetting(Settings.CPU_FILTER_MODE));
+        this.sortBy = new GuiImgButton(left += BUTTON_SPACING, top, Settings.CPU_SORT_BY,
+                config.getSetting(Settings.CPU_SORT_BY));
+        this.sortDirection = new GuiImgButton(left + BUTTON_SPACING, top, Settings.CPU_SORT_DIRECTION,
+                config.getSetting(Settings.CPU_SORT_DIRECTION));
+
+        buttonList.add(this.activityFilter);
+        buttonList.add(this.modeFilter);
+        buttonList.add(this.sortBy);
+        buttonList.add(this.sortDirection);
+
+        // Kept across a rebuild of the screen, which happens whenever the terminal style changes.
+        final String text = this.searchField == null ? "" : this.searchField.getText();
+        this.searchField = new MEGuiTooltipTextField(SEARCH_WIDTH, SEARCH_HEIGHT,
+                ButtonToolTips.CpuSearch.getLocal());
+        this.searchField.setEnableBackgroundDrawing(false);
+        this.searchField.setMaxStringLength(25);
+        this.searchField.setTextColor(0xFFFFFF);
+        this.searchField.x = this.parent.getGuiLeft() - WIDTH + SEARCH_LEFT;
+        this.searchField.y = this.parent.getGuiTop() + SEARCH_TOP;
+        this.searchField.setText(text);
+        this.searchField.setCursorPositionEnd();
+    }
+
+    /**
+     * @return true when the button belonged to this table.
+     */
+    public boolean actionPerformed(final GuiButton btn) {
+        final Settings setting;
+        if (btn == this.activityFilter) {
+            setting = Settings.CPU_FILTER_ACTIVITY;
+        } else if (btn == this.modeFilter) {
+            setting = Settings.CPU_FILTER_MODE;
+        } else if (btn == this.sortBy) {
+            setting = Settings.CPU_SORT_BY;
+        } else if (btn == this.sortDirection) {
+            setting = Settings.CPU_SORT_DIRECTION;
+        } else {
+            return false;
+        }
+
+        final IConfigManager config = AEConfig.instance().getConfigManager();
+        final Enum<?> next = Platform.rotateEnum(config.getSetting(setting), Mouse.isButtonDown(1),
+                setting.getPossibleValues());
+        config.putSetting(setting, next);
+        ((GuiImgButton) btn).set(next);
+        return true;
+    }
+
+    /**
+     * @return true when the search field took the key, so the screen must not act on it.
+     */
+    public boolean keyTyped(final char character, final int key) {
+        return this.searchField != null && this.searchField.isFocused()
+                && this.searchField.textboxKeyTyped(character, key);
     }
 
     /**
      * Kept in step every frame rather than on update, since rows can change with the window.
      */
     public void updateScrollRange() {
+        this.rebuildDisplayed();
         this.scrollbar.setRange(0, Math.max(0, this.getRowCount() - this.rows), 1);
+    }
+
+    /**
+     * Filtering and ordering are the screen's own business: the container's list is what the network holds,
+     * and the selected CPU stays in sight whatever the filters say, so that what a job would run on - or
+     * what the item list below belongs to - is never hidden from the one looking at it.
+     */
+    private void rebuildDisplayed() {
+        final IConfigManager config = AEConfig.instance().getConfigManager();
+        final CpuActivityFilter activity = (CpuActivityFilter) config.getSetting(Settings.CPU_FILTER_ACTIVITY);
+        final CpuModeFilter mode = (CpuModeFilter) config.getSetting(Settings.CPU_FILTER_MODE);
+        final String search = this.searchField == null ? "" : this.searchField.getText().trim().toLowerCase();
+        final int selected = this.host.getSelectedCpuSerial();
+
+        this.displayed.clear();
+        for (final CraftingCPUStatus cpu : this.host.getCPUTable().getCPUs()) {
+            if (cpu.getSerial() == selected || matches(cpu, activity, mode, search)) {
+                this.displayed.add(cpu);
+            }
+        }
+
+        this.displayed.sort(comparator(config));
+    }
+
+    private static boolean matches(final CraftingCPUStatus cpu, final CpuActivityFilter activity,
+            final CpuModeFilter mode, final String search) {
+        final boolean busy = cpu.getCrafting() != null;
+        if (activity == CpuActivityFilter.ACTIVE && !busy || activity == CpuActivityFilter.IDLE && busy) {
+            return false;
+        }
+
+        if (!mode.matches(cpu.getSelectionMode())) {
+            return false;
+        }
+
+        if (search.isEmpty()) {
+            return true;
+        }
+
+        if (displayName(cpu).toLowerCase().contains(search)) {
+            return true;
+        }
+
+        // What it is crafting counts as its name too - "who is making iron" is the question this list is
+        // usually asked, and the row already says the answer.
+        final GenericStack crafting = cpu.getCrafting();
+        return crafting != null
+                && Platform.getItemDisplayName(crafting.what()).toLowerCase().contains(search);
+    }
+
+    private static Comparator<CraftingCPUStatus> comparator(final IConfigManager config) {
+        final CpuSortOrder order = (CpuSortOrder) config.getSetting(Settings.CPU_SORT_BY);
+        Comparator<CraftingCPUStatus> comparator;
+        switch (order) {
+            case STORAGE:
+                comparator = Comparator.comparingLong(CraftingCPUStatus::getStorage);
+                break;
+            case COPROCESSORS:
+                comparator = Comparator.comparingLong(CraftingCPUStatus::getCoprocessors);
+                break;
+            default:
+                // Unnamed CPUs last, as they are in the list the server sends.
+                comparator = Comparator
+                        .comparing((CraftingCPUStatus cpu) -> cpu.getName() == null || cpu.getName().isEmpty())
+                        .thenComparing(cpu -> displayName(cpu).toLowerCase());
+                break;
+        }
+
+        if (config.getSetting(Settings.CPU_SORT_DIRECTION) == SortDir.DESCENDING) {
+            comparator = comparator.reversed();
+        }
+
+        return comparator.thenComparingInt(CraftingCPUStatus::getSerial);
+    }
+
+    /** What the row calls this CPU, which is also what the search matches against. */
+    private static String displayName(final CraftingCPUStatus cpu) {
+        final String name = cpu.getName();
+        return name == null || name.isEmpty() ? GuiText.CPUs.getLocal() + " #" + cpu.getSerial() : name;
     }
 
     public void drawBG(final int offsetX, final int offsetY) {
@@ -109,6 +284,12 @@ public class GuiCraftingCPUTable extends Gui {
             y += SLOT_HEIGHT;
         }
         this.parent.drawTexturedModalRect(tableLeft, offsetY + y, 0, 133, WIDTH, 31);
+
+        if (this.searchField != null) {
+            this.searchField.drawTextBox();
+            // The field fills itself with drawRect, which leaves that colour behind for the textured rows.
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        }
     }
 
     public void drawFG(final int mouseX, final int mouseY) {
@@ -170,10 +351,7 @@ public class GuiCraftingCPUTable extends Gui {
     }
 
     private void drawCpuRow(final FontRenderer font, final CraftingCPUStatus cpu, final int x, final int y) {
-        String name = cpu.getName();
-        if (name == null || name.isEmpty()) {
-            name = GuiText.CPUs.getLocal() + " #" + cpu.getSerial();
-        }
+        String name = displayName(cpu);
         if (name.length() > 12) {
             name = name.substring(0, 11) + "..";
         }
@@ -312,6 +490,10 @@ public class GuiCraftingCPUTable extends Gui {
 
     @Nullable
     public String getTooltip(final int mouseX, final int mouseY) {
+        if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
+            return this.searchField.getMessage();
+        }
+
         if (this.hitsAutomaticRow(mouseX, mouseY)) {
             return GuiText.Automatic.getLocal() + '\n' + GuiText.CraftingCPU.getLocal();
         }
@@ -416,7 +598,11 @@ public class GuiCraftingCPUTable extends Gui {
         return tooltip.toString();
     }
 
-    public void mouseClicked(final int xCoord, final int yCoord) {
+    public void mouseClicked(final int xCoord, final int yCoord, final int button) {
+        if (this.searchField != null) {
+            this.searchField.mouseClicked(xCoord, yCoord, button);
+        }
+
         this.scrollbar.click(this.parent, xCoord - this.parent.getGuiLeft(), yCoord - this.parent.getGuiTop());
 
         final int row = this.hitRow(xCoord, yCoord);
@@ -445,8 +631,8 @@ public class GuiCraftingCPUTable extends Gui {
     }
 
     public Rectangle getExclusionArea() {
-        return new Rectangle(this.parent.getGuiLeft() - WIDTH, this.parent.getGuiTop(), WIDTH,
-                FIXED_HEIGHT + this.rows * SLOT_HEIGHT);
+        return new Rectangle(this.parent.getGuiLeft() - WIDTH, this.parent.getGuiTop() - BUTTON_ROW_HEIGHT,
+                WIDTH, FIXED_HEIGHT + this.rows * SLOT_HEIGHT + BUTTON_ROW_HEIGHT);
     }
 
     private void selectCpu(final int serial) {
@@ -462,7 +648,7 @@ public class GuiCraftingCPUTable extends Gui {
     }
 
     private int getRowCount() {
-        return this.host.getCPUTable().getCPUs().size() + (this.hasAutomaticRow() ? 1 : 0);
+        return this.displayed.size() + (this.hasAutomaticRow() ? 1 : 0);
     }
 
     /**
@@ -470,9 +656,8 @@ public class GuiCraftingCPUTable extends Gui {
      */
     @Nullable
     private CraftingCPUStatus getCpuForRow(final int row) {
-        final List<CraftingCPUStatus> cpus = this.host.getCPUTable().getCPUs();
         final int index = this.hasAutomaticRow() ? row - 1 : row;
-        return index >= 0 && index < cpus.size() ? cpus.get(index) : null;
+        return index >= 0 && index < this.displayed.size() ? this.displayed.get(index) : null;
     }
 
     private boolean isOverTable(int x, int y) {

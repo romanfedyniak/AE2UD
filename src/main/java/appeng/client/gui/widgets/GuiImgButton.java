@@ -175,6 +175,25 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(16 * 14 + 4, Settings.CPU_SELECTION_MODE, CpuSelectionMode.PLAYER_ONLY, ButtonToolTips.CpuSelectionMode, ButtonToolTips.CpuSelectionModePlayersOnly);
             this.registerApp(16 * 14 + 5, Settings.CPU_SELECTION_MODE, CpuSelectionMode.MACHINE_ONLY, ButtonToolTips.CpuSelectionMode, ButtonToolTips.CpuSelectionModeAutomationOnly);
 
+            this.registerApp(18, Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.ALL, ButtonToolTips.CpuFilterActivity, ButtonToolTips.CpuFilterActivityAll);
+            this.registerApp(16 * 11 + 2, Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.ACTIVE, ButtonToolTips.CpuFilterActivity, ButtonToolTips.CpuFilterActivityActive);
+            this.registerApp(16 * 4 + 3, Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.IDLE, ButtonToolTips.CpuFilterActivity, ButtonToolTips.CpuFilterActivityIdle);
+
+            this.registerApp(18, Settings.CPU_FILTER_MODE, CpuModeFilter.ALL, ButtonToolTips.CpuFilterMode, ButtonToolTips.CpuFilterModeAll);
+            this.registerApp(16 * 14 + 3, Settings.CPU_FILTER_MODE, CpuModeFilter.ANY, ButtonToolTips.CpuFilterMode, ButtonToolTips.CpuSelectionModeAny);
+            this.registerApp(16 * 14 + 4, Settings.CPU_FILTER_MODE, CpuModeFilter.PLAYER_ONLY, ButtonToolTips.CpuFilterMode, ButtonToolTips.CpuSelectionModePlayersOnly);
+            this.registerApp(16 * 14 + 5, Settings.CPU_FILTER_MODE, CpuModeFilter.MACHINE_ONLY, ButtonToolTips.CpuFilterMode, ButtonToolTips.CpuSelectionModeAutomationOnly);
+
+            this.registerApp(64, Settings.CPU_SORT_BY, CpuSortOrder.NAME, ButtonToolTips.CpuSortBy, ButtonToolTips.CpuSortByName);
+            this.registerApp(65, Settings.CPU_SORT_BY, CpuSortOrder.STORAGE, ButtonToolTips.CpuSortBy, ButtonToolTips.CpuSortByStorage);
+            // The one icon of ours on the sheet that is not a glyph: the co-processor's own block face. It
+            // sits in the sheet's last free cell - the other two, 27 and 28, only look free: they are the
+            // transparent bottom of the 25x22 tab-button sprite that GuiTabButton blits from (11,0).
+            this.registerApp(16 * 10 + 5, Settings.CPU_SORT_BY, CpuSortOrder.COPROCESSORS, ButtonToolTips.CpuSortBy, ButtonToolTips.CpuSortByCoprocessors);
+
+            this.registerApp(48, Settings.CPU_SORT_DIRECTION, SortDir.ASCENDING, ButtonToolTips.SortOrder, ButtonToolTips.ToggleSortDirection);
+            this.registerApp(49, Settings.CPU_SORT_DIRECTION, SortDir.DESCENDING, ButtonToolTips.SortOrder, ButtonToolTips.ToggleSortDirection);
+
             this.registerApp(16 * 15, Settings.SCHEDULING_MODE, SchedulingMode.DEFAULT, ButtonToolTips.SchedulingMode, ButtonToolTips.SchedulingModeDefault);
             this.registerApp(16 * 15 + 1, Settings.SCHEDULING_MODE, SchedulingMode.ROUNDROBIN, ButtonToolTips.SchedulingMode, ButtonToolTips.SchedulingModeRoundRobin);
             this.registerApp(16 * 15 + 2, Settings.SCHEDULING_MODE, SchedulingMode.RANDOM, ButtonToolTips.SchedulingMode, ButtonToolTips.SchedulingModeRandom);

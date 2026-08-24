@@ -159,7 +159,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.start.enabled = false;
         this.buttonList.add(this.start);
 
-        this.cpuTable.initGui(this.rows);
+        this.cpuTable.initGui(this.rows, this.buttonList);
 
         this.showTree = new GuiTabButton(this.guiLeft + this.xSize - 25, this.guiTop - 4, SWITCH_VIEW_ICON,
                 GuiText.CraftingTree.getLocal(), this.itemRender);
@@ -369,7 +369,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
         super.mouseClicked(xCoord, yCoord, btn);
 
-        this.cpuTable.mouseClicked(xCoord, yCoord);
+        this.cpuTable.mouseClicked(xCoord, yCoord, btn);
     }
 
     @Override
@@ -471,6 +471,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     protected void keyTyped(final char character, final int key) throws IOException {
+        if (this.cpuTable.keyTyped(character, key)) {
+            return;
+        }
+
         if (!this.checkHotbarKeys(key)) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
                 this.actionPerformed(this.start);
@@ -482,6 +486,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.cpuTable.actionPerformed(btn)) {
+            return;
+        }
 
         if (this.errorPanel.actionPerformed(btn)) {
             return;

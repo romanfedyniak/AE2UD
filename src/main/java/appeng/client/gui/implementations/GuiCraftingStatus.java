@@ -94,6 +94,10 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
 
+        if (this.cpuTable.actionPerformed(btn)) {
+            return;
+        }
+
         if (btn == this.originalGuiBtn) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.originalGui));
         }
@@ -112,7 +116,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     public void initGui() {
         super.initGui();
 
-        this.cpuTable.initGui(this.rows);
+        this.cpuTable.initGui(this.rows, this.buttonList);
 
         this.terminalStyleBox.x = this.guiLeft + this.xSize;
         this.terminalStyleBox.y = this.guiTop + 8;
@@ -124,6 +128,15 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
                     this.originalGuiBtn = new GuiTabButton(this.guiLeft + 213, this.guiTop - 4, this.myIcon, this.myIcon.getDisplayName(), this.itemRender));
             this.originalGuiBtn.setHideEdge(13);
         }
+    }
+
+    @Override
+    protected void keyTyped(final char character, final int key) throws IOException {
+        if (this.cpuTable.keyTyped(character, key)) {
+            return;
+        }
+
+        super.keyTyped(character, key);
     }
 
     @Override
@@ -161,7 +174,7 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     protected void mouseClicked(int xCoord, int yCoord, int btn) throws IOException {
         super.mouseClicked(xCoord, yCoord, btn);
 
-        this.cpuTable.mouseClicked(xCoord, yCoord);
+        this.cpuTable.mouseClicked(xCoord, yCoord, btn);
     }
 
     @Override

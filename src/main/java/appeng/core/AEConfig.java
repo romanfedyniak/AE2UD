@@ -165,6 +165,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.settings.registerSetting(Settings.HIDE_STORED, YesNo.NO);
         this.settings.registerSetting(Settings.SEARCH_MODE, SearchBoxMode.AUTOSEARCH);
         this.settings.registerSetting(Settings.AMOUNT_ENTRY_UNITS, YesNo.NO);
+        this.settings.registerSetting(Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.ALL);
+        this.settings.registerSetting(Settings.CPU_FILTER_MODE, CpuModeFilter.ALL);
+        this.settings.registerSetting(Settings.CPU_SORT_BY, CpuSortOrder.NAME);
+        this.settings.registerSetting(Settings.CPU_SORT_DIRECTION, SortDir.ASCENDING);
 
         this.spawnChargedChance = (float) (1.0 - this.get("worldGen", "spawnChargedChance", 1.0 - this.spawnChargedChance).getDouble(1.0 - this.spawnChargedChance));
         this.minMeteoriteDistance = this.get("worldGen", "minMeteoriteDistance", this.minMeteoriteDistance).getInt(this.minMeteoriteDistance);

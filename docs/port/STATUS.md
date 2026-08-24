@@ -1965,6 +1965,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     names it. This is the §4.4 rule below working as intended: one piece, taken because Force Start needed
     it, and no nearer to swapping `ICraftingJob` for `ICraftingPlan`.
 
+15. **Four client-side settings for the CPU list** (`appeng.api.config.CPU_FILTER_ACTIVITY`,
+    `CPU_FILTER_MODE`, `CPU_SORT_BY`, `CPU_SORT_DIRECTION`, with `CpuActivityFilter`, `CpuModeFilter` and
+    `CpuSortOrder` beside `CpuSelectionMode`) - additive, and inert for anyone who ignores them. They only
+    say what a CPU table draws out of the list the server sends; nothing crosses the wire and no behaviour
+    of the crafting grid depends on them. `Settings` is the frozen enum every `GuiImgButton` is keyed by,
+    which is the only reason a purely visual filter had to be recorded here at all.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
