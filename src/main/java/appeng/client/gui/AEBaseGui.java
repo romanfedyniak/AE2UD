@@ -205,6 +205,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         GlStateManager.popMatrix();
 
         this.renderHoveredToolTip(mouseX, mouseY);
+        this.drawEmptySlotTooltip(mouseX, mouseY);
 
         for (final Object c : this.buttonList) {
             if (c instanceof ITooltip) {
@@ -219,6 +220,26 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
         GlStateManager.enableDepth();
         GlStateManager.disableDepth();
+    }
+
+    /**
+     * Says what an empty slot is for, which the vanilla tooltip cannot: it only ever describes an item, so a
+     * slot waiting to be filled explains itself to nobody. Slots that want this hand it a line through
+     * {@link AppEngSlot#setEmptyTooltip}; the rest stay silent.
+     */
+    private void drawEmptySlotTooltip(final int mouseX, final int mouseY) {
+        if (!(this.hoveredSlot instanceof AppEngSlot) || this.hoveredSlot.getHasStack()) {
+            return;
+        }
+
+        if (!this.mc.player.inventory.getItemStack().isEmpty()) {
+            return;
+        }
+
+        final String message = ((AppEngSlot) this.hoveredSlot).getTooltip();
+        if (message != null) {
+            this.drawTooltip(mouseX, mouseY, message);
+        }
     }
 
     public List<Rectangle> getJEIExclusionArea() {

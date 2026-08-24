@@ -1979,6 +1979,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     up `IEnergyGridProvider`. Same three methods and the same rule they encode: one generator to an energy
     grid, quartz fibre included.
 
+17. **The inscriber's three settings** (`appeng.api.config.Settings.INSCRIBER_SEPARATE_SIDES`,
+    `AUTO_EXPORT` and `INSCRIBER_INPUT_CAPACITY`, with `appeng.api.config.InscriberInputCapacity`) -
+    additive, and inert for anyone who ignores them. Same names and same values as upstream, `AUTO_EXPORT`
+    included: upstream keeps that one generic although only the inscriber registers it, and a machine added
+    later that pushes its output at a neighbour should be answering the same setting. `Settings` is frozen
+    and is the enum every `GuiImgButton` is keyed by, so a setting cannot be added anywhere else.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

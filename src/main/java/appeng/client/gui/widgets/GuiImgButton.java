@@ -203,6 +203,16 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(0, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_LOW, ButtonToolTips.LockCraftingMode, ButtonToolTips.LockCraftingWhileRedstoneLow);
             this.registerApp(1, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_HIGH, ButtonToolTips.LockCraftingMode, ButtonToolTips.LockCraftingWhileRedstoneHigh);
             this.registerApp(2, Settings.UNLOCK, LockCraftingMode.LOCK_UNTIL_PULSE, ButtonToolTips.LockCraftingMode, ButtonToolTips.LockCraftingUntilRedstonePulse);
+
+            this.registerApp(16 * 7 + 3, Settings.INSCRIBER_SEPARATE_SIDES, YesNo.YES, ButtonToolTips.InscriberSideness, ButtonToolTips.InscriberSidenessSeparate);
+            this.registerApp(16 * 7 + 4, Settings.INSCRIBER_SEPARATE_SIDES, YesNo.NO, ButtonToolTips.InscriberSideness, ButtonToolTips.InscriberSidenessCombined);
+
+            this.registerApp(16 * 7 + 5, Settings.AUTO_EXPORT, YesNo.YES, ButtonToolTips.AutoExport, ButtonToolTips.AutoExportOn);
+            this.registerApp(16 * 7 + 6, Settings.AUTO_EXPORT, YesNo.NO, ButtonToolTips.AutoExport, ButtonToolTips.AutoExportOff);
+
+            this.registerApp(16 * 7 + 7, Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.ONE, ButtonToolTips.InscriberBufferSize, ButtonToolTips.InscriberBufferVeryLow);
+            this.registerApp(16 * 7 + 8, Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.FOUR, ButtonToolTips.InscriberBufferSize, ButtonToolTips.InscriberBufferLow);
+            this.registerApp(16 * 7 + 9, Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.SIXTY_FOUR, ButtonToolTips.InscriberBufferSize, ButtonToolTips.InscriberBufferHigh);
         }
     }
 

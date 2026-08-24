@@ -23,7 +23,10 @@ import com.google.common.math.IntMath;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.config.InscriberInputCapacity;
 import appeng.api.config.PowerMultiplier;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.definitions.IComparableDefinition;
 import appeng.api.definitions.ITileDefinition;
 import appeng.api.features.IInscriberRecipe;
@@ -49,6 +52,7 @@ import appeng.tile.grid.AENetworkPowerTile;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
+import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.inv.InvOperation;
@@ -59,6 +63,7 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -89,13 +94,14 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     private boolean smash;
     private int finalStep;
     private long clientStart;
-    private final AppEngInternalInventory topItemHandler = new AppEngInternalInventory(this, 1, 1);
-    private final AppEngInternalInventory bottomItemHandler = new AppEngInternalInventory(this, 1, 1);
-    private final AppEngInternalInventory sideItemHandler = new AppEngInternalInventory(this, 2, 1);
+    private final AppEngInternalInventory topItemHandler = new AppEngInternalInventory(this, 1, 64);
+    private final AppEngInternalInventory bottomItemHandler = new AppEngInternalInventory(this, 1, 64);
+    private final AppEngInternalInventory sideItemHandler = new AppEngInternalInventory(this, 2, 64);
 
     private final IItemHandler topItemHandlerExtern;
     private final IItemHandler bottomItemHandlerExtern;
     private final IItemHandler sideItemHandlerExtern;
+    private final IItemHandler combinedItemHandlerExtern;
 
     private IInscriberRecipe cachedTask = null;
 
@@ -106,16 +112,39 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         this.setInternalMaxPower(1600);
         this.getProxy().setIdlePowerUsage(0);
         this.settings = new ConfigManager(this);
+        this.settings.registerSetting(Settings.INSCRIBER_SEPARATE_SIDES, YesNo.NO);
+        this.settings.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
+        this.settings.registerSetting(Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.SIXTY_FOUR);
 
         final ITileDefinition inscriberDefinition = AEApi.instance().definitions().blocks().inscriber();
         this.upgrades = new DefinitionUpgradeInventory(inscriberDefinition, this, this.getUpgradeSlots());
 
-        this.sideItemHandler.setMaxStackSize(1, 64);
+        this.applyInputCapacity();
 
         final IAEItemFilter filter = new ItemHandlerFilter();
         this.topItemHandlerExtern = new WrapperFilteredItemHandler(this.topItemHandler, filter);
         this.bottomItemHandlerExtern = new WrapperFilteredItemHandler(this.bottomItemHandler, filter);
         this.sideItemHandlerExtern = new WrapperFilteredItemHandler(this.sideItemHandler, filter);
+        this.combinedItemHandlerExtern = new WrapperChainedItemHandler(this.topItemHandlerExtern, this.bottomItemHandlerExtern, this.sideItemHandlerExtern);
+    }
+
+    private boolean isSeparateSides() {
+        return this.settings.getSetting(Settings.INSCRIBER_SEPARATE_SIDES) == YesNo.YES;
+    }
+
+    private boolean isAutoExport() {
+        return this.settings.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
+    }
+
+    /**
+     * The output keeps the full stack it was built with - only what goes in is capped.
+     */
+    private void applyInputCapacity() {
+        final int capacity = ((InscriberInputCapacity) this.settings.getSetting(Settings.INSCRIBER_INPUT_CAPACITY)).capacity;
+
+        this.topItemHandler.setMaxStackSize(0, capacity);
+        this.bottomItemHandler.setMaxStackSize(0, capacity);
+        this.sideItemHandler.setMaxStackSize(0, capacity);
     }
 
     private int getUpgradeSlots() {
@@ -222,7 +251,9 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removed, final ItemStack added) {
         try {
-            if (slot == 0) {
+            // Only a different item throws away progress. A change in count alone is the buffer being
+            // topped up while the machine works, which InvOperation reports as INSERT or EXTRACT.
+            if (slot == 0 && mc == InvOperation.SET) {
                 this.setProcessingTime(0);
             }
 
@@ -241,16 +272,24 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     // @Override
     @Override
     public TickingRequest getTickingRequest(final IGridNode node) {
-        return new TickingRequest(TickRates.Inscriber.getMin(), TickRates.Inscriber.getMax(), !this.hasWork(), false);
+        return new TickingRequest(TickRates.Inscriber.getMin(), TickRates.Inscriber.getMax(),
+                !this.hasCraftWork() && !this.hasAutoExportWork(), false);
     }
 
-    private boolean hasWork() {
-        if (this.getTask() != null) {
-            return true;
+    private boolean hasCraftWork() {
+        final IInscriberRecipe task = this.getTask();
+        if (task != null) {
+            // Only work while the result would fit. A buffered input would otherwise keep the machine
+            // grinding with nowhere to put what it makes.
+            return this.sideItemHandler.insertItem(1, task.getOutput().copy(), true).isEmpty();
         }
 
         this.setProcessingTime(0);
         return this.isSmash();
+    }
+
+    private boolean hasAutoExportWork() {
+        return this.isAutoExport() && !this.sideItemHandler.getStackInSlot(1).isEmpty();
     }
 
     @Nullable
@@ -264,15 +303,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
 
     @Nullable
     private IInscriberRecipe getTask(final ItemStack input, final ItemStack plateA, final ItemStack plateB) {
-        if (input.isEmpty() || input.getCount() > 1) {
-            return null;
-        }
-
-        if (!plateA.isEmpty() && plateA.getCount() > 1) {
-            return null;
-        }
-
-        if (!plateB.isEmpty() && plateB.getCount() > 1) {
+        if (input.isEmpty()) {
             return null;
         }
 
@@ -325,10 +356,10 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
                     if (this.sideItemHandler.insertItem(1, outputCopy, false).isEmpty()) {
                         this.setProcessingTime(0);
                         if (out.getProcessType() == InscriberProcessType.PRESS) {
-                            this.topItemHandler.setStackInSlot(0, ItemStack.EMPTY);
-                            this.bottomItemHandler.setStackInSlot(0, ItemStack.EMPTY);
+                            this.topItemHandler.extractItem(0, 1, false);
+                            this.bottomItemHandler.extractItem(0, 1, false);
                         }
-                        this.sideItemHandler.setStackInSlot(0, ItemStack.EMPTY);
+                        this.sideItemHandler.extractItem(0, 1, false);
                     }
                 }
                 this.saveChanges();
@@ -337,7 +368,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
                 this.setSmash(false);
                 this.markForUpdate();
             }
-        } else {
+        } else if (this.hasCraftWork()) {
             try {
                 final IEnergyGrid eg = this.getProxy().getEnergy();
                 IEnergySource src = this;
@@ -379,7 +410,62 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
             }
         }
 
-        return this.hasWork() ? TickRateModulation.URGENT : TickRateModulation.SLEEP;
+        if (this.pushOutResult()) {
+            return TickRateModulation.URGENT;
+        }
+
+        return this.hasCraftWork() ? TickRateModulation.URGENT
+                : this.hasAutoExportWork() ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+    }
+
+    /**
+     * Hands the finished item to whatever sits against the machine, a face at a time.
+     *
+     * @return true if anything moved
+     */
+    private boolean pushOutResult() {
+        if (!this.hasAutoExportWork()) {
+            return false;
+        }
+
+        final EnumSet<EnumFacing> pushSides = EnumSet.allOf(EnumFacing.class);
+        if (this.isSeparateSides()) {
+            // Those two faces belong to the plates, and the result is not theirs to hand out.
+            pushSides.remove(this.getUp());
+            pushSides.remove(this.getUp().getOpposite());
+        }
+
+        for (final EnumFacing dir : pushSides) {
+            final TileEntity neighbour = this.world.getTileEntity(this.pos.offset(dir));
+            if (neighbour == null) {
+                continue;
+            }
+
+            final InventoryAdaptor target = InventoryAdaptor.getAdaptor(neighbour, dir.getOpposite());
+            if (target == null) {
+                continue;
+            }
+
+            // Asked before anything is taken out: an extraction that comes straight back is still an
+            // inventory change, and one per face per tick would have the machine telling the whole client
+            // about itself for nothing.
+            final ItemStack result = this.sideItemHandler.getStackInSlot(1);
+            final ItemStack refused = target.simulateAdd(result.copy());
+            final int movable = result.getCount() - (refused.isEmpty() ? 0 : refused.getCount());
+
+            if (movable <= 0) {
+                continue;
+            }
+
+            final ItemStack leftOver = target.addItems(this.sideItemHandler.extractItem(1, movable, false));
+            if (!leftOver.isEmpty()) {
+                this.sideItemHandler.insertItem(1, leftOver, false);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -402,6 +488,10 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
 
     @Override
     protected IItemHandler getItemHandlerForSide(@Nonnull EnumFacing facing) {
+        if (!this.isSeparateSides()) {
+            return this.combinedItemHandlerExtern;
+        }
+
         if (facing == this.getUp()) {
             return this.topItemHandlerExtern;
         } else if (facing == this.getUp().getOpposite()) {
@@ -428,6 +518,27 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
 
     @Override
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
+        if (settingName == Settings.INSCRIBER_INPUT_CAPACITY) {
+            this.applyInputCapacity();
+        }
+
+        if (settingName == Settings.AUTO_EXPORT) {
+            try {
+                this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+            } catch (final GridAccessException e) {
+                // :P
+            }
+        }
+
+        // Which face reaches which slot just changed, so anyone holding our handler has to ask again. Not
+        // while the tile is still being read out of the save, where there is nobody to tell and asking the
+        // world what block we are would pull a chunk in to answer.
+        if (settingName == Settings.INSCRIBER_SEPARATE_SIDES && this.world != null && !this.world.isRemote
+                && this.world.isBlockLoaded(this.pos)) {
+            this.world.notifyNeighborsOfStateChange(this.pos, this.getBlockType(), false);
+        }
+
+        this.saveChanges();
     }
 
     public long getClientStart() {
@@ -471,8 +582,13 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
             name += " " + tag.getString("InscribeName");
         }
 
+        // One at a time, whatever the input slot is holding. The recipe is built from the stack that is
+        // in there, and a buffered slot would otherwise have the press hand back sixty-four renamed items
+        // for the one it consumed.
         final ItemStack startingItem = input.copy();
+        startingItem.setCount(1);
         final ItemStack renamedItem = input.copy();
+        renamedItem.setCount(1);
         final NBTTagCompound tag = Platform.openNbtData(renamedItem);
 
         final NBTTagCompound display = tag.getCompoundTag("display");
@@ -509,11 +625,19 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     private class ItemHandlerFilter implements IAEItemFilter {
         @Override
         public boolean allowExtract(IItemHandler inv, int slot, int amount) {
+            // The result is always fair game, even mid-smash - it was made before the press came down.
+            if (slot == 1) {
+                return true;
+            }
+
             if (TileInscriber.this.isSmash()) {
                 return false;
             }
 
-            return inv == TileInscriber.this.topItemHandler || inv == TileInscriber.this.bottomItemHandler || slot == 1;
+            // Plates come back out only where a face of their own reaches them. With every face reaching
+            // everything, an export bus pointed at the machine would pull the presses out of it.
+            return TileInscriber.this.isSeparateSides()
+                    && (inv == TileInscriber.this.topItemHandler || inv == TileInscriber.this.bottomItemHandler);
         }
 
         @Override

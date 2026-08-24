@@ -109,6 +109,18 @@ public enum Settings
 
 	CPU_SORT_DIRECTION( EnumSet.allOf( SortDir.class ) ),
 
+	/**
+	 * Whether a machine's faces each reach one part of it, or every face reaches all of it.
+	 */
+	INSCRIBER_SEPARATE_SIDES( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
+	/**
+	 * Whether a machine pushes what it made into whatever sits next to it.
+	 */
+	AUTO_EXPORT( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
+	INSCRIBER_INPUT_CAPACITY( EnumSet.allOf( InscriberInputCapacity.class ) ),
+
 	;
 
 	private final EnumSet<? extends Enum<?>> values;

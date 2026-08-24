@@ -31,6 +31,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 
 public class AppEngSlot extends Slot {
@@ -48,6 +50,8 @@ public class AppEngSlot extends Slot {
     private hasCalculatedValidness isValid;
     private boolean isDisplay = false;
     private boolean returnAsSingleStack;
+    private Supplier<String> emptyTooltip;
+    private IntSupplier stackLimitCap;
 
     public AppEngSlot(final IItemHandler inv, final int idx, final int x, final int y) {
         super(emptyInventory, idx, x, y);
@@ -69,8 +73,17 @@ public class AppEngSlot extends Slot {
         return this;
     }
 
+    /**
+     * What to say about this slot while nothing is in it - which side it can be automated from, say. A slot
+     * that holds something says nothing, because the item's own tooltip is there instead.
+     */
     public String getTooltip() {
-        return null;
+        return this.emptyTooltip == null ? null : this.emptyTooltip.get();
+    }
+
+    public AppEngSlot setEmptyTooltip(final Supplier<String> emptyTooltip) {
+        this.emptyTooltip = emptyTooltip;
+        return this;
     }
 
     public void clearStack() {
@@ -154,7 +167,19 @@ public class AppEngSlot extends Slot {
 
     @Override
     public int getSlotStackLimit() {
-        return this.itemHandler.getSlotLimit(this.index);
+        final int limit = this.itemHandler.getSlotLimit(this.index);
+        return this.stackLimitCap == null ? limit : Math.min(limit, this.stackLimitCap.getAsInt());
+    }
+
+    /**
+     * A second ceiling on the slot, for one whose real limit the client cannot see. The inventory behind a
+     * slot is the tile's own, and a tile does not send its settings to the client - so where a machine
+     * decides how much a slot holds, the client reads whatever the inventory was built with and predicts a
+     * click wrongly. Both are consulted, and the lower wins, which is right on either side.
+     */
+    public AppEngSlot setStackLimitCap(final IntSupplier stackLimitCap) {
+        this.stackLimitCap = stackLimitCap;
+        return this;
     }
 
     @Override

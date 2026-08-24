@@ -19,30 +19,38 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.client.gui.AEBaseGui;
+import appeng.api.config.InscriberInputCapacity;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
+import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiProgressBar;
 import appeng.client.gui.widgets.GuiProgressBar.Direction;
 import appeng.container.implementations.ContainerInscriber;
-import appeng.container.implementations.ContainerUpgradeable;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.PacketConfigButton;
 import appeng.tile.misc.TileInscriber;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
+import org.lwjgl.input.Mouse;
+
+import javax.annotation.Nullable;
+import java.io.IOException;
 
 
-public class GuiInscriber extends AEBaseGui {
+public class GuiInscriber extends GuiUpgradeable {
 
     private final ContainerInscriber cvc;
     private GuiProgressBar pb;
+
+    private GuiImgButton separateSides;
+    private GuiImgButton autoExport;
+    private GuiImgButton bufferSize;
 
     public GuiInscriber(final InventoryPlayer inventoryPlayer, final TileInscriber te) {
         super(new ContainerInscriber(inventoryPlayer, te));
         this.cvc = (ContainerInscriber) this.inventorySlots;
         this.ySize = 176;
-        this.xSize = this.hasToolbox() ? 246 : 211;
-    }
-
-    private boolean hasToolbox() {
-        return ((ContainerUpgradeable) this.inventorySlots).hasToolbox();
     }
 
     @Override
@@ -54,30 +62,52 @@ public class GuiInscriber extends AEBaseGui {
     }
 
     @Override
+    protected void addButtons() {
+        this.separateSides = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.INSCRIBER_SEPARATE_SIDES, YesNo.NO);
+        this.autoExport = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.AUTO_EXPORT, YesNo.NO);
+        this.bufferSize = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.SIXTY_FOUR);
+
+        this.buttonList.add(this.separateSides);
+        this.buttonList.add(this.autoExport);
+        this.buttonList.add(this.bufferSize);
+    }
+
+    @Override
+    protected void actionPerformed(final GuiButton btn) throws IOException {
+        super.actionPerformed(btn);
+
+        if (btn == this.separateSides || btn == this.autoExport || btn == this.bufferSize) {
+            NetworkHandler.instance().sendToServer(new PacketConfigButton(((GuiImgButton) btn).getSetting(), Mouse.isButtonDown(1)));
+        }
+    }
+
+    @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        super.drawFG(offsetX, offsetY, mouseX, mouseY);
+
         this.pb.setFullMsg(this.cvc.getCurrentProgress() * 100 / this.cvc.getMaxProgress() + "%");
 
-        this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.Inscriber.getLocal()), 8, 6, 4210752);
-        this.fontRenderer.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
+        this.separateSides.set(this.cvc.getSeparateSides());
+        this.autoExport.set(this.cvc.getAutoExport());
+        this.bufferSize.set(this.cvc.getBufferSize());
     }
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.bindTexture("guis/inscriber.png");
         this.pb.x = 135 + this.guiLeft;
         this.pb.y = 39 + this.guiTop;
 
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, 211 - 34, this.ySize);
-
-        if (this.drawUpgrades()) {
-            this.drawTexturedModalRect(offsetX + 177, offsetY, 177, 0, 35, 14 + this.cvc.availableUpgrades() * 18);
-        }
-        if (this.hasToolbox()) {
-            this.drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90, 178, this.ySize - 90, 68, 68);
-        }
+        super.drawBG(offsetX, offsetY, mouseX, mouseY);
     }
 
-    private boolean drawUpgrades() {
-        return true;
+    @Nullable
+    @Override
+    protected GuiText getName() {
+        return GuiText.Inscriber;
+    }
+
+    @Override
+    protected String getBackground() {
+        return "guis/inscriber.png";
     }
 }

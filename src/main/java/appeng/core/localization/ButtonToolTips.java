@@ -212,7 +212,29 @@ public enum ButtonToolTips {
 
     FilterMode,
     FilterModeKeep,
-    FilterModeClear;
+    FilterModeClear,
+
+    InscriberSideness,
+    InscriberSidenessSeparate,
+    InscriberSidenessCombined,
+    AutoExport,
+    AutoExportOn,
+    AutoExportOff,
+    InscriberBufferSize,
+    InscriberBufferVeryLow,
+    InscriberBufferLow,
+    InscriberBufferHigh,
+
+    // Which faces of a machine reach a slot, said in the slot's own tooltip while it stands empty
+    CanInsertFrom,
+    CanExtractFrom,
+    SideTop,
+    SideBottom,
+    SideLeft,
+    SideRight,
+    SideFront,
+    SideBack,
+    SideAny;
 
     private final String root;
 
