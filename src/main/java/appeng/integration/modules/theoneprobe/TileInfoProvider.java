@@ -43,8 +43,9 @@ public final class TileInfoProvider implements IProbeInfoProvider {
         final ITileProbInfoProvider energyCell = new CraftingMonitorInfoProvider();
         final ITileProbInfoProvider craftingBlock = new PowerStateInfoProvider();
         final ITileProbInfoProvider craftingMonitor = new PowerStorageInfoProvider();
+        final ITileProbInfoProvider resonanceGenerator = new CrystalResonanceGeneratorInfoProvider();
 
-        this.providers = Lists.newArrayList(charger, energyCell, craftingBlock, craftingMonitor);
+        this.providers = Lists.newArrayList(charger, energyCell, craftingBlock, craftingMonitor, resonanceGenerator);
     }
 
     @Override

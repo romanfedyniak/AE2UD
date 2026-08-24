@@ -137,6 +137,7 @@ public final class ApiBlocks implements IBlocks {
     private final ITileDefinition condenser;
     private final ITileDefinition energyAcceptor;
     private final ITileDefinition vibrationChamber;
+    private final ITileDefinition crystalResonanceGenerator;
     private final ITileDefinition quartzGrowthAccelerator;
     private final ITileDefinition energyCell;
     private final ITileDefinition energyCellDense;
@@ -359,6 +360,10 @@ public final class ApiBlocks implements IBlocks {
         this.vibrationChamber = registry.block("vibration_chamber", BlockVibrationChamber::new)
                 .features(AEFeature.POWER_GEN)
                 .tileEntity(new TileEntityDefinition(TileVibrationChamber.class))
+                .build();
+        this.crystalResonanceGenerator = registry.block("crystal_resonance_generator", BlockCrystalResonanceGenerator::new)
+                .features(AEFeature.CRYSTAL_RESONANCE_GENERATOR)
+                .tileEntity(new TileEntityDefinition(TileCrystalResonanceGenerator.class))
                 .build();
         this.quartzGrowthAccelerator = registry.block("quartz_growth_accelerator", BlockQuartzGrowthAccelerator::new)
                 .tileEntity(new TileEntityDefinition(TileQuartzGrowthAccelerator.class))
@@ -831,6 +836,11 @@ public final class ApiBlocks implements IBlocks {
     @Override
     public ITileDefinition vibrationChamber() {
         return this.vibrationChamber;
+    }
+
+    @Override
+    public ITileDefinition crystalResonanceGenerator() {
+        return this.crystalResonanceGenerator;
     }
 
     @Override

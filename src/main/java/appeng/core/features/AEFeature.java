@@ -113,6 +113,7 @@ public enum AEFeature {
     ENERGY_CELLS("EnergyCells", Constants.CATEGORY_ENERGY),
     ENERGY_ACCEPTOR("EnergyAcceptor", Constants.CATEGORY_ENERGY),
     DENSE_ENERGY_CELLS("DenseEnergyCells", Constants.CATEGORY_ENERGY),
+    CRYSTAL_RESONANCE_GENERATOR("CrystalResonanceGenerator", Constants.CATEGORY_ENERGY, "The block that generates power without fuel. Turning this off removes the block and its recipe; leaving it on and setting crystalResonanceGenerator.rate to zero keeps the block but makes it generate nothing."),
 
     P2P_TUNNEL_ME("P2PTunnelME", Constants.CATEGORY_P2P_TUNNELS),
     P2P_TUNNEL_INTERFACE("P2PTunnelInterface", Constants.CATEGORY_P2P_TUNNELS),

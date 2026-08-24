@@ -1972,6 +1972,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     of the crafting grid depends on them. `Settings` is the frozen enum every `GuiImgButton` is keyed by,
     which is the only reason a purely visual filter had to be recorded here at all.
 
+16. **The passive energy generator** (`appeng.api.networking.energy.IPassiveEnergyGenerator`, plus
+    `IBlocks.crystalResonanceGenerator()`) - additive, and nothing already written has to answer it.
+    Modern AE2 hangs it on the grid node as an `IGridNodeService`; 1.12 has no node services, so here the
+    machine implements it directly and `EnergyGridCache` picks it up on `addNode`, the way it already picks
+    up `IEnergyGridProvider`. Same three methods and the same rule they encode: one generator to an energy
+    grid, quartz fibre included.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

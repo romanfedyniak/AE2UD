@@ -31,6 +31,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - A crafting CPU can be required to fit inside a single chunk, through `requireSingleChunk` in the config's `craftingCPU` section. It is off by default and nothing changes while it is off. Turned on, a multiblock reaching into a neighbouring chunk does not form at all - the same refusal a CPU larger than the size limit already gets - and one already built across a chunk border falls apart the next time it is recalculated, on the next block update or chunk load there.
 - `ICraftingGrid.beginCraftingJob` takes a `CraftingMode`, and `ICraftingJob` reports the one it was planned in.
 
+### Energy
+
+- The **Crystal Resonance Generator** is here, from [modern Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2): a block that makes power out of nothing, at 20 AE/t by default. Only one of them runs on a network, however many are built - the rest are held quiet, and quartz fibre does not get around it, since the grids a fibre ties together count as one for this. A suppressed generator says so in Waila and The One Probe. It asks for no channel and keeps generating while the network is dark, so it can bring a network that ran out of power back on its own. It joins the grid through the face it stands on, so it goes onto a cable or a machine, and the rate is configurable through `rate` in the config's `crystalResonanceGenerator` section, where zero turns it off. Crafted from gold rather than the copper modern AE2 asks for, since 1.12 has none: four gold ingots, a block of fluix, a charged certus quartz crystal and three iron ingots.
+
 ### Patterns
 
 - A recipe transferred from HEI into a processing pattern now fills the grid from the first slot onwards instead of copying the gaps out of the recipe screen. A machine category that draws its inputs spread across a wider layout was leaving the ingredients scattered through the pattern with empty slots between them. A crafting recipe still keeps its shape, because there the position is the recipe.

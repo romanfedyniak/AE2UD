@@ -27,6 +27,7 @@ import appeng.api.networking.energy.*;
 import appeng.api.networking.events.*;
 import appeng.api.networking.events.MENetworkPowerStorage.PowerEventType;
 import appeng.api.networking.pathing.IPathingGrid;
+import appeng.api.util.DimensionalCoord;
 import appeng.me.Grid;
 import appeng.me.GridNode;
 import appeng.me.energy.EnergyThreshold;
@@ -71,6 +72,11 @@ public class EnergyGridCache implements IEnergyGrid {
     private boolean ongoingInjectOperation = false;
 
     private final Multiset<IEnergyGridProvider> energyGridProviders = HashMultiset.create();
+
+    /**
+     * The passive generators sitting on this grid, by the node each of them came in on.
+     */
+    private final Map<IGridNode, IPassiveEnergyGenerator> passiveGenerators = new LinkedHashMap<>();
     private final IGrid myGrid;
     private final HashMap<IGridNode, IEnergyWatcher> watchers = new HashMap<>();
 
@@ -157,6 +163,10 @@ public class EnergyGridCache implements IEnergyGrid {
 
     @Override
     public void onUpdateTick() {
+        // Before the power check below, so that a network the generator is meant to revive comes back this
+        // tick rather than the next one.
+        this.runPassiveGenerators();
+
         if (!this.interests.isEmpty()) {
             final double oldPower = this.lastStoredPower;
             this.lastStoredPower = this.getStoredPower();
@@ -206,6 +216,71 @@ public class EnergyGridCache implements IEnergyGrid {
         }
 
         this.availableTicksSinceUpdate++;
+    }
+
+    /**
+     * One passive generator runs per energy grid, and quartz fibre does not get around it: the grids it ties
+     * this one to are searched as well. Every grid that holds a generator reaches the same verdict on its own,
+     * so the winner is injected exactly once, by the grid it belongs to.
+     */
+    private void runPassiveGenerators() {
+        if (this.passiveGenerators.isEmpty()) {
+            return;
+        }
+
+        IGridNode bestNode = null;
+        IPassiveEnergyGenerator best = null;
+
+        final Queue<IEnergyGridProvider> toVisit = new ArrayDeque<>();
+        final Set<IEnergyGridProvider> visited = new HashSet<>();
+        toVisit.add(this);
+
+        while (!toVisit.isEmpty()) {
+            final IEnergyGridProvider next = toVisit.poll();
+            if (!visited.add(next)) {
+                continue;
+            }
+
+            if (next instanceof EnergyGridCache) {
+                for (final Map.Entry<IGridNode, IPassiveEnergyGenerator> candidate : ((EnergyGridCache) next).passiveGenerators.entrySet()) {
+                    if (best == null || isBetterGenerator(candidate.getKey(), candidate.getValue(), bestNode, best)) {
+                        bestNode = candidate.getKey();
+                        best = candidate.getValue();
+                    }
+                }
+            }
+
+            toVisit.addAll(next.providers());
+        }
+
+        for (final IPassiveEnergyGenerator generator : this.passiveGenerators.values()) {
+            generator.setSuppressed(generator != best);
+        }
+
+        if (best != null && this.passiveGenerators.containsKey(bestNode)) {
+            this.injectPower(best.getRate(), Actionable.MODULATE);
+        }
+    }
+
+    private static boolean isBetterGenerator(final IGridNode node, final IPassiveEnergyGenerator generator, final IGridNode bestNode, final IPassiveEnergyGenerator best) {
+        final double rate = generator.getRate();
+        final double bestRate = best.getRate();
+
+        if (rate != bestRate) {
+            return rate > bestRate;
+        }
+
+        // Between equals, the one nearest the world origin, so that a reload does not hand the job to
+        // whichever of them the grid happened to look at first.
+        final DimensionalCoord here = node.getGridBlock().getLocation();
+        final DimensionalCoord there = bestNode.getGridBlock().getLocation();
+        if (here.x != there.x) {
+            return here.x < there.x;
+        }
+        if (here.y != there.y) {
+            return here.y < there.y;
+        }
+        return here.z < there.z;
     }
 
     @Override
@@ -469,6 +544,8 @@ public class EnergyGridCache implements IEnergyGrid {
             this.energyGridProviders.remove(machine);
         }
 
+        this.passiveGenerators.remove(node);
+
         // idle draw.
         final GridNode gridNode = (GridNode) node;
         this.drainPerTick -= gridNode.getPreviousDraw();
@@ -529,6 +606,10 @@ public class EnergyGridCache implements IEnergyGrid {
     public void addNode(final IGridNode node, final IGridHost machine) {
         if (machine instanceof IEnergyGridProvider) {
             this.energyGridProviders.add((IEnergyGridProvider) machine);
+        }
+
+        if (machine instanceof IPassiveEnergyGenerator) {
+            this.passiveGenerators.put(node, (IPassiveEnergyGenerator) machine);
         }
 
         // idle draw...

@@ -158,6 +158,8 @@ public interface IBlocks
 
 	ITileDefinition vibrationChamber();
 
+	ITileDefinition crystalResonanceGenerator();
+
 	ITileDefinition quartzGrowthAccelerator();
 
 	ITileDefinition energyCell();

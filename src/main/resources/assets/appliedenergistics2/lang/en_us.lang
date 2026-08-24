@@ -6,6 +6,7 @@ tile.appliedenergistics2.chest.name=ME Chest
 tile.appliedenergistics2.condenser.name=Matter Condenser
 tile.appliedenergistics2.controller.name=ME Controller
 tile.appliedenergistics2.crank.name=Wooden Crank
+tile.appliedenergistics2.crystal_resonance_generator.name=Crystal Resonance Generator
 tile.appliedenergistics2.creative_energy_cell.name=Creative Energy Cell
 tile.appliedenergistics2.dense_energy_cell.name=Dense Energy Cell
 tile.appliedenergistics2.energy_cell.name=Energy Cell
@@ -525,6 +526,7 @@ waila.appliedenergistics2.p2p_output_one_input=Linked (Output Side) - 1 Input
 waila.appliedenergistics2.p2p_output_many_inputs=Linked (Output Side) - §2%d§r Inputs
 waila.appliedenergistics2.P2POutput=Linked (Output Side)
 waila.appliedenergistics2.EnchantedWith=Enchanted with:
+waila.appliedenergistics2.Suppressed=Suppressed by another generator
 
 // TheOneProbe
 theoneprobe.appliedenergistics2.crafting=Crafting: §2%1$s§r
@@ -544,6 +546,7 @@ theoneprobe.appliedenergistics2.p2p_output_many_inputs=Linked (Output Side) - §
 theoneprobe.appliedenergistics2.p2p_output=Linked (Output Side)
 theoneprobe.appliedenergistics2.p2p_frequency=Frequency: §5%1$s§r
 theoneprobe.appliedenergistics2.stored_energy=§2%1$d§к / §4%2$d§r
+theoneprobe.appliedenergistics2.suppressed=Suppressed by another generator
 
 // Items
 item.appliedenergistics2.storage_cell_1k.name=§61k§r ME Storage Cell

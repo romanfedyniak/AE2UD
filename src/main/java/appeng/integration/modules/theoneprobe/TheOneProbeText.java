@@ -46,7 +46,9 @@ public enum TheOneProbeText {
     CONTAINS,
     CHANNELS,
 
-    STORED_ENERGY;
+    STORED_ENERGY,
+
+    SUPPRESSED;
 
     private final String root;
 

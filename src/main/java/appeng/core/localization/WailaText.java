@@ -42,7 +42,8 @@ public enum WailaText {
 
     Contains,
     Channels,
-    EnchantedWith;
+    EnchantedWith,
+    Suppressed;
 
     private final String root;
 

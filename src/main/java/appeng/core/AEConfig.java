@@ -83,6 +83,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private int craftingCPUMaxSizeX = 17;
     private int craftingCPUMaxSizeY = 17;
     private int craftingCPUMaxSizeZ = 17;
+    private double crystalResonanceGeneratorRate = 20.0;
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
     private boolean showCraftableTooltip = true;
     private boolean showPlacementPreview = true;
@@ -254,6 +255,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
             this.craftingCPUMaxSizeY = this.getCraftingCPUMaxSize("maxSizeY", this.craftingCPUMaxSizeY);
             this.craftingCPUMaxSizeZ = this.getCraftingCPUMaxSize("maxSizeZ", this.craftingCPUMaxSizeZ);
             this.craftingCPURequiresSingleChunk = this.get("craftingCPU", "requireSingleChunk", this.craftingCPURequiresSingleChunk, "Refuse to form a crafting CPU that reaches into more than one chunk. A CPU already built across a chunk border falls apart the next time it is recalculated.").getBoolean(this.craftingCPURequiresSingleChunk);
+        }
+
+        if (this.isFeatureEnabled(AEFeature.CRYSTAL_RESONANCE_GENERATOR)) {
+            this.crystalResonanceGeneratorRate = Math.max(0, this.get("crystalResonanceGenerator", "rate", this.crystalResonanceGeneratorRate, "How much energy a crystal resonance generator makes per tick. Only one of them runs on a network, whatever the number built. Zero turns them off.").getDouble(this.crystalResonanceGeneratorRate));
         }
 
         this.updatable = true;
@@ -565,6 +570,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public int getCraftingCPUMaxSizeZ() {
         return this.craftingCPUMaxSizeZ;
+    }
+
+    public double getCrystalResonanceGeneratorRate() {
+        return this.crystalResonanceGeneratorRate;
     }
 
     /**

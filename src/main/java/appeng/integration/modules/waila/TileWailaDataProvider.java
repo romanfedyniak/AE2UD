@@ -20,6 +20,7 @@ package appeng.integration.modules.waila;
 
 
 import appeng.integration.modules.waila.tile.ChargerWailaDataProvider;
+import appeng.integration.modules.waila.tile.CrystalResonanceGeneratorWailaDataProvider;
 import appeng.integration.modules.waila.tile.CraftingMonitorWailaDataProvider;
 import appeng.integration.modules.waila.tile.PowerStateWailaDataProvider;
 import appeng.integration.modules.waila.tile.PowerStorageWailaDataProvider;
@@ -58,8 +59,9 @@ public final class TileWailaDataProvider implements IWailaDataProvider {
         final IWailaDataProvider energyCell = new PowerStorageWailaDataProvider();
         final IWailaDataProvider craftingBlock = new PowerStateWailaDataProvider();
         final IWailaDataProvider craftingMonitor = new CraftingMonitorWailaDataProvider();
+        final IWailaDataProvider resonanceGenerator = new CrystalResonanceGeneratorWailaDataProvider();
 
-        this.providers = Lists.newArrayList(charger, energyCell, craftingBlock, craftingMonitor);
+        this.providers = Lists.newArrayList(charger, energyCell, craftingBlock, craftingMonitor, resonanceGenerator);
     }
 
     @Override
