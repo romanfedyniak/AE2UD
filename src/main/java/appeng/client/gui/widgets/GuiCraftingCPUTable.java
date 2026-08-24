@@ -89,9 +89,10 @@ public class GuiCraftingCPUTable extends Gui {
     private static final int BUTTON_ROW_HEIGHT = 20;
     private static final int BUTTON_LEFT = 3;
     private static final int BUTTON_SPACING = 20;
-    private static final int SEARCH_LEFT = 3;
-    private static final int SEARCH_TOP = 3;
-    private static final int SEARCH_WIDTH = 88;
+    /** The sunken frame around the search field is painted into the panel texture, over exactly this box. */
+    private static final int SEARCH_LEFT = 8;
+    private static final int SEARCH_TOP = 4;
+    private static final int SEARCH_WIDTH = 84;
     private static final int SEARCH_HEIGHT = 12;
 
     private final AEBaseGui parent;
@@ -286,8 +287,9 @@ public class GuiCraftingCPUTable extends Gui {
         this.parent.drawTexturedModalRect(tableLeft, offsetY + y, 0, 133, WIDTH, 31);
 
         if (this.searchField != null) {
+            // Only the fill, which is what darkens when the field takes the keyboard - its frame is in the
+            // texture drawn above. drawRect leaves its colour behind for whatever is textured next.
             this.searchField.drawTextBox();
-            // The field fills itself with drawRect, which leaves that colour behind for the textured rows.
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
