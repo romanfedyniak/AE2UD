@@ -32,7 +32,9 @@ import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.properties.PropertyBool;
 import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockRenderLayer;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
@@ -101,6 +103,19 @@ public class BlockCraftingUnit extends AEBaseTileBlock {
         boolean p = state.getValue(POWERED);
         boolean f = state.getValue(FORMED);
         return (p ? 1 : 0) | (f ? 2 : 0);
+    }
+
+    @Override
+    public void onBlockPlacedBy(final World w, final BlockPos pos, final IBlockState state, final EntityLivingBase placer, final ItemStack is) {
+        super.onBlockPlacedBy(w, pos, state, placer, is);
+
+        // The multiblock is not recalculated until the end of the tick, so the placer has to be remembered.
+        if (!w.isRemote && placer instanceof EntityPlayer) {
+            final TileCraftingTile cp = this.getTileEntity(w, pos);
+            if (cp != null) {
+                cp.setPlacedBy((EntityPlayer) placer);
+            }
+        }
     }
 
     @Override

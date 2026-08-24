@@ -33,6 +33,7 @@ import appeng.api.util.AEPartLocation;
 import appeng.api.util.WorldCoord;
 import appeng.block.crafting.BlockCraftingUnit;
 import appeng.block.crafting.BlockCraftingUnit.CraftingUnitType;
+import appeng.core.localization.PlayerMessages;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.implementations.CraftingCPUCalculator;
@@ -42,6 +43,7 @@ import appeng.me.helpers.AENetworkProxyMultiblock;
 import appeng.tile.grid.AENetworkTile;
 import appeng.util.Platform;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -57,6 +59,8 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     private NBTTagCompound previousState = null;
     private boolean isCoreBlock = false;
     private CraftingCPUCluster cluster;
+    /** Set while the block is being placed and cleared by the next recalculation, which is at the end of that tick. */
+    private EntityPlayer placedBy;
     /**
      * This block's opinion on the CPU's selection mode, or null for a block that has never been told one. The
      * mode lives in every block rather than in the cluster's own state so that it survives the cluster being
@@ -119,6 +123,21 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
 
     public void updateMultiBlock() {
         this.calc.calculateMultiblock(this.world, this.getLocation());
+        this.placedBy = null;
+    }
+
+    public void setPlacedBy(final EntityPlayer player) {
+        this.placedBy = player;
+    }
+
+    /**
+     * Only whoever just placed this unit hears why the CPU did not form. Every other unit in the group
+     * runs the same check and would repeat the same message, and a chunk load runs it with nobody there.
+     */
+    public void reportFormationFailure(final PlayerMessages message, final Object... params) {
+        if (this.placedBy != null) {
+            this.placedBy.sendStatusMessage(message.get(params), true);
+        }
     }
 
     public void updateStatus(final CraftingCPUCluster c) {

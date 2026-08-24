@@ -73,6 +73,10 @@ tile.appliedenergistics2.sky_stone_slab.name=Sky Stone Slab
 
 // Chat Messages
 chat.appliedenergistics2.ChestCannotReadStorageCell=ME Chest cannot read storage cell.
+chat.appliedenergistics2.CraftingCPUTooLarge=Crafting CPU is too large - at most %s x %s x %s blocks.
+chat.appliedenergistics2.CraftingCPUCrossesChunks=Crafting CPU has to stay within one chunk.
+chat.appliedenergistics2.CraftingCPUNoStorage=Crafting CPU needs at least one crafting storage.
+chat.appliedenergistics2.CraftingCPUNotSolid=Crafting CPU has to be a solid box of blocks.
 chat.appliedenergistics2.CraftingImageSaved=Saved to %s
 chat.appliedenergistics2.MachineHighlighted=Highlighted %s machine(s)
 chat.appliedenergistics2.MachineNotFound=No machine of that kind is in range

@@ -92,6 +92,8 @@ public abstract class MBCalculator {
                     c.updateStatus(updateGrid);
                     return;
                 }
+
+                this.onTilesOutsideRegion();
             }
         } catch (final Throwable err) {
             AELog.debug(err);
@@ -102,6 +104,13 @@ public abstract class MBCalculator {
 
     private boolean isValidTileAt(final World w, final int x, final int y, final int z) {
         return this.isValidTile(w.getTileEntity(new BlockPos(x, y, z)));
+    }
+
+    /**
+     * Blocks of the same kind touch the box the structure was measured into, so it is not a box at all.
+     * Nothing has to be done about it; a subclass can use this to say why it refused to form.
+     */
+    protected void onTilesOutsideRegion() {
     }
 
     /**

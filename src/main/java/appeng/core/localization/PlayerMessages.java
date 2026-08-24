@@ -45,6 +45,10 @@ public enum PlayerMessages {
     InterfaceInOtherDimParam,
     InterfaceInOtherDim,
     InterfaceHighlighted,
+    CraftingCPUTooLarge,
+    CraftingCPUCrossesChunks,
+    CraftingCPUNoStorage,
+    CraftingCPUNotSolid,
     ;
 
     public ITextComponent get(Object... params) {

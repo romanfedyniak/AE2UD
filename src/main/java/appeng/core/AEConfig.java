@@ -79,6 +79,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private boolean useColoredCraftingStatus;
     private boolean disableColoredCableRecipesInJEI = true;
     private int craftingCalculationTimePerTick = 5;
+    private boolean craftingCPURequiresSingleChunk = false;
+    private int craftingCPUMaxSizeX = 17;
+    private int craftingCPUMaxSizeY = 17;
+    private int craftingCPUMaxSizeZ = 17;
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
     private boolean showCraftableTooltip = true;
     private boolean showPlacementPreview = true;
@@ -242,6 +246,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
         if (this.isFeatureEnabled(AEFeature.CRAFTING_CPU)) {
             this.craftingCalculationTimePerTick = this.get("craftingCPU", "craftingCalculationTimePerTick", this.craftingCalculationTimePerTick).getInt(this.craftingCalculationTimePerTick);
+            this.craftingCPUMaxSizeX = this.getCraftingCPUMaxSize("maxSizeX", this.craftingCPUMaxSizeX);
+            this.craftingCPUMaxSizeY = this.getCraftingCPUMaxSize("maxSizeY", this.craftingCPUMaxSizeY);
+            this.craftingCPUMaxSizeZ = this.getCraftingCPUMaxSize("maxSizeZ", this.craftingCPUMaxSizeZ);
+            this.craftingCPURequiresSingleChunk = this.get("craftingCPU", "requireSingleChunk", this.craftingCPURequiresSingleChunk, "Refuse to form a crafting CPU that reaches into more than one chunk. A CPU already built across a chunk border falls apart the next time it is recalculated.").getBoolean(this.craftingCPURequiresSingleChunk);
         }
 
         this.updatable = true;
@@ -537,6 +545,31 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public int getCraftingCalculationTimePerTick() {
         return this.craftingCalculationTimePerTick;
+    }
+
+    public boolean craftingCPURequiresSingleChunk() {
+        return this.craftingCPURequiresSingleChunk;
+    }
+
+    public int getCraftingCPUMaxSizeX() {
+        return this.craftingCPUMaxSizeX;
+    }
+
+    public int getCraftingCPUMaxSizeY() {
+        return this.craftingCPUMaxSizeY;
+    }
+
+    public int getCraftingCPUMaxSizeZ() {
+        return this.craftingCPUMaxSizeZ;
+    }
+
+    /**
+     * Every recalculation walks the whole box, so a far larger CPU costs more each time one of its
+     * blocks changes. 17 is the size AE has always allowed.
+     */
+    private int getCraftingCPUMaxSize(final String key, final int fallback) {
+        final int size = this.get("craftingCPU", key, fallback, "How many blocks long a crafting CPU may be along this axis, from 1 to 64. AE's own limit is 17.").getInt(fallback);
+        return Math.min(Math.max(size, 1), 64);
     }
 
     public PowerUnits getSelectedPowerUnit() {
