@@ -30,7 +30,10 @@ import appeng.core.sync.packets.PacketValueConfig;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 
+import java.awt.Rectangle;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class GuiNetworkTool extends AEBaseGui {
@@ -63,6 +66,13 @@ public class GuiNetworkTool extends AEBaseGui {
                 .getLocal());
 
         this.buttonList.add(this.tFacades);
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(1);
+        addButtonArea(area, this.tFacades);
+        return area;
     }
 
     @Override

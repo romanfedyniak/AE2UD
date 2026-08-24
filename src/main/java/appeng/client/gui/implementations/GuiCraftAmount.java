@@ -53,7 +53,7 @@ import org.lwjgl.input.Keyboard;
 import javax.annotation.Nullable;
 import java.awt.Rectangle;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -211,12 +211,9 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        if (this.unitToggle == null) {
-            return Collections.emptyList();
-        }
-
-        return Collections.singletonList(new Rectangle(this.unitToggle.x - 1, this.unitToggle.y - 1,
-                this.unitToggle.width + 2, this.unitToggle.height + 2));
+        final List<Rectangle> area = new ArrayList<>();
+        addButtonArea(area, this.unitToggle);
+        return area;
     }
 
     /**

@@ -520,16 +520,21 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        List<Rectangle> exclusionArea = new ArrayList<>();
+        final List<Rectangle> exclusionArea = new ArrayList<>();
 
-        int yOffset = guiTop + 8 + jeiOffset;
+        // Measured rather than counted: counting the column assumed every button in it is visible, twenty
+        // pixels apart and starts where jeiOffset puts the first one, so any change to the layout would
+        // have had to be made here as well.
+        for (final GuiButton button : this.buttonList) {
+            if (button.x < this.guiLeft) {
+                addButtonArea(exclusionArea, button);
+            }
+        }
 
-        int visibleButtons = (int) this.buttonList.stream().filter(v -> v.enabled && v.x < guiLeft).count();
-        Rectangle sortDir = new Rectangle(guiLeft - 18, yOffset, 20, visibleButtons * 20 + visibleButtons - 2);
-        exclusionArea.add(sortDir);
+        addButtonArea(exclusionArea, this.craftingStatusBtn);
 
         if (this.viewCell) {
-            Rectangle viewMode = new Rectangle(guiLeft + 205, yOffset - 4, 24, 19 * monitorableContainer.getViewCells().length);
+            Rectangle viewMode = new Rectangle(guiLeft + 205, guiTop + 4 + jeiOffset, 24, 19 * monitorableContainer.getViewCells().length);
             exclusionArea.add(viewMode);
         }
 

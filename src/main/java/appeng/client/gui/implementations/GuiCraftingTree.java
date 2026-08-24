@@ -401,12 +401,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         super.handleMouseInput();
     }
 
-    private static void addButtonArea(final List<Rectangle> area, final GuiButton button) {
-        if (button != null) {
-            area.add(new Rectangle(button.x - 1, button.y - 1, button.width + 2, button.height + 2));
-        }
-    }
-
     @Override
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> area = new ArrayList<>();

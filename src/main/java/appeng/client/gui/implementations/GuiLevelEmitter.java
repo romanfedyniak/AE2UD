@@ -218,11 +218,8 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        List<Rectangle> exclusionArea = new ArrayList<>(super.getJEIExclusionArea());
-        if (this.unitToggle.visible) {
-            exclusionArea.add(new Rectangle(this.unitToggle.x - 1, this.unitToggle.y - 1,
-                    this.unitToggle.width + 2, this.unitToggle.height + 2));
-        }
+        final List<Rectangle> exclusionArea = new ArrayList<>(super.getJEIExclusionArea());
+        addButtonArea(exclusionArea, this.unitToggle);
         return exclusionArea;
     }
 

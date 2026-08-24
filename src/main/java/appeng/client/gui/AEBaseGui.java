@@ -226,6 +226,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     }
 
     /**
+     * Reports one button to HEI, so that its item list is kept off it. Only the buttons a screen draws
+     * outside its own window need this - HEI already leaves the window alone.
+     */
+    protected static void addButtonArea(final List<Rectangle> area, final GuiButton button) {
+        if (button != null && button.visible) {
+            area.add(new Rectangle(button.x - 1, button.y - 1, button.width + 2, button.height + 2));
+        }
+    }
+
+    /**
      * @return true if the stack on the cursor holds a fluid, i.e. clicking a filter slot with it should set
      *         the filter to that fluid rather than to the container item.
      */

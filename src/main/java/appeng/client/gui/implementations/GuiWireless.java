@@ -31,7 +31,10 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 import org.lwjgl.input.Mouse;
 
+import java.awt.Rectangle;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class GuiWireless extends AEBaseGui {
@@ -61,6 +64,13 @@ public class GuiWireless extends AEBaseGui {
 
         this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEConfig.instance().selectedPowerUnit());
         this.buttonList.add(this.units);
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(1);
+        addButtonArea(area, this.units);
+        return area;
     }
 
     @Override

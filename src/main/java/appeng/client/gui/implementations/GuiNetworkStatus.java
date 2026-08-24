@@ -44,7 +44,9 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Mouse;
 
+import java.awt.Rectangle;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -107,6 +109,14 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
         this.setScrollBar();
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(2);
+        addButtonArea(area, this.units);
+        addButtonArea(area, this.terminalStyleBox);
+        return area;
     }
 
     @Override

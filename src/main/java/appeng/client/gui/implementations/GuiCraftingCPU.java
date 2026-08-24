@@ -451,11 +451,9 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> areas = new ArrayList<>(3);
-        for (final GuiImgButton button : new GuiImgButton[] { this.terminalStyleBox, this.toggleHideStored, this.selectionMode }) {
-            if (button != null && button.visible) {
-                areas.add(new Rectangle(button.x - 1, button.y - 1, button.width + 2, button.height + 2));
-            }
-        }
+        addButtonArea(areas, this.terminalStyleBox);
+        addButtonArea(areas, this.toggleHideStored);
+        addButtonArea(areas, this.selectionMode);
         return areas;
     }
 

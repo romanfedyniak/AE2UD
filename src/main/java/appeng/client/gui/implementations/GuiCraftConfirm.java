@@ -346,22 +346,9 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> area = new ArrayList<>();
         area.add(this.cpuTable.getExclusionArea());
-
-        if (this.terminalStyleBox != null) {
-            area.add(new Rectangle(this.terminalStyleBox.x - 1, this.terminalStyleBox.y - 1,
-                    this.terminalStyleBox.width + 2, this.terminalStyleBox.height + 2));
-        }
-
-        if (this.saveImage != null) {
-            area.add(new Rectangle(this.saveImage.x - 1, this.saveImage.y - 1,
-                    this.saveImage.width + 2, this.saveImage.height + 2));
-        }
-
-        if (this.showTree != null) {
-            area.add(new Rectangle(this.showTree.x - 1, this.showTree.y - 1,
-                    this.showTree.width + 2, this.showTree.height + 2));
-        }
-
+        addButtonArea(area, this.terminalStyleBox);
+        addButtonArea(area, this.saveImage);
+        addButtonArea(area, this.showTree);
         return area;
     }
 

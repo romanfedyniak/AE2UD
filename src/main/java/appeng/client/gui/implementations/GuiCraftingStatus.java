@@ -165,8 +165,9 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
+        final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
         area.add(this.cpuTable.getExclusionArea());
+        addButtonArea(area, this.originalGuiBtn);
         return area;
     }
 

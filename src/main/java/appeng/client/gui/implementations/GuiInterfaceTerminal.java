@@ -216,10 +216,12 @@ public class GuiInterfaceTerminal extends AEBaseGui {
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        final int top = this.terminalStyleBox.y - 1;
-        final int bottom = this.guiButtonAssemblersOnly.y + this.guiButtonAssemblersOnly.height + 1;
-        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1, top,
-                this.terminalStyleBox.width + 2, bottom - top));
+        final List<Rectangle> area = new ArrayList<>(4);
+        addButtonArea(area, this.terminalStyleBox);
+        addButtonArea(area, this.guiButtonBrokenRecipes);
+        addButtonArea(area, this.guiButtonHideFull);
+        addButtonArea(area, this.guiButtonAssemblersOnly);
+        return area;
     }
 
     @Override
