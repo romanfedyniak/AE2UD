@@ -9,11 +9,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the mod version comes from `git describe`, which needs the tags
-      - name: Set up OpenJDK 17
+      - name: Set up OpenJDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'adopt' # You can choose other OpenJDK distributions.
+          java-version: '21' # the Gradle process only; the mod still compiles to Java 8 bytecode
+          distribution: 'temurin' # not 'adopt', which has no build past Java 16
       # No `updateBuildScript` step here: it overwrites build.gradle with the upstream template, whose
       # pinned plugin versions this fork has had to move off. gradle.properties keeps
       # autoUpdateBuildScript=false for the same reason - updating the buildscript is a deliberate act.

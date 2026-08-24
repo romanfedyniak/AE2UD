@@ -36,6 +36,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Ingredients sit in real slots, so HEI looks recipes up from them with its own keys, and a fluid reads as the fluid rather than as the placeholder holding it. Clicking one asks HEI directly, the way a click in its own item list does - left for what makes it, right for what it is used for - since a click in a read-only view has nothing else to do. Closing HEI comes back to the pattern, and closing the pattern comes back to where it was opened from.
 - Nothing is asked of the server: the recipe is decoded from the pattern the cursor is already on. The screen opens over whichever one was already there and puts it back when it closes, so looking into a pattern does not cost the terminal being browsed.
 
+### Build
+
+- Gradle itself now runs on Java 21. RetroFuturaGradle deprecated running it on anything older and its next major version drops that support outright, so the three workflows moved off Java 17 - the build workflow to Temurin as well, since the `adopt` distribution it asked for has no build past Java 16. Building locally needs a JDK 21 for the Gradle process too. Nothing about the mod changed: it is still compiled through a Java 17 toolchain with Jabel and still ships Java 8 bytecode.
+
 ## 1.5.0 - 2026-08-23
 
 ### Pattern terminal

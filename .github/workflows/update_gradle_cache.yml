@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21' # the Gradle process only; the mod still compiles to Java 8 bytecode
 
       - name: Update Cache
         uses: gradle/gradle-build-action@v2
