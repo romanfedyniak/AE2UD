@@ -58,6 +58,9 @@ public class CableBusRenderState {
     // connections contains a corresponding entry.
     private EnumMap<EnumFacing, Integer> channelsOnSide = new EnumMap<>(EnumFacing.class);
 
+    // how many this cable could carry, so the indicator can be drawn as a fraction of it
+    private int channelCapacity = 0;
+
     private final EnumMap<EnumFacing, IPartModel> attachments = new EnumMap<>(EnumFacing.class);
 
     // For each attachment, this contains the distance from the edge until which a cable connection should be drawn
@@ -117,6 +120,14 @@ public class CableBusRenderState {
         this.channelsOnSide = channelsOnSide;
     }
 
+    public int getChannelCapacity() {
+        return this.channelCapacity;
+    }
+
+    public void setChannelCapacity(int channelCapacity) {
+        this.channelCapacity = channelCapacity;
+    }
+
     public EnumSet<EnumFacing> getCableBusAdjacent() {
         return this.cableBusAdjacent;
     }
@@ -169,6 +180,7 @@ public class CableBusRenderState {
         result = prime * result + ((this.cableBusAdjacent == null) ? 0 : this.cableBusAdjacent.hashCode());
         result = prime * result + ((this.cableColor == null) ? 0 : this.cableColor.hashCode());
         result = prime * result + ((this.cableType == null) ? 0 : this.cableType.hashCode());
+        result = prime * result + this.channelCapacity;
         result = prime * result + ((this.channelsOnSide == null) ? 0 : this.channelsOnSide.hashCode());
         result = prime * result + ((this.connectionTypes == null) ? 0 : this.connectionTypes.hashCode());
         result = prime * result + ((this.coreType == null) ? 0 : this.coreType.hashCode());
@@ -192,7 +204,7 @@ public class CableBusRenderState {
 
         return this.cableColor == other.cableColor && this.cableType == other.cableType && this.coreType == other.coreType && Objects
                 .equals(this.attachmentConnections, other.attachmentConnections) && Objects.equals(this.cableBusAdjacent, other.cableBusAdjacent) && Objects
-                .equals(this.channelsOnSide, other.channelsOnSide) && Objects.equals(this.connectionTypes, other.connectionTypes) && Objects
+                .equals(this.channelsOnSide, other.channelsOnSide) && this.channelCapacity == other.channelCapacity && Objects.equals(this.connectionTypes, other.connectionTypes) && Objects
                 .equals(this.partFlags, other.partFlags);
     }
 }

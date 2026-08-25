@@ -19,7 +19,6 @@
 package appeng.parts;
 
 
-import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.AEApi;
 import appeng.api.config.YesNo;
 import appeng.api.exceptions.FailedConnectionException;
@@ -31,6 +30,7 @@ import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
+import appeng.me.GridNode;
 import appeng.client.render.cablebus.CableBusRenderState;
 import appeng.client.render.cablebus.CableCoreType;
 import appeng.client.render.cablebus.FacadeRenderState;
@@ -979,6 +979,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
             for (EnumFacing facing : EnumFacing.values()) {
                 int channels = cable.getCableConnectionType().isSmart() ? cable.getChannelsOnSide(facing) : 0;
                 renderState.getChannelsOnSide().put(facing, channels);
+                renderState.setChannelCapacity(GridNode.maxChannelsOf(cable.getProxy()));
             }
         }
 
@@ -1014,7 +1015,8 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
                 }
 
                 int length = (int) part.getCableConnectionLength(null);
-                if (length > 0 && length <= ChannelTiers.capacityOf(ChannelTiers.NORMAL)) {
+                // pixels the attachment sticks out by, which happens to be the same 8 as a cable's channels
+                if (length > 0 && length <= 8) {
                     renderState.getAttachmentConnections().put(facing, length);
                 }
             }

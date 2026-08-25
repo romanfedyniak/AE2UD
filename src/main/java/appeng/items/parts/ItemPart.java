@@ -23,7 +23,10 @@ import appeng.api.AEApi;
 import appeng.api.implementations.items.IItemGroup;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartItem;
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.util.AEColor;
+import appeng.core.AEConfig;
+import appeng.core.features.AEFeature;
 import appeng.core.features.ActivityState;
 import appeng.core.features.ItemStackSrc;
 import appeng.core.localization.GuiText;
@@ -41,6 +44,7 @@ import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.oredict.OreDictionary;
@@ -186,6 +190,11 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
 
     @Override
     protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        final ResourceLocation channelTier = getTypeByStack(stack).getChannelTier();
+        if (channelTier != null && AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS)) {
+            lines.add(String.format(GuiText.ChannelCapacity.getLocal(), ChannelTiers.capacityOf(channelTier)));
+        }
+
         if (getTypeByStack(stack) == PartType.ANNIHILATION_PLANE) {
             var enchantments = EnchantmentHelper.getEnchantments(stack);
             if (enchantments.isEmpty()) {

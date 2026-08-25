@@ -539,7 +539,15 @@ public class GridNode implements IGridNode, IPathItem {
     }
 
     private int resolveMaxChannels() {
-        final ResourceLocation declared = this.gridProxy.getChannelTier();
+        return maxChannelsOf(this.gridProxy);
+    }
+
+    /**
+     * What a node built on this block would carry. Answered from the block rather than the node so that
+     * the client, which has the one but never the other, can ask it too.
+     */
+    public static int maxChannelsOf(final IGridBlock gridProxy) {
+        final ResourceLocation declared = gridProxy.getChannelTier();
         if (declared != null) {
             final IChannelTier tier = AEApi.instance().registries().channelTiers().getTier(declared);
             if (tier != null) {
@@ -551,7 +559,7 @@ public class GridNode implements IGridNode, IPathItem {
             }
         }
 
-        final EnumSet<GridFlags> set = this.gridProxy.getFlags();
+        final EnumSet<GridFlags> set = gridProxy.getFlags();
         if (set.contains(GridFlags.CANNOT_CARRY)) {
             return ChannelTiers.capacityOf(ChannelTiers.NONE);
         }

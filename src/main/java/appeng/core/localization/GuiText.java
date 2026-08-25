@@ -27,6 +27,7 @@ import net.minecraft.util.text.translation.I18n;
 public enum GuiText {
     inventory("container"), // mc's default Inventory localization.
 
+    ChannelCapacity,
     Chest,
     StoredEnergy,
     Of,

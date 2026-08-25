@@ -19,13 +19,12 @@
 package appeng.integration.modules.waila.part;
 
 
-import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.parts.IPart;
 import appeng.core.AEConfig;
+import appeng.me.GridNode;
+import appeng.parts.networking.PartCable;
 import appeng.core.features.AEFeature;
 import appeng.core.localization.WailaText;
-import appeng.parts.networking.PartCableSmart;
-import appeng.parts.networking.PartDenseCableSmart;
 import it.unimi.dsi.fastutil.objects.Object2ByteMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -77,13 +76,13 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
         if (!AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS)) {
             return currentToolTip;
         }
-        if (part instanceof PartCableSmart || part instanceof PartDenseCableSmart) {
+        if (part instanceof PartCable && ((PartCable) part).getCableConnectionType().isSmart()) {
             final NBTTagCompound tag = accessor.getNBTData();
 
             final int usedChannels = this.getUsedChannels(part, tag, this.cache);
 
             if (usedChannels >= 0) {
-                final int maxChannels = ((part instanceof PartDenseCableSmart) ? ChannelTiers.capacityOf(ChannelTiers.DENSE) : ChannelTiers.capacityOf(ChannelTiers.NORMAL));
+                final int maxChannels = GridNode.maxChannelsOf(((PartCable) part).getProxy());
 
                 final String formattedToolTip = String.format(WailaText.Channels.getLocal(), usedChannels, maxChannels);
                 currentToolTip.add(formattedToolTip);
@@ -135,7 +134,7 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
      */
     @Override
     public NBTTagCompound getNBTData(EntityPlayerMP player, IPart part, TileEntity te, NBTTagCompound tag, World world, BlockPos pos) {
-        if (part instanceof PartCableSmart || part instanceof PartDenseCableSmart) {
+        if (part instanceof PartCable && ((PartCable) part).getCableConnectionType().isSmart()) {
             final NBTTagCompound tempTag = new NBTTagCompound();
 
             part.writeToNBT(tempTag);

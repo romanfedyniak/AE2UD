@@ -167,6 +167,7 @@ gui.appliedenergistics2.UnknownWirelessMode=Unknown mode (%s)
 gui.appliedenergistics2.CellWorkbench=Cell Workbench
 gui.appliedenergistics2.QuantumLinkChamber=Quantum Link Chamber
 gui.appliedenergistics2.IOPort=ME IO Port
+gui.appliedenergistics2.ChannelCapacity=Carries up to %d channels
 gui.appliedenergistics2.Chest=ME Chest
 gui.appliedenergistics2.Condenser=Matter Condenser
 gui.appliedenergistics2.Config=Config

@@ -19,6 +19,7 @@
 package appeng.items.parts;
 
 import appeng.api.parts.IPart;
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.util.AEColor;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
@@ -53,6 +54,11 @@ public enum PartType {
         }
 
         @Override
+        public ResourceLocation getChannelTier() {
+            return ChannelTiers.NORMAL;
+        }
+
+        @Override
         @SideOnly(Side.CLIENT)
         protected List<ModelResourceLocation> createItemModels(String baseName) {
             return Arrays.stream(AEColor.values()).map(color -> modelFromBaseName(baseName + "_" + color.name().toLowerCase())).collect(Collectors.toList());
@@ -63,6 +69,11 @@ public enum PartType {
         @Override
         public boolean isCable() {
             return true;
+        }
+
+        @Override
+        public ResourceLocation getChannelTier() {
+            return ChannelTiers.NORMAL;
         }
 
         @Override
@@ -79,6 +90,11 @@ public enum PartType {
         }
 
         @Override
+        public ResourceLocation getChannelTier() {
+            return ChannelTiers.NORMAL;
+        }
+
+        @Override
         @SideOnly(Side.CLIENT)
         protected List<ModelResourceLocation> createItemModels(String baseName) {
             return Arrays.stream(AEColor.values()).map(color -> modelFromBaseName(baseName + "_" + color.name().toLowerCase())).collect(Collectors.toList());
@@ -92,6 +108,11 @@ public enum PartType {
         }
 
         @Override
+        public ResourceLocation getChannelTier() {
+            return ChannelTiers.DENSE;
+        }
+
+        @Override
         @SideOnly(Side.CLIENT)
         protected List<ModelResourceLocation> createItemModels(String baseName) {
             return Arrays.stream(AEColor.values()).map(color -> modelFromBaseName(baseName + "_" + color.name().toLowerCase())).collect(Collectors.toList());
@@ -102,6 +123,11 @@ public enum PartType {
         @Override
         public boolean isCable() {
             return true;
+        }
+
+        @Override
+        public ResourceLocation getChannelTier() {
+            return ChannelTiers.DENSE;
         }
 
         @Override
@@ -295,6 +321,14 @@ public enum PartType {
 
     public boolean isCable() {
         return false;
+    }
+
+    /**
+     * The channel tier this part's node ends up on, for the tooltip. Null for anything that is not a
+     * cable.
+     */
+    public ResourceLocation getChannelTier() {
+        return null;
     }
 
     Set<AEFeature> getFeature() {

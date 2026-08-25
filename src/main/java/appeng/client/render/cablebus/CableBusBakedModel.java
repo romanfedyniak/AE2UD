@@ -161,6 +161,20 @@ public class CableBusBakedModel implements IBakedModel {
         return firstType == secondType && cableType == firstType && cableType == secondType;
     }
 
+    /**
+     * A smart cable draws eight marks whatever it carries, so the count is scaled into those eight rather
+     * than shown one for one. Rounded up, so a single channel always lights something.
+     */
+    private static int channelMarks(final CableBusRenderState renderState, final EnumFacing facing) {
+        final int channels = renderState.getChannelsOnSide().get(facing);
+        final int capacity = renderState.getChannelCapacity();
+        if (channels <= 0 || capacity <= 0) {
+            return 0;
+        }
+
+        return Math.min(8, (channels * 8 + capacity - 1) / capacity);
+    }
+
     private void addCableQuads(CableBusRenderState renderState, List<BakedQuad> quadsOut) {
         AECableType cableType = renderState.getCableType();
         if (cableType == AECableType.NONE) {
@@ -184,13 +198,13 @@ public class CableBusBakedModel implements IBakedModel {
                     this.cableBuilder.addStraightCoveredConnection(facing, cableColor, quadsOut);
                     break;
                 case SMART:
-                    this.cableBuilder.addStraightSmartConnection(facing, cableColor, renderState.getChannelsOnSide().get(facing), quadsOut);
+                    this.cableBuilder.addStraightSmartConnection(facing, cableColor, channelMarks(renderState, facing), quadsOut);
                     break;
                 case DENSE_COVERED:
                     this.cableBuilder.addStraightDenseCoveredConnection(facing, cableColor, quadsOut);
                     break;
                 case DENSE_SMART:
-                    this.cableBuilder.addStraightDenseSmartConnection(facing, cableColor, renderState.getChannelsOnSide().get(facing), quadsOut);
+                    this.cableBuilder.addStraightDenseSmartConnection(facing, cableColor, channelMarks(renderState, facing), quadsOut);
                     break;
                 default:
                     break;
@@ -215,7 +229,7 @@ public class CableBusBakedModel implements IBakedModel {
                     this.cableBuilder.addConstrainedCoveredConnection(facing, cableColor, distance, quadsOut);
                     break;
                 case SMART:
-                    this.cableBuilder.addConstrainedSmartConnection(facing, cableColor, distance, channels, quadsOut);
+                    this.cableBuilder.addConstrainedSmartConnection(facing, cableColor, distance, channelMarks(renderState, facing), quadsOut);
                     break;
                 case DENSE_COVERED:
                 case DENSE_SMART:
@@ -241,13 +255,13 @@ public class CableBusBakedModel implements IBakedModel {
                     this.cableBuilder.addCoveredConnection(facing, cableColor, connectionType, cableBusAdjacent, quadsOut);
                     break;
                 case SMART:
-                    this.cableBuilder.addSmartConnection(facing, cableColor, connectionType, cableBusAdjacent, channels, quadsOut);
+                    this.cableBuilder.addSmartConnection(facing, cableColor, connectionType, cableBusAdjacent, channelMarks(renderState, facing), quadsOut);
                     break;
                 case DENSE_COVERED:
                     this.cableBuilder.addDenseCoveredConnection(facing, cableColor, connectionType, cableBusAdjacent, quadsOut);
                     break;
                 case DENSE_SMART:
-                    this.cableBuilder.addDenseSmartConnection(facing, cableColor, connectionType, cableBusAdjacent, channels, quadsOut);
+                    this.cableBuilder.addDenseSmartConnection(facing, cableColor, connectionType, cableBusAdjacent, channelMarks(renderState, facing), quadsOut);
                     break;
                 default:
                     break;

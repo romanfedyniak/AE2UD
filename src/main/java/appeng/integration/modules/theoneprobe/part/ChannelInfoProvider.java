@@ -19,13 +19,12 @@
 package appeng.integration.modules.theoneprobe.part;
 
 
-import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.parts.IPart;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.integration.modules.theoneprobe.TheOneProbeText;
-import appeng.parts.networking.PartCableSmart;
-import appeng.parts.networking.PartDenseCableSmart;
+import appeng.me.GridNode;
+import appeng.parts.networking.PartCable;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
 import mcjty.theoneprobe.api.ProbeMode;
@@ -42,9 +41,9 @@ public class ChannelInfoProvider implements IPartProbInfoProvider {
         if (!AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS)) {
             return;
         }
-        if (part instanceof PartDenseCableSmart || part instanceof PartCableSmart) {
+        if (part instanceof PartCable && ((PartCable) part).getCableConnectionType().isSmart()) {
             final int usedChannels;
-            final int maxChannels = (part instanceof PartDenseCableSmart) ? ChannelTiers.capacityOf(ChannelTiers.DENSE) : ChannelTiers.capacityOf(ChannelTiers.NORMAL);
+            final int maxChannels = GridNode.maxChannelsOf(((PartCable) part).getProxy());
 
             if (part.getGridNode().isActive()) {
                 final NBTTagCompound tmp = new NBTTagCompound();
