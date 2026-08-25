@@ -248,7 +248,9 @@ public class PathGridCache implements IPathingGrid {
                 final EnumSet<GridFlags> flags = gb.getFlags();
 
                 if (flags.contains(GridFlags.COMPRESSED_CHANNEL) && !this.blockDense.isEmpty()) {
-                    // one over the limit, whatever the limit is: a tunnel cannot be nested here
+                    // blockDense holds the tunnel's own outer node, so this is true of any ME P2P
+                    // tunnel at all: without a controller it leaves the network with nothing.
+                    // One over the limit, whatever the limit has been set to.
                     return AEConfig.instance().getAdHocNetworkChannels() + 1;
                 }
 
