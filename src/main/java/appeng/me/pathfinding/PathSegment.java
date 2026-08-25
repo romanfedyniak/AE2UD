@@ -20,6 +20,7 @@ package appeng.me.pathfinding;
 
 
 import appeng.api.networking.GridFlags;
+import appeng.core.AEConfig;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
 import appeng.me.cache.PathGridCache;
@@ -89,10 +90,19 @@ public class PathSegment {
         return this.open.isEmpty();
     }
 
+    /**
+     * The route an ME P2P tunnel takes. What the tunnel carries through to the other end is not decided
+     * here - that is the cables at either end - only what it costs the network it sits in.
+     */
     private boolean useDenseChannel(final IPathItem start) {
+        final int cost = AEConfig.instance().getP2PTunnelChannelCost();
+        if (cost <= 0) {
+            return true;
+        }
+
         IPathItem pi = start;
         while (pi != null) {
-            if (!pi.canSupportMoreChannels() || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
+            if (!pi.canSupportMoreChannels(cost) || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
                 return false;
             }
 
@@ -101,12 +111,12 @@ public class PathSegment {
 
         pi = start;
         while (pi != null) {
-            this.pgc.setChannelsByBlocks(this.pgc.getChannelsByBlocks() + 1);
-            pi.incrementChannelCount(1);
+            this.pgc.setChannelsByBlocks(this.pgc.getChannelsByBlocks() + cost);
+            pi.incrementChannelCount(cost);
             pi = pi.getControllerRoute();
         }
 
-        this.pgc.setChannelsInUse(this.pgc.getChannelsInUse() + 1);
+        this.pgc.setChannelsInUse(this.pgc.getChannelsInUse() + cost);
         return true;
     }
 

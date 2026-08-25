@@ -150,11 +150,16 @@ public class GridConnection implements IGridConnection, IPathItem {
      */
     @Override
     public boolean canSupportMoreChannels() {
+        return this.canSupportMoreChannels(1);
+    }
+
+    @Override
+    public boolean canSupportMoreChannels(final int howMany) {
         final int a = this.sideA.getMaxChannels();
         final int b = this.sideB.getMaxChannels();
         final int max = a < 0 ? b : (b < 0 ? a : Math.min(a, b));
 
-        return max < 0 || this.getLastUsedChannels() < max;
+        return max < 0 || this.getLastUsedChannels() + howMany <= max;
     }
 
     @Override

@@ -75,6 +75,8 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private boolean updatable = false;
     // Misc
     private boolean removeCrashingItemsOnLoad = false;
+    private int adHocNetworkChannels = 8;
+    private int p2pTunnelChannelCost = 1;
     private int formationPlaneEntityLimit = 128;
     private boolean enableEffects = true;
     private boolean useColoredCraftingStatus;
@@ -148,6 +150,8 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         CondenserOutput.SINGULARITY.requiredPower = this.get("Condenser", "Singularity", 256000).getInt(256000);
 
         this.removeCrashingItemsOnLoad = this.get("general", "removeCrashingItemsOnLoad", false, "Will auto-remove items that crash when being loaded from storage. This will destroy those items instead of crashing the game!").getBoolean();
+        this.adHocNetworkChannels = this.get("general", "adHocNetworkChannels", this.adHocNetworkChannels, "How many channels a network with no controller carries. Asking for more than this leaves it with none at all, rather than with this many.").getInt(this.adHocNetworkChannels);
+        this.p2pTunnelChannelCost = Math.max(0, this.get("general", "p2pTunnelChannelCost", this.p2pTunnelChannelCost, "How many channels an ME P2P tunnel takes from the network it sits in. What it carries through is a separate matter, decided by the cables at either end.").getInt(this.p2pTunnelChannelCost));
         this.setCategoryComment("ChannelTiers", "How many channels each kind of node carries. 0 carries nothing, -1 imposes no limit of its own and lets whatever is on either side decide. Addons add their own lines here.");
 
         this.setCategoryComment("BlockingMode", "Map of items to not block when blockingmode is enabled.\n[modid]\nmodid:item:metadata(optional,default:0)\nSupports more than one modid, so you can block different things between, for example, gregtech or enderio");
@@ -742,6 +746,14 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public int getMaxControllerSizeZ() {
         return this.maxControllerSizeZ;
+    }
+
+    public int getAdHocNetworkChannels() {
+        return this.adHocNetworkChannels;
+    }
+
+    public int getP2PTunnelChannelCost() {
+        return this.p2pTunnelChannelCost;
     }
 
     /**

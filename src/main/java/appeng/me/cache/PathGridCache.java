@@ -19,7 +19,6 @@
 package appeng.me.cache;
 
 
-import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.AEApi;
 import appeng.api.networking.*;
 import appeng.api.networking.events.MENetworkBootingStatusChange;
@@ -84,7 +83,7 @@ public class PathGridCache implements IPathingGrid {
             if (this.controllerState == ControllerState.NO_CONTROLLER) {
                 final int requiredChannels = this.calculateRequiredChannels();
                 int used = requiredChannels;
-                if (AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS) && requiredChannels > ChannelTiers.capacityOf(ChannelTiers.NORMAL)) {
+                if (AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS) && requiredChannels > AEConfig.instance().getAdHocNetworkChannels()) {
                     used = 0;
                 }
 
@@ -249,10 +248,15 @@ public class PathGridCache implements IPathingGrid {
                 final EnumSet<GridFlags> flags = gb.getFlags();
 
                 if (flags.contains(GridFlags.COMPRESSED_CHANNEL) && !this.blockDense.isEmpty()) {
-                    return 9;
+                    // one over the limit, whatever the limit is: a tunnel cannot be nested here
+                    return AEConfig.instance().getAdHocNetworkChannels() + 1;
                 }
 
-                depth++;
+                // a network without a controller never reaches the pathfinder, so the tunnel's price is
+                // charged here instead
+                depth += flags.contains(GridFlags.COMPRESSED_CHANNEL)
+                        ? AEConfig.instance().getP2PTunnelChannelCost()
+                        : 1;
 
                 if (flags.contains(GridFlags.MULTIBLOCK)) {
                     final IGridMultiblock gmb = (IGridMultiblock) gb;

@@ -217,6 +217,8 @@ final class Registration {
         registry.register(ChannelTiers.NORMAL, 8);
         registry.register(ChannelTiers.DENSE, 32);
         registry.register(ChannelTiers.CONTROLLER, -1);
+        registry.register(ChannelTiers.QUANTUM_BRIDGE, 32);
+        registry.register(ChannelTiers.P2P_ME_TUNNEL, -1);
     }
 
     /**

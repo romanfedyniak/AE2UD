@@ -22,6 +22,7 @@ package appeng.tile.qnb;
 import appeng.api.AEApi;
 import appeng.api.definitions.IBlockDefinition;
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.util.AECableType;
@@ -67,6 +68,7 @@ public class TileQuantumBridge extends AENetworkInvTile implements IAEMultiBlock
     public TileQuantumBridge() {
         this.getProxy().setValidSides(EnumSet.noneOf(EnumFacing.class));
         this.getProxy().setFlags(GridFlags.DENSE_CAPACITY);
+        this.getProxy().setChannelTier(ChannelTiers.QUANTUM_BRIDGE);
         this.getProxy().setIdlePowerUsage(22);
         this.internalInventory.setFilter(new QuantumBridgeInventoryFilter());
     }

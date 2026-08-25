@@ -30,6 +30,18 @@ public final class ChannelTiers {
      */
     public static final ResourceLocation CONTROLLER = new ResourceLocation("appliedenergistics2", "controller");
 
+    /**
+     * A quantum bridge. Everything crossing it funnels through the ring's centre, so one number covers
+     * all nine blocks; cables reach only the four side blocks, so there is no single cable to defer to.
+     */
+    public static final ResourceLocation QUANTUM_BRIDGE = new ResourceLocation("appliedenergistics2", "quantum_bridge");
+
+    /**
+     * The far side of an ME P2P tunnel. Unlimited by default: a tunnel has exactly one cable at either
+     * end, so what it carries is decided by the narrower of the two.
+     */
+    public static final ResourceLocation P2P_ME_TUNNEL = new ResourceLocation("appliedenergistics2", "p2p_me_tunnel");
+
     private ChannelTiers() {
     }
 

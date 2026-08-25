@@ -22,6 +22,7 @@ package appeng.parts.p2p;
 import appeng.api.AEApi;
 import appeng.api.exceptions.FailedConnectionException;
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
@@ -66,6 +67,7 @@ public class PartP2PTunnelME extends PartP2PTunnel<PartP2PTunnelME> implements I
         super(is);
         this.getProxy().setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.COMPRESSED_CHANNEL);
         this.outerProxy.setFlags(GridFlags.DENSE_CAPACITY, GridFlags.CANNOT_CARRY_COMPRESSED);
+        this.outerProxy.setChannelTier(ChannelTiers.P2P_ME_TUNNEL);
     }
 
     @Override

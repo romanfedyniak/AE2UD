@@ -37,6 +37,13 @@ public interface IPathItem {
     boolean canSupportMoreChannels();
 
     /**
+     * As above, for something that takes more than one channel at once - a P2P tunnel priced above 1.
+     */
+    default boolean canSupportMoreChannels(final int howMany) {
+        return this.canSupportMoreChannels();
+    }
+
+    /**
      * find possible choices for other pathing.
      */
     IReadOnlyCollection<IPathItem> getPossibleOptions();

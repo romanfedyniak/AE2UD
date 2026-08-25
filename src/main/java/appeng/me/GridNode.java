@@ -522,7 +522,12 @@ public class GridNode implements IGridNode, IPathItem {
 
     @Override
     public boolean canSupportMoreChannels() {
-        return this.maxChannels < 0 || this.getUsedChannels() < this.maxChannels;
+        return this.canSupportMoreChannels(1);
+    }
+
+    @Override
+    public boolean canSupportMoreChannels(final int howMany) {
+        return this.maxChannels < 0 || this.getUsedChannels() + howMany <= this.maxChannels;
     }
 
     /**
