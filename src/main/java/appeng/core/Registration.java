@@ -218,6 +218,9 @@ final class Registration {
                 GuiText.WirelessModePattern.getUnlocalized(), GuiBridge.GUI_WIRELESS_PATTERN_TERMINAL));
         registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.INTERFACE, parts.interfaceTerminal(),
                 GuiText.WirelessModeInterface.getUnlocalized(), GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL));
+        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.INTERFACE_CONFIGURATION,
+                parts.interfaceConfigurationTerminal(), GuiText.WirelessModeInterfaceConfig.getUnlocalized(),
+                GuiBridge.GUI_WIRELESS_INTERFACE_CONFIGURATION_TERMINAL));
     }
 
     private void registerSpatialBiome(IForgeRegistry<Biome> registry) {

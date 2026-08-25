@@ -33,6 +33,7 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompressedNBT;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
+import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.InventoryAction;
 import appeng.parts.misc.PartInterface;
 import appeng.parts.reporting.PartInterfaceConfigurationTerminal;
@@ -57,7 +58,7 @@ import java.util.Map.Entry;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 
-public final class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
+public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
 
     /**
      * this stuff is all server side..
@@ -77,6 +78,26 @@ public final class ContainerInterfaceConfigurationTerminal extends AEBaseContain
         }
 
         this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
+    }
+
+    /**
+     * Opened from a wireless terminal rather than from a panel on a cable. The inventory is left unbound so
+     * the subclass can put its own upgrade slot in first.
+     */
+    public ContainerInterfaceConfigurationTerminal(final InventoryPlayer ip,
+            final WirelessTerminalGuiObject guiObject, final boolean bindInventory) {
+        super(ip, guiObject);
+
+        if (Platform.isServer()) {
+            final IGridNode node = guiObject.getActionableNode();
+            if (node != null && node.isActive()) {
+                this.grid = node.getGrid();
+            }
+        }
+
+        if (bindInventory) {
+            this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
+        }
     }
 
     @Override

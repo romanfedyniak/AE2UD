@@ -2000,6 +2000,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     builds and exposes them, because registration and that conversion need them, but nothing outside the mod does.
     The internal `appeng.items.tools.powered.Terminal` enum went with them.
 
+20. **`ContainerInterfaceConfigurationTerminal` is no longer `final`**, and gained a constructor taking a
+    `WirelessTerminalGuiObject` - the wireless form of that terminal is new in AE2UD and had to descend from
+    it. Same shape as the constructor `ContainerInterfaceTerminal` already had for the same reason. Not an
+    api package, but worth the line: something outside the mod may have been relying on the class being
+    closed.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

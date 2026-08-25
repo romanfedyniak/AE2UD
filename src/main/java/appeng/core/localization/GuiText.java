@@ -60,6 +60,7 @@ public enum GuiText {
     WirelessModeCrafting,
     WirelessModePattern,
     WirelessModeInterface,
+    WirelessModeInterfaceConfig,
     UnknownWirelessMode,
 
     CellWorkbench,

@@ -99,7 +99,16 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     public Map<IGhostIngredientHandler.Target<?>, Object> mapTargetSlot = new HashMap<>();
 
     public GuiInterfaceConfigurationTerminal(final InventoryPlayer inventoryPlayer, final PartInterfaceConfigurationTerminal te) {
-        super(new ContainerInterfaceConfigurationTerminal(inventoryPlayer, te));
+        this(new ContainerInterfaceConfigurationTerminal(inventoryPlayer, te), te);
+    }
+
+    /**
+     * The panel is where this screen remembers its search between openings, and a wireless terminal has no
+     * panel - so it is allowed to be absent, and a subclass says where to keep the text instead.
+     */
+    protected GuiInterfaceConfigurationTerminal(final ContainerInterfaceConfigurationTerminal container,
+            final PartInterfaceConfigurationTerminal te) {
+        super(container);
 
         this.partInterfaceTerminal = te;
         final GuiScrollbar scrollbar = new GuiScrollbar();
@@ -136,7 +145,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.searchFieldInputs.setVisible(true);
         this.searchFieldInputs.setFocused(false);
 
-        this.searchFieldInputs.setText(partInterfaceTerminal.in);
+        this.searchFieldInputs.setText(this.loadSearchText());
     }
 
     @Override
@@ -150,9 +159,24 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 this.terminalStyleBox.height + 2));
     }
 
+    protected String loadSearchText() {
+        return this.partInterfaceTerminal.in;
+    }
+
+    protected void saveSearchText(final String text) {
+        this.partInterfaceTerminal.saveSearchStrings(text);
+    }
+
+    /**
+     * Anything a subclass draws beside this window. The button list is emptied and refilled while the screen
+     * is drawn, so whatever is added here has to be added again on every frame.
+     */
+    protected void addExtraButtons() {
+    }
+
     @Override
     public void onGuiClosed() {
-        partInterfaceTerminal.saveSearchStrings(this.searchFieldInputs.getText().toLowerCase());
+        this.saveSearchText(this.searchFieldInputs.getText().toLowerCase());
         super.onGuiClosed();
         Keyboard.enableRepeatEvents(false);
     }
@@ -162,6 +186,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.buttonList.clear();
         this.terminalStyleBox.set(AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
         this.buttonList.add(this.terminalStyleBox);
+        this.addExtraButtons();
 
         this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.InterfaceConfigurationTerminal.getLocal()), 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), this.offsetX + 2, this.ySize - 96 + 3, 4210752);

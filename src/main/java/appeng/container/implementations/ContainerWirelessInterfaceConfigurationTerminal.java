@@ -13,17 +13,18 @@ import appeng.container.slot.SlotRestrictedInput;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.util.Platform;
 
-public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTerminal
+public class ContainerWirelessInterfaceConfigurationTerminal extends ContainerInterfaceConfigurationTerminal
         implements IInventorySlotAware, IUpgradeableCellContainer, IWirelessTerminalContainer {
 
     private final WirelessTerminalSupport support;
     protected SlotRestrictedInput magnetSlot;
 
-    public ContainerWirelessInterfaceTerminal(InventoryPlayer ip, WirelessTerminalGuiObject guiObject) {
+    public ContainerWirelessInterfaceConfigurationTerminal(final InventoryPlayer ip,
+            final WirelessTerminalGuiObject guiObject) {
         super(ip, guiObject, false);
 
         this.support = new WirelessTerminalSupport(this, guiObject, 2);
-        this.bindPlayerInventory(ip, 0, 0);
+        this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
         this.setupUpgrades();
     }
 
@@ -70,7 +71,7 @@ public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTermin
     public void setupUpgrades() {
         for (int upgradeSlot = 0; upgradeSlot < this.availableUpgrades(); upgradeSlot++) {
             this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
-                    this.support.getUpgrades(), upgradeSlot, 187, 3 + upgradeSlot * 18, this.getInventoryPlayer());
+                    this.support.getUpgrades(), upgradeSlot, 201, 169 + upgradeSlot * 18, this.getInventoryPlayer());
             this.magnetSlot.setNotDraggable();
             this.addSlotToContainer(this.magnetSlot);
         }
