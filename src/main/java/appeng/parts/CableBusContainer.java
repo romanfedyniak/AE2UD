@@ -19,6 +19,7 @@
 package appeng.parts;
 
 
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.AEApi;
 import appeng.api.config.YesNo;
 import appeng.api.exceptions.FailedConnectionException;
@@ -1013,7 +1014,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
                 }
 
                 int length = (int) part.getCableConnectionLength(null);
-                if (length > 0 && length <= AEConfig.instance().getNormalChannelCapacity()) {
+                if (length > 0 && length <= ChannelTiers.capacityOf(ChannelTiers.NORMAL)) {
                     renderState.getAttachmentConnections().put(facing, length);
                 }
             }

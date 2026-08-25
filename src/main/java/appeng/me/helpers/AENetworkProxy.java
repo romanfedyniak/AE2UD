@@ -43,6 +43,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.Collections;
 import java.util.EnumSet;
@@ -54,6 +55,7 @@ public class AENetworkProxy implements IGridBlock {
     private final boolean worldNode;
     private final String nbtName; // name
     private AEColor myColor = AEColor.TRANSPARENT;
+    private ResourceLocation channelTier = null;
     private NBTTagCompound data = null; // input
     private ItemStack myRepInstance = ItemStack.EMPTY;
     private boolean isReady = false;
@@ -301,6 +303,15 @@ public class AENetworkProxy implements IGridBlock {
     @Override
     public ItemStack getMachineRepresentation() {
         return this.myRepInstance;
+    }
+
+    @Override
+    public ResourceLocation getChannelTier() {
+        return this.channelTier;
+    }
+
+    public void setChannelTier(final ResourceLocation channelTier) {
+        this.channelTier = channelTier;
     }
 
     public void setFlags(final GridFlags... requireChannel) {

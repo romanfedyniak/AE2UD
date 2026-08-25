@@ -19,6 +19,7 @@
 package appeng.client.render.cablebus;
 
 
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.core.AppEng;
@@ -328,8 +329,8 @@ class CableBuilder {
         TextureAtlasSprite texture = this.connectionTextures.get(AECableType.SMART).get(cableColor);
         cubeBuilder.setTexture(texture);
 
-        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
-        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
+        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
+        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
 
         // Thin part of connector, here to prevent the color of the channels
         // from leaking into it
@@ -378,8 +379,8 @@ class CableBuilder {
 
         addStraightCoveredCableSizedCube(facing, cubeBuilder);
 
-        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
-        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
+        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
+        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
 
         // Render the channel indicators brightly lit at night
         cubeBuilder.setRenderFullBright(true);
@@ -407,8 +408,8 @@ class CableBuilder {
 
         addCoveredCableSizedCube(facing, distanceFromEdge, cubeBuilder);
 
-        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
-        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (AEConfig.instance().getNormalChannelCapacity() / 8)));
+        TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
+        TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForChannels((int) (channels / (ChannelTiers.capacityOf(ChannelTiers.NORMAL) / 8)));
 
         // Render the channel indicators brightly lit at night
         cubeBuilder.setRenderFullBright(true);
@@ -468,7 +469,7 @@ class CableBuilder {
         addDenseCableSizedCube(facing, cubeBuilder);
 
         // Dense cables show used channels in groups of 4, rounded up
-        channels = (int) ((channels + 3) / 4) / (AEConfig.instance().getDenseChannelCapacity() / 32);
+        channels = (int) ((channels + 3) / 4) / (ChannelTiers.capacityOf(ChannelTiers.DENSE) / 32);
 
         TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForDenseChannels(channels);
         TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForDenseChannels(channels);
@@ -512,7 +513,7 @@ class CableBuilder {
         addStraightDenseCableSizedCube(facing, cubeBuilder);
 
         // Dense cables show used channels in groups of 4, rounded up
-        channels = (int) ((channels + 3) / 4) / (AEConfig.instance().getDenseChannelCapacity() / 32);
+        channels = (int) ((channels + 3) / 4) / (ChannelTiers.capacityOf(ChannelTiers.DENSE) / 32);
 
         TextureAtlasSprite oddChannel = this.smartCableTextures.getOddTextureForDenseChannels(channels);
         TextureAtlasSprite evenChannel = this.smartCableTextures.getEvenTextureForDenseChannels(channels);

@@ -27,6 +27,7 @@ package appeng.api.features;
 import appeng.api.AEInjectable;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
+import appeng.api.networking.pathing.IChannelTierRegistry;
 import appeng.api.parts.IPartModels;
 import appeng.api.upgrades.IUpgradeRegistry;
 
@@ -66,6 +67,11 @@ public interface IRegistryContainer
 	 * Lets you add modes to the wireless terminal. Register during pre-initialisation.
 	 */
 	IWirelessTerminalModeRegistry wirelessTerminalModes();
+
+	/**
+	 * Lets you say how many channels your own cables carry. Register during pre-initialisation.
+	 */
+	IChannelTierRegistry channelTiers();
 
 	/**
 	 * Allows you to register new cell types, these will function in drives

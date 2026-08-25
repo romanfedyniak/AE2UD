@@ -50,6 +50,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - The machine only runs while the result would fit. A full output slot used to leave it grinding on with nowhere to put what it made, which cost nothing when the input held one item and would cost a great deal with sixty-four.
 - Progress is no longer thrown away when the input slot is topped up. It resets only when the item in a slot actually changes, so feeding a working machine does not send it back to the start.
 
+### Networking
+
+- How many channels a node carries is no longer one of two fixed sizes. Every cable, controller face, quantum bridge and P2P tunnel now names a **channel tier**, and each tier's number is read from the `ChannelTiers` section of the config, where `0` carries nothing and `-1` means the node imposes no limit of its own. An addon registers its own tier through `IChannelTierRegistry` during pre-initialisation and declares it from `IGridBlock.getChannelTier()`, which is all that is needed to ship a cable of any size; the tier appears in the config file by name, so a pack can retune an addon's cable without the addon knowing. A node that names no tier falls back to the `CANNOT_CARRY` and `DENSE_CAPACITY` flags exactly as before.
+- A connection is as wide as the narrower of the two nodes it joins, rather than being capped at the dense cable's size whatever it runs between. That cap used to be the real limit on what one controller face gives, which meant the dense cable's setting silently governed the controller as well; a controller face now has a tier of its own, unlimited by default, so what a face gives is decided by the cable plugged into it. Nothing changes at the sizes AE2UD ships - the largest cable is still the dense one at 32 - and it is what lets a larger cable from an addon actually carry what it says.
+- **The `normalChannelCapacity` and `denseChannelCapacity` settings are gone.** They are now the `appliedenergistics2:normal` and `appliedenergistics2:dense` lines of the `ChannelTiers` section, and the old keys are not read - a pack that changed either of them has to set the new one, or it goes back to 8 and 32.
+
 ### Wireless terminals
 
 - **The Interface Configuration Terminal can be wireless now**, which it never could before - it is the fifth mode, built the same way as the rest: Wireless Receiver, the panel, a Dense Energy Cell, or crafted into a terminal you already have. Its shortcut arrives unbound, since it has no key to inherit.

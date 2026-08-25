@@ -19,6 +19,7 @@
 package appeng.integration.modules.theoneprobe.part;
 
 
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.parts.IPart;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
@@ -43,7 +44,7 @@ public class ChannelInfoProvider implements IPartProbInfoProvider {
         }
         if (part instanceof PartDenseCableSmart || part instanceof PartCableSmart) {
             final int usedChannels;
-            final int maxChannels = (part instanceof PartDenseCableSmart) ? AEConfig.instance().getDenseChannelCapacity() : AEConfig.instance().getNormalChannelCapacity();
+            final int maxChannels = (part instanceof PartDenseCableSmart) ? ChannelTiers.capacityOf(ChannelTiers.DENSE) : ChannelTiers.capacityOf(ChannelTiers.NORMAL);
 
             if (part.getGridNode().isActive()) {
                 final NBTTagCompound tmp = new NBTTagCompound();

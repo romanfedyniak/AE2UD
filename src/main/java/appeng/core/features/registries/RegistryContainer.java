@@ -22,6 +22,7 @@ package appeng.core.features.registries;
 import appeng.api.features.*;
 import appeng.api.movable.IMovableRegistry;
 import appeng.api.networking.IGridCacheRegistry;
+import appeng.api.networking.pathing.IChannelTierRegistry;
 import appeng.api.parts.IPartModels;
 import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.core.features.registries.charger.ChargerRegistry;
@@ -46,6 +47,7 @@ public class RegistryContainer implements IRegistryContainer {
     private final ISpecialComparisonRegistry comparison = new SpecialComparisonRegistry();
     private final IWirelessTermRegistry wireless = new WirelessRegistry();
     private final IWirelessTerminalModeRegistry wirelessTerminalModes = new WirelessTerminalModeRegistry();
+    private final IChannelTierRegistry channelTiers = new ChannelTierRegistry();
     private final IGridCacheRegistry gridCache = new GridCacheRegistry();
     private final IP2PTunnelRegistry p2pTunnel = new P2PTunnelRegistry();
     private final IMovableRegistry movable = new MovableTileRegistry();
@@ -78,6 +80,11 @@ public class RegistryContainer implements IRegistryContainer {
     @Override
     public IWirelessTerminalModeRegistry wirelessTerminalModes() {
         return this.wirelessTerminalModes;
+    }
+
+    @Override
+    public IChannelTierRegistry channelTiers() {
+        return this.channelTiers;
     }
 
     @Override

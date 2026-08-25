@@ -21,6 +21,7 @@ package appeng.tile.networking;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.GridFlags;
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.events.MENetworkControllerChange;
 import appeng.api.networking.events.MENetworkEventSubscribe;
@@ -52,6 +53,7 @@ public class TileController extends AENetworkPowerTile {
         this.setInternalPublicPowerStorage(true);
         this.getProxy().setIdlePowerUsage(3);
         this.getProxy().setFlags(GridFlags.CANNOT_CARRY, GridFlags.DENSE_CAPACITY);
+        this.getProxy().setChannelTier(ChannelTiers.CONTROLLER);
     }
 
     @Override

@@ -19,11 +19,14 @@
 package appeng.me;
 
 
+import appeng.api.AEApi;
 import appeng.api.exceptions.FailedConnectionException;
 import appeng.api.exceptions.SecurityConnectionException;
 import appeng.api.networking.*;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.events.MENetworkChannelsChanged;
+import appeng.api.networking.pathing.ChannelTiers;
+import appeng.api.networking.pathing.IChannelTier;
 import appeng.api.networking.pathing.IPathingGrid;
 import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
@@ -40,6 +43,7 @@ import appeng.util.ReadOnlyCollection;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -48,7 +52,8 @@ import java.util.*;
 
 public class GridNode implements IGridNode, IPathItem {
     private static final MENetworkChannelsChanged EVENT = new MENetworkChannelsChanged();
-    private static final int[] CHANNEL_COUNT = {0, AEConfig.instance().getNormalChannelCapacity(), AEConfig.instance().getDenseChannelCapacity()};
+    /** Tiers already complained about, so that a mistaken node does not fill the log every repath. */
+    private static final Set<ResourceLocation> UNKNOWN_TIERS = new HashSet<>();
 
     private final List<IGridConnection> connections = new ArrayList<>();
     private final IGridBlock gridProxy;
@@ -61,6 +66,8 @@ public class GridNode implements IGridNode, IPathItem {
     private Object visitorIterationNumber = null;
     // connection criteria
     private int compressedData = 0;
+    // resolved once per updateState, because the pathfinder asks for it on every node of every route
+    private int maxChannels = 0;
     private int usedChannels = 0;
     private int lastUsedChannels = 0;
 
@@ -167,11 +174,9 @@ public class GridNode implements IGridNode, IPathItem {
 
     @Override
     public void updateState() {
-        final EnumSet<GridFlags> set = this.gridProxy.getFlags();
+        this.maxChannels = this.resolveMaxChannels();
 
-        this.compressedData = set.contains(GridFlags.CANNOT_CARRY) ? 0 : (set.contains(GridFlags.DENSE_CAPACITY) ? 2 : 1);
-
-        this.compressedData |= (this.gridProxy.getGridColor().ordinal() << 3);
+        this.compressedData = (this.gridProxy.getGridColor().ordinal() << 3);
 
         for (final EnumFacing dir : this.gridProxy.getConnectableSides()) {
             this.compressedData |= (1 << (dir.ordinal() + 8));
@@ -517,11 +522,37 @@ public class GridNode implements IGridNode, IPathItem {
 
     @Override
     public boolean canSupportMoreChannels() {
-        return this.getUsedChannels() < this.getMaxChannels();
+        return this.maxChannels < 0 || this.getUsedChannels() < this.maxChannels;
     }
 
-    private int getMaxChannels() {
-        return CHANNEL_COUNT[this.compressedData & 0x03];
+    /**
+     * Negative means the node imposes no limit of its own; what passes through it is then decided by
+     * whatever sits on either side.
+     */
+    int getMaxChannels() {
+        return this.maxChannels;
+    }
+
+    private int resolveMaxChannels() {
+        final ResourceLocation declared = this.gridProxy.getChannelTier();
+        if (declared != null) {
+            final IChannelTier tier = AEApi.instance().registries().channelTiers().getTier(declared);
+            if (tier != null) {
+                return tier.getCapacity();
+            }
+
+            if (UNKNOWN_TIERS.add(declared)) {
+                AELog.warn("Channel tier %s was never registered, falling back to the node's flags.", declared);
+            }
+        }
+
+        final EnumSet<GridFlags> set = this.gridProxy.getFlags();
+        if (set.contains(GridFlags.CANNOT_CARRY)) {
+            return ChannelTiers.capacityOf(ChannelTiers.NONE);
+        }
+
+        return ChannelTiers.capacityOf(
+                set.contains(GridFlags.DENSE_CAPACITY) ? ChannelTiers.DENSE : ChannelTiers.NORMAL);
     }
 
     @Override

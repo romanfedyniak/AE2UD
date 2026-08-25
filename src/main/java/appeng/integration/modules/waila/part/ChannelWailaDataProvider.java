@@ -19,6 +19,7 @@
 package appeng.integration.modules.waila.part;
 
 
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.parts.IPart;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
@@ -82,7 +83,7 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
             final int usedChannels = this.getUsedChannels(part, tag, this.cache);
 
             if (usedChannels >= 0) {
-                final int maxChannels = ((part instanceof PartDenseCableSmart) ? AEConfig.instance().getDenseChannelCapacity() : AEConfig.instance().getNormalChannelCapacity());
+                final int maxChannels = ((part instanceof PartDenseCableSmart) ? ChannelTiers.capacityOf(ChannelTiers.DENSE) : ChannelTiers.capacityOf(ChannelTiers.NORMAL));
 
                 final String formattedToolTip = String.format(WailaText.Channels.getLocal(), usedChannels, maxChannels);
                 currentToolTip.add(formattedToolTip);

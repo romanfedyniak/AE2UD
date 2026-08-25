@@ -28,9 +28,11 @@ import java.util.EnumSet;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 
 import appeng.api.parts.IPart;
 import appeng.api.util.AEColor;
@@ -62,6 +64,21 @@ public interface IGridBlock
 	 */
 	@Nonnull
 	EnumSet<GridFlags> getFlags();
+
+	/**
+	 * How many channels this node carries, named rather than numbered so that a pack can configure it.
+	 *
+	 * <p>Returning null falls back to {@link GridFlags#CANNOT_CARRY} and {@link GridFlags#DENSE_CAPACITY},
+	 * which is what every node did before tiers existed. A name nothing was registered under falls back the
+	 * same way, and says so in the log.</p>
+	 *
+	 * @see appeng.api.networking.pathing.IChannelTierRegistry
+	 */
+	@Nullable
+	default ResourceLocation getChannelTier()
+	{
+		return null;
+	}
 
 	/**
 	 * Generally speaking you will return true for this, the one exception is buses, or worm holes where the node

@@ -29,6 +29,7 @@ import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
 import com.google.common.collect.Sets;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
@@ -130,9 +131,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private int maxControllerSizeY = 7;
     private int maxControllerSizeZ = 7;
 
-    private int normalChannelCapacity = 8;
-    private int denseChannelCapacity = 32;
-
     private AEConfig(final File configFile) {
         super(configFile);
         this.configFile = configFile;
@@ -150,8 +148,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         CondenserOutput.SINGULARITY.requiredPower = this.get("Condenser", "Singularity", 256000).getInt(256000);
 
         this.removeCrashingItemsOnLoad = this.get("general", "removeCrashingItemsOnLoad", false, "Will auto-remove items that crash when being loaded from storage. This will destroy those items instead of crashing the game!").getBoolean();
-        this.normalChannelCapacity = Math.min(this.get("general", "normalChannelCapacity", this.normalChannelCapacity, "Max channel number may not exceed 256").getInt(this.normalChannelCapacity), 256);
-        this.denseChannelCapacity = Math.min(this.get("general", "denseChannelCapacity", this.denseChannelCapacity, "Max channel number may not exceed 256").getInt(this.denseChannelCapacity), 256);
+        this.setCategoryComment("ChannelTiers", "How many channels each kind of node carries. 0 carries nothing, -1 imposes no limit of its own and lets whatever is on either side decide. Addons add their own lines here.");
 
         this.setCategoryComment("BlockingMode", "Map of items to not block when blockingmode is enabled.\n[modid]\nmodid:item:metadata(optional,default:0)\nSupports more than one modid, so you can block different things between, for example, gregtech or enderio");
         this.nonBlockingItems = this.get("BlockingMode", "nonBlockingItems", nonBlockingItems, "NonBlockingItems").getStringList();
@@ -747,11 +744,12 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         return this.maxControllerSizeZ;
     }
 
-    public int getNormalChannelCapacity() {
-        return this.normalChannelCapacity;
+    /**
+     * Asked as each tier is registered, which is why a tier registered after pre-initialisation never
+     * reaches the file.
+     */
+    public int getChannelTierCapacity(final ResourceLocation id, final int defaultCapacity) {
+        return this.get("ChannelTiers", id.toString(), defaultCapacity).getInt(defaultCapacity);
     }
 
-    public int getDenseChannelCapacity() {
-        return this.denseChannelCapacity;
-    }
 }

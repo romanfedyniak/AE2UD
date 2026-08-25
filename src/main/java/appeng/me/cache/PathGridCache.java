@@ -19,6 +19,7 @@
 package appeng.me.cache;
 
 
+import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.AEApi;
 import appeng.api.networking.*;
 import appeng.api.networking.events.MENetworkBootingStatusChange;
@@ -83,7 +84,7 @@ public class PathGridCache implements IPathingGrid {
             if (this.controllerState == ControllerState.NO_CONTROLLER) {
                 final int requiredChannels = this.calculateRequiredChannels();
                 int used = requiredChannels;
-                if (AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS) && requiredChannels > AEConfig.instance().getNormalChannelCapacity()) {
+                if (AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS) && requiredChannels > ChannelTiers.capacityOf(ChannelTiers.NORMAL)) {
                     used = 0;
                 }
 

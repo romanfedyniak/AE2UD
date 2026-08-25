@@ -31,6 +31,8 @@ import appeng.api.features.IRegistryContainer;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.api.features.IWirelessTerminalModeRegistry;
+import appeng.api.networking.pathing.ChannelTiers;
+import appeng.api.networking.pathing.IChannelTierRegistry;
 import appeng.api.features.IWorldGen.WorldGenType;
 import appeng.api.implementations.items.IItemGroup;
 import appeng.api.movable.IMovableRegistry;
@@ -198,10 +200,23 @@ final class Registration {
 
         ApiDefinitions definitions = api.definitions();
 
+        this.registerChannelTiers(api.registries().channelTiers());
+
         this.registerWirelessTerminalModes(api.registries().wirelessTerminalModes(), definitions);
 
         // Register
         definitions.getRegistry().getBootstrapComponents(IPreInitComponent.class).forEachRemaining(b -> b.preInitialize(event.getSide()));
+    }
+
+    /**
+     * Here rather than later because each tier reads its number out of the config as it is registered, and
+     * the file is written once pre-initialisation is over.
+     */
+    private void registerChannelTiers(final IChannelTierRegistry registry) {
+        registry.register(ChannelTiers.NONE, 0);
+        registry.register(ChannelTiers.NORMAL, 8);
+        registry.register(ChannelTiers.DENSE, 32);
+        registry.register(ChannelTiers.CONTROLLER, -1);
     }
 
     /**

@@ -144,9 +144,17 @@ public class GridConnection implements IGridConnection, IPathItem {
         }
     }
 
+    /**
+     * A connection is as wide as the narrower of the two nodes it joins. A node with no limit of its own -
+     * a controller face, a P2P tunnel - leaves the other side to decide.
+     */
     @Override
     public boolean canSupportMoreChannels() {
-        return this.getLastUsedChannels() < AEConfig.instance().getDenseChannelCapacity(); // max, PERIOD.
+        final int a = this.sideA.getMaxChannels();
+        final int b = this.sideB.getMaxChannels();
+        final int max = a < 0 ? b : (b < 0 ? a : Math.min(a, b));
+
+        return max < 0 || this.getLastUsedChannels() < max;
     }
 
     @Override

@@ -2006,6 +2006,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     api package, but worth the line: something outside the mod may have been relying on the class being
     closed.
 
+21. **`IGridBlock.getChannelTier()`** plus `appeng.api.networking.pathing.IChannelTier`,
+    `IChannelTierRegistry` and `ChannelTiers` - additive, and the way an addon ships a cable of any size.
+    Upstream has no equivalent: it keeps 8 and 32 hardcoded and multiplies both by a global `ChannelMode`,
+    which lets a pack scale every cable at once but never lets an addon add a bigger one. The default method
+    returns null and falls back to `CANNOT_CARRY`/`DENSE_CAPACITY`, so nothing outside the mod has to change.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
