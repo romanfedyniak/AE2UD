@@ -218,7 +218,8 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
             return name;
         }
 
-        return name + " (" + I18n.translateToLocal(mode.getUnlocalizedName()) + ')';
+        return I18n.translateToLocalFormatted(GuiText.WirelessTerminalModeName.getUnlocalized(), name,
+                I18n.translateToLocal(mode.getUnlocalizedName()));
     }
 
     /**

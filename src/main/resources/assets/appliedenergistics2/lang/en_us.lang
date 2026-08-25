@@ -157,6 +157,7 @@ gui.appliedenergistics2.PowerUsageRate=Energy Usage
 gui.appliedenergistics2.PowerInputRate=Energy Generation
 gui.appliedenergistics2.PortableCell=Portable Cell
 gui.appliedenergistics2.Security=Security Term
+gui.appliedenergistics2.WirelessTerminalModeName=%s - %s
 gui.appliedenergistics2.WirelessModeTerminal=Storage
 gui.appliedenergistics2.WirelessModeCrafting=Crafting
 gui.appliedenergistics2.WirelessModePattern=Patterns
