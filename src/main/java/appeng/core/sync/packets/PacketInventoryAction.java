@@ -294,6 +294,14 @@ public class PacketInventoryAction extends AppEngPacket {
             return;
         }
 
+        // Where the screen came from, not the panel on a cable: the same terminal is wireless too now, and
+        // sending someone back to a panel that is not there leaves them looking at a window that will not
+        // close.
+        final GuiBridge originGui = GuiBridge.openerOf(from.getClass());
+        if (originGui == null) {
+            return;
+        }
+
         final long max = ((AppEngInternalAEInventory) tracker.getServer()).getMaxAmount(current.what());
         if (!PacketSwitchGuis.reopen(sender, from, GuiBridge.GUI_SET_AMOUNT)) {
             return;
@@ -301,7 +309,7 @@ public class PacketInventoryAction extends AppEngPacket {
 
         if (sender.openContainer instanceof ContainerSetAmount) {
             final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
-            csa.setOrigin(GuiBridge.GUI_INTERFACE_CONFIGURATION_TERMINAL, this.slot, tracker.getServer(), current.what(), current.amount(), max);
+            csa.setOrigin(originGui, this.slot, tracker.getServer(), current.what(), current.amount(), max);
             csa.detectAndSendChanges();
         }
     }
