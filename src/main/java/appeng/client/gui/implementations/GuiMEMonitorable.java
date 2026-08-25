@@ -65,6 +65,7 @@ import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -105,6 +106,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private static String memoryText = "";
     protected final ItemRepo repo;
     private final int offsetX = 9;
+
+    /** Where the wireless upgrade plate sits, and with it the slot eight pixels inside it. */
+    private static final int WIRELESS_PLATE_X = 198;
+    private static final int WIRELESS_PLATE_Y = 127;
     private final int lowerTextureOffset = 0;
     private final IConfigManager configSrc;
     private final boolean viewCell;
@@ -545,6 +550,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                     this.perRow * 18, pinRows * 18 + 1));
         }
 
+        if (this.hasWirelessUpgradePlate()) {
+            exclusionArea.add(new Rectangle(guiLeft + WIRELESS_PLATE_X, guiTop + WIRELESS_PLATE_Y, 32, 32));
+        }
+
         return exclusionArea;
     }
 
@@ -747,8 +756,23 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         memoryText = this.searchField.getText();
     }
 
+    /**
+     * Whether this terminal is a wireless one, which wears a plate holding its upgrade slot against the right
+     * edge of the window. Here rather than in each wireless screen because the plate is drawn wholly outside
+     * the window and so has to be reported to HEI as well as drawn.
+     */
+    protected boolean hasWirelessUpgradePlate() {
+        return false;
+    }
+
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+
+        if (this.hasWirelessUpgradePlate()) {
+            this.bindTexture("guis/wirelessupgrades.png");
+            Gui.drawModalRectWithCustomSizedTexture(offsetX + WIRELESS_PLATE_X, offsetY + WIRELESS_PLATE_Y, 0, 0,
+                    32, 32, 32, 32);
+        }
 
         this.bindTexture(this.getBackground());
         final int x_width = 197;

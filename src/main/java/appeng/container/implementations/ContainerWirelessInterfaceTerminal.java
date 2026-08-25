@@ -166,7 +166,7 @@ public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTermin
     public void setupUpgrades() {
         if (wirelessTerminalGUIObject != null) {
             for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
-                this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, upgradeSlot, 183, -1 + upgradeSlot * 18, this.getInventoryPlayer());
+                this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, upgradeSlot, 187, 3 + upgradeSlot * 18, this.getInventoryPlayer());
                 this.magnetSlot.setNotDraggable();
                 this.addSlotToContainer(magnetSlot);
             }

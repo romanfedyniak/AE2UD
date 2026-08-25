@@ -80,10 +80,8 @@ public class GuiWirelessCraftingTerminal extends GuiMEMonitorable {
     }
 
     @Override
-    public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        this.bindTexture("guis/wirelessupgrades.png");
-        Gui.drawModalRectWithCustomSizedTexture(offsetX + 198, offsetY + 127, 0, 0, 32, 32, 32, 32);
-        super.drawBG(offsetX, offsetY, mouseX, mouseY);
+    protected boolean hasWirelessUpgradePlate() {
+        return true;
     }
 
     @Override
