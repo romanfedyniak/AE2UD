@@ -39,6 +39,10 @@ public final class UpgradeCards {
         return stack(AEApi.instance().definitions().materials().cardSticky());
     }
 
+    public static ItemStack fakeCrafting() {
+        return stack(AEApi.instance().definitions().materials().cardFakeCrafting());
+    }
+
     public static ItemStack fuzzy() {
         return stack(AEApi.instance().definitions().materials().cardFuzzy());
     }

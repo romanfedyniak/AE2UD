@@ -91,6 +91,7 @@ public final class ApiMaterials implements IMaterials {
     private final IItemDefinition cardInverter;
     private final IItemDefinition cardCrafting;
     private final IItemDefinition cardSticky;
+    private final IItemDefinition cardFakeCrafting;
 
     private final IItemDefinition enderDust;
     private final IItemDefinition flour;
@@ -207,6 +208,7 @@ public final class ApiMaterials implements IMaterials {
         this.cardInverter = new DamagedItemDefinition("material.card.inverter", materials.createMaterial(MaterialType.CARD_INVERTER));
         this.cardCrafting = new DamagedItemDefinition("material.card.crafting", materials.createMaterial(MaterialType.CARD_CRAFTING));
         this.cardSticky = new DamagedItemDefinition("material.card.sticky", materials.createMaterial(MaterialType.CARD_STICKY));
+        this.cardFakeCrafting = new DamagedItemDefinition("material.card.fake.crafting", materials.createMaterial(MaterialType.CARD_FAKE_CRAFTING));
 
         this.enderDust = new DamagedItemDefinition("material.dust.ender", materials.createMaterial(MaterialType.ENDER_DUST));
         this.flour = new DamagedItemDefinition("material.flour", materials.createMaterial(MaterialType.FLOUR));
@@ -425,6 +427,11 @@ public final class ApiMaterials implements IMaterials {
     @Override
     public IItemDefinition cardSticky() {
         return this.cardSticky;
+    }
+
+    @Override
+    public IItemDefinition cardFakeCrafting() {
+        return this.cardFakeCrafting;
     }
 
     @Override

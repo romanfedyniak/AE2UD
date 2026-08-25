@@ -327,6 +327,13 @@ public class CraftingJob implements Runnable, ICraftingJob {
         return this.done;
     }
 
+    /**
+     * Whether a player asked for this job rather than a machine. Some patterns are offered only to a player.
+     */
+    boolean isRequestedByPlayer() {
+        return this.actionSrc.player().isPresent();
+    }
+
     World getWorld() {
         return this.world;
     }

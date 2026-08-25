@@ -59,11 +59,19 @@ public class GridInventoryEntry {
 
     private final boolean craftable;
 
+    private final boolean fakeCraftable;
+
     public GridInventoryEntry(@Nonnull AEKey what, long storedAmount, long requestableAmount, boolean craftable) {
+        this(what, storedAmount, requestableAmount, craftable, false);
+    }
+
+    public GridInventoryEntry(@Nonnull AEKey what, long storedAmount, long requestableAmount, boolean craftable,
+            boolean fakeCraftable) {
         this.what = Objects.requireNonNull(what, "what");
         this.storedAmount = storedAmount;
         this.requestableAmount = requestableAmount;
         this.craftable = craftable;
+        this.fakeCraftable = fakeCraftable;
     }
 
     /**
@@ -99,6 +107,14 @@ public class GridInventoryEntry {
     }
 
     /**
+     * Whether every pattern that makes {@link #getWhat()} sits in a medium that keeps its results, so
+     * ordering it delivers nothing. Only ever true alongside {@link #isCraftable()}.
+     */
+    public boolean isFakeCraftable() {
+        return this.fakeCraftable;
+    }
+
+    /**
      * @return false when this entry is a removal - the row should disappear from the terminal.
      */
     public boolean isMeaningful() {
@@ -106,22 +122,26 @@ public class GridInventoryEntry {
     }
 
     public GridInventoryEntry withStoredAmount(long newStoredAmount) {
-        return new GridInventoryEntry(this.what, newStoredAmount, this.requestableAmount, this.craftable);
+        return new GridInventoryEntry(this.what, newStoredAmount, this.requestableAmount, this.craftable, this.fakeCraftable);
     }
 
     public void writeToPacket(final ByteBuf data) throws IOException {
         AEKey.writeKey(data, this.what);
         data.writeLong(this.storedAmount);
         data.writeLong(this.requestableAmount);
-        data.writeBoolean(this.craftable);
+        // Two flags in the byte the craftable one already cost, rather than a second byte on every entry
+        // of a listing that runs to thousands.
+        data.writeByte((this.craftable ? 1 : 0) | (this.fakeCraftable ? 2 : 0));
     }
 
     public static GridInventoryEntry fromPacket(final ByteBuf data) throws IOException {
         final AEKey what = AEKey.readKey(data);
         final long storedAmount = data.readLong();
         final long requestableAmount = data.readLong();
-        final boolean craftable = data.readBoolean();
-        return new GridInventoryEntry(what, storedAmount, requestableAmount, craftable);
+        final int flags = data.readByte();
+        final boolean craftable = (flags & 1) != 0;
+        final boolean fakeCraftable = (flags & 2) != 0;
+        return new GridInventoryEntry(what, storedAmount, requestableAmount, craftable, fakeCraftable);
     }
 
     @Override
@@ -132,13 +152,13 @@ public class GridInventoryEntry {
         if (!(o instanceof GridInventoryEntry other)) {
             return false;
         }
-        return this.storedAmount == other.storedAmount && this.requestableAmount == other.requestableAmount && this.craftable == other.craftable && this.what
+        return this.storedAmount == other.storedAmount && this.requestableAmount == other.requestableAmount && this.craftable == other.craftable && this.fakeCraftable == other.fakeCraftable && this.what
                 .equals(other.what);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.what, this.storedAmount, this.requestableAmount, this.craftable);
+        return Objects.hash(this.what, this.storedAmount, this.requestableAmount, this.craftable, this.fakeCraftable);
     }
 
     @Override

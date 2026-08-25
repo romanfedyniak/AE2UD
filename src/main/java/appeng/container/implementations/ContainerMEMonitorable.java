@@ -62,6 +62,7 @@ import appeng.core.sync.packets.PacketValueConfig;
 import appeng.core.sync.packets.PacketTerminalPins;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.ChannelPowerSrc;
+import appeng.me.cache.CraftingGridCache;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.cluster.implementations.ICraftingCPUListener;
 import appeng.parts.reporting.AbstractPartTerminal;
@@ -153,6 +154,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
      * check in {@link #collectChanges()} work, so whatever is stored here must be immutable.
      */
     private Set<AEKey> previousCraftables = Collections.emptySet();
+    /** Same idea as {@link #previousCraftables}, for the keys nothing but a fake pattern makes. */
+    private Set<AEKey> previousFakeCraftables = Collections.emptySet();
     private final IPlayerTerminalPins terminalPins;
     private final LinkedHashMap<AEKey, TerminalCraftingPin> craftingPins = new LinkedHashMap<>();
     /** How each pinned key's jobs ended, reported by the CPUs and spent once the key stops being crafted. */
@@ -578,9 +581,11 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         }
         KeyCounter stored = this.readAvailableStacks();
         Set<AEKey> craftables = this.computeCraftables();
+        Set<AEKey> fakeCraftables = this.computeFakeCraftables();
         PacketMEInventoryUpdate update = new PacketMEInventoryUpdate();
         for (AEKey what : keys) {
-            update.appendItem(new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what)));
+            update.appendItem(new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what),
+                    fakeCraftables.contains(what)));
         }
         NetworkHandler.instance().sendTo(update, (EntityPlayerMP) this.getInventoryPlayer().player);
     }
@@ -622,12 +627,14 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         final List<GridInventoryEntry> result = new ArrayList<>();
 
         final Set<AEKey> craftables = this.computeCraftables();
+        final Set<AEKey> fakeCraftables = this.computeFakeCraftables();
         final Set<AEKey> newlyCraftable = new HashSet<>();
         final Set<AEKey> noLongerCraftable = new HashSet<>();
 
         // The same instance means no pattern changed since last tick, so there is no flag diff to compute.
         // This is the common case: patterns change when a player edits them, availability changes constantly.
-        if (craftables != this.previousCraftables) {
+        // Both sets are rebuilt together, so either one differing means the same thing.
+        if (craftables != this.previousCraftables || fakeCraftables != this.previousFakeCraftables) {
             newlyCraftable.addAll(craftables);
             newlyCraftable.removeAll(this.previousCraftables);
             noLongerCraftable.addAll(this.previousCraftables);
@@ -643,7 +650,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 }
                 newlyCraftable.remove(what);
                 noLongerCraftable.remove(what);
-                result.add(new GridInventoryEntry(what, e.getValue(), 0, craftables.contains(what)));
+                result.add(new GridInventoryEntry(what, e.getValue(), 0, craftables.contains(what),
+                        fakeCraftables.contains(what)));
             }
             this.pendingPushChanges.clear();
         } else {
@@ -657,7 +665,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 if (amount != this.previousAvailableStacks.get(what)) {
                     newlyCraftable.remove(what);
                     noLongerCraftable.remove(what);
-                    result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what)));
+                    result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what),
+                            fakeCraftables.contains(what)));
                 }
             }
 
@@ -666,7 +675,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 if (entry.getLongValue() != 0 && current.get(what) == 0) {
                     newlyCraftable.remove(what);
                     noLongerCraftable.remove(what);
-                    result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what)));
+                    result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what),
+                            fakeCraftables.contains(what)));
                 }
             }
 
@@ -676,7 +686,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         // Craftable-only changes: the amount for `what` did not change, but its craftable status did.
         for (final AEKey what : newlyCraftable) {
             if (this.isDisplayedKey(what)) {
-                result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true));
+                result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true,
+                        fakeCraftables.contains(what)));
             }
         }
         for (final AEKey what : noLongerCraftable) {
@@ -686,6 +697,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         }
 
         this.previousCraftables = craftables;
+        this.previousFakeCraftables = fakeCraftables;
 
         return result;
     }
@@ -697,6 +709,19 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
         final ICraftingGrid cc = this.networkNode.getGrid().getCache(ICraftingGrid.class);
         return cc == null ? Collections.emptySet() : cc.getCraftables();
+    }
+
+    /**
+     * The craftable keys whose every pattern sits in a medium that keeps its results - ordering one of these
+     * delivers nothing, so the terminal marks them apart rather than showing the usual craftable "+".
+     */
+    private Set<AEKey> computeFakeCraftables() {
+        if (!this.monitorsNetworkInventory()) {
+            return Collections.emptySet();
+        }
+
+        final ICraftingGrid cc = this.networkNode.getGrid().getCache(ICraftingGrid.class);
+        return cc instanceof CraftingGridCache ? ((CraftingGridCache) cc).getFakeCraftables() : Collections.emptySet();
     }
 
     /**
@@ -848,6 +873,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 // all, and the terminal would only ever show craftables that happened to be stocked once
                 // while it was open.
                 final KeyCounter stored = this.readAvailableStacks();
+                final Set<AEKey> fakeCraftables = this.computeFakeCraftables();
                 final Set<AEKey> keys = new LinkedHashSet<>(stored.keySet());
                 keys.addAll(craftables);
 
@@ -855,7 +881,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                     if (!this.isDisplayedKey(what)) {
                         continue;
                     }
-                    final GridInventoryEntry send = new GridInventoryEntry(what, stored.get(what), 0, craftables.contains(what));
+                    final GridInventoryEntry send = new GridInventoryEntry(what, stored.get(what), 0,
+                            craftables.contains(what), fakeCraftables.contains(what));
                     try {
                         piu.appendItem(send);
                     } catch (final BufferOverflowException boe) {

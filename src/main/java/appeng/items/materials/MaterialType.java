@@ -118,6 +118,7 @@ public enum MaterialType {
     CARD_MAGNET(60, "material_card_magnet", EnumSet.of(AEFeature.BASIC_CARDS)),
     CARD_STICKY(61, "material_card_sticky", EnumSet.of(AEFeature.BASIC_CARDS)),
     FLUID_CELL_HOUSING(62, "material_fluid_cell_housing", EnumSet.of(AEFeature.STORAGE_CELLS)),
+    CARD_FAKE_CRAFTING(63, "material_card_fake_crafting", EnumSet.of(AEFeature.ADVANCED_CARDS, AEFeature.FAKE_CRAFTING_CARD)),
     ;
 
 

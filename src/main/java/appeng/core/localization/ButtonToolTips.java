@@ -204,6 +204,7 @@ public enum ButtonToolTips {
     AmountRequestable,
     ItemsRequestable,
     ItemsCraftable,
+    ItemsFakeCraftable,
 
     SchedulingMode,
     SchedulingModeDefault,

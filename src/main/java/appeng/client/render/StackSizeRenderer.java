@@ -46,6 +46,10 @@ public class StackSizeRenderer {
     private static final float SCALE = 0.666f;
     private static final int OFFSET = -1;
 
+    private static final int WHITE = 0xFFFFFF;
+    /** Amber, for a craftable whose result would never arrive - the same amber the terminals mark it with. */
+    public static final int FAKE_CRAFTABLE_COLOR = 0xFFAA00;
+
     /**
      * The ME-slot flavour: carries the craftable flag alongside the amount. Replaces the old
      * {@code renderStackSize(FontRenderer, IAEItemStack, int, int)} at the one call site that fed it a
@@ -55,7 +59,7 @@ public class StackSizeRenderer {
         if (entry != null) {
             // Alt trades a stocked row's amount for the "+", showing what an Alt click on it would do.
             this.renderStackSize(fontRenderer, entry.getStoredAmount(), entry.isCraftable(),
-                    GuiScreen.isAltKeyDown(), xPos, yPos);
+                    GuiScreen.isAltKeyDown(), xPos, yPos, entry.isFakeCraftable() ? FAKE_CRAFTABLE_COLOR : WHITE);
         }
     }
 
@@ -86,31 +90,39 @@ public class StackSizeRenderer {
      * on a slot that only displays a key, so hiding a pattern's amounts while the key is held is pure loss.
      */
     public void renderStackSize(FontRenderer fontRenderer, @Nullable GenericStack stack, boolean craftable, int xPos, int yPos) {
+        this.renderStackSize(fontRenderer, stack, craftable, false, xPos, yPos);
+    }
+
+    /**
+     * As above, with {@code fakeCraftable} colouring the mark for a key nothing but a fake pattern makes.
+     */
+    public void renderStackSize(FontRenderer fontRenderer, @Nullable GenericStack stack, boolean craftable, boolean fakeCraftable, int xPos, int yPos) {
         if (stack == null) {
             return;
         }
+        final int markColor = fakeCraftable ? FAKE_CRAFTABLE_COLOR : WHITE;
         if (stack.amount() == 1 && stack.what() instanceof AEItemKey) {
             if (craftable) {
-                drawCraftableMark(fontRenderer, xPos, yPos);
+                drawCraftableMark(fontRenderer, xPos, yPos, markColor);
             }
             return;
         }
 
-        this.renderStackSize(fontRenderer, stack.amount(), craftable, false, xPos, yPos);
+        this.renderStackSize(fontRenderer, stack.amount(), craftable, false, xPos, yPos, markColor);
     }
 
-    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, boolean markInsteadOfAmount, int xPos, int yPos) {
+    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, boolean markInsteadOfAmount, int xPos, int yPos, int markColor) {
         final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
         fontRenderer.setUnicodeFlag(false);
 
         if ((amount == 0 || markInsteadOfAmount) && craftable) {
             // Modern AE2's convention: "+" where the count goes, rather than the word "Craft". Left-inset
             // like drawCraftableMark's own "+", not nudged right the way a multi-digit count is.
-            drawLabel(fontRenderer, "+", xPos, yPos, 0.0f);
+            drawLabel(fontRenderer, "+", xPos, yPos, 0.0f, markColor);
         } else if (amount > 0) {
-            drawLabel(fontRenderer, this.getToBeRenderedStackSize(amount), xPos, yPos, 1.3f);
+            drawLabel(fontRenderer, this.getToBeRenderedStackSize(amount), xPos, yPos, 1.3f, WHITE);
             if (craftable) {
-                drawCraftableMark(fontRenderer, xPos, yPos);
+                drawCraftableMark(fontRenderer, xPos, yPos, markColor);
             }
         }
 
@@ -123,6 +135,10 @@ public class StackSizeRenderer {
      * - via the HEI recipe screen mixin - a recipe ingredient the open terminal can already autocraft).
      */
     public static void drawCraftableMark(final FontRenderer fontRenderer, final int xPos, final int yPos) {
+        drawCraftableMark(fontRenderer, xPos, yPos, WHITE);
+    }
+
+    public static void drawCraftableMark(final FontRenderer fontRenderer, final int xPos, final int yPos, final int color) {
         final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
         fontRenderer.setUnicodeFlag(false);
 
@@ -136,7 +152,7 @@ public class StackSizeRenderer {
         GlStateManager.disableBlend();
         GlStateManager.pushMatrix();
         GlStateManager.scale(SCALE, SCALE, SCALE);
-        fontRenderer.drawStringWithShadow("+", (int) ((xPos - OFFSET) * inverseScale), (int) ((yPos - OFFSET) * inverseScale), 16777215);
+        fontRenderer.drawStringWithShadow("+", (int) ((xPos - OFFSET) * inverseScale), (int) ((yPos - OFFSET) * inverseScale), color);
         GlStateManager.popMatrix();
         GlStateManager.enableLighting();
         GlStateManager.enableDepth();
@@ -145,7 +161,7 @@ public class StackSizeRenderer {
         fontRenderer.setUnicodeFlag(unicodeFlag);
     }
 
-    private static void drawLabel(final FontRenderer fontRenderer, final String text, final int xPos, final int yPos, final float xAdjust) {
+    private static void drawLabel(final FontRenderer fontRenderer, final String text, final int xPos, final int yPos, final float xAdjust, final int color) {
         final float inverseScale = 1.0f / SCALE;
 
         GlStateManager.disableLighting();
@@ -155,7 +171,7 @@ public class StackSizeRenderer {
         GlStateManager.scale(SCALE, SCALE, SCALE);
         final int X = (int) (((float) xPos + OFFSET + 16.0f + xAdjust - fontRenderer.getStringWidth(text) * SCALE) * inverseScale);
         final int Y = (int) (((float) yPos + OFFSET + 16.0f - 7.0f * SCALE) * inverseScale);
-        fontRenderer.drawStringWithShadow(text, X, Y, 16777215);
+        fontRenderer.drawStringWithShadow(text, X, Y, color);
         GlStateManager.popMatrix();
         GlStateManager.enableLighting();
         GlStateManager.enableDepth();

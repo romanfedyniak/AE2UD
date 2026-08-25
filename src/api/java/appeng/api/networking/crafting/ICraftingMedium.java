@@ -86,4 +86,17 @@ public interface ICraftingMedium
 	 * @return if this is false, the crafting engine will refuse to send new jobs to this medium.
 	 */
 	boolean isBusy();
+
+	/**
+	 * Whether a pattern pushed here is finished the moment it leaves - nothing comes back, and the job is
+	 * settled as if it had. For a machine chain that carries its own results, or one that consumes them.
+	 * <p>
+	 * A medium that answers true is used only for the pattern producing a job's final output, and only for a
+	 * job a player asked for: a dependency whose result never arrives would leave the job waiting forever,
+	 * and a machine that ordered the craft would never be handed anything and would order it again.
+	 */
+	default boolean isFakeCrafting()
+	{
+		return false;
+	}
 }

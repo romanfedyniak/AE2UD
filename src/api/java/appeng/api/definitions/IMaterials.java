@@ -102,6 +102,8 @@ public interface IMaterials {
 
     IItemDefinition cardSticky();
 
+    IItemDefinition cardFakeCrafting();
+
     IItemDefinition enderDust();
 
     IItemDefinition flour();

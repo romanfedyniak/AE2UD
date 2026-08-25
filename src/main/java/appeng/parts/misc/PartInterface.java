@@ -227,6 +227,11 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
     }
 
     @Override
+    public boolean isFakeCrafting() {
+        return this.duality.isFakeCrafting();
+    }
+
+    @Override
     public boolean isBusy() {
         return this.duality.isBusy();
     }

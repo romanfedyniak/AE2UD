@@ -81,6 +81,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private final HashMap<ClientDCInternalInv, BlockPos> blockPosHashMap = new HashMap<>();
     private final HashMap<GuiButton, ClientDCInternalInv> guiButtonHashMap = new HashMap<>();
     private final Map<ClientDCInternalInv, Integer> numUpgradesMap = new HashMap<>();
+    private final Set<ClientDCInternalInv> fakeCrafting = new HashSet<>();
     private final ArrayList<String> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
     private final Set<Object> matchedStacks = new HashSet<>();
@@ -239,7 +240,12 @@ public class GuiInterfaceTerminal extends AEBaseGui {
             if (lineObj instanceof ClientDCInternalInv inv) {
 
                 final int extraLines = numUpgradesMap.get(inv);
+                final boolean fake = this.fakeCrafting.contains(inv);
                 for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
+                    // The card sits in the interface, not in any one pattern, so the whole row carries it.
+                    if (fake) {
+                        drawRect(22, offset, 22 + 9 * 18, offset + 18, 0x30FF9000);
+                    }
                     for (int z = 0; z < 9; z++) {
                         if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (row * 9)))) {
                             drawRect(z * 18 + 22, 1 + offset, z * 18 + 22 + 16, 1 + offset + 16, 0x2A00FF00);
@@ -501,6 +507,11 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                     blockPosHashMap.put(current, NBTUtil.getPosFromTag(invData.getCompoundTag("pos")));
                     dimHashMap.put(current, invData.getInteger("dim"));
                     numUpgradesMap.put(current, invData.getInteger("numUpgrades"));
+                    if (invData.getBoolean("fake")) {
+                        fakeCrafting.add(current);
+                    } else {
+                        fakeCrafting.remove(current);
+                    }
 
                     for (int x = 0; x < current.getInventory().getSlots(); x++) {
                         final String which = Integer.toString(x);

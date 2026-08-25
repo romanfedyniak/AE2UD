@@ -95,6 +95,11 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     private final IGrid grid;
     private final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectOpenHashMap<>();
     private final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftableItems = new Object2ObjectOpenHashMap<>();
+    /**
+     * Keys every one of whose patterns sits in a medium that settles jobs itself. Recomputed with the
+     * pattern list and handed out by identity, so a terminal can diff it the way it diffs the craftables.
+     */
+    private Set<AEKey> fakeCraftableItems = Collections.emptySet();
     private final Set<AEKey> emitableItems = new HashSet<>();
     /** Nulled wherever the two collections above are mutated. See {@link #getCraftables()}. */
     private Set<AEKey> craftablesCache;
@@ -282,6 +287,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
         }
 
         this.craftablesCache = null;
+        this.recalculateFakeCraftables();
 
         // Figure out which keys flipped craftable-state (either via a pattern or an emitter) so
         // interested ICraftingWatcherHosts can be told, mirroring AE2-original's CraftingService
@@ -388,7 +394,76 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             return ImmutableSet.of();
         }
 
-        return res;
+        // A non-null parent means this is an ingredient of something else. A pattern whose result never
+        // comes back cannot be one: the step after it would wait for an item that is never made.
+        return details == null ? res : this.withoutFakeCrafting(res);
+    }
+
+    /**
+     * @return whether every medium holding this pattern settles the job itself, so nothing it makes ever
+     *         reaches the network.
+     */
+    public boolean isFakeCrafting(final ICraftingPatternDetails details) {
+        return isFakeCrafting(this.craftingMethods.get(details));
+    }
+
+    public static boolean isFakeCrafting(final List<ICraftingMedium> mediums) {
+        if (mediums == null || mediums.isEmpty()) {
+            return false;
+        }
+
+        for (final ICraftingMedium medium : mediums) {
+            if (!medium.isFakeCrafting()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The craftable keys that only a player can ask for, because every pattern making them is fake.
+     * Immutable and replaced wholesale, so holding the reference is a valid "nothing changed" check.
+     */
+    public Set<AEKey> getFakeCraftables() {
+        return this.fakeCraftableItems;
+    }
+
+    private ImmutableCollection<ICraftingPatternDetails> withoutFakeCrafting(final ImmutableList<ICraftingPatternDetails> res) {
+        ImmutableList.Builder<ICraftingPatternDetails> kept = null;
+
+        for (int i = 0; i < res.size(); i++) {
+            final ICraftingPatternDetails details = res.get(i);
+            if (this.isFakeCrafting(details)) {
+                if (kept == null) {
+                    kept = ImmutableList.builder();
+                    kept.addAll(res.subList(0, i));
+                }
+            } else if (kept != null) {
+                kept.add(details);
+            }
+        }
+
+        return kept == null ? res : kept.build();
+    }
+
+    private void recalculateFakeCraftables() {
+        final Set<AEKey> fake = new HashSet<>();
+
+        for (final Entry<AEKey, ImmutableList<ICraftingPatternDetails>> e : this.craftableItems.entrySet()) {
+            boolean allFake = true;
+            for (final ICraftingPatternDetails details : e.getValue()) {
+                if (!this.isFakeCrafting(details)) {
+                    allFake = false;
+                    break;
+                }
+            }
+            if (allFake) {
+                fake.add(e.getKey());
+            }
+        }
+
+        this.fakeCraftableItems = fake.isEmpty() ? Collections.emptySet() : Collections.unmodifiableSet(fake);
     }
 
     @Override

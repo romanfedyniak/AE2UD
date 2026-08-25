@@ -294,6 +294,40 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * @return how much of {@code amount} this job claimed.
      */
     public long injectItems(final AEKey what, final long amount, final Actionable type, final IActionSource src) {
+        return this.settle(what, amount, type, src, true);
+    }
+
+    /**
+     * Whether this pattern is the one that ends the job, which is the only pattern a medium that settles
+     * jobs itself may be given. A job with no player behind it is never one of those - see
+     * {@link ICraftingMedium#isFakeCrafting()}.
+     */
+    private boolean finishesJob(final ICraftingPatternDetails details) {
+        if (this.finalOutput == null || this.requestingPlayerUUID == null) {
+            return false;
+        }
+
+        for (final GenericStack out : details.getCondensedOutputs()) {
+            if (out != null && out.what().equals(this.finalOutput.what())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Books an output as having arrived. Everything the job counts - what it is still waiting for, what was
+     * promised, the remaining item count, the final output - is settled either way; {@code deliver} says
+     * whether the items themselves exist. They do not for a medium that keeps them
+     * ({@link ICraftingMedium#isFakeCrafting()}), and nothing is handed to the requester or stored for the
+     * next step.
+     */
+    private long settle(final AEKey what, final long amount, final IActionSource src, final boolean deliver) {
+        return this.settle(what, amount, Actionable.MODULATE, src, deliver);
+    }
+
+    private long settle(final AEKey what, final long amount, final Actionable type, final IActionSource src, final boolean deliver) {
         // also stop accepting items when the job is complete, i.e. to prevent re-insertion when pushing out
         // items during storeItems
         if (amount <= 0 || this.isComplete) {
@@ -330,7 +364,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         if (this.finalOutput != null && this.finalOutput.what().equals(what)) {
             long delivered = used;
 
-            if (this.myLastLink != null) {
+            if (deliver && this.myLastLink != null) {
                 final GenericStack leftover = ((CraftingLink) this.myLastLink).injectItems(new GenericStack(what, used), type);
                 delivered = used - GenericStack.getStackSizeOrZero(leftover);
             }
@@ -346,7 +380,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return delivered;
         }
 
-        return this.inventory.insert(what, used, Actionable.MODULATE, src);
+        return deliver ? this.inventory.insert(what, used, Actionable.MODULATE, src) : used;
     }
 
     private void markDirty() {
@@ -732,6 +766,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         continue;
                     }
 
+                    if (m.isFakeCrafting() && !this.finishesJob(details)) {
+                        continue;
+                    }
+
                     if (ic == null) {
                         final GenericStack[] input = details.getInputs();
                         double sum = 0;
@@ -881,6 +919,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         this.somethingChanged = true;
                         this.remainingOperations--;
 
+                        // Whatever this push is owed. Only collected for a medium that keeps it: everything
+                        // in here is booked as arrived below, without any of it being made.
+                        final List<GenericStack> owed = m.isFakeCrafting() ? new ArrayList<>() : null;
+
                         for (final GenericStack out : details.getCondensedOutputs()) {
                             if (out == null) {
                                 continue;
@@ -888,6 +930,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             this.postChange(out.what(), this.machineSrc);
                             this.waitingFor.add(out.what(), out.amount());
                             this.postCraftingStatusChange(out.what());
+                            if (owed != null) {
+                                owed.add(out);
+                            }
                         }
 
                         if (details.isCraftable()) {
@@ -899,6 +944,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         this.postChange(key, this.machineSrc);
                                         this.waitingFor.add(key, output.getCount());
                                         this.postCraftingStatusChange(key);
+                                        if (owed != null) {
+                                            owed.add(new GenericStack(key, output.getCount()));
+                                        }
                                     }
                                 }
                             }
@@ -906,6 +954,25 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                         ic = null; // hand off complete!
                         this.markDirty();
+
+                        if (owed != null) {
+                            for (final GenericStack out : owed) {
+                                this.settle(out.what(), out.amount(), this.machineSrc, false);
+                            }
+
+                            // The job is over. Leaving the loop running would draw ingredients for a
+                            // pattern nobody is waiting for any more, and nothing would give them back -
+                            // and whatever else it had scheduled belongs to that job too. A real craft
+                            // reaches completeJob() with every task already run down to zero, so nothing
+                            // clears them there; this one gets there while its own task still stands, and
+                            // isBusy() counts a standing task as work.
+                            if (this.isComplete) {
+                                this.tasks.clear();
+                                this.workableTasks.clear();
+                                this.updateCPU();
+                                return;
+                            }
+                        }
 
                         e.getValue().value--;
                         if (e.getValue().value <= 0) {

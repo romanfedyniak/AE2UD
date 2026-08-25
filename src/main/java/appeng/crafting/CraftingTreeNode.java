@@ -27,6 +27,7 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.me.cache.CraftingGridCache;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.sync.network.NetworkHandler;
@@ -100,7 +101,13 @@ public class CraftingTreeNode {
         for (final ICraftingPatternDetails details : cc.getCraftingFor(this.what, this.parent == null ? null : this.parent.details, slot, this.world))// in
         // order.
         {
-            if (this.parent == null || notRecursive(details) && this.parent.details != details) {
+            if (this.parent == null) {
+                // A pattern whose result never comes back is a thing only a player can ask for: whatever
+                // machine ordered this craft would wait for delivery that is not coming, and order again.
+                if (this.job.isRequestedByPlayer() || !CraftingGridCache.isFakeCrafting(cc.getMediums(details))) {
+                    this.nodes.add(new CraftingTreeProcess(cc, job, details, this, depth + 1));
+                }
+            } else if (notRecursive(details) && this.parent.details != details) {
                 this.nodes.add(new CraftingTreeProcess(cc, job, details, this, depth + 1));
             }
         }

@@ -2012,6 +2012,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     which lets a pack scale every cable at once but never lets an addon add a bigger one. The default method
     returns null and falls back to `CANNOT_CARRY`/`DENSE_CAPACITY`, so nothing outside the mod has to change.
 
+22. **`ICraftingMedium.isFakeCrafting()`**, plus `IMaterials.cardFakeCrafting()` and
+    `UpgradeCards.fakeCrafting()` - additive, defaulting to false, and the whole of what an addon needs to
+    ship a pattern provider that settles jobs itself. Upstream has no equivalent at all; the two 1.12-era
+    forks that do (NAE2's Job Auto-Complete card, GTNH AE2 Unofficial's Fake Crafting card, both LGPL-3)
+    reach it by mixin, because neither could add a method to the interface. We can, so a medium answers for
+    itself rather than being recognised by type.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

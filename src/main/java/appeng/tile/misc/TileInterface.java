@@ -261,6 +261,11 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
+    public boolean isFakeCrafting() {
+        return this.duality.isFakeCrafting();
+    }
+
+    @Override
     public boolean isBusy() {
         return this.duality.isBusy();
     }

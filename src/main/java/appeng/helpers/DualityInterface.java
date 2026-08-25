@@ -1049,6 +1049,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     @Override
+    public boolean isFakeCrafting() {
+        return this.getInstalledUpgrades(UpgradeCards.fakeCrafting()) > 0;
+    }
+
+    @Override
     public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table) {
         return this.pushPattern(patternDetails, table, EMPTY_EXTRAS);
     }

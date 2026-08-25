@@ -98,6 +98,10 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                     currentToolTip.add(TextFormatting.GRAY + local);
                 }
 
+                if (myStack.isFakeCraftable()) {
+                    currentToolTip.add(TextFormatting.GOLD + ButtonToolTips.ItemsFakeCraftable.getLocal());
+                }
+
 
                 if (s instanceof PinSlotME && ((PinSlotME) s).isCraftingPin()) {
                     TerminalCraftingPin pin = ((PinSlotME) s).getCraftingStatus();

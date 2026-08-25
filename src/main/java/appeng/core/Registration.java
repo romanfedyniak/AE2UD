@@ -501,6 +501,8 @@ final class Registration {
         // Interface
         upgrades.add(UpgradeCards.crafting(), parts.iface(), 1);
         upgrades.add(UpgradeCards.crafting(), blocks.iface(), 1);
+        upgrades.add(UpgradeCards.fakeCrafting(), parts.iface(), 1);
+        upgrades.add(UpgradeCards.fakeCrafting(), blocks.iface(), 1);
         upgrades.add(UpgradeCards.patternExpansion(), parts.iface(), 3);
         upgrades.add(UpgradeCards.patternExpansion(), blocks.iface(), 3);
 

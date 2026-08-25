@@ -170,6 +170,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     }
 
     /**
+     * Whether {@code what} is craftable only through a medium that keeps its results, so the mark is drawn
+     * in the colour that says the craft delivers nothing. Only ever asked about a key already craftable.
+     */
+    public boolean isDisplayedKeyFakeCraftable(final AEKey what) {
+        return false;
+    }
+
+    /**
      * Whether a middle click on this fake slot should open the amount screen, which is only where a
      * configured amount means something. A filter slot matches on the key alone, and a crafting-mode pattern
      * slot is one item of the recipe, so neither has an amount to set.
@@ -1073,8 +1081,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     // placed there, not a browsable network key - marking it craftable would be
                     // nonsensical. SlotFakeCraftingMatrix (the pattern terminal's ingredient slots) is a
                     // placeholder for a key and keeps showing it.
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved,
-                            resolved != null && !(s instanceof SlotCraftingMatrix) && this.isDisplayedKeyCraftable(resolved.what()), s.xPos, s.yPos);
+                    final boolean craftable = resolved != null && !(s instanceof SlotCraftingMatrix)
+                            && this.isDisplayedKeyCraftable(resolved.what());
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved, craftable,
+                            craftable && this.isDisplayedKeyFakeCraftable(resolved.what()), s.xPos, s.yPos);
 
                     return;
                 } else {

@@ -80,7 +80,8 @@ public abstract class MixinRecipesGui extends GuiScreen {
             final AccessorGuiIngredient padding = (AccessorGuiIngredient) concrete;
             StackSizeRenderer.drawCraftableMark(fontRenderer,
                     layout.getPosX() + rect.x + padding.getXPadding(),
-                    layout.getPosY() + rect.y + padding.getYPadding());
+                    layout.getPosY() + rect.y + padding.getYPadding(),
+                    terminal.isDisplayedKeyFakeCraftable(key) ? StackSizeRenderer.FAKE_CRAFTABLE_COLOR : 0xFFFFFF);
         }
     }
 

@@ -135,7 +135,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
                             missing = true;
                         } else {
                             final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName())) {
+                            if (!t.unlocalizedName.equals(dual.getTermName()) || t.fake != dual.isFakeCrafting()) {
                                 missing = true;
                             }
                         }
@@ -157,7 +157,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
                             missing = true;
                         } else {
                             final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName())) {
+                            if (!t.unlocalizedName.equals(dual.getTermName()) || t.fake != dual.isFakeCrafting()) {
                                 missing = true;
                             }
                         }
@@ -377,6 +377,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             tag.setTag("pos", NBTUtil.createPosTag(inv.pos));
             tag.setInteger("dim", inv.dim);
             tag.setInteger("numUpgrades", inv.numUpgrades);
+            tag.setBoolean("fake", inv.fake);
             if (!inv.icon.isEmpty()) {
                 tag.setTag("icon", inv.icon.writeToNBT(new NBTTagCompound()));
             }
@@ -431,6 +432,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         private final BlockPos pos;
         private final int dim;
         private final int numUpgrades;
+        private final boolean fake;
         private final ItemStack icon;
 
         public InvTracker(final DualityInterface dual, final IItemHandler patterns, final String unlocalizedName) {
@@ -441,6 +443,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             this.pos = dual.getLocation().getPos();
             this.dim = dual.getLocation().getWorld().provider.getDimension();
             this.numUpgrades = dual.getInstalledUpgrades(UpgradeCards.patternExpansion());
+            this.fake = dual.isFakeCrafting();
             this.icon = dual.getMachineIdentity().getIcon();
         }
     }
