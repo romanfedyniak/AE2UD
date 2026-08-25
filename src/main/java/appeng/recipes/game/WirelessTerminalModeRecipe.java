@@ -88,6 +88,17 @@ public final class WirelessTerminalModeRecipe extends IForgeRegistryEntry.Impl<I
         return AEApi.instance().definitions().items().wirelessTerminal().isSameAs(stack);
     }
 
+    public IWirelessTerminalMode getMode() {
+        return this.mode;
+    }
+
+    /**
+     * A plain terminal, which is what the recipe accepts whatever modes it already owns.
+     */
+    public ItemStack getTerminal() {
+        return this.terminalStack();
+    }
+
     @Override
     public boolean canFit(final int width, final int height) {
         return width * height >= 2;

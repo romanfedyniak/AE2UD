@@ -35,6 +35,7 @@ import appeng.integration.Integrations;
 import appeng.items.parts.ItemFacade;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import appeng.recipes.game.WirelessTerminalModeRecipe;
 import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.IModRegistry;
@@ -89,6 +90,10 @@ public class JEIPlugin implements IModPlugin {
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerWirelessCraftingTerminal.class), VanillaRecipeCategoryUid.CRAFTING);
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerPatternTerm.class), Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(new RecipeTransferHandler<>(ContainerWirelessPatternTerminal.class), Constants.UNIVERSAL_RECIPE_TRANSFER_UID);
+
+        // HEI has no wrapper for a recipe class it does not know, and drops it rather than drawing it.
+        registry.handleRecipes(WirelessTerminalModeRecipe.class, WirelessTerminalModeRecipeWrapper::new,
+                VanillaRecipeCategoryUid.CRAFTING);
 
         aeGuiHandler = new AEGuiHandler();
         registry.addAdvancedGuiHandlers(aeGuiHandler);
