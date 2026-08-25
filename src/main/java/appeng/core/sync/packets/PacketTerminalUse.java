@@ -5,6 +5,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import javax.annotation.Nullable;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
@@ -34,7 +36,22 @@ import baubles.api.BaublesApi;
  */
 public class PacketTerminalUse extends AppEngPacket {
 
+    /**
+     * Why a terminal could not be opened, worst first. A player carrying more than one is told about the one
+     * that came closest to working - being out of power is worth saying, and a spare in a backpack that has
+     * never been linked is not.
+     */
+    private static final PlayerMessages[] COMPLAINTS = {
+            PlayerMessages.TerminalModeNotUnlocked,
+            PlayerMessages.DeviceNotLinked,
+            PlayerMessages.StationCanNotBeLocated,
+            PlayerMessages.DeviceNotPowered
+    };
+
     private final ResourceLocation mode;
+
+    @Nullable
+    private PlayerMessages complaint;
 
     public PacketTerminalUse(final ByteBuf stream) throws IOException {
         final DataInputStream dis = new DataInputStream(
@@ -63,73 +80,95 @@ public class PacketTerminalUse extends AppEngPacket {
             return;
         }
 
+        this.complaint = null;
+
+        // Every terminal the player has, not the first one found: one of them may be the only one that knows
+        // this mode, or the only one still charged.
         final NonNullList<ItemStack> mainInventory = player.inventory.mainInventory;
         for (int i = 0; i < mainInventory.size(); i++) {
-            final ItemStack is = mainInventory.get(i);
-            if (this.isTerminal(is)) {
-                this.openGui(is, i, player, false);
+            if (this.tryOpen(mainInventory.get(i), i, player, false)) {
                 return;
             }
         }
 
-        if (Platform.isModLoaded("baubles")) {
-            this.tryOpenBauble(player);
+        if (Platform.isModLoaded("baubles") && this.tryBaubles(player)) {
+            return;
         }
-    }
 
-    /**
-     * Any wireless terminal that carries modes, rather than one particular item - there is only the one now,
-     * and the three left over from before convert themselves before a key can reach them.
-     */
-    private boolean isTerminal(final ItemStack is) {
-        return !is.isEmpty()
-                && AEApi.instance().definitions().items().wirelessTerminal().isSameAs(is);
+        if (this.complaint != null) {
+            player.sendMessage(this.complaint.get());
+        }
     }
 
     @Optional.Method(modid = "baubles")
-    private void tryOpenBauble(final EntityPlayer player) {
+    private boolean tryBaubles(final EntityPlayer player) {
         for (int i = 0; i < BaublesApi.getBaublesHandler(player).getSlots(); i++) {
-            final ItemStack is = BaublesApi.getBaublesHandler(player).getStackInSlot(i);
-            if (this.isTerminal(is)) {
-                this.openGui(is, i, player, true);
-                break;
+            if (this.tryOpen(BaublesApi.getBaublesHandler(player).getStackInSlot(i), i, player, true)) {
+                return true;
             }
         }
+
+        return false;
     }
 
-    private void openGui(final ItemStack itemStack, final int slotIdx, final EntityPlayer player,
+    /**
+     * @return true once a screen has been opened, after which nothing else is looked at.
+     */
+    private boolean tryOpen(final ItemStack itemStack, final int slotIdx, final EntityPlayer player,
             final boolean isBauble) {
+        if (itemStack.isEmpty()
+                || !AEApi.instance().definitions().items().wirelessTerminal().isSameAs(itemStack)) {
+            return false;
+        }
+
         if (!WirelessTerminalModes.isUnlocked(itemStack, this.mode)) {
-            player.sendMessage(PlayerMessages.TerminalModeNotUnlocked.get());
-            return;
+            this.complain(PlayerMessages.TerminalModeNotUnlocked);
+            return false;
         }
 
         final IWirelessTermHandler handler = AEApi.instance().registries().wireless()
                 .getWirelessTerminalHandler(itemStack);
         if (handler == null) {
-            return;
+            return false;
         }
 
         final String unparsedKey = handler.getEncryptionKey(itemStack);
         if (unparsedKey.isEmpty()) {
-            player.sendMessage(PlayerMessages.DeviceNotLinked.get());
-            return;
+            this.complain(PlayerMessages.DeviceNotLinked);
+            return false;
         }
 
-        final long parsedKey = Long.parseLong(unparsedKey);
-        final ILocatable securityStation = AEApi.instance().registries().locatable().getLocatableBy(parsedKey);
+        final ILocatable securityStation = AEApi.instance().registries().locatable()
+                .getLocatableBy(Long.parseLong(unparsedKey));
         if (securityStation == null) {
-            player.sendMessage(PlayerMessages.StationCanNotBeLocated.get());
-            return;
+            this.complain(PlayerMessages.StationCanNotBeLocated);
+            return false;
         }
 
         if (!handler.hasPower(player, 0.5, itemStack)) {
-            player.sendMessage(PlayerMessages.DeviceNotPowered.get());
-            return;
+            this.complain(PlayerMessages.DeviceNotPowered);
+            return false;
         }
 
         // Written before the screen is asked for, because the screen is chosen by reading it back off the item.
         WirelessTerminalModes.setModeId(itemStack, this.mode);
         Platform.openGUI(player, slotIdx, (GuiBridge) handler.getGuiHandler(itemStack), isBauble);
+        return true;
+    }
+
+    private void complain(final PlayerMessages message) {
+        if (this.complaint == null || rank(message) > rank(this.complaint)) {
+            this.complaint = message;
+        }
+    }
+
+    private static int rank(final PlayerMessages message) {
+        for (int i = 0; i < COMPLAINTS.length; i++) {
+            if (COMPLAINTS[i] == message) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }
