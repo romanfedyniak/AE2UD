@@ -198,7 +198,7 @@ final class Registration {
 
         ApiDefinitions definitions = api.definitions();
 
-        this.registerWirelessTerminalModes(api.registries().wirelessTerminalModes(), definitions.parts());
+        this.registerWirelessTerminalModes(api.registries().wirelessTerminalModes(), definitions);
 
         // Register
         definitions.getRegistry().getBootstrapComponents(IPreInitComponent.class).forEachRemaining(b -> b.preInitialize(event.getSide()));
@@ -208,19 +208,47 @@ final class Registration {
      * Here rather than later because the recipe that unlocks a mode and the key that opens it are both built
      * from this registry afterwards, and neither event comes round twice.
      */
-    private void registerWirelessTerminalModes(final IWirelessTerminalModeRegistry registry, final IParts parts) {
+    private void registerWirelessTerminalModes(final IWirelessTerminalModeRegistry registry,
+            final ApiDefinitions definitions) {
+        if (!definitions.items().wirelessTerminal().isEnabled()) {
+            return;
+        }
+
+        final IParts parts = definitions.parts();
+
         // The plain terminal goes in first: whatever leads is what a terminal falls back to.
-        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.TERMINAL, parts.terminal(),
-                GuiText.WirelessModeTerminal.getUnlocalized(), GuiBridge.GUI_WIRELESS_TERM));
-        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.CRAFTING, parts.craftingTerminal(),
-                GuiText.WirelessModeCrafting.getUnlocalized(), GuiBridge.GUI_WIRELESS_CRAFTING_TERMINAL));
-        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.PATTERN, parts.patternTerminal(),
-                GuiText.WirelessModePattern.getUnlocalized(), GuiBridge.GUI_WIRELESS_PATTERN_TERMINAL));
-        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.INTERFACE, parts.interfaceTerminal(),
-                GuiText.WirelessModeInterface.getUnlocalized(), GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL));
-        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.INTERFACE_CONFIGURATION,
-                parts.interfaceConfigurationTerminal(), GuiText.WirelessModeInterfaceConfig.getUnlocalized(),
-                GuiBridge.GUI_WIRELESS_INTERFACE_CONFIGURATION_TERMINAL));
+        this.registerTerminalMode(registry, AEFeature.WIRELESS_ACCESS_TERMINAL, WirelessTerminalMode.Ids.TERMINAL,
+                parts.terminal(), GuiText.WirelessModeTerminal, GuiBridge.GUI_WIRELESS_TERM);
+        this.registerTerminalMode(registry, AEFeature.WIRELESS_CRAFTING_TERMINAL, WirelessTerminalMode.Ids.CRAFTING,
+                parts.craftingTerminal(), GuiText.WirelessModeCrafting, GuiBridge.GUI_WIRELESS_CRAFTING_TERMINAL);
+        this.registerTerminalMode(registry, AEFeature.WIRELESS_PATTERN_TERMINAL, WirelessTerminalMode.Ids.PATTERN,
+                parts.patternTerminal(), GuiText.WirelessModePattern, GuiBridge.GUI_WIRELESS_PATTERN_TERMINAL);
+        this.registerTerminalMode(registry, AEFeature.WIRELESS_INTERFACE_TERMINAL, WirelessTerminalMode.Ids.INTERFACE,
+                parts.interfaceTerminal(), GuiText.WirelessModeInterface, GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL);
+
+        // No switch of its own: this one never existed as a wireless item, so there is no setting that used to
+        // turn it off and none is invented here.
+        this.registerTerminalMode(registry, null, WirelessTerminalMode.Ids.INTERFACE_CONFIGURATION,
+                parts.interfaceConfigurationTerminal(), GuiText.WirelessModeInterfaceConfig,
+                GuiBridge.GUI_WIRELESS_INTERFACE_CONFIGURATION_TERMINAL);
+    }
+
+    /**
+     * A mode exists only while both halves of it do: the setting that used to remove the wireless item, and the
+     * panel it is the wireless form of. Turning either off used to leave the other half reachable - the recipe
+     * for the item went, but the mode could still be crafted into a terminal and still had a key of its own.
+     */
+    private void registerTerminalMode(final IWirelessTerminalModeRegistry registry, final AEFeature feature,
+            final ResourceLocation id, final IItemDefinition part, final GuiText name, final GuiBridge gui) {
+        if (feature != null && !AEConfig.instance().isFeatureEnabled(feature)) {
+            return;
+        }
+
+        if (!part.isEnabled()) {
+            return;
+        }
+
+        registry.register(new WirelessTerminalMode(id, part, name.getUnlocalized(), gui));
     }
 
     private void registerSpatialBiome(IForgeRegistry<Biome> registry) {
