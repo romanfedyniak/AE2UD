@@ -25,6 +25,7 @@ import appeng.api.implementations.IUpgradeableCellContainer;
 import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.networking.security.IActionHost;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
@@ -43,7 +44,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 
 
-public class ContainerMEPortableTerminal extends ContainerMEMonitorable implements IUpgradeableCellContainer, IAEAppEngInventory, IInventorySlotAware {
+public class ContainerMEPortableTerminal extends ContainerMEMonitorable implements IUpgradeableCellContainer, IAEAppEngInventory, IInventorySlotAware,
+        IWirelessTerminalContainer {
 
     protected final WirelessTerminalGuiObject wirelessTerminalGUIObject;
     private final int slot;
@@ -170,6 +172,11 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
             }
         }
         return super.slotClick(slotId, dragType, clickTypeIn, player);
+    }
+
+    @Override
+    public ItemStack getTerminal() {
+        return this.wirelessTerminalGUIObject.getItemStack();
     }
 
     @Override

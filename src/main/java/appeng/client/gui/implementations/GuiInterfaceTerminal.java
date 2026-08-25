@@ -290,6 +290,8 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         buttonList.add(guiButtonBrokenRecipes);
         buttonList.add(terminalStyleBox);
 
+        this.addExtraButtons();
+
         int offset = 51;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
         int linesDraw = 0;
@@ -378,6 +380,13 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private void reinitalize() {
         this.buttonList.clear();
         this.initGui();
+    }
+
+    /**
+     * Anything a subclass draws beside this window. The button list is emptied and refilled on every frame,
+     * so whatever is added here has to be added again on each of them.
+     */
+    protected void addExtraButtons() {
     }
 
     @Override

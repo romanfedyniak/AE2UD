@@ -5,6 +5,7 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.implementations.IUpgradeableCellContainer;
 import appeng.api.networking.security.IActionHost;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
@@ -23,7 +24,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 import org.jetbrains.annotations.NotNull;
 
-public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTerminal implements IInventorySlotAware, IUpgradeableCellContainer, IAEAppEngInventory {
+public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTerminal implements IInventorySlotAware, IUpgradeableCellContainer, IAEAppEngInventory,
+        IWirelessTerminalContainer {
     private final WirelessTerminalGuiObject wirelessTerminalGUIObject;
     private final int slot;
     private double powerMultiplier = 0.5;
@@ -140,6 +142,11 @@ public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTermin
 
     void setPowerMultiplier(final double powerMultiplier) {
         this.powerMultiplier = powerMultiplier;
+    }
+
+    @Override
+    public ItemStack getTerminal() {
+        return this.wirelessTerminalGUIObject.getItemStack();
     }
 
     @Override

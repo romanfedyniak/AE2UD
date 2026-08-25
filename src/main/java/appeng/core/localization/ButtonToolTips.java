@@ -234,7 +234,12 @@ public enum ButtonToolTips {
     SideRight,
     SideFront,
     SideBack,
-    SideAny;
+    SideAny,
+
+    // The wireless terminal's mode switch
+    TerminalModeSwitch,
+    TerminalModeLocked,
+    TerminalModeUnobtainable;
 
     private final String root;
 

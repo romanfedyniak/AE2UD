@@ -33,7 +33,7 @@ public class GuiWirelessPatternTerminal extends GuiPatternTerm {
     }
 
     @Override
-    protected boolean hasWirelessUpgradePlate() {
+    protected boolean isWirelessTerminal() {
         return true;
     }
 }

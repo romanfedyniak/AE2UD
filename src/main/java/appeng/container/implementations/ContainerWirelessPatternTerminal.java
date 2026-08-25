@@ -25,6 +25,7 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.IUpgradeableCellContainer;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.container.slot.SlotPatternOutputs;
@@ -52,7 +53,8 @@ import static appeng.helpers.PatternHelper.PROCESSING_INPUT_LIMIT;
 import static appeng.helpers.PatternHelper.PROCESSING_OUTPUT_LIMIT;
 
 
-public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder implements IUpgradeableCellContainer, IInventorySlotAware {
+public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
+        implements IUpgradeableCellContainer, IInventorySlotAware, IWirelessTerminalContainer {
 
     private final WirelessTerminalGuiObject wirelessTerminalGUIObject;
     private final int slot;
@@ -320,6 +322,11 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
                 this.addSlotToContainer(magnetSlot);
             }
         }
+    }
+
+    @Override
+    public ItemStack getTerminal() {
+        return this.wirelessTerminalGUIObject.getItemStack();
     }
 
     @Override

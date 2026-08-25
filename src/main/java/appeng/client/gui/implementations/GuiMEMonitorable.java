@@ -46,6 +46,7 @@ import appeng.client.me.SlotME;
 import appeng.client.me.PinSlotME;
 import appeng.client.me.InternalPinSlotME;
 import appeng.container.implementations.ContainerMEMonitorable;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotFakeCraftingMatrix;
@@ -110,6 +111,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     /** Where the wireless upgrade plate sits, and with it the slot eight pixels inside it. */
     private static final int WIRELESS_PLATE_X = 198;
     private static final int WIRELESS_PLATE_Y = 127;
+
+    private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
     private final int lowerTextureOffset = 0;
     private final IConfigManager configSrc;
     private final boolean viewCell;
@@ -234,6 +237,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     @Override
     protected void actionPerformed(final GuiButton btn) {
+        if (this.modeSwitch.actionPerformed(btn)) {
+            return;
+        }
+
         if (btn == this.craftingStatusBtn) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_STATUS));
         }
@@ -462,6 +469,40 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         this.repo.setPins(this.terminalPlayerPins, this.terminalCraftingPins,
                 this.visibleCraftingPinRows, this.visiblePlayerPinRows);
+
+        this.attachModeSwitch();
+    }
+
+    /**
+     * Last, so the switch finds the bottom of a button column that is already complete.
+     *
+     * <p>On every frame rather than once, because the mode a terminal is in reaches the client in the item's
+     * own NBT and that arrives a tick after the screen opened for it - a switch built once would show the mode
+     * before last. The call does nothing at all unless something it was built from has changed.</p>
+     */
+    private void attachModeSwitch() {
+        if (this.isWirelessTerminal() && this.inventorySlots instanceof IWirelessTerminalContainer) {
+            this.modeSwitch.attach(this.buttonList,
+                    ((IWirelessTerminalContainer) this.inventorySlots).getTerminal(), this.guiLeft, this.guiTop);
+        }
+    }
+
+    @Override
+    public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
+        this.attachModeSwitch();
+        this.updateRepoPower();
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    /**
+     * Assume powered until the server has said otherwise. Whether the network has power is a synced field, so
+     * its real value lands a tick after the screen does, and a screen that took the starting value greyed out
+     * every slot it had for that tick. Drawn from here as well as from the tick, because the first frame comes
+     * before the first tick.
+     */
+    private void updateRepoPower() {
+        this.repo.setPower(!this.monitorableContainer.isPowerKnown()
+                || this.monitorableContainer.isPowered());
     }
 
     public void applyTerminalPinSnapshot(boolean reinitializeLayout) {
@@ -550,8 +591,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                     this.perRow * 18, pinRows * 18 + 1));
         }
 
-        if (this.hasWirelessUpgradePlate()) {
+        if (this.isWirelessTerminal()) {
             exclusionArea.add(new Rectangle(guiLeft + WIRELESS_PLATE_X, guiTop + WIRELESS_PLATE_Y, 32, 32));
+            this.modeSwitch.addExclusionAreas(exclusionArea);
         }
 
         return exclusionArea;
@@ -757,18 +799,18 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     /**
-     * Whether this terminal is a wireless one, which wears a plate holding its upgrade slot against the right
-     * edge of the window. Here rather than in each wireless screen because the plate is drawn wholly outside
-     * the window and so has to be reported to HEI as well as drawn.
+     * Whether this terminal is a wireless one. Two things hang off that, both drawn outside the window and so
+     * both to be reported to HEI as well as drawn: the plate holding the upgrade slot, and the mode switch.
+     * Here rather than in each wireless screen, because all three of them want the same two.
      */
-    protected boolean hasWirelessUpgradePlate() {
+    protected boolean isWirelessTerminal() {
         return false;
     }
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
 
-        if (this.hasWirelessUpgradePlate()) {
+        if (this.isWirelessTerminal()) {
             this.bindTexture("guis/wirelessupgrades.png");
             Gui.drawModalRectWithCustomSizedTexture(offsetX + WIRELESS_PLATE_X, offsetY + WIRELESS_PLATE_Y, 0, 0,
                     32, 32, 32, 32);
@@ -925,7 +967,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     @Override
     public void updateScreen() {
-        this.repo.setPower(this.monitorableContainer.isPowered());
+        this.updateRepoPower();
         if (this.delayedUpdate) {
             if (isShiftKeyDown()) {
                 this.delayedUpdate = false;

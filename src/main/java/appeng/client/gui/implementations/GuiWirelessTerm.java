@@ -33,7 +33,7 @@ public class GuiWirelessTerm extends GuiMEMonitorable {
     }
 
     @Override
-    protected boolean hasWirelessUpgradePlate() {
+    protected boolean isWirelessTerminal() {
         return true;
     }
 }

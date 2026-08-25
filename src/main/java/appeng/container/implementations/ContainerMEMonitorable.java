@@ -106,6 +106,8 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     public boolean canAccessViewCells = false;
     @GuiSync(98)
     public boolean hasPower = false;
+    /** Client side: whether {@link #hasPower} has been heard from the server yet. */
+    private boolean powerKnown = false;
     private IConfigManagerHost gui;
     private IConfigManager serverCM;
     private IGridNode networkNode;
@@ -804,6 +806,10 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     @Override
     public void onUpdate(final String field, final Object oldValue, final Object newValue) {
+        if (field.equals("hasPower")) {
+            this.powerKnown = true;
+        }
+
         if (field.equals("canAccessViewCells")) {
             for (int y = 0; y < 5; y++) {
                 if (this.cellView[y] != null) {
@@ -935,6 +941,16 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     public boolean isPowered() {
         return this.hasPower;
+    }
+
+    /**
+     * Whether the screen may believe {@link #isPowered()}. A synced field arrives a tick after the screen it
+     * belongs to, and this one starts at false, so a terminal that took the first answer would grey every slot
+     * it has for that tick. Told rather than assumed, so a terminal opened on a network that really is dark
+     * still greys - it just waits to be sure first.
+     */
+    public boolean isPowerKnown() {
+        return this.powerKnown;
     }
 
     private void setPowered(final boolean isPowered) {

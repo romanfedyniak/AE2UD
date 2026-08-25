@@ -99,6 +99,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_HIGHLIGHT_BLOCKS(PacketHighlightBlocks.class),
 
+        PACKET_TERMINAL_MODE(PacketSwitchTerminalMode.class),
+
         ;
 
 
