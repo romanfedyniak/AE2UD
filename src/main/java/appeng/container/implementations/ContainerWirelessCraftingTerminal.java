@@ -22,8 +22,10 @@ package appeng.container.implementations;
 import appeng.container.ContainerNull;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotCraftingTerm;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.helpers.WirelessTerminalModes;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
@@ -93,10 +95,16 @@ public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTermin
     @Override
     public void saveChanges() {
         if (Platform.isServer()) {
-            NBTTagCompound tag = new NBTTagCompound();
-            this.craftingGrid.writeToNBT(tag, "craftingGrid");
+            final NBTTagCompound tag = new NBTTagCompound();
             this.upgrades.writeToNBT(tag, "upgrades");
             this.wirelessTerminalGUIObject.saveChanges(tag);
+
+            // Real items, and the pattern mode keeps ghosts under the same name, so this grid is kept apart
+            // from it rather than handed over on the next switch.
+            final NBTTagCompound modeTag = new NBTTagCompound();
+            this.craftingGrid.writeToNBT(modeTag, "craftingGrid");
+            WirelessTerminalModes.setModeData(this.wirelessTerminalGUIObject.getItemStack(),
+                    WirelessTerminalMode.Ids.CRAFTING, modeTag);
         }
     }
 
@@ -104,10 +112,8 @@ public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTermin
     protected void loadFromNBT() {
         super.loadFromNBT();
         this.craftingGrid = new AppEngInternalInventory(this, 9);
-        NBTTagCompound data = wirelessTerminalGUIObject.getItemStack().getTagCompound();
-        if (data != null) {
-            this.craftingGrid.readFromNBT(data, "craftingGrid");
-        }
+        this.craftingGrid.readFromNBT(WirelessTerminalModes.getModeData(
+                this.wirelessTerminalGUIObject.getItemStack(), WirelessTerminalMode.Ids.CRAFTING), "craftingGrid");
     }
 
     @Override

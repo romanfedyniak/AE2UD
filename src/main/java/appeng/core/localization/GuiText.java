@@ -55,6 +55,13 @@ public enum GuiText {
     ConfigureVisibleTypes,
     ConfigureVisibleTypesHint,
 
+    // What each wireless terminal mode is called, in its button, in the terminal's name and in its tooltip
+    WirelessModeTerminal,
+    WirelessModeCrafting,
+    WirelessModePattern,
+    WirelessModeInterface,
+    UnknownWirelessMode,
+
     CellWorkbench,
     NetworkDetails,
     StorageCells,

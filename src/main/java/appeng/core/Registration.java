@@ -29,6 +29,8 @@ import appeng.api.definitions.IParts;
 import appeng.api.features.IRecipeHandlerRegistry;
 import appeng.api.features.IRegistryContainer;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.features.IWirelessTerminalMode;
+import appeng.api.features.IWirelessTerminalModeRegistry;
 import appeng.api.features.IWorldGen.WorldGenType;
 import appeng.api.implementations.items.IItemGroup;
 import appeng.api.movable.IMovableRegistry;
@@ -52,11 +54,13 @@ import appeng.api.storage.StorageCells;
 import appeng.core.api.AEFluidKeyType;
 import appeng.core.api.AEItemKeyType;
 import appeng.core.features.registries.P2PTunnelRegistry;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.parts.automation.InitStackWorldBehaviors;
 import appeng.parts.misc.InitExternalStorageStrategies;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.GuiBridge;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.stats.AdvancementTriggers;
 import appeng.core.stats.PartItemPredicate;
@@ -72,6 +76,7 @@ import appeng.me.cache.*;
 import appeng.recipes.AEItemResolver;
 import appeng.recipes.AERecipeLoader;
 import appeng.recipes.game.DisassembleRecipe;
+import appeng.recipes.game.WirelessTerminalModeRecipe;
 import appeng.recipes.game.FacadeRecipe;
 import appeng.recipes.ores.OreDictionaryHandler;
 import appeng.spatial.BiomeGenStorage;
@@ -193,8 +198,26 @@ final class Registration {
 
         ApiDefinitions definitions = api.definitions();
 
+        this.registerWirelessTerminalModes(api.registries().wirelessTerminalModes(), definitions.parts());
+
         // Register
         definitions.getRegistry().getBootstrapComponents(IPreInitComponent.class).forEachRemaining(b -> b.preInitialize(event.getSide()));
+    }
+
+    /**
+     * Here rather than later because the recipe that unlocks a mode and the key that opens it are both built
+     * from this registry afterwards, and neither event comes round twice.
+     */
+    private void registerWirelessTerminalModes(final IWirelessTerminalModeRegistry registry, final IParts parts) {
+        // The plain terminal goes in first: whatever leads is what a terminal falls back to.
+        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.TERMINAL, parts.terminal(),
+                GuiText.WirelessModeTerminal.getUnlocalized(), GuiBridge.GUI_WIRELESS_TERM));
+        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.CRAFTING, parts.craftingTerminal(),
+                GuiText.WirelessModeCrafting.getUnlocalized(), GuiBridge.GUI_WIRELESS_CRAFTING_TERMINAL));
+        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.PATTERN, parts.patternTerminal(),
+                GuiText.WirelessModePattern.getUnlocalized(), GuiBridge.GUI_WIRELESS_PATTERN_TERMINAL));
+        registry.register(new WirelessTerminalMode(WirelessTerminalMode.Ids.INTERFACE, parts.interfaceTerminal(),
+                GuiText.WirelessModeInterface.getUnlocalized(), GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL));
     }
 
     private void registerSpatialBiome(IForgeRegistry<Biome> registry) {
@@ -374,6 +397,18 @@ final class Registration {
 
         definitions.getRegistry().getBootstrapComponents(IRecipeRegistrationComponent.class).forEachRemaining(b -> b.recipeRegistration(side, registry));
 
+        // One per mode, and the only chance to make them: a mode registered after this event has nothing that
+        // will unlock it.
+        for (final IWirelessTerminalMode mode : api.registries().wirelessTerminalModes().getModes()) {
+            if (mode.getUnlockIngredient().isEmpty()) {
+                continue;
+            }
+
+            final WirelessTerminalModeRecipe recipe = new WirelessTerminalModeRecipe(mode);
+            registry.register(recipe.setRegistryName(AppEng.MOD_ID.toLowerCase(),
+                    "wireless_terminal_mode_" + mode.getId().getNamespace() + '_' + mode.getId().getPath()));
+        }
+
         final AERecipeLoader ldr = new AERecipeLoader();
         ldr.loadProcessingRecipes();
     }
@@ -517,19 +552,19 @@ final class Registration {
 
         upgrades.add(UpgradeCards.quantumLink(), blocks.quantumLink(), 1);
 
-        // Wireless Terminal Handler
+        // Wireless Terminal Handler. The three left over from before there was one terminal are handlers too,
+        // so one that has not been converted yet still opens and still holds its charge.
         ArrayList<IItemDefinition> iids = new ArrayList<>();
         iids.add(items.wirelessTerminal());
-        iids.add(items.wirelessCraftingTerminal());
-        iids.add(items.wirelessPatternTerminal());
+        iids.add(definitions.items().wirelessCraftingTerminal());
+        iids.add(definitions.items().wirelessPatternTerminal());
+        iids.add(definitions.items().wirelessInterfaceTerminal());
 
         for (IItemDefinition id : iids) {
-            id.maybeItem().ifPresent(terminal -> {
-                registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal);
-                upgrades.add(UpgradeCards.magnet(), id, 1);
-            });
+            id.maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
         }
-        items.wirelessInterfaceTerminal().maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
+
+        upgrades.add(UpgradeCards.magnet(), items.wirelessTerminal(), 1);
 
         // Charge Rates
         items.chargedStaff().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 320d));

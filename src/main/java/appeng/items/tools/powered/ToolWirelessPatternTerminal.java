@@ -19,13 +19,18 @@
 package appeng.items.tools.powered;
 
 
-import appeng.api.AEApi;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.GuiBridge;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 
 
+/**
+ * The wireless pattern terminal from before there was one terminal with modes. Registered so no world loses
+ * one, unreachable otherwise, and converted the moment a player picks it up.
+ */
 public class ToolWirelessPatternTerminal extends ToolWirelessTerminal implements IWirelessTermHandler {
 
     public ToolWirelessPatternTerminal() {
@@ -34,7 +39,17 @@ public class ToolWirelessPatternTerminal extends ToolWirelessTerminal implements
 
     @Override
     public boolean canHandle(final ItemStack is) {
-        return AEApi.instance().definitions().items().wirelessPatternTerminal().isSameAs(is);
+        return is.getItem() == this;
+    }
+
+    @Override
+    public ResourceLocation getLegacyMode() {
+        return WirelessTerminalMode.Ids.PATTERN;
+    }
+
+    @Override
+    public String[] getLegacyModeKeys() {
+        return new String[] {"craftingGrid", "processing", "output", "patterns"};
     }
 
     @Override

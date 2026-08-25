@@ -63,6 +63,11 @@ public interface IRegistryContainer
 	IWirelessTermRegistry wireless();
 
 	/**
+	 * Lets you add modes to the wireless terminal. Register during pre-initialisation.
+	 */
+	IWirelessTerminalModeRegistry wirelessTerminalModes();
+
+	/**
 	 * Allows you to register new cell types, these will function in drives
 	 */
 

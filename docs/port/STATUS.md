@@ -1986,6 +1986,20 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     later that pushes its output at a neighbour should be answering the same setting. `Settings` is frozen
     and is the enum every `GuiImgButton` is keyed by, so a setting cannot be added anywhere else.
 
+18. **The wireless terminal mode registry** (`appeng.api.features.IWirelessTerminalMode`,
+    `IWirelessTerminalModeRegistry`, reached through `IRegistryContainer.wirelessTerminalModes()`) - additive,
+    and upstream has no equivalent at all: modern AE2 still ships a wireless terminal item per screen. A mode is
+    named by `ResourceLocation` rather than by an index because an addon can add one, and two installs would not
+    agree on what index three is. The registry carries an order-of-registration rule in its javadoc, which is
+    unusual for this API and is there because two one-shot events read it afterwards: the recipe that unlocks a
+    mode, on `RegistryEvent.Register<IRecipe>`, and the key binding that opens it, during client init.
+
+19. **`IItems.wirelessCraftingTerminal()`, `wirelessPatternTerminal()` and `wirelessInterfaceTerminal()` removed**
+    - **breaking**. There is one wireless terminal item now, and the other three are kept registered only so that
+    saves holding them are not damaged; they convert themselves the moment a player carries one. `ApiItems` still
+    builds and exposes them, because registration and that conversion need them, but nothing outside the mod does.
+    The internal `appeng.items.tools.powered.Terminal` enum went with them.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

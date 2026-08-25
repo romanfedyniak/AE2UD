@@ -34,6 +34,8 @@ import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.automation.StackUpgradeInventory;
+import appeng.core.features.registries.WirelessTerminalMode;
+import appeng.helpers.WirelessTerminalModes;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
@@ -240,26 +242,35 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder im
     @Override
     public void saveChanges() {
         if (Platform.isServer()) {
-            NBTTagCompound tag = new NBTTagCompound();
-            ((AppEngInternalInventory) crafting).writeToNBT(tag, "craftingGrid");
-            ((AppEngInternalInventory) processing).writeToNBT(tag, "processing");
+            // The grid, the ghosts and the pattern slots belong to this mode alone. The crafting mode keeps a
+            // grid under the same name, of real items, and one item now holds both.
+            final NBTTagCompound modeTag = new NBTTagCompound();
+            ((AppEngInternalInventory) crafting).writeToNBT(modeTag, "craftingGrid");
+            ((AppEngInternalInventory) processing).writeToNBT(modeTag, "processing");
+            this.output.writeToNBT(modeTag, "output");
+            this.pattern.writeToNBT(modeTag, "patterns");
 
-            this.output.writeToNBT(tag, "output");
-            this.pattern.writeToNBT(tag, "patterns");
+            final NBTTagCompound tag = new NBTTagCompound();
             this.upgrades.writeToNBT(tag, "upgrades");
-
             this.wirelessTerminalGUIObject.saveChanges(tag);
+
+            WirelessTerminalModes.setModeData(this.wirelessTerminalGUIObject.getItemStack(),
+                    WirelessTerminalMode.Ids.PATTERN, modeTag);
         }
     }
 
     private void loadFromNBT() {
-        NBTTagCompound data = wirelessTerminalGUIObject.getItemStack().getTagCompound();
+        final ItemStack terminal = wirelessTerminalGUIObject.getItemStack();
+        final NBTTagCompound modeTag = WirelessTerminalModes.getModeData(terminal, WirelessTerminalMode.Ids.PATTERN);
+
+        ((AppEngInternalInventory) crafting).readFromNBT(modeTag, "craftingGrid");
+        ((AppEngInternalInventory) processing).readFromNBT(modeTag, "processing");
+        this.output.readFromNBT(modeTag, "output");
+        this.pattern.readFromNBT(modeTag, "patterns");
+
+        final NBTTagCompound data = terminal.getTagCompound();
         if (data != null) {
-            ((AppEngInternalInventory) crafting).readFromNBT(data, "craftingGrid");
-            ((AppEngInternalInventory) processing).readFromNBT(data, "processing");
-            this.output.readFromNBT(data, "output");
-            this.pattern.readFromNBT(data, "patterns");
-            upgrades.readFromNBT(wirelessTerminalGUIObject.getItemStack().getTagCompound().getCompoundTag("upgrades"));
+            upgrades.readFromNBT(data.getCompoundTag("upgrades"));
         }
     }
 

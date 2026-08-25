@@ -5,6 +5,10 @@
             "values": [
                 {
                     "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:wireless_terminal"
+                },
+                {
+                    "type": "minecraft:item_exists",
                     "item": "appliedenergistics2:wireless_pattern_terminal"
                 },
                 {
@@ -23,7 +27,8 @@
         }
     ],
     "result": {
-        "item": "appliedenergistics2:wireless_pattern_terminal"
+        "item": "appliedenergistics2:wireless_terminal",
+        "nbt": "{mode:\"appliedenergistics2:pattern_terminal\",modes:[\"appliedenergistics2:pattern_terminal\"]}"
     },
     "type": "forge:ore_shaped",
     "pattern": [

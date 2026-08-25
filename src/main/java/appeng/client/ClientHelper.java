@@ -28,8 +28,11 @@ import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
 import appeng.core.AEConfig;
+import appeng.api.AEApi;
+import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketAssemblerAnimation;
 import appeng.core.sync.packets.PacketTerminalUse;
@@ -46,7 +49,6 @@ import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.TickHandler;
 import appeng.hooks.TickHandler.PlayerColor;
 import appeng.items.misc.ItemEncodedPattern;
-import appeng.items.tools.powered.Terminal;
 import appeng.server.ServerHelper;
 import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
@@ -73,20 +75,24 @@ import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.settings.KeyConflictContext;
+import net.minecraftforge.client.settings.KeyModifier;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.*;
 
-import static appeng.client.KeyBindings.*;
 
 
 public class ClientHelper extends ServerHelper {
     public final static String KEY_CATEGORY = "key.appliedenergistics2.category";
 
     private final EnumMap<ActionKey, KeyBinding> bindings = new EnumMap<>(ActionKey.class);
-    private final List<KeyBinding> keyBindings = new ArrayList<>();
+    private final Map<ResourceLocation, KeyBinding> terminalModeBindings = new LinkedHashMap<>();
 
     @Override
     public void preinit() {
@@ -109,10 +115,48 @@ public class ClientHelper extends ServerHelper {
             this.bindings.put(key, binding);
         }
 
-        for (KeyBindings k : KeyBindings.values()) {
-            ClientRegistry.registerKeyBinding(k.getKeyBinding());
-            this.keyBindings.add(k.getKeyBinding());
+        for (IWirelessTerminalMode mode : AEApi.instance().registries().wirelessTerminalModes().getModes()) {
+            final KeyBinding binding = new KeyBinding(terminalModeKey(mode.getId()), KeyConflictContext.UNIVERSAL,
+                    legacyModifier(mode.getId()), legacyKey(mode.getId()), KEY_CATEGORY);
+            ClientRegistry.registerKeyBinding(binding);
+            this.terminalModeBindings.put(mode.getId(), binding);
         }
+    }
+
+    /**
+     * The four modes that used to be items of their own keep the exact keys and names they always had - the
+     * item under the shortcut changed, the shortcut did not. Everything else arrives unbound.
+     */
+    private static int legacyKey(final ResourceLocation mode) {
+        if (WirelessTerminalMode.Ids.TERMINAL.equals(mode)) {
+            return Keyboard.KEY_T;
+        }
+        if (WirelessTerminalMode.Ids.CRAFTING.equals(mode)) {
+            return Keyboard.KEY_E;
+        }
+        if (WirelessTerminalMode.Ids.PATTERN.equals(mode)) {
+            return Keyboard.KEY_R;
+        }
+        if (WirelessTerminalMode.Ids.INTERFACE.equals(mode)) {
+            return Keyboard.KEY_I;
+        }
+        return Keyboard.KEY_NONE;
+    }
+
+    private static KeyModifier legacyModifier(final ResourceLocation mode) {
+        return legacyKey(mode) == Keyboard.KEY_NONE ? KeyModifier.NONE : KeyModifier.SHIFT;
+    }
+
+    /**
+     * AE2's own modes keep their original translation keys; an addon's are named after it so two modes with
+     * the same path do not end up sharing one line in the controls screen.
+     */
+    private static String terminalModeKey(final ResourceLocation mode) {
+        if (AppEng.MOD_ID.equals(mode.getNamespace())) {
+            return "key.open_wireless_" + mode.getPath() + ".desc";
+        }
+
+        return "key." + mode.getNamespace() + ".open_wireless_" + mode.getPath() + ".desc";
     }
 
     @SubscribeEvent
@@ -363,16 +407,12 @@ public class ClientHelper extends ServerHelper {
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onInputEvent(final InputEvent.KeyInputEvent event) {
-        for (KeyBinding k : keyBindings) {
-            if (k.isPressed()) {
-                if (k == WT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_TERMINAL));
-                } else if (k == WCT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_CRAFTING_TERMINAL));
-                } else if (k == WPT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_PATTERN_TERMINAL));
-                } else if (k == WIT.getKeyBinding()) {
-                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(Terminal.WIRELESS_INTERFACE_TERMINAL));
+        for (Map.Entry<ResourceLocation, KeyBinding> binding : this.terminalModeBindings.entrySet()) {
+            if (binding.getValue().isPressed()) {
+                try {
+                    NetworkHandler.instance().sendToServer(new PacketTerminalUse(binding.getKey()));
+                } catch (final IOException e) {
+                    AELog.debug(e);
                 }
             }
         }

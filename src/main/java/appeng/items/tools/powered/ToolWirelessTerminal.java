@@ -24,12 +24,15 @@ import appeng.api.upgrades.UpgradeCards;
 import appeng.api.AEApi;
 import appeng.api.config.*;
 import appeng.api.features.IWirelessTermHandler;
+import appeng.api.features.IWirelessTerminalMode;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.IConfigManager;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.helpers.WirelessTerminalMigration;
+import appeng.helpers.WirelessTerminalModes;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
 import appeng.items.materials.ItemMaterial;
@@ -38,7 +41,9 @@ import appeng.me.helpers.PlayerSource;
 import appeng.util.ConfigManager;
 import appeng.util.Platform;
 import baubles.api.BaubleType;
+import baubles.api.BaublesApi;
 import baubles.api.IBauble;
+import baubles.api.cap.IBaublesItemHandler;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -46,12 +51,15 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.item.ItemStack;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
@@ -59,9 +67,11 @@ import net.minecraftforge.fml.common.Optional;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 @Optional.Interface(iface = "baubles.api.IBauble", modid = "baubles")
@@ -105,11 +115,52 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
         } else {
             lines.add(I18n.translateToLocal("AppEng.GuiITooltip.Unlinked"));
         }
+
+        this.addModeInformation(stack, lines);
+    }
+
+    /**
+     * What this terminal can be switched to. A mode whose addon has been taken out is still listed, by its
+     * bare name, because it is still written on the terminal and comes back with the addon.
+     */
+    @SideOnly(Side.CLIENT)
+    private void addModeInformation(final ItemStack stack, final List<String> lines) {
+        if (this.getLegacyMode() != null) {
+            return;
+        }
+
+        for (final IWirelessTerminalMode mode : WirelessTerminalModes.getUnlockedModes(stack)) {
+            lines.add(TextFormatting.GRAY + "- " + I18n.translateToLocal(mode.getUnlocalizedName()));
+        }
+
+        for (final ResourceLocation unknown : WirelessTerminalModes.getUnknown(stack)) {
+            lines.add(TextFormatting.DARK_GRAY + "- "
+                    + I18n.translateToLocalFormatted(GuiText.UnknownWirelessMode.getUnlocalized(), unknown));
+        }
     }
 
     @Override
     public boolean canHandle(final ItemStack is) {
         return AEApi.instance().definitions().items().wirelessTerminal().isSameAs(is);
+    }
+
+    /**
+     * The mode this item used to be, back when there was a wireless terminal item per screen. Null for the
+     * one terminal that carries modes itself; the three left over from before answer their own, and are
+     * converted into it the moment a player holds one.
+     */
+    @Nullable
+    public ResourceLocation getLegacyMode() {
+        return null;
+    }
+
+    /**
+     * The item-level NBT keys that belonged to that old terminal's screen and now belong to its mode alone.
+     * The crafting terminal and the pattern terminal both wrote a three by three grid to {@code craftingGrid},
+     * one of real items and one of ghosts, so on a single item they have to be told apart.
+     */
+    public String[] getLegacyModeKeys() {
+        return new String[0];
     }
 
     @Override
@@ -151,6 +202,52 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
         tag.setString("name", name);
     }
 
+    /**
+     * The terminal is named for what it is doing right now, because nothing else on the screen says so - one
+     * item wearing five faces would otherwise be five identical items in a chest.
+     */
+    @Override
+    public String getItemStackDisplayName(final ItemStack stack) {
+        final String name = super.getItemStackDisplayName(stack);
+        if (this.getLegacyMode() != null) {
+            return name;
+        }
+
+        final IWirelessTerminalMode mode = WirelessTerminalModes.getActiveMode(stack);
+        if (mode == null) {
+            return name;
+        }
+
+        return name + " (" + I18n.translateToLocal(mode.getUnlocalizedName()) + ')';
+    }
+
+    /**
+     * Every mode there is, so a creative terminal is the whole thing rather than something to be finished at
+     * a crafting table. Read from the registry each time the tab is opened, so a mode added by an addon is in
+     * there too.
+     */
+    @Override
+    protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
+        // The three terminals from before hand out nothing: no tab, no HEI entry, no recipe. The only ones
+        // left in the world are the ones already in it, and those convert themselves.
+        if (this.getLegacyMode() != null) {
+            return;
+        }
+
+        super.getCheckedSubItems(creativeTab, itemStacks);
+
+        final List<ResourceLocation> all = new ArrayList<>();
+        for (final IWirelessTerminalMode mode : AEApi.instance().registries().wirelessTerminalModes().getModes()) {
+            all.add(mode.getId());
+        }
+
+        for (final ItemStack stack : itemStacks) {
+            if (stack.getItem() == this) {
+                WirelessTerminalModes.setUnlocked(stack, all);
+            }
+        }
+    }
+
     @Override
     public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
         return slotChanged;
@@ -160,13 +257,19 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
     public void onUpdate(ItemStack stack, World worldIn, Entity entityIn, int itemSlot, boolean isSelected) {
         super.onUpdate(stack, worldIn, entityIn, itemSlot, isSelected);
         if (Platform.isServer()) {
+            if (this.getLegacyMode() != null) {
+                WirelessTerminalMigration.convertInPlace(stack, entityIn instanceof EntityPlayer player ? player : null);
+                return;
+            }
+
             magnetLogic(stack, worldIn, entityIn);
         }
     }
 
     @Override
     public IGuiHandler getGuiHandler(ItemStack is) {
-        return GuiBridge.GUI_WIRELESS_TERM;
+        final IWirelessTerminalMode mode = WirelessTerminalModes.getActiveMode(is);
+        return mode == null ? GuiBridge.GUI_WIRELESS_TERM : mode.getGuiHandler();
     }
 
     @Optional.Method(modid = "baubles")
@@ -179,7 +282,36 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
     @Override
     public void onWornTick(ItemStack itemstack, EntityLivingBase player) {
         if (Platform.isServer()) {
+            if (this.getLegacyMode() != null) {
+                this.convertBauble(itemstack, player);
+                return;
+            }
+
             magnetLogic(itemstack, player.world, player);
+        }
+    }
+
+    /**
+     * A bauble slot is not part of the player inventory, so the old terminal has to be found and swapped in
+     * the handler it actually sits in.
+     */
+    @Optional.Method(modid = "baubles")
+    private void convertBauble(final ItemStack legacy, final EntityLivingBase wearer) {
+        if (!(wearer instanceof EntityPlayer)) {
+            return;
+        }
+
+        final ItemStack converted = WirelessTerminalMigration.convert(legacy);
+        if (converted.isEmpty()) {
+            return;
+        }
+
+        final IItemHandler baubles = BaublesApi.getBaublesHandler((EntityPlayer) wearer);
+        for (int slot = 0; slot < baubles.getSlots(); slot++) {
+            if (baubles.getStackInSlot(slot) == legacy) {
+                ((IBaublesItemHandler) baubles).setStackInSlot(slot, converted);
+                return;
+            }
         }
     }
 

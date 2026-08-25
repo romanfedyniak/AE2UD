@@ -38,6 +38,7 @@ public enum PlayerMessages {
     OutOfRange,
     DeviceNotPowered,
     DeviceNotWirelessTerminal,
+    TerminalModeNotUnlocked,
     DeviceNotLinked,
     StationCanNotBeLocated,
     SettingCleared,

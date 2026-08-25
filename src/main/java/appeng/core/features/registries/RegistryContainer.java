@@ -45,6 +45,7 @@ public class RegistryContainer implements IRegistryContainer {
     private final ILocatableRegistry locatable = new LocatableRegistry();
     private final ISpecialComparisonRegistry comparison = new SpecialComparisonRegistry();
     private final IWirelessTermRegistry wireless = new WirelessRegistry();
+    private final IWirelessTerminalModeRegistry wirelessTerminalModes = new WirelessTerminalModeRegistry();
     private final IGridCacheRegistry gridCache = new GridCacheRegistry();
     private final IP2PTunnelRegistry p2pTunnel = new P2PTunnelRegistry();
     private final IMovableRegistry movable = new MovableTileRegistry();
@@ -72,6 +73,11 @@ public class RegistryContainer implements IRegistryContainer {
     @Override
     public IWirelessTermRegistry wireless() {
         return this.wireless;
+    }
+
+    @Override
+    public IWirelessTerminalModeRegistry wirelessTerminalModes() {
+        return this.wirelessTerminalModes;
     }
 
     @Override

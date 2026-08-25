@@ -353,17 +353,14 @@ public final class ApiItems implements IItems {
         return this.wirelessTerminal;
     }
 
-    @Override
     public IItemDefinition wirelessCraftingTerminal() {
         return wirelessCraftingTerminal;
     }
 
-    @Override
     public IItemDefinition wirelessPatternTerminal() {
         return wirelessPatternTerminal;
     }
 
-    @Override
     public IItemDefinition wirelessInterfaceTerminal() {
         return wirelessInterfaceTerminal;
     }

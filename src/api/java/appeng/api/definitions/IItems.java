@@ -63,11 +63,8 @@ public interface IItems {
 
 	IItemDefinition wirelessTerminal();
 
-	IItemDefinition wirelessCraftingTerminal();
 
-	IItemDefinition wirelessPatternTerminal();
 
-	IItemDefinition wirelessInterfaceTerminal();
 
 	IItemDefinition biometricCard();
 

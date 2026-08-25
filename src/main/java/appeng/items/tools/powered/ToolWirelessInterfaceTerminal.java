@@ -1,14 +1,24 @@
 package appeng.items.tools.powered;
 
-import appeng.api.AEApi;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.GuiBridge;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 
+/**
+ * The wireless interface terminal from before there was one terminal with modes. See
+ * {@link ToolWirelessCraftingTerminal} for why it is still registered.
+ */
 public class ToolWirelessInterfaceTerminal extends ToolWirelessTerminal {
     @Override
     public boolean canHandle(ItemStack is) {
-        return AEApi.instance().definitions().items().wirelessInterfaceTerminal().isSameAs(is);
+        return is.getItem() == this;
+    }
+
+    @Override
+    public ResourceLocation getLegacyMode() {
+        return WirelessTerminalMode.Ids.INTERFACE;
     }
 
     @Override
