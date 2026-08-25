@@ -62,6 +62,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - How many channels a network with no controller carries is now `adHocNetworkChannels`, still 8. It used to be the normal cable's capacity, so raising that raised this by accident.
 - **The `normalChannelCapacity` and `denseChannelCapacity` settings are gone.** They are now the `appliedenergistics2:normal` and `appliedenergistics2:dense` lines of the `ChannelTiers` section, and the old keys are not read - a pack that changed either of them has to set the new one, or it goes back to 8 and 32.
 
+### Terminals
+
+- Highlighting a block now turns the player to face it. The button beside a row in the Interface Terminal and in the Interface Configuration Terminal, and the machine lookup in the Crafting Tree, all used to draw the red outline and close the screen leaving the player looking wherever they had been - which for an interface behind them meant the answer was on screen and invisible. The view snaps to the block the moment the screen closes; where several were highlighted at once, to the nearest. Turn it off with `turnToHighlightedBlock` in the config's `Client` section.
+
 ### Wireless terminals
 
 - **The Interface Configuration Terminal can be wireless now**, which it never could before - it is the fifth mode, built the same way as the rest: Wireless Receiver, the panel, a Dense Energy Cell, or crafted into a terminal you already have. Its shortcut arrives unbound, since it has no key to inherit.

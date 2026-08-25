@@ -90,6 +90,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
     private boolean showCraftableTooltip = true;
     private boolean showPlacementPreview = true;
+    private boolean turnToHighlightedBlock = true;
     private boolean showCellContentsPreview = true;
     private boolean showCraftingPins = true;
     private boolean showPlayerPins = true;
@@ -279,6 +280,8 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.useColoredCraftingStatus = this.get("Client", "useColoredCraftingStatus", true).getBoolean(true);
         this.showCraftableTooltip = this.get("Client", "showCraftableTooltip", true, "Whether to add \"Craftable\" to item tooltips when they can be crafted automatically.").getBoolean(true);
         this.showPlacementPreview = this.get("Client", "showPlacementPreview", true, "Whether to show a preview of part and facade placement.").getBoolean(true);
+        this.turnToHighlightedBlock = this.get("Client", "turnToHighlightedBlock", true,
+                "Whether highlighting a block also turns the player to face it.").getBoolean(true);
         this.showCellContentsPreview = this.get("Client", "showCellContentsPreview", true, "Whether to show a preview of cell contents in tooltips.").getBoolean(true);
         this.showCraftingPins = this.get("Client", "showCraftingPins", true,
                 "Whether terminals show active crafting jobs pinned above their contents.").getBoolean(true);
@@ -535,6 +538,10 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public boolean showPlacementPreview() {
         return this.showPlacementPreview;
+    }
+
+    public boolean turnToHighlightedBlock() {
+        return this.turnToHighlightedBlock;
     }
 
     public boolean showCellContentsPreview() {

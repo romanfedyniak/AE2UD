@@ -78,6 +78,7 @@ public class PacketHighlightBlocks extends AppEngPacket {
 
         BlockPosHighlighter.hilightBlocks(this.blocks, System.currentTimeMillis() + HIGHLIGHT_MILLISECONDS,
                 this.dimension);
+        BlockPosHighlighter.turnPlayerTowards(this.blocks);
         mc.player.sendMessage(new TextComponentTranslation("chat.appliedenergistics2.MachineHighlighted",
                 this.blocks.size()));
 

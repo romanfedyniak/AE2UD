@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.*;
 
 import static appeng.client.render.BlockPosHighlighter.hilightBlock;
+import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 
@@ -288,6 +289,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 }
             } else {
                 hilightBlock(blockPos, System.currentTimeMillis() + 500 * BlockPosUtils.getDistance(blockPos, blockPos2), playerDim);
+                turnPlayerTowards(blockPos);
                 mc.player.sendStatusMessage(new TextComponentString("The interface is now highlighted at " + "X: " + blockPos.getX() + " Y: " + blockPos.getY() + " Z: " + blockPos.getZ()), false);
             }
             mc.player.closeScreen();
