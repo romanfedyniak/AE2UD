@@ -66,6 +66,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     private static final int PROCESSING_OUTPUT_COMPACT_X = 112;
     private static final int PROCESSING_OUTPUT_EXPANDED_X = 58;
 
+    private static AEItemKey blankPatternKey;
+
     protected AbstractPartEncoder patternTerminal = null;
 
     protected IGuiItemObject iGuiItemObject = null;
@@ -122,15 +124,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
         if (this.inventorySlots.get(idx) instanceof SlotPlayerInv || this.inventorySlots.get(idx) instanceof SlotPlayerHotBar) {
             final AppEngSlot clickSlot = (AppEngSlot) this.inventorySlots.get(idx); // require AE SLots!
-            ItemStack itemStack = clickSlot.getStack();
-            // Not every encoder has a part behind it - a wireless terminal is an item in a bag - and
-            // getInventoryByName below already knows that. Shift-clicking a blank pattern was the one place
-            // that asked the part directly, and crashed for anyone holding the wireless one.
-            final IItemHandler patternInv = this.getPart() == null ? null : this.getPart().getInventoryByName("pattern");
+            final ItemStack itemStack = clickSlot.getStack();
 
-            if (patternInv != null && AEApi.instance().definitions().materials().blankPattern().isSameAs(itemStack)) {
-                ItemStack remainder = patternInv.insertItem(0, itemStack, false);
-                clickSlot.putStack(remainder);
+            // The slot fills before the network does. Reached through the slot rather than through the
+            // part, which a wireless terminal does not have: the guard that kept asking the part from
+            // crashing also left that terminal alone in sending its blanks straight to storage.
+            if (this.patternSlotIN != null && AEApi.instance().definitions().materials().blankPattern().isSameAs(itemStack)) {
+                clickSlot.putStack(this.patternSlotIN.getItemHandler().insertItem(this.patternSlotIN.getSlotIndex(), itemStack, false));
             }
         }
         return super.transferStackInSlot(p, idx);
@@ -180,7 +180,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         final int room = Math.min(this.patternSlotIN.getSlotStackLimit(), blank.getMaxStackSize()) - inSlot.getCount();
-        final int traded = Math.min(wholeStack ? held.getCount() : 1, room);
+        final int wanted = wholeStack ? held.getCount() : 1;
+        final int toSlot = Math.max(0, Math.min(wanted, room));
+        // Whatever the slot cannot hold goes where blank patterns live anyway, so undoing a whole stack of
+        // them is no longer capped at what one slot fits.
+        final int toNetwork = (int) this.storeBlankPatterns(wanted - toSlot);
+        final int traded = toSlot + toNetwork;
 
         if (traded <= 0) {
             return false;
@@ -192,8 +197,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         held.shrink(traded);
         player.inventory.setItemStack(held.isEmpty() ? ItemStack.EMPTY : held);
 
-        blank.setCount(inSlot.getCount() + traded);
-        this.patternSlotIN.putStack(blank);
+        if (toSlot > 0) {
+            blank.setCount(inSlot.getCount() + toSlot);
+            this.patternSlotIN.putStack(blank);
+        }
 
         if (player instanceof EntityPlayerMP) {
             this.updateHeld((EntityPlayerMP) player);
@@ -398,22 +405,25 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             return;
         } // if nothing is there we should snag a new pattern.
         else if (output.isEmpty()) {
-            output = this.patternSlotIN.getStack();
-            if (output.isEmpty() || !this.isPattern(output)) {
+            final Optional<ItemStack> maybePattern = AEApi.instance().definitions().items().encodedPattern().maybeStack(1);
+            if (!maybePattern.isPresent()) {
+                return;
+            }
+
+            final ItemStack blanks = this.patternSlotIN.getStack();
+
+            if (!blanks.isEmpty() && this.isPattern(blanks)) {
+                // remove one, and clear the input slot.
+                blanks.setCount(blanks.getCount() - 1);
+                if (blanks.getCount() == 0) {
+                    this.patternSlotIN.putStack(ItemStack.EMPTY);
+                }
+            } else if (this.takeBlankPattern() <= 0) {
                 return; // no blanks.
             }
 
-            // remove one, and clear the input slot.
-            output.setCount(output.getCount() - 1);
-            if (output.getCount() == 0) {
-                this.patternSlotIN.putStack(ItemStack.EMPTY);
-            }
-
             // add a new encoded pattern.
-            Optional<ItemStack> maybePattern = AEApi.instance().definitions().items().encodedPattern().maybeStack(1);
-            if (maybePattern.isPresent()) {
-                output = maybePattern.get();
-            }
+            output = maybePattern.get();
         }
 
         // encode the slot.
@@ -440,6 +450,41 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         output.setTagCompound(encodedValue);
 
         patternSlotOUT.putStack(output);
+    }
+
+    /**
+     * The blank pattern as a network key, or null where the feature that defines it is switched off.
+     * Cached: the encoder asks per encode, its screen asks per frame.
+     */
+    public static AEItemKey blankPatternKey() {
+        if (blankPatternKey == null) {
+            blankPatternKey = AEApi.instance().definitions().materials().blankPattern().maybeStack(1)
+                    .map(AEItemKey::of).orElse(null);
+        }
+        return blankPatternKey;
+    }
+
+    /** The slot blank patterns are spent from, which stands empty whenever the network supplies them. */
+    public SlotRestrictedInput getBlankPatternSlot() {
+        return this.patternSlotIN;
+    }
+
+    /** One blank pattern out of the network, for an encode with nothing in the slot to spend. */
+    private long takeBlankPattern() {
+        final AEItemKey blank = blankPatternKey();
+        if (blank == null || this.getPowerSource() == null || this.getCellInventory() == null) {
+            return 0;
+        }
+        return Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), blank, 1, this.getActionSource());
+    }
+
+    /** @return how many of {@code amount} the network took, which is none when it is out of reach. */
+    private long storeBlankPatterns(final int amount) {
+        final AEItemKey blank = blankPatternKey();
+        if (amount <= 0 || blank == null || this.getPowerSource() == null || this.getCellInventory() == null) {
+            return 0;
+        }
+        return Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), blank, amount, this.getActionSource());
     }
 
     public void multiply(int multiple) {

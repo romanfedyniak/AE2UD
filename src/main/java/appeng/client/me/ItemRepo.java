@@ -154,8 +154,16 @@ public class ItemRepo {
         changed = true;
     }
 
+    /**
+     * The server's row for {@code what}, or null when it has sent none. Unfiltered: the search box and the
+     * sort order shape {@link #getReferenceItem(int)}, not this.
+     */
+    public GridInventoryEntry getEntry(final AEKey what) {
+        return this.entries.get(what);
+    }
+
     public long getItemCount(final AEKey what) {
-        final GridInventoryEntry e = this.entries.get(what);
+        final GridInventoryEntry e = this.getEntry(what);
         return e == null ? 0 : e.getStoredAmount();
     }
 
@@ -164,7 +172,7 @@ public class ItemRepo {
      * that merely displays a key rather than stocking it, such as a pattern's crafting grid or output.
      */
     public boolean isCraftable(final AEKey what) {
-        final GridInventoryEntry e = this.entries.get(what);
+        final GridInventoryEntry e = this.getEntry(what);
         return e != null && e.isCraftable();
     }
 
@@ -173,7 +181,7 @@ public class ItemRepo {
      * marks the craft apart from an ordinary one.
      */
     public boolean isFakeCraftable(final AEKey what) {
-        final GridInventoryEntry e = this.entries.get(what);
+        final GridInventoryEntry e = this.getEntry(what);
         return e != null && e.isFakeCraftable();
     }
 

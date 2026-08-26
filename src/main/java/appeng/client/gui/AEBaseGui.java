@@ -91,7 +91,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private final List<InternalSlotME> meSlots = new ArrayList<>();
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
-    private final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
+    protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
     protected static final int PANEL_BORDER = 3;
     protected static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
@@ -1083,7 +1083,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     // placeholder for a key and keeps showing it.
                     final boolean craftable = resolved != null && !(s instanceof SlotCraftingMatrix)
                             && this.isDisplayedKeyCraftable(resolved.what());
-                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved, craftable,
+                    this.stackSizeRenderer.renderStackSize(this.fontRenderer, this.displayedStackOf(s, resolved), craftable,
                             craftable && this.isDisplayedKeyFakeCraftable(resolved.what()), s.xPos, s.yPos);
 
                     return;
@@ -1098,6 +1098,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
         // do the usual for non-ME Slots.
         super.drawSlot(s);
+    }
+
+    /**
+     * What a slot draws as its amount, for a screen that counts something the slot itself does not hold.
+     * The stack as it stands, for every screen that does not - which is all of them but one.
+     */
+    protected GenericStack displayedStackOf(final Slot s, final GenericStack resolved) {
+        return resolved;
     }
 
     /**

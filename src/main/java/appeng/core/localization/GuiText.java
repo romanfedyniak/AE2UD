@@ -267,6 +267,9 @@ public enum GuiText {
     ResultLock,
     UntilPulseUnlock,
   
+    // Used on the pattern terminal blank slot, when the network supplies it
+    BlankPatternInNetwork,
+
     // Used in Annihilation Planes
     CanBeEnchanted,
     IncreasedEnergyUseFromEnchants,

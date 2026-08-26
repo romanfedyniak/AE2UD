@@ -23,7 +23,13 @@ import appeng.api.config.ActionItems;
 import appeng.api.config.FluidSubstitution;
 import appeng.api.config.ItemSubstitution;
 import appeng.api.config.Settings;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.storage.ITerminalHost;
+import appeng.client.gui.IKeyUnderMouse;
+import appeng.container.me.GridInventoryEntry;
+import appeng.core.localization.ButtonToolTips;
 import appeng.api.config.PatternSlotConfig;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
@@ -52,11 +58,15 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Blocks;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.util.text.TextFormatting;
+import java.text.NumberFormat;
+import java.util.Locale;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
@@ -69,7 +79,7 @@ import java.util.List;
 import java.util.*;
 
 
-public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients {
+public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients, IKeyUnderMouse {
 
     private static final String BACKGROUND_CRAFTING_MODE = "guis/pattern.png";
     private static final String BACKGROUND_PROCESSING_MODE = "guis/pattern3.png";
@@ -595,5 +605,198 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public Map<Target<?>, Object> getFakeSlotTargetMap() {
         return mapTargetSlot;
+    }
+
+    /** The blank patterns the network holds, whatever the slot that spends them happens to hold. */
+    @Nullable
+    private GridInventoryEntry networkBlankPatterns() {
+        final AEItemKey blank = ContainerPatternEncoder.blankPatternKey();
+
+        if (blank == null) {
+            return null;
+        }
+
+        final GridInventoryEntry entry = this.getRepo().getEntry(blank);
+        return entry != null && entry.isMeaningful() ? entry : null;
+    }
+
+    /**
+     * The same, but only while the slot that spends them stands empty. That slot is where encoding reaches
+     * when it has no blank of its own, so while it is empty it draws what it would reach for in its own
+     * frame, and answers a click on their behalf.
+     */
+    @Nullable
+    private GridInventoryEntry blankPatternsInNetwork() {
+        final Slot slot = this.container.getBlankPatternSlot();
+        return slot == null || slot.getHasStack() ? null : this.networkBlankPatterns();
+    }
+
+    /**
+     * The slot counts what can be encoded with, not what it is holding, so its own blanks and the network's
+     * are one figure. Splitting them would be a distinction the rest of this screen has stopped making.
+     */
+    @Override
+    protected GenericStack displayedStackOf(final Slot s, final GenericStack resolved) {
+        if (s != this.container.getBlankPatternSlot() || resolved == null) {
+            return resolved;
+        }
+
+        final GridInventoryEntry blanks = this.networkBlankPatterns();
+        return blanks == null ? resolved : new GenericStack(resolved.what(), resolved.amount() + blanks.getStoredAmount());
+    }
+
+    /**
+     * The network's blanks where a click on them should reach the network rather than the slot: the slot
+     * empty, so there is nothing of its own to take, and the cursor empty, since a cursor with something on
+     * it means a player putting blanks in, which the slot takes as it always has.
+     */
+    @Nullable
+    private GridInventoryEntry blankPatternsForClick(final Slot slot) {
+        if (slot != this.container.getBlankPatternSlot() || !this.mc.player.inventory.getItemStack().isEmpty()) {
+            return null;
+        }
+        return this.blankPatternsInNetwork();
+    }
+
+    private void sendNetworkAction(final InventoryAction action, final GridInventoryEntry entry) {
+        this.container.setTargetStack(entry.getWhat());
+        NetworkHandler.instance().sendToServer(new PacketInventoryAction(action, this.inventorySlots.inventorySlots.size(), 0));
+    }
+
+    @Override
+    public void drawSlot(final Slot s) {
+        if (s == this.container.getBlankPatternSlot()) {
+            final GridInventoryEntry blanks = this.blankPatternsInNetwork();
+            if (blanks != null) {
+                // Darkened on a network without power, the same way and in the same order as the rows of
+                // the terminal above - what is shown here is that network as much as they are.
+                this.zLevel = 100.0F;
+                this.itemRender.zLevel = 100.0F;
+
+                if (!this.isPowered()) {
+                    drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
+                }
+
+                this.zLevel = 0.0F;
+                this.itemRender.zLevel = 0.0F;
+
+                this.drawItem(s.xPos, s.yPos, ContainerPatternEncoder.blankPatternKey().toStack(1));
+                this.stackSizeRenderer.renderStackSize(this.fontRenderer, blanks, s.xPos, s.yPos);
+                return;
+            }
+        }
+        super.drawSlot(s);
+    }
+
+    @Override
+    protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
+        final GridInventoryEntry blanks = this.blankPatternsForClick(slot);
+
+        if (blanks != null) {
+            InventoryAction action = null;
+
+            switch (clickType) {
+                case PICKUP:
+                    action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
+                    // Nothing stocked leaves only one thing a left click can mean, and Alt asks for it
+                    // outright - the same reading a terminal row gives.
+                    if (action == InventoryAction.PICKUP_OR_SET_DOWN && (blanks.getStoredAmount() == 0 || isAltKeyDown())) {
+                        action = InventoryAction.AUTO_CRAFT;
+                    }
+                    break;
+                case QUICK_MOVE:
+                    action = mouseButton == 1 ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
+                    break;
+                case CLONE:
+                    if (blanks.isCraftable()) {
+                        action = InventoryAction.AUTO_CRAFT;
+                    } else if (this.mc.player.capabilities.isCreativeMode) {
+                        action = InventoryAction.CREATIVE_DUPLICATE;
+                    }
+                    break;
+                default:
+            }
+
+            if (action != null) {
+                this.sendNetworkAction(action, blanks);
+                return;
+            }
+        }
+
+        super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
+    }
+
+    /**
+     * The wheel only draws blanks out, never puts them back. Putting them back is what a click already
+     * does, and the action behind a wheel-down takes whatever sits on the cursor rather than what the slot
+     * is for - over a slot that accepts blank patterns alone, a wheel that pushed anything at all into
+     * storage would be a trap.
+     */
+    @Override
+    protected void mouseWheelEvent(final int x, final int y, final int wheel) {
+        final GridInventoryEntry blanks = wheel < 0 && this.getSlot(x, y) == this.container.getBlankPatternSlot()
+                ? this.blankPatternsInNetwork()
+                : null;
+        final ItemStack held = this.mc.player.inventory.getItemStack();
+
+        // Onto an empty cursor, or onto more of the same, exactly as a terminal row allows.
+        if (blanks != null && (held.isEmpty() || ContainerPatternEncoder.blankPatternKey().matches(held))) {
+            for (int i = -wheel; i > 0; i--) {
+                this.sendNetworkAction(InventoryAction.ROLL_UP, blanks);
+            }
+            return;
+        }
+
+        super.mouseWheelEvent(x, y, wheel);
+    }
+
+    @Override
+    protected void renderHoveredToolTip(final int mouseX, final int mouseY) {
+        final Slot slot = this.getSlot(mouseX, mouseY);
+        final GridInventoryEntry blanks = slot == this.container.getBlankPatternSlot()
+                && this.mc.player.inventory.getItemStack().isEmpty()
+                ? this.networkBlankPatterns()
+                : null;
+
+        if (blanks == null) {
+            super.renderHoveredToolTip(mouseX, mouseY);
+            return;
+        }
+
+        final AEItemKey blank = ContainerPatternEncoder.blankPatternKey();
+        final List<String> lines = this.getItemToolTip(blank.toStack(1));
+
+        // The figure on the slot is the two sides added up, so the slot states its own the way any other AE
+        // slot does - a bare number - and the network states its own below.
+        if (slot.getHasStack() && slot.getStack().getCount() > 1) {
+            lines.add(TextFormatting.GRAY + NumberFormat.getNumberInstance(Locale.US).format(slot.getStack().getCount()));
+        }
+
+        // A slot frame anywhere else means the item is in it and stays until taken. This one is a window on
+        // storage, where an autocrafter can spend the last blank between two frames.
+        lines.add(TextFormatting.GRAY + GuiText.BlankPatternInNetwork.getLocal());
+
+        if (blanks.getStoredAmount() > 0) {
+            lines.add(TextFormatting.GRAY + String.format(ButtonToolTips.ItemsStored.getLocal(),
+                    blank.formatAmount(blanks.getStoredAmount(), AmountFormat.FULL)));
+        }
+
+        if (blanks.isCraftable()) {
+            lines.add(TextFormatting.GRAY + ButtonToolTips.ItemsCraftable.getLocal());
+        }
+
+        this.drawHoveringText(lines, mouseX, mouseY, this.fontRenderer);
+    }
+
+    /**
+     * HEI reads recipes off the slot under the cursor, and an empty slot holds nothing to read. The ghost
+     * is this screen drawing on its own account, so this screen has to name it.
+     */
+    @Nullable
+    @Override
+    public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
+        return this.getSlot(mouseX, mouseY) == this.container.getBlankPatternSlot() && this.blankPatternsInNetwork() != null
+                ? ContainerPatternEncoder.blankPatternKey()
+                : null;
     }
 }

@@ -214,6 +214,7 @@ gui.appliedenergistics2.StoredSize=Stored Size
 gui.appliedenergistics2.CellId=Cell ID
 gui.appliedenergistics2.SkyChest=Sky Stone Chest
 gui.appliedenergistics2.PatternTerminal=Pattern Terminal
+gui.appliedenergistics2.BlankPatternInNetwork=Supplied by the network
 gui.appliedenergistics2.CraftingPattern=Crafting Pattern
 gui.appliedenergistics2.MolecularAssembler=Molecular Assembler
 gui.appliedenergistics2.ProcessingPattern=Processing Pattern
