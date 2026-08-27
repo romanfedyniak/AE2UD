@@ -739,16 +739,34 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 this.updateSlotVisibility();
             }
         }
+    }
+
+    /**
+     * The tab the player pressed. Carries the grid over to the mode being switched to, which plain
+     * {@link #setCraftingMode(boolean)} must not do: that one also runs when the container is only catching
+     * up with the mode its terminal was already in, and would mirror a stale grid over a saved one.
+     */
+    public void switchCraftingMode(final boolean craftingMode) {
+        final boolean changed = craftingMode != this.craftingMode;
+
+        this.setCraftingMode(craftingMode);
+
+        if (!changed) {
+            return;
+        }
+
         if (craftingMode) {
             this.copyToMatrix();
             this.fixCraftingRecipes();
+        } else {
+            this.copyToProcessing();
         }
     }
 
     /**
-     * Carries the processing grid over into the crafting matrix when the tab is switched, so a recipe
-     * typed in one mode does not have to be typed again in the other. Only what a crafting recipe can hold
-     * survives: one of each, and nothing that is not an item.
+     * Carries the processing grid over into the crafting matrix, so a recipe typed in one mode does not
+     * have to be typed again in the other. Only what a crafting recipe can hold survives: one of each, and
+     * nothing that is not an item.
      */
     private void copyToMatrix() {
         if (this.processing == null || this.crafting == null) {
@@ -759,7 +777,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             final ItemStack stack = this.processing.getStackInSlot(i);
 
             if (GenericStack.unwrapItemStack(stack) != null) {
-                ItemHandlerUtil.setStackInSlot(this.processing, i, ItemStack.EMPTY);
+                // Left where it is. The matrix has no way to show a fluid, so clearing it here would be
+                // this screen throwing away something the player never saw and never asked to remove.
                 ItemHandlerUtil.setStackInSlot(this.crafting, i, ItemStack.EMPTY);
             } else {
                 final ItemStack one = stack.copy();
@@ -771,6 +790,32 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         this.getAndUpdateOutput();
+    }
+
+    /**
+     * The way back. A copy never overwrites what the side it came from could not hold, so the matrix
+     * speaks only for the nine squares it has and only for items: a count already typed in processing
+     * mode survives the trip, and so does a fluid the matrix was never able to show.
+     */
+    private void copyToProcessing() {
+        if (this.processing == null || this.crafting == null) {
+            return;
+        }
+
+        for (int i = 0; i < this.crafting.getSlots() && i < this.processing.getSlots(); i++) {
+            final ItemStack matrix = this.crafting.getStackInSlot(i);
+            final ItemStack current = this.processing.getStackInSlot(i);
+
+            if (matrix.isEmpty()) {
+                if (!current.isEmpty() && GenericStack.unwrapItemStack(current) == null) {
+                    ItemHandlerUtil.setStackInSlot(this.processing, i, ItemStack.EMPTY);
+                }
+            } else if (!Platform.itemComparisons().isSameItem(matrix, current)) {
+                final ItemStack one = matrix.copy();
+                one.setCount(1);
+                ItemHandlerUtil.setStackInSlot(this.processing, i, one);
+            }
+        }
     }
 
     public boolean isInverted() {

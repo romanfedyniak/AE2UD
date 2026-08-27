@@ -62,13 +62,33 @@ switch. They are addressed by name, and the names mean exactly what they say:
 `PacketJEIRecipe` picks between them by the terminal's mode. Anything that asks for `"crafting"` and gets
 32 slots will silently take the first nine and lay the recipe out wrong.
 
-Switching to crafting mode copies the processing grid into the matrix, one of each, dropping anything a
-crafting recipe cannot hold - a fluid in the processing grid is cleared from both. This mirrors GTNH.
+Switching tabs copies the grid over, both ways, so a recipe typed in one mode does not have to be typed
+again in the other. The rule is that a copy never overwrites what the side it came from could not hold:
 
-That asymmetry is why `getPhantomTargets` asks the mode before deciding what a dragged HEI ingredient
-means. Over the processing grid a filled container stands for its contents, the same as clicking it by
-hand, unless the drag ended on the right button. Over the matrix it stands for itself, and a fluid
-dragged straight from the ingredient list is refused - no target is offered, so the slot never lights up.
+* Into the matrix goes one of each item, and a fluid stays in the processing grid untouched, because the
+  matrix has no way to show it.
+* Back into the processing grid the matrix speaks for its nine squares alone. An empty square clears an
+  item, which the player really did take out, but leaves a fluid, which was never there to take out. A
+  square holding the same item on both sides is left alone, count included, so a count typed in processing
+  mode survives a trip through the matrix.
+
+Outputs are not carried across in either direction - a crafting recipe's result is computed from the
+matrix, and the processing side is a grid the player fills. A pattern switched over to processing mode
+therefore has ingredients and no output, and Encode does nothing until one is typed in.
+
+GTNH keeps a single store for both modes and so needs no copy at all; the matrix here is a real inventory
+of its own, because a crafting recipe's shape is part of the recipe and a processing recipe's is not.
+
+The copy hangs off `switchCraftingMode`, never off `setCraftingMode`. The plain setter also runs when the
+container is only catching up with the mode its terminal was already in - it starts in crafting mode, so
+opening one left in processing mode goes through it - and a copy there would mirror an empty matrix over a
+grid the player had saved.
+
+That the matrix cannot hold a fluid is also why `getPhantomTargets` asks the mode before deciding what a
+dragged HEI ingredient means. Over the processing grid a filled container stands for its contents, the
+same as clicking it by hand, unless the drag ended on the right button. Over the matrix it stands for
+itself, and a fluid dragged straight from the ingredient list is refused - no target is offered, so the
+slot never lights up.
 
 ## Machines
 
