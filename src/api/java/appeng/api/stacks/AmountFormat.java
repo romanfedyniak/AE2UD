@@ -52,7 +52,10 @@ public enum AmountFormat {
     PREVIEW_LARGE,
 
     /**
-     * Shortest possible form, meant to be drawn on top of a 16x16 slot icon.
+     * Shortest possible form, meant to be drawn on top of a 16x16 slot icon: four characters, unit
+     * included, and never fewer than three for the number itself - so "9999", "12K", "16B", "12KB", and
+     * "250mB" where the unit takes two of them. What is drawn is measured rather than assumed, so a type
+     * whose unit needs more room is drawn smaller instead of drawn over its neighbour.
      */
     SLOT
 }

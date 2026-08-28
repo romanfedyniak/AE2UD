@@ -155,8 +155,30 @@ public abstract class AEKeyType extends IForgeRegistryEntry.Impl<AEKeyType> {
         return this.getAmountPerUnit();
     }
 
-    public final String formatAmount(long amount, AmountFormat format) {
+    /**
+     * Not final, unlike upstream: a type may format itself however it likes. Whatever comes back is
+     * measured before it is drawn, so a longer reading is drawn smaller rather than drawn out of its slot.
+     *
+     * @see #getWidestSlotAmount()
+     */
+    public String formatAmount(long amount, AmountFormat format) {
         return AEKeyFormatting.format(amount, this.getAmountPerUnit(), this.getUnitSymbol(), format);
+    }
+
+    /**
+     * The widest amount this type can put in a slot, as a specimen for the font to measure - "8888mB" for
+     * a type that reads in millibuckets. A type that answers gets one size for all of its slots; one that
+     * does not is measured by the reading actually being drawn, which is a size that can change as the
+     * amount does.
+     * <p>
+     * A specimen rather than a character count, because the mod cannot know which characters a type's own
+     * unit is made of, and a count of them says nothing about how wide they are.
+     *
+     * @return null to be measured per reading, which is what the built-in types do.
+     */
+    @Nullable
+    public String getWidestSlotAmount() {
+        return null;
     }
 
     /**

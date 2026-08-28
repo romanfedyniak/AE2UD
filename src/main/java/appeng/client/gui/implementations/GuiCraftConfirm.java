@@ -23,6 +23,7 @@ import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.features.IWirelessTermHandler;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
@@ -45,7 +46,6 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.util.Platform;
-import appeng.util.ReadableNumberConverter;
 import com.google.common.base.Joiner;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -628,7 +628,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
             if (steps > 0) {
                 str = GuiText.ToCraftRequests.getLocal() + ": "
-                        + ReadableNumberConverter.INSTANCE.toWideReadableForm(steps);
+                        + AEKeyType.items().formatAmount(steps, AmountFormat.SLOT);
                 final int stepsWidth = 4 + this.fontRenderer.getStringWidth(str);
                 this.fontRenderer.drawString(
                         str,

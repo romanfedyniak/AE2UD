@@ -24,6 +24,7 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
+import appeng.client.render.StackSizeRenderer;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -408,7 +409,7 @@ public class GuiCraftingPlanTree extends Gui {
         if (cell.node != null) {
             this.parent.drawItem(cell.x, cell.y,
                     GenericStack.wrapInItemStack(new GenericStack(cell.node.getWhat(), 1)));
-            this.drawAmount(font, cell, format(cell.node.getWhat(), cell.node.getAmount()));
+            this.drawAmount(font, cell, cell.node.getWhat(), format(cell.node.getWhat(), cell.node.getAmount()));
         } else {
             final CraftingPlanSource source = cell.source;
             // The machine standing in for a craft says more than a generic cog; the marker in the corner
@@ -423,7 +424,7 @@ public class GuiCraftingPlanTree extends Gui {
             final long shown = source.getKind() == CraftingPlanSource.Kind.CRAFT
                     ? source.getCrafts()
                     : source.getAmount();
-            this.drawAmount(font, cell, format(source.getWhat(), shown));
+            this.drawAmount(font, cell, source.getWhat(), format(source.getWhat(), shown));
         }
 
         if (!cell.children.isEmpty()) {
@@ -432,10 +433,13 @@ public class GuiCraftingPlanTree extends Gui {
         }
     }
 
-    private void drawAmount(final FontRenderer font, final Cell cell, final String text) {
+    private void drawAmount(final FontRenderer font, final Cell cell, final AEKey what, final String text) {
+        // Half size unless the font is wide enough that a whole cell will not hold the reading.
+        final float scale = StackSizeRenderer.fittingScale(font, text, what, 0.5f, CELL);
+
         GlStateManager.pushMatrix();
-        GlStateManager.translate(cell.x + CELL - font.getStringWidth(text) * 0.5f, cell.y + CELL - 4f, 0);
-        GlStateManager.scale(0.5f, 0.5f, 1.0f);
+        GlStateManager.translate(cell.x + CELL - font.getStringWidth(text) * scale, cell.y + CELL - 4f, 0);
+        GlStateManager.scale(scale, scale, 1.0f);
         font.drawStringWithShadow(text, 0, 0, TEXT_COLOR);
         GlStateManager.popMatrix();
     }

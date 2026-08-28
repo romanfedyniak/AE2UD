@@ -20,10 +20,10 @@ package appeng.client.render;
 
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.container.me.GridInventoryEntry;
-import appeng.util.IWideReadableNumberConverter;
-import appeng.util.ReadableNumberConverter;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
@@ -38,13 +38,18 @@ import javax.annotation.Nullable;
  * @since rv0
  */
 public class StackSizeRenderer {
-    private static final IWideReadableNumberConverter WIDE_CONVERTER = ReadableNumberConverter.INSTANCE;
-
     /**
-     * Fixed scale for both the amount and the craftable mark - fits four digits legibly in a 16x16 slot.
+     * The scale nothing is drawn larger than - four digits of the vanilla font fill a 16x16 slot exactly
+     * at this size. Anything wider is drawn smaller; see {@link #fittingScale}.
      */
     private static final float SCALE = 0.666f;
     private static final int OFFSET = -1;
+
+    /** The characters an amount is made of, less whatever unit a key type appends to it. */
+    private static final String AMOUNT_CHARS = "0123456789.KMGTPEm";
+
+    private static int maxCharWidth;
+    private static int measuredAt = -1;
 
     private static final int WHITE = 0xFFFFFF;
     /** Amber, for a craftable whose result would never arrive - the same amber the terminals mark it with. */
@@ -58,7 +63,7 @@ public class StackSizeRenderer {
     public void renderStackSize(FontRenderer fontRenderer, @Nullable GridInventoryEntry entry, int xPos, int yPos) {
         if (entry != null) {
             // Alt trades a stocked row's amount for the "+", showing what an Alt click on it would do.
-            this.renderStackSize(fontRenderer, entry.getStoredAmount(), entry.isCraftable(),
+            this.renderStackSize(fontRenderer, entry.getWhat(), entry.getStoredAmount(), entry.isCraftable(),
                     GuiScreen.isAltKeyDown(), xPos, yPos, entry.isFakeCraftable() ? FAKE_CRAFTABLE_COLOR : WHITE);
         }
     }
@@ -108,19 +113,20 @@ public class StackSizeRenderer {
             return;
         }
 
-        this.renderStackSize(fontRenderer, stack.amount(), craftable, false, xPos, yPos, markColor);
+        this.renderStackSize(fontRenderer, stack.what(), stack.amount(), craftable, false, xPos, yPos, markColor);
     }
 
-    private void renderStackSize(FontRenderer fontRenderer, long amount, boolean craftable, boolean markInsteadOfAmount, int xPos, int yPos, int markColor) {
+    private void renderStackSize(FontRenderer fontRenderer, AEKey what, long amount, boolean craftable, boolean markInsteadOfAmount, int xPos, int yPos, int markColor) {
         final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
         fontRenderer.setUnicodeFlag(false);
 
         if ((amount == 0 || markInsteadOfAmount) && craftable) {
             // Modern AE2's convention: "+" where the count goes, rather than the word "Craft". Left-inset
             // like drawCraftableMark's own "+", not nudged right the way a multi-digit count is.
-            drawLabel(fontRenderer, "+", xPos, yPos, 0.0f, markColor);
+            drawLabel(fontRenderer, "+", null, xPos, yPos, 0.0f, markColor);
         } else if (amount > 0) {
-            drawLabel(fontRenderer, this.getToBeRenderedStackSize(amount), xPos, yPos, 1.3f, WHITE);
+            // The reading is the key's own: a bucket of something is not a thousand of it.
+            drawLabel(fontRenderer, what.formatAmount(amount, AmountFormat.SLOT), what, xPos, yPos, 1.3f, WHITE);
             if (craftable) {
                 drawCraftableMark(fontRenderer, xPos, yPos, markColor);
             }
@@ -146,12 +152,15 @@ public class StackSizeRenderer {
         // right/bottom-aligned to xPos+16/yPos+16, the wrong anchor for a mark that belongs in the opposite
         // corner. Same offset the count uses, but subtracted rather than added: the count's offset nudges
         // it inward (toward xPos+16), so nudging this mark inward (toward xPos) means the opposite sign.
-        final float inverseScale = 1.0f / SCALE;
+        // Its own size, not the amount's: the mark is a sign rather than a reading, and shrinking it
+        // because a long number happens to share the slot only makes it harder to see.
+        final float scale = fittingScale(fontRenderer, "+", null, SCALE);
+        final float inverseScale = 1.0f / scale;
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.disableBlend();
         GlStateManager.pushMatrix();
-        GlStateManager.scale(SCALE, SCALE, SCALE);
+        GlStateManager.scale(scale, scale, scale);
         fontRenderer.drawStringWithShadow("+", (int) ((xPos - OFFSET) * inverseScale), (int) ((yPos - OFFSET) * inverseScale), color);
         GlStateManager.popMatrix();
         GlStateManager.enableLighting();
@@ -161,16 +170,17 @@ public class StackSizeRenderer {
         fontRenderer.setUnicodeFlag(unicodeFlag);
     }
 
-    private static void drawLabel(final FontRenderer fontRenderer, final String text, final int xPos, final int yPos, final float xAdjust, final int color) {
-        final float inverseScale = 1.0f / SCALE;
+    private static void drawLabel(final FontRenderer fontRenderer, final String text, @Nullable final AEKey what, final int xPos, final int yPos, final float xAdjust, final int color) {
+        final float scale = fittingScale(fontRenderer, text, what, SCALE);
+        final float inverseScale = 1.0f / scale;
 
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.disableBlend();
         GlStateManager.pushMatrix();
-        GlStateManager.scale(SCALE, SCALE, SCALE);
-        final int X = (int) (((float) xPos + OFFSET + 16.0f + xAdjust - fontRenderer.getStringWidth(text) * SCALE) * inverseScale);
-        final int Y = (int) (((float) yPos + OFFSET + 16.0f - 7.0f * SCALE) * inverseScale);
+        GlStateManager.scale(scale, scale, scale);
+        final int X = (int) (((float) xPos + OFFSET + 16.0f + xAdjust - fontRenderer.getStringWidth(text) * scale) * inverseScale);
+        final int Y = (int) (((float) yPos + OFFSET + 16.0f - 7.0f * scale) * inverseScale);
         fontRenderer.drawStringWithShadow(text, X, Y, color);
         GlStateManager.popMatrix();
         GlStateManager.enableLighting();
@@ -178,8 +188,57 @@ public class StackSizeRenderer {
         GlStateManager.enableBlend();
     }
 
-    private String getToBeRenderedStackSize(final long originalSize) {
-        return WIDE_CONVERTER.toWideReadableForm(originalSize);
+    /**
+     * The largest scale, up to {@code baseScale}, at which {@code text} still fits a 16-pixel slot. Ask
+     * the font rather than count characters: a resource pack or a mod can hand the game a font whose
+     * digits are nothing like six pixels wide, and four of those drew straight over the next slot.
+     */
+    public static float fittingScale(final FontRenderer fontRenderer, final String text, @Nullable final AEKey what, final float baseScale) {
+        return fittingScale(fontRenderer, text, what, baseScale, 16);
+    }
+
+    /**
+     * As above, for a box of some other width.
+     * <p>
+     * The estimate is the widest character an amount can use, times how many of them there are, rather
+     * than the width of this particular string: it keeps two amounts of the same length the same size,
+     * where measuring each would have "111" drawn larger than "999". A key type that would rather have
+     * one size for all of its amounts says so with {@link appeng.api.stacks.AEKeyType#getWidestSlotAmount()}.
+     */
+    public static float fittingScale(final FontRenderer fontRenderer, final String text, @Nullable final AEKey what, final float baseScale, final int width) {
+        float needed = text.length() * (float) maxCharWidth(fontRenderer, text);
+
+        final String widest = what == null ? null : what.getType().getWidestSlotAmount();
+        if (widest != null) {
+            needed = Math.max(needed, fontRenderer.getStringWidth(widest));
+        }
+
+        return needed <= 0.0f ? baseScale : Math.min(baseScale, width / needed);
+    }
+
+    /**
+     * Measured once and kept, because a mod that hooks the font is asked this for every amount on screen.
+     * The width of a zero is the probe: a resource pack reload changes the widths inside the same
+     * {@link FontRenderer}, and so does the unicode flag, and both move that one too.
+     */
+    private static int maxCharWidth(final FontRenderer fontRenderer, final String text) {
+        final int probe = fontRenderer.getCharWidth('0');
+
+        if (probe != measuredAt) {
+            int widest = 0;
+            for (int i = 0; i < AMOUNT_CHARS.length(); i++) {
+                widest = Math.max(widest, fontRenderer.getCharWidth(AMOUNT_CHARS.charAt(i)));
+            }
+            maxCharWidth = widest;
+            measuredAt = probe;
+        }
+
+        // A key type appends a unit of its own choosing, which the alphabet above cannot know about.
+        int widest = maxCharWidth;
+        for (int i = 0; i < text.length(); i++) {
+            widest = Math.max(widest, fontRenderer.getCharWidth(text.charAt(i)));
+        }
+        return widest;
     }
 
 }

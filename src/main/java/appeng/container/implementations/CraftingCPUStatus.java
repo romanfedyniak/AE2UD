@@ -2,9 +2,10 @@ package appeng.container.implementations;
 
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.util.ItemSorters;
-import appeng.util.ReadableNumberConverter;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
@@ -197,7 +198,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
      * Shortened the way a stack size is, because the table's row has a few pixels for it beside the bytes.
      */
     public String formatCoprocessors() {
-        return ReadableNumberConverter.INSTANCE.toWideReadableForm(coprocessors);
+        return AEKeyType.items().formatAmount(coprocessors, AmountFormat.SLOT);
     }
 
     public String formatStorage() {

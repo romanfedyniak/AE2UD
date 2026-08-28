@@ -2019,6 +2019,25 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     reach it by mixin, because neither could add a method to the interface. We can, so a medium answers for
     itself rather than being recognised by type.
 
+23. **`AEKeyType.formatAmount` is no longer `final`, plus `AEKeyType.getWidestSlotAmount()`** - additive.
+    Upstream keeps `formatAmount` final and has nothing like the second. A slot amount is measured before
+    it is drawn now rather than assumed to be four vanilla digits wide, which is what makes a type's own
+    formatting safe to allow: whatever it returns is drawn at a size that fits. `getWidestSlotAmount()`
+    answers with a specimen string rather than a character count, because the mod cannot know which
+    characters a type's unit is made of and a count of them says nothing about how wide they are. Both
+    default to what the built-in types already did. The `final` had to come off now, since it cannot come
+    off once something has overridden the method; the specimen hook could have waited, and went in beside
+    it on the owner's call.
+
+24. **`AmountFormat.SLOT` abbreviates by width rather than by magnitude** - not a change of shape, but a
+    change in what every caller gets. It cut over at 99, so 250 mB read "0.3KmB" and a hundred items
+    "0.1K". Upstream defines it as `formatShortAmount(amount, 4)` - a width - and it is one here now: four
+    characters with the unit inside them, and never fewer than three for the number itself. Nothing in the
+    mod was calling it before this, so nothing regressed; an addon that was had been getting those
+    readings. `appeng.util.ReadableNumberConverter` and its two interfaces went with the change - not an
+    api package, but the line is here because they were the mod's other number abbreviator, tests included,
+    and that algorithm now lives once, in `AEKeyFormatting`. Their two callers ask `AEKeyType.items()`.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

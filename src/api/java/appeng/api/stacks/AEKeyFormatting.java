@@ -23,8 +23,10 @@
 
 package appeng.api.stacks;
 
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.Format;
 import java.util.Locale;
 
 /**
@@ -40,24 +42,38 @@ final class AEKeyFormatting {
     /** Prefix for the base unit of a type measured in larger ones - millibuckets for fluids. */
     private static final String MILLI_PREFIX = "m";
 
+    /** Characters a slot gives an amount, unit included. */
+    private static final int SLOT_BUDGET = 4;
+
+    /** Keeps one fractional digit while it fits, and never rounds an amount up into one it is not. */
+    private static final Format PRECISE_FORM = precisionFormat();
+
+    private static Format precisionFormat() {
+        final DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.ROOT);
+        symbols.setDecimalSeparator('.');
+        final DecimalFormat format = new DecimalFormat(".#;0.#", symbols);
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format;
+    }
+
     private AEKeyFormatting() {
     }
 
     static String format(long amount, int amountPerUnit, String unitSymbol, AmountFormat format) {
         if (amountPerUnit <= 1) {
-            return formatRaw(amount, format) + unitSymbol;
+            return formatRaw(amount, format, slotWidth(unitSymbol)) + unitSymbol;
         }
 
         // Asked for the base unit outright: 1,040 mB, never rounded. Shift in a terminal tooltip uses this.
         if (format == AmountFormat.FULL_BASE) {
-            return formatRaw(amount, AmountFormat.FULL) + MILLI_PREFIX + unitSymbol;
+            return formatRaw(amount, AmountFormat.FULL, SLOT_BUDGET) + MILLI_PREFIX + unitSymbol;
         }
 
         // Less than one whole unit. Rounding it into units is what "0B" was: 40 mB divided by 1000 is
         // 0.04, and the one-fractional-digit format below prints that as "0". Below a unit the base unit
         // is the only honest reading, so 40 mB reads "40mB".
         if (amount != 0 && amount > -amountPerUnit && amount < amountPerUnit) {
-            return formatRaw(amount, format) + MILLI_PREFIX + unitSymbol;
+            return formatRaw(amount, format, slotWidth(MILLI_PREFIX + unitSymbol)) + MILLI_PREFIX + unitSymbol;
         }
 
         // Types measured in units (fluids in buckets) keep one fractional digit unless the amount
@@ -65,7 +81,7 @@ final class AEKeyFormatting {
         long whole = amount / amountPerUnit;
         long remainder = amount % amountPerUnit;
         if (remainder == 0 || format == AmountFormat.SLOT) {
-            return formatRaw(whole, format) + unitSymbol;
+            return formatRaw(whole, format, slotWidth(unitSymbol)) + unitSymbol;
         }
 
         double value = (double) amount / amountPerUnit;
@@ -73,7 +89,16 @@ final class AEKeyFormatting {
         return df.format(value) + unitSymbol;
     }
 
-    private static String formatRaw(long amount, AmountFormat format) {
+    /**
+     * How many characters the number itself gets in a slot: the budget, less whatever the unit takes.
+     * Never below three, because two leaves nothing worth reading - a hundred of anything abbreviates to
+     * "0K" at that width.
+     */
+    private static int slotWidth(String unitSymbol) {
+        return Math.max(3, SLOT_BUDGET - unitSymbol.length());
+    }
+
+    private static String formatRaw(long amount, AmountFormat format, int slotWidth) {
         switch (format) {
             case FULL:
             // A type with only one unit - items - has nothing to convert, so the exact reading is the
@@ -86,10 +111,43 @@ final class AEKeyFormatting {
             case PREVIEW_REGULAR:
                 return abbreviate(amount, 999);
             case SLOT:
-                return abbreviate(amount, 99);
+                return abbreviateToWidth(amount, slotWidth);
             default:
                 return Long.toString(amount);
         }
+    }
+
+    /**
+     * Abbreviates until the result is no wider than {@code width} characters, which is what a slot has to
+     * spend. Upstream defines {@link AmountFormat#SLOT} the same way - as a width, not as a threshold.
+     * <p>
+     * The twin of this once lived in {@code appeng.util.ReadableNumberConverter}; it is here because
+     * {@code src/api} is compiled on its own and cannot reach {@code src/main}.
+     */
+    private static String abbreviateToWidth(long amount, int width) {
+        final String plain = Long.toString(amount);
+        int size = plain.length();
+
+        if (size <= width) {
+            return plain;
+        }
+
+        long base = amount;
+        double last = base;
+        int exponent = 0;
+        String postFix = "";
+
+        while (size > width && exponent < SUFFIXES.length - 1) {
+            last = base;
+            base /= 1000;
+            exponent++;
+            // The postfix takes a character of its own.
+            size = Long.toString(base).length() + 1;
+            postFix = SUFFIXES[exponent];
+        }
+
+        final String withPrecision = PRECISE_FORM.format(last / 1000.0D) + postFix;
+        return withPrecision.length() <= width ? withPrecision : base + postFix;
     }
 
     /**
