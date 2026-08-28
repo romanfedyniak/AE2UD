@@ -92,9 +92,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private static final int TEXTURE_FOOTER_Y = TEXTURE_BOTTOM_Y + TEXTURE_LAST_ROW_HEIGHT;
     /**
      * Skipped from the top of the footer: the strip the "Crafting CPU:" button used to sit in, now that the
-     * CPU table on the left has taken its job.
+     * CPU table on the left has taken its job, and below it the line that repeated the selected CPU's
+     * storage and co-processors - which that table already draws on the row the numbers belong to.
      */
-    private static final int TEXTURE_FOOTER_TRIM = 24;
+    private static final int TEXTURE_FOOTER_TRIM = 40;
     private static final int FOOTER_HEIGHT = 206 - TEXTURE_FOOTER_Y - TEXTURE_FOOTER_TRIM;
     private static final int FIXED_HEIGHT = TEXTURE_TOP_HEIGHT + TEXTURE_LAST_ROW_HEIGHT + FOOTER_HEIGHT
             - 2 * ROW_HEIGHT;
@@ -184,8 +185,8 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
 
-        // Over the plan list, leaving the header and the footer line of the screen visible.
-        this.errorPanel.initGui(6, 18, this.xSize - 12, this.ySize - 63, this.buttonList);
+        // Over the plan list, leaving the header and the row of buttons below it visible.
+        this.errorPanel.initGui(6, 18, this.xSize - 12, this.ySize - FOOTER_HEIGHT - 15, this.buttonList);
     }
 
     @Override
@@ -247,19 +248,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         final long BytesUsed = this.ccc.getUsedBytes();
         final String byteUsed = NumberFormat.getInstance().format(BytesUsed);
         final String Add = BytesUsed > 0 ? (byteUsed + ' ' + GuiText.BytesUsed.getLocal()) : GuiText.CalculatingWait.getLocal();
-        this.fontRenderer.drawString(GuiText.CraftingPlan.getLocal() + " - " + Add, 8, 7, 4210752);
-
-        String dsp = null;
-
-        if (this.isSimulation()) {
-            dsp = GuiText.Simulation.getLocal();
-        } else {
-            dsp = this.ccc.getCpuAvailableBytes() > 0 ? (GuiText.Bytes.getLocal() + ": " + this.ccc.getCpuAvailableBytes() + " : " + GuiText.CoProcessors
-                    .getLocal() + ": " + this.ccc.getCpuCoProcessors()) : GuiText.Bytes.getLocal() + ": N/A : " + GuiText.CoProcessors.getLocal() + ": N/A";
-        }
-
-        final int offset = (219 - this.fontRenderer.getStringWidth(dsp)) / 2;
-        this.fontRenderer.drawString(dsp, offset, this.ySize - 41, 4210752);
+        // The word stands in for the title rather than beside it: the two together run past the window,
+        // and when a plan is incomplete that is the first thing to say about it. Only once there is a plan
+        // to call incomplete, though - the field reads as a simulation until the server has said otherwise.
+        final String plan = (BytesUsed > 0 && this.isSimulation() ? GuiText.Simulation : GuiText.CraftingPlan).getLocal();
+        this.fontRenderer.drawString(plan + " - " + Add, 8, 7, 4210752);
 
         // The panel stands in for the list, and is drawn in the background layer so its own buttons stay on
         // top of it. Nothing of the list is drawn underneath.

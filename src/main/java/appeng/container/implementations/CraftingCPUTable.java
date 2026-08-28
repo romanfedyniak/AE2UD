@@ -141,17 +141,6 @@ public class CraftingCPUTable {
         return this.findCpu(this.host.getSelectedCpuSerial());
     }
 
-    @Nullable
-    public CraftingCPUStatus getSelectedStatus() {
-        final int serial = this.host.getSelectedCpuSerial();
-        for (final CraftingCPUStatus cpu : this.cpus) {
-            if (cpu.getSerial() == serial) {
-                return cpu;
-            }
-        }
-        return null;
-    }
-
     public List<CraftingCPUStatus> getCPUs() {
         return Collections.unmodifiableList(this.cpus);
     }

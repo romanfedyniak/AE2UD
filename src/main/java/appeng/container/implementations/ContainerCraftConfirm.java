@@ -98,10 +98,6 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
     @GuiSync(0)
     public long bytesUsed;
-    @GuiSync(1)
-    public long cpuBytesAvail;
-    @GuiSync(2)
-    public int cpuCoProcessors;
     @GuiSync(3)
     public boolean autoStart = false;
     @GuiSync(4)
@@ -199,7 +195,6 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
         this.cpuTable.detectAndSendChanges(grid);
         this.setNoCPU(this.cpuTable.isEmpty());
-        this.updateSelectedCpuInfo();
 
         super.detectAndSendChanges();
 
@@ -297,21 +292,6 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
             this.setJob(null);
         }
         this.verifyPermissions(SecurityPermissions.CRAFT, false);
-    }
-
-    /**
-     * Mirrors the chosen CPU into the fields the screen reads for its byte and co-processor line.
-     */
-    private void updateSelectedCpuInfo() {
-        final CraftingCPUStatus selected = this.cpuTable.getSelectedStatus();
-
-        if (selected == null) {
-            this.setCpuAvailableBytes(0);
-            this.setCpuCoProcessors(0);
-        } else {
-            this.setCpuAvailableBytes(selected.getStorage());
-            this.setCpuCoProcessors((int) selected.getCoprocessors());
-        }
     }
 
     private static long encodeUsedPercent(final long used, final long available) {
@@ -478,22 +458,6 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
     private void setUsedBytes(final long bytesUsed) {
         this.bytesUsed = bytesUsed;
-    }
-
-    public long getCpuAvailableBytes() {
-        return this.cpuBytesAvail;
-    }
-
-    private void setCpuAvailableBytes(final long cpuBytesAvail) {
-        this.cpuBytesAvail = cpuBytesAvail;
-    }
-
-    public int getCpuCoProcessors() {
-        return this.cpuCoProcessors;
-    }
-
-    private void setCpuCoProcessors(final int cpuCoProcessors) {
-        this.cpuCoProcessors = cpuCoProcessors;
     }
 
     public boolean hasNoCPU() {
