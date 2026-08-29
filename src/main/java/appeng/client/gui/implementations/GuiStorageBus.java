@@ -45,6 +45,7 @@ public class GuiStorageBus extends GuiUpgradeable {
     private GuiTabButton priority;
     private GuiImgButton partition;
     private GuiImgButton clear;
+    private GuiImgButton keyTypes;
 
     public GuiStorageBus(final InventoryPlayer inventoryPlayer, final PartStorageBus te) {
         super(new ContainerStorageBus(inventoryPlayer, te));
@@ -54,13 +55,17 @@ public class GuiStorageBus extends GuiUpgradeable {
     @Override
     protected void addButtons() {
         this.clear = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS, ActionItems.CLOSE);
-        this.partition = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.ACTIONS, ActionItems.WRENCH);
-        this.rwMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.ACCESS, AccessRestriction.READ_WRITE);
-        this.storageFilter = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
-        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 88, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.keyTypes = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.ACTIONS, ActionItems.CONFIGURE_STORED_TYPES);
+        this.partition = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.ACTIONS, ActionItems.WRENCH);
+        this.rwMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.ACCESS, AccessRestriction.READ_WRITE);
+        this.storageFilter = new GuiImgButton(this.guiLeft - 18, this.guiTop + 88, Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
+        // Last in the column because it is the only one here that hides: without a fuzzy card the column ends
+        // one row earlier instead of showing a gap in the middle.
+        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 108, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
 
         this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
 
+        this.buttonList.add(this.keyTypes);
         this.buttonList.add(this.storageFilter);
         this.buttonList.add(this.fuzzyMode);
         this.buttonList.add(this.rwMode);
@@ -102,6 +107,8 @@ public class GuiStorageBus extends GuiUpgradeable {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("StorageBus.Action", "Partition"));
             } else if (btn == this.clear) {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("Filter.Clear", ""));
+            } else if (btn == this.keyTypes) {
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
             } else if (btn == this.priority) {
                 NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_PRIORITY));
             } else if (btn == this.rwMode) {

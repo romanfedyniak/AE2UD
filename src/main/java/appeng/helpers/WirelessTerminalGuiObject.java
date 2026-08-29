@@ -44,6 +44,7 @@ import appeng.api.util.DimensionalCoord;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.core.sync.GuiBridge;
 import appeng.me.cluster.IAECluster;
@@ -193,8 +194,8 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     }
 
     @Override
-    public boolean requiresBuildPermissionForKeyTypeSelection() {
-        return false;
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.DISPLAY;
     }
 
     @Override

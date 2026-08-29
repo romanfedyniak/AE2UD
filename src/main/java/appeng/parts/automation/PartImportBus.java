@@ -43,6 +43,7 @@ import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.core.AppEng;
 import appeng.helpers.ISubMenuHost;
 import appeng.core.settings.TickRates;
@@ -96,6 +97,11 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
     @Override
     public KeyTypeSelection getKeyTypeSelection() {
         return this.keyTypeSelection;
+    }
+
+    @Override
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.IMPORT;
     }
 
     @Override

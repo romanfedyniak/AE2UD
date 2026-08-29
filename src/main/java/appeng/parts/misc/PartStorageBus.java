@@ -48,6 +48,9 @@ import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.capabilities.Capabilities;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
@@ -58,6 +61,7 @@ import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.ITickingMonitor;
+import appeng.me.storage.KeyTypeFilteredStorage;
 import appeng.me.storage.MEInventoryHandler;
 import appeng.me.storage.NullInventory;
 import appeng.parts.PartModel;
@@ -107,7 +111,8 @@ import java.util.Objects;
  * further change here.</li>
  * </ol>
  */
-public class PartStorageBus extends PartUpgradeable implements IGridTickable, IStorageProvider, IPriorityHost {
+public class PartStorageBus extends PartUpgradeable
+        implements IGridTickable, IStorageProvider, IPriorityHost, KeyTypeSelectionHost {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/storage_bus_base");
     @PartModels
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/storage_bus_off"));
@@ -129,6 +134,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
     private byte resetCacheLogic = 0;
     @Nullable
     private Map<AEKeyType, ExternalStorageStrategy> externalStorageStrategies;
+    private final KeyTypeSelection keyTypeSelection;
 
     @Reflected
     public PartStorageBus(final ItemStack is) {
@@ -138,6 +144,23 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
         this.getConfigManager().registerSetting(Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
         this.getConfigManager().registerSetting(Settings.STICKY_MODE, YesNo.NO);
         this.mySrc = new MachineSource(this);
+        // Every registered type, not only those with an external storage strategy: the bus also mounts what
+        // another ME network holds, which is not limited to the types a strategy can reach.
+        this.keyTypeSelection = new KeyTypeSelection(() -> {
+            this.getHost().markForSave();
+            this.resetCache(true);
+            IStorageProvider.requestUpdate(this.getProxy().getNode());
+        }, keyType -> true);
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    @Override
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.STORAGE;
     }
 
     @Override
@@ -206,6 +229,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
         super.readFromNBT(data);
         this.Config.readFromNBT(data, "config");
         this.priority = data.getInteger("priority");
+        this.keyTypeSelection.readFromNBT(data);
     }
 
     @Override
@@ -213,6 +237,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
         super.writeToNBT(data);
         this.Config.writeToNBT(data, "config");
         data.setInteger("priority", this.priority);
+        this.keyTypeSelection.writeToNBT(data);
     }
 
     @Override
@@ -369,6 +394,10 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
         Map<AEKeyType, MEStorage> wrappers = null;
         MEStorage single = null;
         for (final Map.Entry<AEKeyType, ExternalStorageStrategy> entry : strategies.entrySet()) {
+            if (!this.keyTypeSelection.isEnabled(entry.getKey())) {
+                continue;
+            }
+
             final MEStorage wrapper = entry.getValue().createWrapper(extractableOnly, changeListener);
             if (wrapper == null) {
                 continue;
@@ -386,6 +415,22 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
             return null;
         }
         return wrappers.size() == 1 ? single : new CompositeExternalStorage(wrappers);
+    }
+
+    /**
+     * A disabled type is already missing from what {@link #createGenericExternalStorage} composed, but the two
+     * resolution paths before it - another ME network, and a Storage Drawers repository - hand back a single
+     * storage that is not keyed by type, so those are filtered here instead. A selection with nothing turned
+     * off is left alone rather than wrapped in a layer that would say yes to everything, and so is a
+     * {@link NullInventory}, which is how {@link #hasRegisteredCellToNetwork} recognises a bus that mounts
+     * nothing.
+     */
+    private MEStorage filterByKeyType(final MEStorage storage) {
+        if (storage instanceof NullInventory || !this.keyTypeSelection.enabled().containsValue(Boolean.FALSE)) {
+            return storage;
+        }
+
+        return new KeyTypeFilteredStorage(storage, this.keyTypeSelection.enabledPredicate());
     }
 
     private void onExternalStorageChanged() {
@@ -450,7 +495,7 @@ public class PartStorageBus extends PartUpgradeable implements IGridTickable, IS
             }
         }
 
-        this.handler.setDelegate(newDelegate);
+        this.handler.setDelegate(this.filterByKeyType(newDelegate));
 
         if (newDelegate instanceof ITickingMonitor) {
             this.monitor = (ITickingMonitor) newDelegate;

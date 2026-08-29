@@ -27,6 +27,7 @@ import java.util.Map;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiToggleButton;
@@ -62,11 +63,11 @@ public class GuiKeyTypeSelection extends AEBaseGui {
 
     private GuiTabButton originalGuiBtn;
     private GuiBridge originalGui;
-    private final boolean displayFilter;
+    private final Purpose purpose;
 
     public GuiKeyTypeSelection(final InventoryPlayer inventoryPlayer, final KeyTypeSelectionHost te) {
         super(new ContainerKeyTypeSelection(inventoryPlayer, te));
-        this.displayFilter = !te.requiresBuildPermissionForKeyTypeSelection();
+        this.purpose = te.getKeyTypeSelectionPurpose();
         this.xSize = WIDTH;
         this.ySize = HEADER_HEIGHT + FOOTER_HEIGHT;
     }
@@ -88,9 +89,7 @@ public class GuiKeyTypeSelection extends AEBaseGui {
         for (int i = 0; i < this.rows.size(); i++) {
             final AEKeyType type = this.rows.get(i);
             final GuiToggleButton toggle = new GuiToggleButton(this.guiLeft + 8, this.guiTop + HEADER_HEIGHT + i * ROW_HEIGHT + 1,
-                    ICON_ON, ICON_OFF, type.getDescription().getFormattedText(), (this.displayFilter
-                            ? GuiText.ConfigureVisibleTypesHint
-                            : GuiText.ConfigureImportedTypesHint).getLocal());
+                    ICON_ON, ICON_OFF, type.getDescription().getFormattedText(), this.hint().getLocal());
             this.toggles.put(type, toggle);
             this.buttonList.add(toggle);
         }
@@ -121,8 +120,7 @@ public class GuiKeyTypeSelection extends AEBaseGui {
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.fontRenderer.drawString((this.displayFilter ? GuiText.ConfigureVisibleTypes : GuiText.ConfigureImportedTypes).getLocal(),
-                8, 6, 4210752);
+        this.fontRenderer.drawString(this.title().getLocal(), 8, 6, 4210752);
 
         final Map<AEKeyType, Boolean> selection = ((ContainerKeyTypeSelection) this.inventorySlots).getSelection();
         for (int i = 0; i < this.rows.size(); i++) {
@@ -134,6 +132,28 @@ public class GuiKeyTypeSelection extends AEBaseGui {
             }
 
             this.fontRenderer.drawString(type.getDescription().getFormattedText(), 30, HEADER_HEIGHT + i * ROW_HEIGHT + 5, 4210752);
+        }
+    }
+
+    private GuiText title() {
+        switch (this.purpose) {
+            case DISPLAY:
+                return GuiText.ConfigureVisibleTypes;
+            case IMPORT:
+                return GuiText.ConfigureImportedTypes;
+            default:
+                return GuiText.ConfigureStoredTypes;
+        }
+    }
+
+    private GuiText hint() {
+        switch (this.purpose) {
+            case DISPLAY:
+                return GuiText.ConfigureVisibleTypesHint;
+            case IMPORT:
+                return GuiText.ConfigureImportedTypesHint;
+            default:
+                return GuiText.ConfigureStoredTypesHint;
         }
     }
 

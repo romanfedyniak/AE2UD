@@ -35,6 +35,7 @@ import appeng.api.storage.TerminalPinStorages;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.ISubMenuHost;
 import appeng.me.GridAccessException;
@@ -170,8 +171,8 @@ public abstract class AbstractPartTerminal extends AbstractPartDisplay implement
     }
 
     @Override
-    public boolean requiresBuildPermissionForKeyTypeSelection() {
-        return false;
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.DISPLAY;
     }
 
     @Override

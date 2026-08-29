@@ -38,10 +38,29 @@ public interface KeyTypeSelectionHost {
     KeyTypeSelection getKeyTypeSelection();
 
     /**
+     * What the selection is for. It decides how the screen names the choice, and, by default, who is
+     * allowed to change it.
+     */
+    Purpose getKeyTypeSelectionPurpose();
+
+    /**
      * Whether changing this selection configures how a machine acts on the world. Display-only filters,
      * such as a terminal's visible key types, may be changed by anyone who can open the terminal.
      */
     default boolean requiresBuildPermissionForKeyTypeSelection() {
-        return true;
+        return this.getKeyTypeSelectionPurpose() != Purpose.DISPLAY;
+    }
+
+    /**
+     * The kinds of machine that let the player choose key types. Each reads its selection differently
+     * enough to need words of its own, and the screen has nothing else to tell them apart by.
+     */
+    enum Purpose {
+        /** A terminal, where the selection decides only what is shown. */
+        DISPLAY,
+        /** An import bus, where it decides what is moved into the network. */
+        IMPORT,
+        /** A storage bus, where it decides what is stored and what is reported to the network. */
+        STORAGE
     }
 }
