@@ -24,76 +24,47 @@ import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.*;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import appeng.client.gui.AmountEntry;
+import appeng.api.stacks.AmountFormat;
 import appeng.client.gui.widgets.GuiImgButton;
-import appeng.client.gui.widgets.GuiNumberBox;
-import appeng.client.gui.widgets.GuiStepButtons;
 import appeng.container.implementations.ContainerLevelEmitter;
 import appeng.container.slot.SlotFakeTypeOnly;
-import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
-import appeng.core.sync.packets.PacketValueConfig;
 import appeng.parts.automation.PartLevelEmitter;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
-import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
-import java.awt.Rectangle;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 
+/**
+ * What the emitter watches and how it answers. The number it watches for is typed on the amount screen,
+ * which every other amount in the mod is typed on too - this screen only shows it and opens that one.
+ */
 public class GuiLevelEmitter extends GuiUpgradeable {
 
-    /**
-     * Prefix a type's base unit carries when it is measured in a larger one - millibuckets.
-     */
-    private static final String BASE_UNIT_PREFIX = "m";
+    /** The window the texture was drawn for, before the threshold moved to a screen of its own. */
+    private static final int TEXTURE_HEIGHT = 184;
+    /** Where rows are left out: everything the threshold field, its well and its buttons stood in. */
+    private static final int TEXTURE_CUT = 39;
+    /** How many, which is what is left of the band the field and its eight buttons stood in. */
+    private static final int TEXTURE_TRIM = TEXTURE_HEIGHT - ContainerLevelEmitter.HEIGHT;
 
-    private static final int FIELD_X = 24;
-    private static final int FIELD_Y = 43;
-    private static final int FIELD_WIDTH = 79;
-
-    private GuiNumberBox level;
-
-    /** Last threshold seen from the server, and the last one this screen sent, so echoes are ignored. */
-    private long lastSynced = Long.MIN_VALUE;
-    private long lastSent = Long.MIN_VALUE;
-
-    /** The scale the field is currently showing, so a change to it can be re-rendered exactly once. */
-    private int shownScale = 1;
-
-    private GuiButton unitToggle;
-
-    private final GuiStepButtons steps = new GuiStepButtons();
+    /** The window's own width, out of a texture that also carries the upgrade plate and the toolbox. */
+    private static final int PANEL_WIDTH = 177;
 
     private GuiImgButton levelMode;
     private GuiImgButton craftingMode;
 
     public GuiLevelEmitter(final InventoryPlayer inventoryPlayer, final PartLevelEmitter te) {
         super(new ContainerLevelEmitter(inventoryPlayer, te));
-    }
 
-    @Override
-    public void initGui() {
-        // Without this a held digit or backspace fires once.
-        Keyboard.enableRepeatEvents(true);
-
-        super.initGui();
-
-        // Double, not Long: in unit entry the field legitimately holds a decimal point.
-        this.level = new GuiNumberBox(this.fontRenderer, this.guiLeft + FIELD_X, this.guiTop + FIELD_Y, FIELD_WIDTH, this.fontRenderer.FONT_HEIGHT, Double.class);
-        this.level.setEnableBackgroundDrawing(false);
-        this.level.setMaxStringLength(16);
-        this.level.setTextColor(0xFFFFFF);
-        this.level.setVisible(true);
-        this.level.setFocused(true);
+        this.ySize = ContainerLevelEmitter.HEIGHT;
     }
 
     @Override
@@ -103,43 +74,18 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.craftingMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.CRAFT_VIA_REDSTONE, YesNo.NO);
 
-        this.steps.addTo(this.buttonList, this.guiLeft, this.guiTop + 17, this.guiTop + 59);
-
         this.buttonList.add(this.levelMode);
         this.buttonList.add(this.redstoneMode);
         this.buttonList.add(this.fuzzyMode);
         this.buttonList.add(this.craftingMode);
-
-        // Sits below the other side controls, where there is room for a label rather than an icon. Starts
-        // hidden: drawFG decides, and it runs after the buttons are drawn, so the first frame is blank.
-        this.buttonList.add(this.unitToggle = new GuiButton(0, this.guiLeft - 24, this.guiTop + 68, 22, 20, ""));
-        this.unitToggle.visible = false;
-    }
-
-    @Override
-    public void onGuiClosed() {
-        super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        final boolean notCraftingMode = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) == 0;
+        final boolean notCraftingMode = this.canSetLevel();
 
-        // configure enabled status...
-        this.level.setEnabled(notCraftingMode);
-        this.steps.setEnabled(notCraftingMode);
         this.levelMode.enabled = notCraftingMode;
         this.redstoneMode.enabled = notCraftingMode;
-
-        final AEKey what = this.getFilteredKey();
-        final int available = AmountEntry.unitOf(what);
-        this.unitToggle.visible = available > 1;
-        this.unitToggle.enabled = available > 1 && notCraftingMode;
-        if (this.unitToggle.visible) {
-            final String symbol = what.getUnitSymbol();
-            this.unitToggle.displayString = AmountEntry.unitsEnabled() ? symbol : BASE_UNIT_PREFIX + symbol;
-        }
 
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
 
@@ -150,51 +96,64 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         if (this.levelMode != null) {
             this.levelMode.set(((ContainerLevelEmitter) this.cvb).getLevelMode());
         }
-    }
 
-    @Override
-    public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        super.drawBG(offsetX, offsetY, mouseX, mouseY);
-
-        this.steps.update();
-        this.syncField();
-
-        final String symbol = AmountEntry.symbol(this.getFilteredKey(), this.unitScale());
-        this.level.width = FIELD_WIDTH - AmountEntry.reservedWidth(this.fontRenderer, symbol);
-        this.level.drawTextBox();
-        AmountEntry.drawSymbol(this.fontRenderer, this.level, symbol);
+        this.drawThreshold();
     }
 
     /**
-     * Keeps the field in step with the threshold without fighting whoever is typing into it.
-     * <p>
-     * Every keystroke is sent to the server, which echoes the value straight back; re-rendering on that
-     * echo would wipe a half-typed "1." before its decimals could be entered. Only a value this screen
-     * did not send is written into the field.
+     * The threshold, drawn on the filter the way any slot wears its amount - it is an amount of that filter
+     * that the emitter is watching for. An amount of nothing reads as nothing, so an empty slot is left
+     * bare; the threshold is still kept, and setting one before the filter is a way round to the same place.
      */
-    private void syncField() {
-        final int scale = this.unitScale();
-        if (scale != this.shownScale) {
-            // The filter arrived, or the unit was toggled. Re-read in the old scale, write in the new.
-            final long amount = AmountEntry.parse(this.level.getText(), this.shownScale);
-            this.shownScale = scale;
-            this.level.setText(AmountEntry.format(amount, scale));
+    private void drawThreshold() {
+        final long value = ((ContainerLevelEmitter) this.cvb).EmitterValue;
+        final AEKey what = this.getFilteredKey();
+
+        if (value < 0 || what == null) {
+            return;
         }
 
-        final long synced = ((ContainerLevelEmitter) this.cvb).EmitterValue;
-        if (synced != this.lastSynced) {
-            this.lastSynced = synced;
-            if (synced != this.lastSent) {
-                this.level.setText(AmountEntry.format(synced, scale));
-            }
-        }
+        this.stackSizeRenderer.renderAmount(this.fontRenderer, what.formatAmount(value, AmountFormat.SLOT), what,
+                ContainerLevelEmitter.FILTER_X, ContainerLevelEmitter.FILTER_Y);
+    }
+
+    /**
+     * A crafting card makes the emitter answer whether the network is asking for its item, and the
+     * threshold governs nothing while one is in.
+     */
+    private boolean canSetLevel() {
+        return this.bc.getInstalledUpgrades(UpgradeCards.crafting()) == 0;
     }
 
     @Override
-    public List<Rectangle> getJEIExclusionArea() {
-        final List<Rectangle> exclusionArea = new ArrayList<>(super.getJEIExclusionArea());
-        addButtonArea(exclusionArea, this.unitToggle);
-        return exclusionArea;
+    protected boolean allowsTypedAmount(final Slot slot) {
+        return this.canSetLevel();
+    }
+
+    /**
+     * Drawn in two strips with a band left out, so the window can end where its contents do without the
+     * texture being redrawn for it.
+     */
+    @Override
+    public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        this.handleButtonVisibility();
+
+        this.bindTexture(this.getBackground());
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, PANEL_WIDTH, TEXTURE_CUT);
+        this.drawTexturedModalRect(offsetX, offsetY + TEXTURE_CUT, 0, TEXTURE_CUT + TEXTURE_TRIM, PANEL_WIDTH,
+                TEXTURE_HEIGHT - TEXTURE_CUT - TEXTURE_TRIM);
+
+        drawSlotWell(offsetX + ContainerLevelEmitter.FILTER_X, offsetY + ContainerLevelEmitter.FILTER_Y);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+        if (this.drawUpgrades()) {
+            this.drawTexturedModalRect(offsetX + PANEL_WIDTH, offsetY, PANEL_WIDTH, 0, 35,
+                    14 + this.cvb.availableUpgrades() * 18);
+        }
+
+        if (this.hasToolbox()) {
+            this.drawTexturedModalRect(offsetX + 178, offsetY + this.ySize - 90, 178, TEXTURE_HEIGHT - 90, 68, 68);
+        }
     }
 
     @Override
@@ -232,63 +191,6 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         if (btn == this.levelMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.levelMode.getSetting(), backwards));
         }
-
-        if (btn == this.unitToggle) {
-            // Read in the old scale, write back in the new one, so the threshold itself does not move.
-            final long amount = AmountEntry.parse(this.level.getText(), this.unitScale());
-            AmountEntry.toggleUnits();
-            this.shownScale = this.unitScale();
-            this.level.setText(AmountEntry.format(amount, this.shownScale));
-            return;
-        }
-
-        if (this.steps.isStep(btn)) {
-            this.applyStep(btn);
-        }
-    }
-
-    private void applyStep(final GuiButton btn) {
-        final int scale = this.unitScale();
-        final long current = AmountEntry.parse(this.level.getText(), scale);
-        final long result = this.steps.apply(btn, current, 0, Long.MAX_VALUE, scale);
-
-        this.level.setText(AmountEntry.format(result, scale));
-        this.sendLevel(result);
-    }
-
-    @Override
-    protected void keyTyped(final char character, final int key) throws IOException {
-        if (this.checkHotbarKeys(key)) {
-            return;
-        }
-
-        final boolean accepted = key == 211 || key == 205 || key == 203 || key == 14
-                || Character.isDigit(character) || this.acceptsPoint(character);
-
-        if (accepted && this.level.textboxKeyTyped(character, key)) {
-            this.sendLevel(AmountEntry.parse(this.level.getText(), this.unitScale()));
-        } else {
-            super.keyTyped(character, key);
-        }
-    }
-
-    /** A decimal point belongs in the field only while it reads in units, and only one of them. */
-    private boolean acceptsPoint(final char character) {
-        return character == '.' && this.unitScale() > 1 && !this.level.getText().contains(".");
-    }
-
-    /**
-     * Sends the threshold in the base unit, whatever unit the field happens to be showing. The value is
-     * remembered so {@link #syncField()} can tell the server's echo apart from a real change.
-     */
-    private void sendLevel(final long value) {
-        this.lastSent = value;
-
-        try {
-            NetworkHandler.instance().sendToServer(new PacketValueConfig("LevelEmitter.Value", Long.toString(value)));
-        } catch (final IOException e) {
-            AELog.debug(e);
-        }
     }
 
     /**
@@ -308,9 +210,5 @@ public class GuiLevelEmitter extends GuiUpgradeable {
             }
         }
         return null;
-    }
-
-    private int unitScale() {
-        return AmountEntry.scaleOf(this.getFilteredKey());
     }
 }

@@ -67,6 +67,7 @@ import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.ISubMenuHost;
 import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
@@ -75,7 +76,8 @@ import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
 
-public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherHost, IStorageWatcherNode, ICraftingWatcherHost, ICraftingProvider {
+public class PartLevelEmitter extends PartUpgradeable
+        implements IEnergyWatcherHost, IStorageWatcherNode, ICraftingWatcherHost, ICraftingProvider, ISubMenuHost {
 
     @PartModels
     public static final ResourceLocation MODEL_BASE_OFF = new ResourceLocation(AppEng.MOD_ID, "part/level_emitter_base_off");
@@ -117,6 +119,16 @@ public class PartLevelEmitter extends PartUpgradeable implements IEnergyWatcherH
         this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.getConfigManager().registerSetting(Settings.LEVEL_TYPE, LevelType.ITEM_LEVEL);
         this.getConfigManager().registerSetting(Settings.CRAFT_VIA_REDSTONE, YesNo.NO);
+    }
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_LEVEL_EMITTER;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return this.getItemStack();
     }
 
     public long getReportingValue() {

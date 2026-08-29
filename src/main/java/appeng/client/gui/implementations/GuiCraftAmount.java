@@ -37,6 +37,7 @@ import appeng.core.sync.packets.PacketCraftRequest;
 import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.helpers.ISubMenuHost;
 import appeng.helpers.Reflected;
+import com.google.common.primitives.Longs;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -198,7 +199,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     @Nullable
     private String getRangeLabel() {
         final long max = this.getMaxAmount();
-        if (max == Long.MAX_VALUE) {
+        if (max == Long.MAX_VALUE || this.getMinAmount() < 0) {
             return null;
         }
 
@@ -241,7 +242,8 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         this.bindTexture("guis/craft_amt.png");
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
 
-        this.next.enabled = this.parseAmount(this.amountToCraft.getText()) > 0;
+        final long typed = this.parseAmount(this.amountToCraft.getText());
+        this.next.enabled = typed >= this.getMinAmount() && typed <= this.getMaxAmount();
 
         // In unit entry the amount alone is ambiguous - "1" could be a bucket or a millibucket - so the
         // symbol follows the digits, and the field gives up the room it needs.
@@ -286,7 +288,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
         if (btn == this.next) {
             final long amount = this.parseAmount(this.amountToCraft.getText());
-            this.confirm(amount > 0 ? amount : 1);
+            this.confirm(Longs.constrainToRange(amount, this.getMinAmount(), this.getMaxAmount()));
         }
 
         if (this.steps.isStep(btn)) {
@@ -328,15 +330,20 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         return true;
     }
 
+    /**
+     * Whether the starting amount is the one that was sent rather than the one declared while it was on its
+     * way. Ordering a craft cannot start from nothing, so any amount at all is an answer.
+     */
+    protected boolean isReady() {
+        return this.getInitialAmount() > 0;
+    }
+
     private void prime() {
-        if (this.primed) {
+        if (this.primed || !this.isReady()) {
             return;
         }
 
         final long initial = this.getInitialAmount();
-        if (initial <= 0) {
-            return;
-        }
 
         this.primed = true;
         this.pristine = this.startsFromSuggestion();
@@ -390,7 +397,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     }
 
     private long parseAmount(final String text) {
-        return AmountEntry.parse(text.startsWith(EQUALS_PREFIX) ? text.substring(1) : text, this.unitScale());
+        return AmountEntry.parseSigned(text.startsWith(EQUALS_PREFIX) ? text.substring(1) : text, this.unitScale());
     }
 
     /**

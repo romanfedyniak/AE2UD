@@ -172,6 +172,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * slot is one item of the recipe, so neither has an amount to set.
      */
     protected boolean allowsTypedAmount(final Slot slot) {
+        if (!slot.getHasStack()) {
+            return false;
+        }
+
         if (this.inventorySlots instanceof ContainerPatternEncoder) {
             return !((ContainerPatternEncoder) this.inventorySlots).isCraftingMode();
         }
@@ -502,7 +506,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         if (slot instanceof SlotFake) {
-            if (mouseButton == 2 && slot.getHasStack() && this.allowsTypedAmount(slot)) {
+            if (mouseButton == 2 && this.allowsTypedAmount(slot)) {
                 NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SET_AMOUNT, slotIdx, 0));
                 return;
             }

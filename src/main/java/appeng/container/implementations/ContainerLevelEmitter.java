@@ -22,10 +22,12 @@ package appeng.container.implementations;
 import appeng.api.config.*;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotFakeTypeOnly;
+import appeng.core.sync.GuiBridge;
+import appeng.helpers.IAmountTarget;
+import appeng.helpers.LevelAmountTarget;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.parts.automation.PartLevelEmitter;
 import appeng.util.Platform;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.items.IItemHandler;
 
@@ -38,6 +40,16 @@ import net.minecraftforge.items.IItemHandler;
  */
 public class ContainerLevelEmitter extends ContainerUpgradeable {
 
+    /**
+     * Shorter than the window every other upgradeable machine uses: what stood between the filter slot and
+     * the player inventory was the threshold field and its buttons, and the threshold is typed elsewhere.
+     */
+    public static final int HEIGHT = 140;
+
+    /** Where the filter sits, which is also where the screen draws its well: centred in the window. */
+    public static final int FILTER_X = 80;
+    public static final int FILTER_Y = 20;
+
     private final PartLevelEmitter lvlEmitter;
 
     @GuiSync(2)
@@ -47,14 +59,23 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
     @GuiSync(4)
     public YesNo cmType;
 
+    /**
+     * The filter slot stands for what the emitter watches; the amount typed on it is the threshold, which
+     * lives on the emitter rather than in the slot.
+     */
+    @Override
+    public IAmountTarget amountTargetFor(final GuiBridge origin, final int slot) {
+        return new LevelAmountTarget(this.lvlEmitter);
+    }
+
+    @Override
+    protected int getHeight() {
+        return HEIGHT;
+    }
+
     public ContainerLevelEmitter(final InventoryPlayer ip, final PartLevelEmitter te) {
         super(ip, te);
         this.lvlEmitter = te;
-    }
-
-    public void setLevel(final long l, final EntityPlayer player) {
-        this.lvlEmitter.setReportingValue(l);
-        this.EmitterValue = l;
     }
 
     @Override
@@ -82,9 +103,7 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
         }
 
         final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
-        final int y = 40;
-        final int x = 80 + 44;
-        this.addSlotToContainer(new SlotFakeTypeOnly(inv, 0, x, y));
+        this.addSlotToContainer(new SlotFakeTypeOnly(inv, 0, FILTER_X, FILTER_Y));
     }
 
     @Override

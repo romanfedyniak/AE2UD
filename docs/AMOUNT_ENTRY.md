@@ -83,6 +83,31 @@ They have to be, because the order differs and each order has a reason:
   which hands the same interfaces different ids, and by then there would be nothing left to look the slot
   up by.
 
+### The three targets
+
+| Target | Sets | Opened by |
+| --- | --- | --- |
+| `SlotAmountTarget` | one fake slot of the screen it came from | a middle click on that slot |
+| `InventoryAmountTarget` | one slot of an interface elsewhere on the network | a middle click in the interface configuration terminal |
+| `PriorityAmountTarget` | a machine's priority | the priority tab on that machine's screen |
+| `LevelAmountTarget` | a level emitter's threshold | a middle click on the emitter's filter slot |
+
+A middle click asks the container what that slot's amount means, through `AEBaseContainer.amountTargetFor`.
+The answer is normally the slot itself; a level emitter's filter slot answers with the threshold instead,
+which is why the emitter needs no field, no buttons and no button of its own to open one - its filter wears
+the threshold the way any slot wears an amount, and is middle-clicked the way any configured amount is.
+
+A priority has no slot to click, so it is reached the way a screen is reached: `GUI_PRIORITY` names
+`ContainerSetPriority`, whose only job is to build the target for the machine it was opened on, and the
+amount screen is what comes up. There is no priority screen any more: a number is typed in one place in
+this mod.
+
+Both accept what a fake slot does not. A priority is negative as readily as positive, so the field takes a
+leading `-` and the range line - which reads "1 - 512" over a slot - says nothing at all where the low end
+is `Integer.MIN_VALUE`. A threshold starts at zero, and zero is a real answer rather than an empty field,
+which is why the container syncs a `ready` flag: the screen cannot tell an answer of zero from a value
+still on its way by looking at the value.
+
 The way back is a separate question from where the amount goes, and the screen answers it for itself: the
 host it was opened on top of is asked, through `ISubMenuHost`, for the screen to return to and the item to
 draw on the tab. Every machine with a screen of its own answers - so does a terminal, and so does a

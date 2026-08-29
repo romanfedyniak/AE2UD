@@ -170,6 +170,20 @@ public class StackSizeRenderer {
         fontRenderer.setUnicodeFlag(unicodeFlag);
     }
 
+    /**
+     * An amount that belongs to a slot without being in it - a level emitter's threshold, which is drawn on
+     * the filter it is watching. The reading is the caller's, since only it knows what the number is of.
+     */
+    public void renderAmount(final FontRenderer fontRenderer, final String text, @Nullable final AEKey what,
+            final int xPos, final int yPos) {
+        final boolean unicodeFlag = fontRenderer.getUnicodeFlag();
+        fontRenderer.setUnicodeFlag(false);
+
+        drawLabel(fontRenderer, text, what, xPos, yPos, 1.3f, WHITE);
+
+        fontRenderer.setUnicodeFlag(unicodeFlag);
+    }
+
     private static void drawLabel(final FontRenderer fontRenderer, final String text, @Nullable final AEKey what, final int xPos, final int yPos, final float xAdjust, final int color) {
         final float scale = fittingScale(fontRenderer, text, what, SCALE);
         final float inverseScale = 1.0f / scale;

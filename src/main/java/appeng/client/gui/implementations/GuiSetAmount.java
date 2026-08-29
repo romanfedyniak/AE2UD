@@ -19,6 +19,7 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.container.AEBaseContainer;
 import appeng.container.implementations.ContainerSetAmount;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -37,6 +38,20 @@ public class GuiSetAmount extends GuiCraftAmount {
     @Reflected
     public GuiSetAmount(final InventoryPlayer inventoryPlayer, final Object host) {
         super(new ContainerSetAmount(inventoryPlayer, host));
+    }
+
+    protected GuiSetAmount(final AEBaseContainer container) {
+        super(container);
+    }
+
+    @Override
+    protected boolean isReady() {
+        return ((ContainerSetAmount) this.inventorySlots).ready;
+    }
+
+    @Override
+    protected long getMinAmount() {
+        return ((ContainerSetAmount) this.inventorySlots).minAmount;
     }
 
     @Override

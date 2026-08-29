@@ -47,12 +47,15 @@ import appeng.container.slot.*;
 import appeng.container.slot.SlotRestrictedInput.PlacableItemType;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketTargetItemStack;
 import appeng.core.sync.packets.PacketValueConfig;
+import appeng.helpers.IAmountTarget;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.SlotAmountTarget;
 import appeng.me.helpers.PlayerSource;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
@@ -1055,6 +1058,27 @@ public abstract class AEBaseContainer extends Container {
      * pattern's output is a quantity the recipe chooses, not something the slot bounds. Scaling either into
      * the key's units would turn "unbounded" into a large but arbitrary number.
      */
+    /**
+     * What a middle click on one of this container's fake slots types into: the slot itself, unless the
+     * screen says otherwise. A level emitter's filter slot stands for the threshold it watches for rather
+     * than for anything in the slot, so it answers with that instead.
+     *
+     * @return null where there is nothing to set - an empty slot, for a screen whose slots hold their own
+     *         amounts.
+     */
+    @Nullable
+    public IAmountTarget amountTargetFor(final GuiBridge origin, final int slot) {
+        final Slot s = this.inventorySlots.get(slot);
+        final GenericStack current = GenericStack.resolveItemStack(s.getStack());
+
+        if (current == null) {
+            return null;
+        }
+
+        return new SlotAmountTarget(origin, slot, current.what(), current.amount(),
+                this.maxAmountIn(s, current.what()));
+    }
+
     public long maxAmountIn(final Slot s, final AEKey what) {
         final int slotLimit = s.getSlotStackLimit();
         if (slotLimit <= 1 || slotLimit == Integer.MAX_VALUE) {

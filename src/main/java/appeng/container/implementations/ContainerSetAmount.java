@@ -48,6 +48,17 @@ public class ContainerSetAmount extends AEBaseContainer {
     @GuiSync(11)
     public long maxAmount = Long.MAX_VALUE;
 
+    @GuiSync(12)
+    public long minAmount = 1;
+
+    /**
+     * Whether the three values above are the target's rather than the defaults declared here. They arrive a
+     * tick after the screen opens, and a starting amount of zero - or below it - is a real answer for some
+     * targets, so the screen cannot tell one from an unanswered field by its value alone.
+     */
+    @GuiSync(13)
+    public boolean ready;
+
     public ContainerSetAmount(final InventoryPlayer ip, final Object host) {
         super(ip, host);
 
@@ -58,7 +69,9 @@ public class ContainerSetAmount extends AEBaseContainer {
     public void setAmountTarget(final IAmountTarget target) {
         this.target = target;
         this.initialAmount = target.getAmount();
+        this.minAmount = target.getMinAmount();
         this.maxAmount = target.getMaxAmount();
+        this.ready = true;
         this.slotDisplay.putStack(target.getIcon());
     }
 

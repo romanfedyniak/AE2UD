@@ -131,12 +131,6 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("TileSecurityStation.ToggleOption") && c instanceof ContainerSecurityStation) {
             final ContainerSecurityStation sc = (ContainerSecurityStation) c;
             sc.toggleSetting(this.Value, player);
-        } else if (this.Name.equals("PriorityHost.Priority") && c instanceof ContainerPriority) {
-            final ContainerPriority pc = (ContainerPriority) c;
-            pc.setPriority(Integer.parseInt(this.Value), player);
-        } else if (this.Name.equals("LevelEmitter.Value") && c instanceof ContainerLevelEmitter) {
-            final ContainerLevelEmitter lvc = (ContainerLevelEmitter) c;
-            lvc.setLevel(Long.parseLong(this.Value), player);
         } else if (this.Name.startsWith("PatternTerminal.")) {
             if (c instanceof ContainerPatternEncoder) {
                 final ContainerPatternEncoder cpt = (ContainerPatternEncoder) c;

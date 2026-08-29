@@ -133,7 +133,7 @@ public enum GuiBridge implements IGuiHandler {
     GUI_FORMATION_PLANE(ContainerFormationPlane.class, PartFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
 
-    GUI_PRIORITY(ContainerPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+    GUI_PRIORITY(ContainerSetPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     // The container applies BUILD only to machine configuration. A terminal uses the same screen for a
     // display-only filter and is already protected by the permission of the screen it was opened from.

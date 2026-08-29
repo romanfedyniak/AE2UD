@@ -146,6 +146,14 @@ public final class AmountEntry {
     }
 
     /**
+     * As {@link #parse}, for a field that may hold a negative number - a priority, which is a plain number
+     * about a machine rather than an amount of anything.
+     */
+    public static long parseSigned(final String text, final int scale) {
+        return text.startsWith("-") ? -parse(text.substring(1), scale) : parse(text, scale);
+    }
+
+    /**
      * The symbol to draw beside a field reading in {@code scale}, or empty when there is nothing to say.
      */
     public static String symbol(@Nullable final AEKey what, final int scale) {

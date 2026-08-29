@@ -27,8 +27,8 @@ import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.container.implementations.ContainerSetAmount;
+import appeng.helpers.IAmountTarget;
 import appeng.helpers.InventoryAmountTarget;
-import appeng.helpers.SlotAmountTarget;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal.ConfigTracker;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -253,13 +253,7 @@ public class PacketInventoryAction extends AppEngPacket {
             return;
         }
 
-        final Slot origin = from.inventorySlots.get(this.slot);
-        if (!(origin instanceof SlotFake)) {
-            return;
-        }
-
-        final GenericStack current = GenericStack.resolveItemStack(origin.getStack());
-        if (current == null) {
+        if (!(from.inventorySlots.get(this.slot) instanceof SlotFake)) {
             return;
         }
 
@@ -268,14 +262,18 @@ public class PacketInventoryAction extends AppEngPacket {
             return;
         }
 
-        final long max = from.maxAmountIn(origin, current.what());
+        final IAmountTarget target = from.amountTargetFor(originGui, this.slot);
+        if (target == null) {
+            return;
+        }
+
         if (!PacketSwitchGuis.reopen(sender, from, GuiBridge.GUI_SET_AMOUNT)) {
             return;
         }
 
         if (sender.openContainer instanceof ContainerSetAmount) {
             final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
-            csa.setAmountTarget(new SlotAmountTarget(originGui, this.slot, current.what(), current.amount(), max));
+            csa.setAmountTarget(target);
             csa.detectAndSendChanges();
         }
     }
