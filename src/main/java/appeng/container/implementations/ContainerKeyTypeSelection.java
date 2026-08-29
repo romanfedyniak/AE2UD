@@ -19,9 +19,6 @@
 package appeng.container.implementations;
 
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import appeng.api.config.SecurityPermissions;
@@ -43,17 +40,12 @@ import net.minecraft.util.ResourceLocation;
 /**
  * Backs the screen that turns a host's key types on and off.
  * <p>
- * The whole selection travels as one string - {@code namespace:type=1,namespace:other=0} - rather than as
- * a bitmask over registry ids. Two reasons: an id is a position in a registry, so a client that disagreed
- * about the order would toggle the wrong type, and the client has no way to know *which* types this
- * particular host allows, only which exist. Both facts have to come from the server.
+ * The whole selection travels as one string, encoded by {@link KeyTypeSelection#encode}, because the client
+ * has no way to know which types this particular host allows - only which exist.
  *
  * @see appeng.client.gui.implementations.GuiKeyTypeSelection
  */
 public class ContainerKeyTypeSelection extends AEBaseContainer {
-
-    private static final String SEPARATOR = ",";
-    private static final String ASSIGN = "=";
 
     private final KeyTypeSelectionHost host;
 
@@ -74,21 +66,7 @@ public class ContainerKeyTypeSelection extends AEBaseContainer {
      * What the screen draws: every type this host allows, in registration order, mapped to whether it is on.
      */
     public Map<AEKeyType, Boolean> getSelection() {
-        final Map<AEKeyType, Boolean> out = new LinkedHashMap<>();
-
-        for (final String entry : this.selection.split(SEPARATOR)) {
-            final int split = entry.indexOf(ASSIGN);
-            if (split <= 0) {
-                continue;
-            }
-
-            final AEKeyType type = AEKeyTypes.get(new ResourceLocation(entry.substring(0, split)));
-            if (type != null) {
-                out.put(type, "1".equals(entry.substring(split + 1)));
-            }
-        }
-
-        return out;
+        return KeyTypeSelection.decode(this.selection);
     }
 
     public void toggle(final ResourceLocation id) {
@@ -119,11 +97,7 @@ public class ContainerKeyTypeSelection extends AEBaseContainer {
         }
 
         if (Platform.isServer()) {
-            final List<String> entries = new ArrayList<>();
-            for (final Map.Entry<AEKeyType, Boolean> entry : this.host.getKeyTypeSelection().enabled().entrySet()) {
-                entries.add(entry.getKey().getRegistryName() + ASSIGN + (entry.getValue() ? "1" : "0"));
-            }
-            this.selection = String.join(SEPARATOR, entries);
+            this.selection = KeyTypeSelection.encode(this.host.getKeyTypeSelection().enabled());
         }
 
         super.detectAndSendChanges();

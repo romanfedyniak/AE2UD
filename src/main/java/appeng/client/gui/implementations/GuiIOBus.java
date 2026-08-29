@@ -129,14 +129,11 @@ public class GuiIOBus extends GuiUpgradeable {
                     : ((ContainerIOBus) this.cvb).getStoredAmounts().get(slot.getSlotIndex());
 
             if (amount != null) {
-                final ITooltipFlag.TooltipFlags flags = this.mc.gameSettings.advancedItemTooltips
-                        ? ITooltipFlag.TooltipFlags.ADVANCED
-                        : ITooltipFlag.TooltipFlags.NORMAL;
                 // Shift asks for the exact number in the base unit - 1,040mB where the normal reading
                 // rounds to 1B. Same rule the terminal uses.
                 final AmountFormat format = isShiftKeyDown() ? AmountFormat.FULL_BASE : AmountFormat.FULL;
 
-                final List<String> lines = stack.getTooltip(this.mc.player, flags);
+                final List<String> lines = this.slotTooltip(slot, stack);
                 lines.add(GuiText.Stored.getLocal() + ": " + configured.what().formatAmount(amount, format));
 
                 this.drawTooltip(x, y, lines);

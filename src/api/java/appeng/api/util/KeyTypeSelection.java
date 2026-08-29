@@ -52,6 +52,8 @@ import appeng.api.stacks.AEKeyTypes;
 public class KeyTypeSelection {
 
     private static final String NBT_KEY = "enabledKeyTypes";
+    private static final String SEPARATOR = ",";
+    private static final String ASSIGN = "=";
 
     private final Listener listener;
     private final Map<AEKeyType, Boolean> keyTypes = new LinkedHashMap<>();
@@ -116,6 +118,39 @@ public class KeyTypeSelection {
 
     public Predicate<AEKeyType> enabledPredicate() {
         return keyType -> this.keyTypes.getOrDefault(keyType, Boolean.FALSE);
+    }
+
+    /**
+     * A selection as one string - {@code namespace:type=1,namespace:other=0} - for a container to sync.
+     * <p>
+     * Deliberately not a bitmask over registry ids: an id is a position in a registry, so a client that
+     * disagreed about the order would read the wrong type, and which types a host allows is not something a
+     * client can work out on its own either. Both facts have to come from the server.
+     */
+    public static String encode(final Map<AEKeyType, Boolean> selection) {
+        final List<String> entries = new ArrayList<>(selection.size());
+        for (final Map.Entry<AEKeyType, Boolean> entry : selection.entrySet()) {
+            entries.add(entry.getKey().getRegistryName() + ASSIGN + (entry.getValue() ? "1" : "0"));
+        }
+        return String.join(SEPARATOR, entries);
+    }
+
+    public static Map<AEKeyType, Boolean> decode(final String encoded) {
+        final Map<AEKeyType, Boolean> out = new LinkedHashMap<>();
+
+        for (final String entry : encoded.split(SEPARATOR)) {
+            final int split = entry.indexOf(ASSIGN);
+            if (split <= 0) {
+                continue;
+            }
+
+            final AEKeyType type = AEKeyTypes.get(new ResourceLocation(entry.substring(0, split)));
+            if (type != null) {
+                out.put(type, "1".equals(entry.substring(split + 1)));
+            }
+        }
+
+        return out;
     }
 
     public void writeToNBT(final NBTTagCompound tag) {

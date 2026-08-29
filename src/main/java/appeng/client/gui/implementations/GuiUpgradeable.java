@@ -24,6 +24,7 @@ import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.*;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -39,9 +40,11 @@ import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
@@ -111,6 +114,60 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
     }
 
     protected abstract void addButtons();
+
+    /**
+     * The key type a filter names while the machine is set to ignore that type, or null when the slot is one
+     * the machine acts on - which is every slot of a machine that has no say in its types.
+     */
+    @Nullable
+    protected AEKeyType ignoredType(final Slot slot) {
+        if (!(slot instanceof SlotFake)) {
+            return null;
+        }
+
+        final GenericStack filter = GenericStack.resolveItemStack(slot.getStack());
+        if (filter == null) {
+            return null;
+        }
+
+        final AEKeyType type = filter.what().getType();
+        return Boolean.FALSE.equals(this.cvb.getKeyTypes().get(type)) ? type : null;
+    }
+
+    @Override
+    protected boolean isSlotIgnored(final Slot slot) {
+        return this.ignoredType(slot) != null;
+    }
+
+    /**
+     * What a stack in one of this screen's slots says, with a line about the slot being ignored where it is.
+     */
+    protected List<String> slotTooltip(final Slot slot, final ItemStack stack) {
+        final ITooltipFlag.TooltipFlags flags = this.mc.gameSettings.advancedItemTooltips
+                ? ITooltipFlag.TooltipFlags.ADVANCED
+                : ITooltipFlag.TooltipFlags.NORMAL;
+        final List<String> lines = stack.getTooltip(this.mc.player, flags);
+
+        final AEKeyType ignored = this.ignoredType(slot);
+        if (ignored != null) {
+            lines.add(TextFormatting.GRAY + GuiText.KeyTypeIgnored
+                    .getLocalizedWithArgs(ignored.getDescription().getFormattedText()).getFormattedText());
+        }
+
+        return lines;
+    }
+
+    @Override
+    protected void renderToolTip(final ItemStack stack, final int x, final int y) {
+        final Slot slot = this.getSlot(x, y);
+
+        if (slot != null && this.isSlotIgnored(slot)) {
+            this.drawTooltip(x, y, this.slotTooltip(slot, stack));
+            return;
+        }
+
+        super.renderToolTip(stack, x, y);
+    }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {

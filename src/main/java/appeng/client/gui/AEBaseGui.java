@@ -171,6 +171,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * configured amount means something. A filter slot matches on the key alone, and a crafting-mode pattern
      * slot is one item of the recipe, so neither has an amount to set.
      */
+    /**
+     * Whether the machine is currently set to ignore what is in this slot, which is drawn over the way an
+     * unpowered slot is - the slot keeps what it holds, and means nothing while this is true.
+     */
+    protected boolean isSlotIgnored(final Slot slot) {
+        return false;
+    }
+
     protected boolean allowsTypedAmount(final Slot slot) {
         if (!slot.getHasStack()) {
             return false;
@@ -1078,6 +1086,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                             && this.isDisplayedKeyCraftable(resolved.what());
                     this.stackSizeRenderer.renderStackSize(this.fontRenderer, this.displayedStackOf(s, resolved), craftable,
                             craftable && this.isDisplayedKeyFakeCraftable(resolved.what()), s.xPos, s.yPos);
+
+                    // Over the item rather than under it: the veil the unpowered case draws first is only
+                    // visible around what the slot holds, and a fluid covers all sixteen pixels of it.
+                    if (this.isSlotIgnored(s)) {
+                        GlStateManager.disableLighting();
+                        GlStateManager.disableDepth();
+                        drawRect(s.xPos, s.yPos, 16 + s.xPos, 16 + s.yPos, 0x66111111);
+                        GlStateManager.enableDepth();
+                        GlStateManager.enableLighting();
+                    }
 
                     return;
                 } else {

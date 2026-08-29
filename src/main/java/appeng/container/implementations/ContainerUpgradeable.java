@@ -23,7 +23,10 @@ import appeng.api.config.*;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.parts.IPart;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.*;
@@ -44,7 +47,9 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 
 public abstract class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost {
@@ -54,6 +59,17 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
     public RedstoneMode rsMode = RedstoneMode.IGNORE;
     @GuiSync(1)
     public FuzzyMode fzMode = FuzzyMode.IGNORE_ALL;
+
+    /**
+     * Which key types the machine acts on, empty where it has no say in that. The screen needs it to grey out
+     * a filter naming a type the machine is set to ignore; the picker that sets it is a screen of its own and
+     * tells this one nothing.
+     */
+    @GuiSync(12)
+    public String keyTypes = "";
+
+    private String decodedFrom;
+    private Map<AEKeyType, Boolean> decoded = Collections.emptyMap();
     private int tbSlot;
     private NetworkToolViewer tbInventory;
 
@@ -223,6 +239,10 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
      * rather than in {@link #detectAndSendChanges()} - several subclasses replace that method wholesale.
      */
     protected void standardDetectAndSendChanges() {
+        if (Platform.isServer() && this.upgradeable instanceof KeyTypeSelectionHost) {
+            this.keyTypes = KeyTypeSelection.encode(((KeyTypeSelectionHost) this.upgradeable).getKeyTypeSelection().enabled());
+        }
+
         List<Integer> cleared = null;
 
         for (final Slot s : this.inventorySlots) {
@@ -243,6 +263,17 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
         if (cleared != null) {
             this.forceSendEmpty(cleared);
         }
+    }
+
+    /**
+     * The synced selection, decoded once per change rather than once per slot per frame.
+     */
+    public Map<AEKeyType, Boolean> getKeyTypes() {
+        if (!this.keyTypes.equals(this.decodedFrom)) {
+            this.decodedFrom = this.keyTypes;
+            this.decoded = KeyTypeSelection.decode(this.keyTypes);
+        }
+        return this.decoded;
     }
 
     /**
