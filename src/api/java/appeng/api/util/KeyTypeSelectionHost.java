@@ -61,6 +61,8 @@ public interface KeyTypeSelectionHost {
         /** An import bus, where it decides what is moved into the network. */
         IMPORT,
         /** A storage bus, where it decides what is stored and what is reported to the network. */
-        STORAGE
+        STORAGE,
+        /** A formation plane, where it decides what it puts into the world. */
+        PLACE
     }
 }

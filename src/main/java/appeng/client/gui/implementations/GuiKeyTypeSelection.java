@@ -141,6 +141,8 @@ public class GuiKeyTypeSelection extends AEBaseGui {
                 return GuiText.ConfigureVisibleTypes;
             case IMPORT:
                 return GuiText.ConfigureImportedTypes;
+            case PLACE:
+                return GuiText.ConfigurePlacedTypes;
             default:
                 return GuiText.ConfigureStoredTypes;
         }
@@ -152,6 +154,8 @@ public class GuiKeyTypeSelection extends AEBaseGui {
                 return GuiText.ConfigureVisibleTypesHint;
             case IMPORT:
                 return GuiText.ConfigureImportedTypesHint;
+            case PLACE:
+                return GuiText.ConfigurePlacedTypesHint;
             default:
                 return GuiText.ConfigureStoredTypesHint;
         }

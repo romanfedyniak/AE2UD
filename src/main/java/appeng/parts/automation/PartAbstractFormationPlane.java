@@ -33,6 +33,9 @@ import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.helpers.IPriorityHost;
@@ -52,7 +55,8 @@ import appeng.util.prioritylist.IPartitionList;
  * carry an abstract {@code getKeyType()} that {@link #insert} rejected everything else against, which
  * put per-type behaviour on the part instead of on the key type.
  */
-public abstract class PartAbstractFormationPlane extends PartUpgradeable implements IStorageProvider, IPriorityHost, MEStorage {
+public abstract class PartAbstractFormationPlane extends PartUpgradeable
+        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost {
 
     private boolean wasActive = false;
     private int priority = 0;
@@ -63,9 +67,16 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
     private IncludeExclude filterMode = IncludeExclude.WHITELIST;
     @Nullable
     private IPartitionList filter;
+    private final KeyTypeSelection keyTypeSelection;
 
     public PartAbstractFormationPlane(ItemStack is) {
         super(is);
+
+        this.keyTypeSelection = new KeyTypeSelection(() -> {
+            this.getHost().markForSave();
+            // Which strategies exist is decided once and cached, so it has to be rebuilt.
+            this.placementStrategy = null;
+        }, keyType -> true);
     }
 
     /**
@@ -100,6 +111,16 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
     @Override
     public void upgradesChanged() {
         this.updateFilter();
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    @Override
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.PLACE;
     }
 
     @Override
@@ -273,6 +294,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
 
             Map<AEKeyType, PlacementStrategy> strategies = StackWorldBehaviors.createPlacementStrategies(
                     self.getWorld(), fromPos, fromSide, self, owner);
+            strategies.keySet().removeIf(this.keyTypeSelection.enabledPredicate().negate());
             this.placementStrategy = new PlacementStrategyFacade(strategies);
         }
         return this.placementStrategy;
@@ -319,12 +341,14 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable impleme
     public void readFromNBT(final NBTTagCompound data) {
         super.readFromNBT(data);
         this.priority = data.getInteger("priority");
+        this.keyTypeSelection.readFromNBT(data);
     }
 
     @Override
     public void writeToNBT(final NBTTagCompound data) {
         super.writeToNBT(data);
         data.setInteger("priority", this.getPriority());
+        this.keyTypeSelection.writeToNBT(data);
     }
 
     @Override

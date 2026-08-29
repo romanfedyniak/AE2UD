@@ -129,9 +129,10 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
             return 0;
         }
 
-        // No key-type check: PlacementStrategyFacade answers 0 for a type with no registered strategy,
-        // and per-type behaviour belongs to the key type rather than to the part. PLACE_BLOCK is passed
-        // to every strategy; the ones it makes no sense for ignore it (FluidPlacementStrategy does).
+        // No key-type check: PlacementStrategyFacade answers 0 for a type it holds no strategy for, which
+        // covers both a type nobody registered one for and a type the player turned off - those are left out
+        // when the facade is built. Per-type behaviour belongs to the key type rather than to the part:
+        // PLACE_BLOCK is passed to every strategy, and the ones it makes no sense for ignore it.
         final boolean placeAsEntity = this.getConfigManager().getSetting(Settings.PLACE_BLOCK) != YesNo.YES;
 
         return this.getPlacementStrategies().placeInWorld(what, amount, mode, placeAsEntity);

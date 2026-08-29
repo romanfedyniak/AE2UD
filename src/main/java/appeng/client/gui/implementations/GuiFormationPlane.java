@@ -45,6 +45,7 @@ public class GuiFormationPlane extends GuiUpgradeable {
     private GuiTabButton priority;
     private GuiImgButton placeMode;
     private GuiImgButton clear;
+    private GuiImgButton keyTypes;
 
     public GuiFormationPlane(final InventoryPlayer inventoryPlayer, final PartFormationPlane te) {
         super(new ContainerFormationPlane(inventoryPlayer, te));
@@ -54,12 +55,15 @@ public class GuiFormationPlane extends GuiUpgradeable {
     @Override
     protected void addButtons() {
         this.clear = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS, ActionItems.CLOSE);
-        this.placeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.PLACE_BLOCK, YesNo.YES);
-        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.keyTypes = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.ACTIONS, ActionItems.CONFIGURE_PLACED_TYPES);
+        this.placeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.PLACE_BLOCK, YesNo.YES);
+        // Last in the column because it is the only one here that hides.
+        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
 
         this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
 
         this.buttonList.add(this.clear);
+        this.buttonList.add(this.keyTypes);
         this.buttonList.add(this.placeMode);
         this.buttonList.add(this.fuzzyMode);
     }
@@ -93,6 +97,8 @@ public class GuiFormationPlane extends GuiUpgradeable {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_PRIORITY));
         } else if (btn == this.clear) {
             NetworkHandler.instance().sendToServer(new PacketValueConfig("Filter.Clear", ""));
+        } else if (btn == this.keyTypes) {
+            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
         } else if (btn == this.placeMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.placeMode.getSetting(), backwards));
         }

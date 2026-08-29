@@ -137,6 +137,8 @@ public enum ButtonToolTips {
     ConfigureImportedTypesHint,
     ConfigureStoredTypes,
     ConfigureStoredTypesHint,
+    ConfigurePlacedTypes,
+    ConfigurePlacedTypesHint,
 
     Stash,
     StashDesc,
