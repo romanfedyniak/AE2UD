@@ -59,6 +59,8 @@ public enum GuiText {
     ConfigureStoredTypesHint,
     ConfigurePlacedTypes,
     ConfigurePlacedTypesHint,
+    ConfigurePickedUpTypes,
+    ConfigurePickedUpTypesHint,
     KeyTypeIgnored,
 
     // What each wireless terminal mode is called, in its button, in the terminal's name and in its tooltip
@@ -103,6 +105,7 @@ public enum GuiText {
     Wireless,
 
     CraftingTerminal,
+    AnnihilationPlane,
     FormationPlane,
     FluidFormationPlane,
     Inscriber,

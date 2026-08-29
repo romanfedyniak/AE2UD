@@ -36,14 +36,20 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
+import net.minecraftforge.items.IItemHandler;
 
 import appeng.api.AEApi;
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.Actionable;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.IncludeExclude;
+import appeng.api.config.Settings;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.events.MENetworkChannelsChanged;
@@ -58,21 +64,32 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.AECableType;
+import appeng.api.util.IConfigManager;
+import appeng.api.util.KeyTypeSelection;
+import appeng.api.util.KeyTypeSelectionHost;
+import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
+import appeng.core.sync.GuiBridge;
 import appeng.core.sync.packets.PacketTransitionEffect;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
+import appeng.helpers.ISubMenuHost;
 import appeng.me.helpers.MachineSource;
-import appeng.parts.PartBasicState;
+import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.util.EnchantmentUtil;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
+import appeng.util.inv.InvOperation;
+import appeng.util.prioritylist.IPartitionList;
 
-public class PartAnnihilationPlane extends PartBasicState implements IGridTickable {
+public class PartAnnihilationPlane extends PartUpgradeable
+        implements IGridTickable, KeyTypeSelectionHost, ISubMenuHost {
 
     private static final PlaneModels MODELS = new PlaneModels("part/annihilation_plane_", "part/annihilation_plane_on_");
 
@@ -82,6 +99,12 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     }
 
     private final IActionSource mySrc = new MachineSource(this);
+    private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, 63);
+    private final KeyTypeSelection keyTypeSelection;
+
+    @Nullable
+    private IPartitionList filter;
+    private IncludeExclude filterMode = IncludeExclude.WHITELIST;
 
     @Nullable
     private List<PickupStrategy> pickupStrategies;
@@ -94,6 +117,104 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
 
     public PartAnnihilationPlane(final ItemStack is) {
         super(is);
+
+        this.getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.keyTypeSelection = new KeyTypeSelection(() -> {
+            this.getHost().markForSave();
+            // Which strategies exist is decided once and cached, so it has to be rebuilt.
+            this.pickupStrategies = null;
+            this.refresh();
+        }, keyType -> true);
+        this.updateFilter();
+    }
+
+    @Override
+    protected int getUpgradeSlots() {
+        return 5;
+    }
+
+    @Override
+    public KeyTypeSelection getKeyTypeSelection() {
+        return this.keyTypeSelection;
+    }
+
+    @Override
+    public Purpose getKeyTypeSelectionPurpose() {
+        return Purpose.PICK_UP;
+    }
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_ANNIHILATION_PLANE;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return AEApi.instance().definitions().parts().annihilationPlane().maybeStack(1).orElse(ItemStack.EMPTY);
+    }
+
+    @Override
+    public boolean onPartActivate(final EntityPlayer player, final EnumHand hand, final Vec3d pos) {
+        if (Platform.isServer()) {
+            Platform.openGUI(player, this.getHost().getTile(), this.getSide(), GuiBridge.GUI_ANNIHILATION_PLANE);
+        }
+        return true;
+    }
+
+    @Override
+    public IItemHandler getInventoryByName(final String name) {
+        if (name.equals("config")) {
+            return this.config;
+        }
+
+        return super.getInventoryByName(name);
+    }
+
+    @Override
+    public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
+        super.onChangeInventory(inv, slot, mc, removedStack, newStack);
+
+        if (inv == this.config) {
+            this.updateFilter();
+            this.refresh();
+        }
+    }
+
+    @Override
+    public void upgradesChanged() {
+        super.upgradesChanged();
+        this.updateFilter();
+        this.refresh();
+    }
+
+    @Override
+    public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
+        this.updateFilter();
+        this.getHost().markForSave();
+        this.refresh();
+    }
+
+    /**
+     * What the plane is willing to take out of the world. An empty filter means everything, as everywhere
+     * else in the mod; an inverter card turns the list into what it must leave alone.
+     */
+    private void updateFilter() {
+        final IPartitionList.Builder builder = IPartitionList.builder();
+        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+            builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
+        }
+
+        final int slotsToUse = 18 + this.getInstalledCapacityPoints() * 9;
+        for (int x = 0; x < this.config.getSlots() && x < slotsToUse; x++) {
+            final GenericStack stack = this.config.getAEStackInSlot(x);
+            if (stack != null) {
+                builder.add(stack.what());
+            }
+        }
+
+        this.filter = builder.build();
+        this.filterMode = this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST
+                : IncludeExclude.WHITELIST;
     }
 
     @Override
@@ -346,7 +467,8 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
      */
     protected List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
             TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owner) {
-        return StackWorldBehaviors.createPickupStrategies(world, fromPos, fromSide, host, enchantments, owner);
+        return StackWorldBehaviors.createPickupStrategies(world, fromPos, fromSide, host, enchantments, owner,
+                this.keyTypeSelection.enabledPredicate());
     }
 
     /**
@@ -365,7 +487,16 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
         return player != null ? player.getGameProfile().getId() : null;
     }
 
+    /**
+     * Everything the plane takes passes through here, block drops and entities alike, and a strategy asks it
+     * in simulation before it breaks anything - so refusing here means the block is left standing rather than
+     * broken into nothing.
+     */
     private long insertIntoGrid(AEKey what, long amount, Actionable mode) {
+        if (this.filter != null && !this.filter.matchesFilter(what, this.filterMode)) {
+            return 0;
+        }
+
         try {
             final IEnergySource energy = this.getProxy().getEnergy();
             final MEStorage storage = this.getProxy().getStorage().getInventory();
@@ -410,6 +541,11 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
         return TickRateModulation.SLEEP;
     }
 
+    /**
+     * Wakes the plane and forgets any half-broken block. A plane that found nothing to take goes to sleep, so
+     * anything that widens what it may take - a filter, a card, a key type - has to say so, or the block that
+     * was standing in front of it all along goes on standing there.
+     */
     private void refresh() {
         for (final PickupStrategy strategy : this.getPickupStrategies()) {
             strategy.reset();
@@ -461,12 +597,17 @@ public class PartAnnihilationPlane extends PartBasicState implements IGridTickab
     public void readFromNBT(NBTTagCompound data) {
         super.readFromNBT(data);
         readEnchantments(data);
+        this.config.readFromNBT(data, "config");
+        this.keyTypeSelection.readFromNBT(data);
+        this.updateFilter();
     }
 
     @Override
     public void writeToNBT(NBTTagCompound data) {
         super.writeToNBT(data);
         writeEnchantments(data);
+        this.config.writeToNBT(data, "config");
+        this.keyTypeSelection.writeToNBT(data);
     }
 
     @Override

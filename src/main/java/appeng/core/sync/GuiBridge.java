@@ -49,6 +49,7 @@ import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.contents.QuartzKnifeObj;
+import appeng.parts.automation.PartAnnihilationPlane;
 import appeng.parts.automation.PartFormationPlane;
 import appeng.parts.automation.PartLevelEmitter;
 import appeng.parts.automation.PartSharedItemBus;
@@ -131,6 +132,8 @@ public enum GuiBridge implements IGuiHandler {
 
 
     GUI_FORMATION_PLANE(ContainerFormationPlane.class, PartFormationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+
+    GUI_ANNIHILATION_PLANE(ContainerAnnihilationPlane.class, PartAnnihilationPlane.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
 
     GUI_PRIORITY(ContainerSetPriority.class, IPriorityHost.class, GuiHostType.WORLD, SecurityPermissions.BUILD),

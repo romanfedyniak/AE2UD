@@ -162,9 +162,21 @@ public final class StackWorldBehaviors {
 
     public static List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
             TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId) {
+        return createPickupStrategies(world, fromPos, fromSide, host, enchantments, owningPlayerId, type -> true);
+    }
+
+    /**
+     * @return one strategy per registered type that passes {@code forTypes}. A type left out is not picked up
+     *         at all, which is not the same as being refused on the way in: nothing tries to break the block.
+     */
+    public static List<PickupStrategy> createPickupStrategies(World world, BlockPos fromPos, EnumFacing fromSide,
+            TileEntity host, Map<Enchantment, Integer> enchantments, @Nullable UUID owningPlayerId,
+            Predicate<AEKeyType> forTypes) {
         List<PickupStrategy> strategies = new ArrayList<>(pickupStrategies.size());
-        for (PickupStrategy.Factory factory : pickupStrategies.values()) {
-            strategies.add(factory.create(world, fromPos, fromSide, host, enchantments, owningPlayerId));
+        for (Map.Entry<AEKeyType, PickupStrategy.Factory> entry : pickupStrategies.entrySet()) {
+            if (forTypes.test(entry.getKey())) {
+                strategies.add(entry.getValue().create(world, fromPos, fromSide, host, enchantments, owningPlayerId));
+            }
         }
         return strategies;
     }

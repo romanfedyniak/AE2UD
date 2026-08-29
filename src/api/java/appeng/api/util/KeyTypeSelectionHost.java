@@ -63,6 +63,8 @@ public interface KeyTypeSelectionHost {
         /** A storage bus, where it decides what is stored and what is reported to the network. */
         STORAGE,
         /** A formation plane, where it decides what it puts into the world. */
-        PLACE
+        PLACE,
+        /** An annihilation plane, where it decides what it takes out of the world. */
+        PICK_UP
     }
 }

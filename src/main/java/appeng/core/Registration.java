@@ -584,6 +584,11 @@ final class Registration {
 
         // Storage Bus Fluids
 
+        // Annihilation Plane
+        upgrades.add(UpgradeCards.fuzzy(), parts.annihilationPlane(), 1);
+        upgrades.add(UpgradeCards.inverter(), parts.annihilationPlane(), 1);
+        upgrades.addCapacityCardSupport(parts.annihilationPlane(), 5, 5);
+
         // Formation Plane
         upgrades.add(UpgradeCards.fuzzy(), parts.formationPlane(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.formationPlane(), 1);
