@@ -168,6 +168,9 @@ public enum GuiText {
     SelectAmount,
     SetAmount,
     Set,
+    AmountSteps,
+    AmountStepsNormal,
+    AmountStepsDefaults,
     Lumen,
     Empty,
 

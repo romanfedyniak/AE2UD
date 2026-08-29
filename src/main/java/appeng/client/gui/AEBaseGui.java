@@ -1123,6 +1123,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x, y, x + 16, y + 16, SLOT_FILL_COLOR);
     }
 
+    /**
+     * One sunken well for a text field, in the colours a slot uses. A screen drawn from a background image
+     * has this painted into it; one that draws its own panel has to say where its fields are.
+     */
+    protected static void drawFieldWell(final int x, final int y, final int width, final int height) {
+        drawRect(x, y, x + width, y + height, SLOT_SHADOW_COLOR);
+        drawRect(x + 1, y + 1, x + width, y + height, PANEL_LIGHT_COLOR);
+        drawRect(x + 1, y + 1, x + width - 1, y + height - 1, SLOT_FILL_COLOR);
+    }
+
     protected boolean isPowered() {
         return true;
     }

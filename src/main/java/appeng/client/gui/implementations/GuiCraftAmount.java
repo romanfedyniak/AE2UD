@@ -89,6 +89,9 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     private static final int RANGE_Y = 16;
     private static final int RANGE_COLOR = 0x808080;
 
+    /** The icon every screen that configures something wears, on the tab that opens the step settings. */
+    private static final int STEP_SETTINGS_ICON = 2 + 4 * 16;
+
     private static final int FIELD_X = 62;
     private static final int FIELD_Y = 57;
     private static final int FIELD_WIDTH = 59;
@@ -98,6 +101,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
     protected GuiButton next;
     protected GuiButton unitToggle;
+    protected GuiTabButton stepSettings;
 
     protected final GuiStepButtons steps = new GuiStepButtons();
 
@@ -108,6 +112,12 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
     /** The field still holds the amount the type suggested, not one the player chose. */
     private boolean pristine;
+
+    /**
+     * What was typed before the button settings were opened. Coming back from them runs {@link #initGui()}
+     * again on this same screen, and a field built fresh would otherwise throw the amount away.
+     */
+    private String kept;
 
     @Reflected
     public GuiCraftAmount(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
@@ -132,6 +142,11 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
         // Sits outside the panel, where the other screens put their extra controls.
         this.buttonList.add(this.unitToggle = new GuiButton(0, this.guiLeft - 24, this.guiTop + 26, 22, 20, ""));
+
+        // One place left of the corner, which the way back to the terminal takes when there is one. The
+        // place is the same either way: a control that moves between screens is a control hunted for.
+        this.buttonList.add(this.stepSettings = new GuiTabButton(this.guiLeft + 129, this.guiTop,
+                STEP_SETTINGS_ICON, GuiText.AmountSteps.getLocal(), this.itemRender));
 
         ItemStack myIcon = null;
         final Object target = ((AEBaseContainer) this.inventorySlots).getTarget();
@@ -169,8 +184,9 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         this.amountToCraft.setVisible(true);
         this.amountToCraft.setFocused(true);
         // Stands in for the one tick before the real starting amount arrives, and stays if it never does.
-        this.amountToCraft.setText("1");
+        this.amountToCraft.setText(this.kept == null ? "1" : this.kept);
         this.amountToCraft.setSelectionPos(0);
+        this.kept = null;
     }
 
     @Override
@@ -280,6 +296,12 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
         if (btn == this.unitToggle) {
             this.toggleUnits();
+            return;
+        }
+
+        if (btn == this.stepSettings) {
+            this.kept = this.amountToCraft.getText();
+            this.mc.displayGuiScreen(new GuiAmountSteps(this, this.mc.player.inventory));
             return;
         }
 

@@ -54,6 +54,11 @@ public final class AmountSteps {
             this.key = key;
             this.held = held;
         }
+
+        /** The modifier's own name, which is not a word in any language and so is not translated. */
+        public String modifier() {
+            return this.key;
+        }
     }
 
     public enum Mode {
@@ -89,6 +94,37 @@ public final class AmountSteps {
 
     public static Mode mode(final Group group) {
         return MODES[group.ordinal()];
+    }
+
+    public static int[] defaultSteps(final Group group) {
+        return DEFAULT_STEPS[group.ordinal()].clone();
+    }
+
+    public static Mode defaultMode(final Group group) {
+        return DEFAULT_MODES[group.ordinal()];
+    }
+
+    /**
+     * Takes the whole table at once, because the screen that edits one group edits all of them, and puts it
+     * in the config file. A step below one is refused rather than stored: it would leave a button that does
+     * nothing, or one that empties the field it is meant to raise.
+     */
+    public static void save(final int[][] values, final Mode[] modes) {
+        final AEConfig config = AEConfig.instance();
+
+        for (final Group group : Group.values()) {
+            final int g = group.ordinal();
+
+            for (int i = 0; i < COUNT; i++) {
+                STEPS[g][i] = Math.max(1, values[g][i]);
+                config.get("Client", "amountStep" + group.key + (i + 1), DEFAULT_STEPS[g][i]).set(STEPS[g][i]);
+            }
+
+            MODES[g] = modes[g];
+            config.get("Client", "amountStep" + group.key + "Mode", DEFAULT_MODES[g].name()).set(MODES[g].name());
+        }
+
+        config.save();
     }
 
     /**

@@ -63,6 +63,26 @@ vanilla width, say - what is left over is taken in scale. The button therefore c
 Nothing reads a step back out of a label, which a label with a `×` on it or a `K` in it could not answer
 anyway.
 
+## Changing them in game
+
+`GuiAmountSteps` is the screen behind the tab in the top right of the amount window, one modifier to a row:
+a label, a button that swaps the row between `+/-` and multiplying, and its four steps. `Defaults` puts the
+table back to what is written above.
+
+It is a client screen and nothing more. It hangs on `ContainerAmountSteps`, which holds no slots and syncs
+nothing, and it is summoned over whichever amount screen sent for it with `displayGuiScreen`, the way
+`GuiPatternView` is summoned over a terminal. So Escape and the inventory key have to be caught: this screen
+never opened a window on the server, and letting them through would close the one underneath.
+
+Writing happens in `onGuiClosed`, which every way out of the screen passes through - the tab, Escape, the
+inventory key - so there is no such thing as a change made but not kept, and nothing to warn about on the
+way out. A field that does not read as a whole number of one or more is shown in red and left out of the
+write: that button keeps the step it had.
+
+Coming back re-runs the amount screen's `initGui`, which builds a new text field. `GuiCraftAmount` therefore
+remembers what stood in the old one and puts it back, or the amount would be lost to a visit to the
+settings.
+
 ## Where the steps are kept
 
 One set serves every screen, in the `Client` category of the mod's config:
