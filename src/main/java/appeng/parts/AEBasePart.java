@@ -316,6 +316,12 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             if (this instanceof PartOreDicStorageBus oreDicStorageBus) {
                 oreDicStorageBus.saveOreMatch(compound.getString("oreMatch"));
             }
+
+            if (this instanceof KeyTypeSelectionHost) {
+                final KeyTypeSelection selection = ((KeyTypeSelectionHost) this).getKeyTypeSelection();
+                selection.readFromNBT(compound);
+                selection.notifyChanged();
+            }
         }
 
         if (this instanceof IPriorityHost) {
@@ -366,6 +372,10 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
 
         if (this instanceof PartOreDicStorageBus oreDicStorageBus) {
             output.setString("oreMatch", oreDicStorageBus.getOreExp());
+        }
+
+        if (this instanceof KeyTypeSelectionHost) {
+            ((KeyTypeSelectionHost) this).getKeyTypeSelection().writeToNBT(output);
         }
 
         if (this instanceof IPriorityHost) {

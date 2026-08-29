@@ -116,6 +116,15 @@ public class KeyTypeSelection {
         }
     }
 
+    /**
+     * Tells the owner that the selection changed under it. {@link #readFromNBT} deliberately stays quiet - a
+     * machine reading its own save has nothing to react to yet - so a selection arriving from a memory card,
+     * which lands on a machine already running, has to say so itself.
+     */
+    public void notifyChanged() {
+        this.listener.onKeyTypeSelectionChanged(this);
+    }
+
     public Predicate<AEKeyType> enabledPredicate() {
         return keyType -> this.keyTypes.getOrDefault(keyType, Boolean.FALSE);
     }
