@@ -27,6 +27,8 @@ import appeng.container.AEBaseContainer;
 import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.container.implementations.ContainerSetAmount;
+import appeng.helpers.InventoryAmountTarget;
+import appeng.helpers.SlotAmountTarget;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal.ConfigTracker;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -273,7 +275,7 @@ public class PacketInventoryAction extends AppEngPacket {
 
         if (sender.openContainer instanceof ContainerSetAmount) {
             final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
-            csa.setOrigin(originGui, this.slot, current.what(), current.amount(), max);
+            csa.setAmountTarget(new SlotAmountTarget(originGui, this.slot, current.what(), current.amount(), max));
             csa.detectAndSendChanges();
         }
     }
@@ -309,7 +311,8 @@ public class PacketInventoryAction extends AppEngPacket {
 
         if (sender.openContainer instanceof ContainerSetAmount) {
             final ContainerSetAmount csa = (ContainerSetAmount) sender.openContainer;
-            csa.setOrigin(originGui, this.slot, tracker.getServer(), current.what(), current.amount(), max);
+            csa.setAmountTarget(new InventoryAmountTarget(originGui, tracker.getServer(), this.slot, current.what(),
+                    current.amount(), max));
             csa.detectAndSendChanges();
         }
     }

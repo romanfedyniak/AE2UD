@@ -22,6 +22,7 @@ package appeng.parts.reporting;
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.ISubMenuHost;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
 import appeng.util.Platform;
@@ -32,7 +33,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 
 
-public class PartInterfaceConfigurationTerminal extends AbstractPartDisplay {
+public class PartInterfaceConfigurationTerminal extends AbstractPartDisplay implements ISubMenuHost {
 
     @PartModels
     public static final ResourceLocation MODEL_OFF = new ResourceLocation(AppEng.MOD_ID, "part/interface_configuration_terminal_off");
@@ -42,6 +43,17 @@ public class PartInterfaceConfigurationTerminal extends AbstractPartDisplay {
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
+
+    @Override
+    public GuiBridge getGuiBridge() {
+        return GuiBridge.GUI_INTERFACE_CONFIGURATION_TERMINAL;
+    }
+
+    @Override
+    public ItemStack getItemStackRepresentation() {
+        return this.getItemStack();
+    }
+
     public String in = "";
 
     public PartInterfaceConfigurationTerminal(final ItemStack is) {

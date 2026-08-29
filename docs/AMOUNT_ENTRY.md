@@ -63,6 +63,32 @@ vanilla width, say - what is left over is taken in scale. The button therefore c
 Nothing reads a step back out of a label, which a label with a `×` on it or a `K` in it could not answer
 anyway.
 
+## What the amount is typed into
+
+`GuiSetAmount` does not know what it is setting. Its container holds an `IAmountTarget`, built where the
+screen was opened and asked four things: an icon for the display slot, the amount to start on, and the two
+ends of what it will accept. When the player confirms, `PacketSetAmount` holds the number between those
+ends and hands it to the target - and nothing else. Where the number lands, and when the player is sent
+back, are the target's own business.
+
+They have to be, because the order differs and each order has a reason:
+
+- `SlotAmountTarget` is a fake slot of the screen the amount was opened from. That screen's container does
+  not exist while the amount screen is open - the player's container was replaced by it - so the slot is
+  named by its place in the container that comes back. It therefore **returns the player first** and writes
+  into the new container second.
+- `InventoryAmountTarget` is a slot of an inventory that belongs to something else: the interface
+  configuration terminal edits interfaces elsewhere on the network. That inventory is the interface's own
+  and outlives both screens, so it **writes first**. Going back to that terminal builds a fresh container,
+  which hands the same interfaces different ids, and by then there would be nothing left to look the slot
+  up by.
+
+The way back is a separate question from where the amount goes, and the screen answers it for itself: the
+host it was opened on top of is asked, through `ISubMenuHost`, for the screen to return to and the item to
+draw on the tab. Every machine with a screen of its own answers - so does a terminal, and so does a
+terminal held in the hand - which is why the tab is there whether the amount was opened from a pattern
+terminal, a storage bus or an interface.
+
 ## Changing them in game
 
 `GuiAmountSteps` is the screen behind the tab in the top right of the amount window, one modifier to a row:

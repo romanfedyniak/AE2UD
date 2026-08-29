@@ -19,24 +19,20 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.container.implementations.ContainerSetAmount;
-import appeng.container.slot.SlotFake;
-import appeng.util.helpers.ItemHandlerUtil;
-import net.minecraftforge.items.IItemHandler;
 import appeng.core.sync.AppEngPacket;
-import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
+import appeng.helpers.IAmountTarget;
+import com.google.common.primitives.Longs;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.Slot;
 
 
 /**
- * Applies the amount typed into {@link appeng.client.gui.implementations.GuiSetAmount} and returns to the
- * screen it was opened from.
+ * Carries the amount typed into {@link appeng.client.gui.implementations.GuiSetAmount} to whatever that
+ * screen was opened for. Where the amount ends up, and when the player is sent back, belong to the target -
+ * see {@link IAmountTarget}.
  */
 public class PacketSetAmount extends AppEngPacket {
 
@@ -66,39 +62,11 @@ public class PacketSetAmount extends AppEngPacket {
         }
 
         final ContainerSetAmount source = (ContainerSetAmount) player.openContainer;
-        final AEKey what = source.getWhat();
-        final GuiBridge originGui = source.getOriginGui();
-        final int originSlot = source.getOriginSlot();
-        if (what == null || originGui == null || originSlot < 0) {
-            return;
-        }
+        final IAmountTarget target = source.getAmountTarget();
 
-        final long clamped = Math.max(1, Math.min(this.amount, source.maxAmount));
-        final IItemHandler originInventory = source.getOriginInventory();
-
-        // Write before switching where the target is an inventory rather than a slot of the screen we are
-        // going back to. Returning to the interface configuration terminal builds a fresh container, and a
-        // fresh container renumbers the interfaces, so there would be nothing left to look the slot up by.
-        if (originInventory != null) {
-            if (originSlot < originInventory.getSlots()) {
-                ItemHandlerUtil.setStackInSlot(originInventory, originSlot, GenericStack.wrapInItemStack(what, clamped));
-            }
-            PacketSwitchGuis.reopen(player, source, originGui);
-            return;
-        }
-
-        // Read before switching: the open context belongs to the screen we are leaving.
-        if (!PacketSwitchGuis.reopen(player, source, originGui)) {
-            return;
-        }
-
-        if (player.openContainer == source || originSlot >= player.openContainer.inventorySlots.size()) {
-            return;
-        }
-
-        final Slot target = player.openContainer.inventorySlots.get(originSlot);
-        if (target instanceof SlotFake && target.getHasStack()) {
-            target.putStack(GenericStack.wrapInItemStack(what, clamped));
+        if (target != null) {
+            target.apply(player, source,
+                    Longs.constrainToRange(this.amount, target.getMinAmount(), target.getMaxAmount()));
         }
     }
 }

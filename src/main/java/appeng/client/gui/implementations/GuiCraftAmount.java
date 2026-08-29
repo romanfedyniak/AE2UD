@@ -19,9 +19,6 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
-import appeng.api.definitions.IDefinitions;
-import appeng.api.definitions.IParts;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -38,11 +35,8 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCraftRequest;
 import appeng.core.sync.packets.PacketSwitchGuis;
+import appeng.helpers.ISubMenuHost;
 import appeng.helpers.Reflected;
-import appeng.helpers.WirelessTerminalGuiObject;
-import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartPatternTerminal;
-import appeng.parts.reporting.PartTerminal;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -148,29 +142,14 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         this.buttonList.add(this.stepSettings = new GuiTabButton(this.guiLeft + 129, this.guiTop,
                 STEP_SETTINGS_ICON, GuiText.AmountSteps.getLocal(), this.itemRender));
 
-        ItemStack myIcon = null;
+        // Whatever this screen was opened on top of already knows where back is and what to draw on the
+        // way there, whether it is a terminal, a machine in the world or a terminal in the player's hand.
         final Object target = ((AEBaseContainer) this.inventorySlots).getTarget();
-        final IDefinitions definitions = AEApi.instance().definitions();
-        final IParts parts = definitions.parts();
+        ItemStack myIcon = ItemStack.EMPTY;
 
-        if (target instanceof WirelessTerminalGuiObject) {
-            myIcon = ((WirelessTerminalGuiObject) target).getItemStack();
-            this.originalGui = (GuiBridge) AEApi.instance().registries().wireless().getWirelessTerminalHandler(myIcon).getGuiHandler(myIcon);
-        }
-
-        if (target instanceof PartTerminal) {
-            myIcon = parts.terminal().maybeStack(1).orElse(ItemStack.EMPTY);
-            this.originalGui = GuiBridge.GUI_ME;
-        }
-
-        if (target instanceof PartCraftingTerminal) {
-            myIcon = parts.craftingTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
-            this.originalGui = GuiBridge.GUI_CRAFTING_TERMINAL;
-        }
-
-        if (target instanceof PartPatternTerminal) {
-            myIcon = parts.patternTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
-            this.originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
+        if (target instanceof ISubMenuHost) {
+            myIcon = ((ISubMenuHost) target).getItemStackRepresentation();
+            this.originalGui = ((ISubMenuHost) target).getGuiBridge();
         }
 
         if (this.originalGui != null && !myIcon.isEmpty()) {

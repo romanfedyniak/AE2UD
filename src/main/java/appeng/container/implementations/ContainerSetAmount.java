@@ -19,43 +19,28 @@
 package appeng.container.implementations;
 
 
-import appeng.api.stacks.AEKey;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotInaccessible;
-import appeng.core.sync.GuiBridge;
+import appeng.helpers.IAmountTarget;
 import appeng.tile.inventory.AppEngInternalInventory;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
-import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 
 
 /**
- * Types an exact amount into one fake slot of the screen it was opened from. The key is remembered here
- * rather than re-read on the way back, so the amount is applied to what the player middle-clicked even if
- * the slot has changed since.
+ * Types an exact amount into whatever the screen it was opened from asked for. The target is remembered
+ * here rather than looked up again on the way back, so the amount reaches what the player pointed at even
+ * if the screen behind has changed since.
  */
 public class ContainerSetAmount extends AEBaseContainer {
 
     private final Slot slotDisplay;
 
-    private int originSlot = -1;
-    /**
-     * The inventory to write into, for an origin screen whose slots are not this container's.
-     * <p>
-     * The interface configuration terminal edits interfaces elsewhere on the network and addresses them by
-     * an id its container mints per session, so returning to it builds a new container that hands the same
-     * interfaces different ids. The inventory itself is owned by the interface and outlives both screens,
-     * which makes it the only stable way to name the target.
-     */
     @Nullable
-    private IItemHandler originInventory;
-    @Nullable
-    private AEKey what;
-    @Nullable
-    private GuiBridge originGui;
+    private IAmountTarget target;
 
     @GuiSync(10)
     public long initialAmount;
@@ -70,36 +55,19 @@ public class ContainerSetAmount extends AEBaseContainer {
         this.addSlotToContainer(this.slotDisplay);
     }
 
-    public void setOrigin(final GuiBridge originGui, final int slot, final AEKey what, final long amount, final long max) {
-        this.setOrigin(originGui, slot, null, what, amount, max);
+    public void setAmountTarget(final IAmountTarget target) {
+        this.target = target;
+        this.initialAmount = target.getAmount();
+        this.maxAmount = target.getMaxAmount();
+        this.slotDisplay.putStack(target.getIcon());
     }
 
-    public void setOrigin(final GuiBridge originGui, final int slot, @Nullable final IItemHandler inventory, final AEKey what, final long amount, final long max) {
-        this.originGui = originGui;
-        this.originSlot = slot;
-        this.originInventory = inventory;
-        this.what = what;
-        this.initialAmount = amount;
-        this.maxAmount = max;
-        this.slotDisplay.putStack(what.wrapForDisplayOrFilter());
-    }
-
-    public int getOriginSlot() {
-        return this.originSlot;
-    }
-
+    /**
+     * Named apart from {@link #getTarget()}, which answers with the host this screen was opened on and is
+     * what sends the player back to it.
+     */
     @Nullable
-    public IItemHandler getOriginInventory() {
-        return this.originInventory;
-    }
-
-    @Nullable
-    public AEKey getWhat() {
-        return this.what;
-    }
-
-    @Nullable
-    public GuiBridge getOriginGui() {
-        return this.originGui;
+    public IAmountTarget getAmountTarget() {
+        return this.target;
     }
 }
