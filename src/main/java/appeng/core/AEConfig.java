@@ -63,11 +63,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     private final EnumSet<AEFeature> featureFlags = EnumSet.noneOf(AEFeature.class);
     private final File configFile;
-    // GUI Buttons
-    private final int[] craftByStacks = {1, 10, 100, 1000};
-    private final int[] priorityByStacks = {1, 10, 100, 1000};
-    private final int[] levelByStacks = {1, 10, 100, 1000};
-    private final int[] levelByMillibuckets = {10, 100, 1000, 10000};
     private final Set<String> grinderBlackList;
     private final int chargedChange = 4;
     private final double wirelessHighWirelessCount = 64;
@@ -288,26 +283,7 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.showPlayerPins = this.get("Client", "showPlayerPins", true,
                 "Whether terminals show persistent player pins.").getBoolean(true);
 
-        // load buttons..
-        for (int btnNum = 0; btnNum < 4; btnNum++) {
-            final Property cmb = this.get("Client", "craftAmtButton" + (btnNum + 1), this.craftByStacks[btnNum]);
-            final Property pmb = this.get("Client", "priorityAmtButton" + (btnNum + 1), this.priorityByStacks[btnNum]);
-            final Property lmb = this.get("Client", "levelAmtButton" + (btnNum + 1), this.levelByStacks[btnNum]);
-
-            final int buttonCap = (int) (Math.pow(10, btnNum + 1) - 1);
-
-            this.craftByStacks[btnNum] = Math.abs(cmb.getInt(this.craftByStacks[btnNum]));
-            this.priorityByStacks[btnNum] = Math.abs(pmb.getInt(this.priorityByStacks[btnNum]));
-            this.levelByStacks[btnNum] = Math.abs(lmb.getInt(this.levelByStacks[btnNum]));
-
-            cmb.setComment("Controls buttons on Crafting Screen : Capped at " + buttonCap);
-            pmb.setComment("Controls buttons on Priority Screen : Capped at " + buttonCap);
-            lmb.setComment("Controls buttons on Level Emitter Screen : Capped at " + buttonCap);
-
-            this.craftByStacks[btnNum] = Math.min(this.craftByStacks[btnNum], buttonCap);
-            this.priorityByStacks[btnNum] = Math.min(this.priorityByStacks[btnNum], buttonCap);
-            this.levelByStacks[btnNum] = Math.min(this.levelByStacks[btnNum], buttonCap);
-        }
+        AmountSteps.load(this);
 
         for (final Settings e : this.settings.getSettings()) {
             final String Category = "Client"; // e.getClass().getSimpleName();
@@ -471,22 +447,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         return this.settings;
     }
 
-    public int craftItemsByStackAmounts(final int i) {
-        return this.craftByStacks[i];
-    }
-
-    public int priorityByStacksAmounts(final int i) {
-        return this.priorityByStacks[i];
-    }
-
-    public int levelByStackAmounts(final int i) {
-        return this.levelByStacks[i];
-    }
-
-    public int levelByMillyBuckets(final int i) {
-        return this.levelByMillibuckets[i];
-    }
-
     public Enum getSetting(final String category, final Class<? extends Enum> class1, final Enum myDefault) {
         final String name = class1.getSimpleName();
         final Property p = this.get(category, name, myDefault.name());
@@ -595,18 +555,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public PowerUnits getSelectedPowerUnit() {
         return this.selectedPowerUnit;
-    }
-
-    public int[] getCraftByStacks() {
-        return this.craftByStacks;
-    }
-
-    public int[] getPriorityByStacks() {
-        return this.priorityByStacks;
-    }
-
-    public int[] getLevelByStacks() {
-        return this.levelByStacks;
     }
 
     public int getStorageProviderID() {

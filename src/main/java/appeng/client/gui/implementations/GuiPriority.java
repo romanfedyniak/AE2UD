@@ -21,9 +21,9 @@ package appeng.client.gui.implementations;
 
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiNumberBox;
+import appeng.client.gui.widgets.GuiStepButtons;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerPriority;
-import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
@@ -44,14 +44,7 @@ public class GuiPriority extends AEBaseGui {
     private GuiNumberBox priority;
     private GuiTabButton originalGuiBtn;
 
-    private GuiButton plus1;
-    private GuiButton plus10;
-    private GuiButton plus100;
-    private GuiButton plus1000;
-    private GuiButton minus1;
-    private GuiButton minus10;
-    private GuiButton minus100;
-    private GuiButton minus1000;
+    private final GuiStepButtons steps = new GuiStepButtons();
 
     private GuiBridge OriginalGui;
 
@@ -64,20 +57,7 @@ public class GuiPriority extends AEBaseGui {
         Keyboard.enableRepeatEvents(true);
         super.initGui();
 
-        final int a = AEConfig.instance().priorityByStacksAmounts(0);
-        final int b = AEConfig.instance().priorityByStacksAmounts(1);
-        final int c = AEConfig.instance().priorityByStacksAmounts(2);
-        final int d = AEConfig.instance().priorityByStacksAmounts(3);
-
-        this.buttonList.add(this.plus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 32, 22, 20, "+" + a));
-        this.buttonList.add(this.plus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 32, 28, 20, "+" + b));
-        this.buttonList.add(this.plus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 32, 32, 20, "+" + c));
-        this.buttonList.add(this.plus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 32, 38, 20, "+" + d));
-
-        this.buttonList.add(this.minus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 69, 22, 20, "-" + a));
-        this.buttonList.add(this.minus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 69, 28, 20, "-" + b));
-        this.buttonList.add(this.minus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 69, 32, 20, "-" + c));
-        this.buttonList.add(this.minus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 69, 38, 20, "-" + d));
+        this.steps.addTo(this.buttonList, this.guiLeft, this.guiTop + 32, this.guiTop + 69);
 
         final ContainerPriority con = ((ContainerPriority) this.inventorySlots);
         final ItemStack myIcon = con.getPriorityHost().getItemStackRepresentation();
@@ -109,6 +89,8 @@ public class GuiPriority extends AEBaseGui {
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        this.steps.update();
+
         this.bindTexture("guis/priority.png");
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
 
@@ -123,36 +105,18 @@ public class GuiPriority extends AEBaseGui {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.OriginalGui));
         }
 
-        final boolean isPlus = btn == this.plus1 || btn == this.plus10 || btn == this.plus100 || btn == this.plus1000;
-        final boolean isMinus = btn == this.minus1 || btn == this.minus10 || btn == this.minus100 || btn == this.minus1000;
-
-        if (isPlus || isMinus) {
-            this.addQty(this.getQty(btn));
+        if (this.steps.isStep(btn)) {
+            this.applyStep(btn);
         }
     }
 
-    private void addQty(final int i) {
+    private void applyStep(final GuiButton btn) {
         try {
-            String out = this.priority.getText();
+            final long current = Long.parseLong(this.trimmed());
+            // A priority is a plain number with nothing bounding it either way, and no unit to read it in.
+            final String out = Long.toString(this.steps.apply(btn, current, Long.MIN_VALUE, Long.MAX_VALUE, 1));
 
-            boolean fixed = false;
-            while (out.startsWith("0") && out.length() > 1) {
-                out = out.substring(1);
-                fixed = true;
-            }
-
-            if (fixed) {
-                this.priority.setText(out);
-            }
-
-            if (out.isEmpty()) {
-                out = "0";
-            }
-
-            long result = Long.parseLong(out);
-            result += i;
-
-            this.priority.setText(out = Long.toString(result));
+            this.priority.setText(out);
 
             NetworkHandler.instance().sendToServer(new PacketValueConfig("PriorityHost.Priority", out));
         } catch (final NumberFormatException e) {
@@ -163,29 +127,32 @@ public class GuiPriority extends AEBaseGui {
         }
     }
 
+    /**
+     * The field as a number, less the leading zeros a typed digit leaves in front of one.
+     */
+    private String trimmed() {
+        String out = this.priority.getText();
+
+        boolean fixed = false;
+        while (out.startsWith("0") && out.length() > 1) {
+            out = out.substring(1);
+            fixed = true;
+        }
+
+        if (fixed) {
+            this.priority.setText(out);
+        }
+
+        return out.isEmpty() ? "0" : out;
+    }
+
     @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if ((key == 211 || key == 205 || key == 203 || key == 14 || character == '-' || Character.isDigit(character)) && this.priority
                     .textboxKeyTyped(character, key)) {
                 try {
-                    String out = this.priority.getText();
-
-                    boolean fixed = false;
-                    while (out.startsWith("0") && out.length() > 1) {
-                        out = out.substring(1);
-                        fixed = true;
-                    }
-
-                    if (fixed) {
-                        this.priority.setText(out);
-                    }
-
-                    if (out.isEmpty()) {
-                        out = "0";
-                    }
-
-                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PriorityHost.Priority", out));
+                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PriorityHost.Priority", this.trimmed()));
                 } catch (final IOException e) {
                     AELog.debug(e);
                 }

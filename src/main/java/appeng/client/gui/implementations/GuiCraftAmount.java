@@ -29,10 +29,10 @@ import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.AmountEntry;
+import appeng.client.gui.widgets.GuiStepButtons;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.AEBaseContainer;
 import appeng.container.implementations.ContainerCraftAmount;
-import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -99,14 +99,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     protected GuiButton next;
     protected GuiButton unitToggle;
 
-    protected GuiButton plus1;
-    protected GuiButton plus10;
-    protected GuiButton plus100;
-    protected GuiButton plus1000;
-    protected GuiButton minus1;
-    protected GuiButton minus10;
-    protected GuiButton minus100;
-    protected GuiButton minus1000;
+    protected final GuiStepButtons steps = new GuiStepButtons();
 
     protected GuiBridge originalGui;
 
@@ -133,20 +126,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
         super.initGui();
 
-        final int a = AEConfig.instance().craftItemsByStackAmounts(0);
-        final int b = AEConfig.instance().craftItemsByStackAmounts(1);
-        final int c = AEConfig.instance().craftItemsByStackAmounts(2);
-        final int d = AEConfig.instance().craftItemsByStackAmounts(3);
-
-        this.buttonList.add(this.plus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 26, 22, 20, "+" + a));
-        this.buttonList.add(this.plus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 26, 28, 20, "+" + b));
-        this.buttonList.add(this.plus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 26, 32, 20, "+" + c));
-        this.buttonList.add(this.plus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 26, 38, 20, "+" + d));
-
-        this.buttonList.add(this.minus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 75, 22, 20, "-" + a));
-        this.buttonList.add(this.minus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 75, 28, 20, "-" + b));
-        this.buttonList.add(this.minus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 75, 32, 20, "-" + c));
-        this.buttonList.add(this.minus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 75, 38, 20, "-" + d));
+        this.steps.addTo(this.buttonList, this.guiLeft, this.guiTop + 26, this.guiTop + 75);
 
         this.buttonList.add(this.next = new GuiButton(0, this.guiLeft + 128, this.guiTop + 51, 38, 20, GuiText.Next.getLocal()));
 
@@ -250,6 +230,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.prime();
+        this.steps.update();
 
         this.next.displayString = this.getConfirmLabel();
 
@@ -307,11 +288,8 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
             this.confirm(amount > 0 ? amount : 1);
         }
 
-        final boolean isPlus = btn == this.plus1 || btn == this.plus10 || btn == this.plus100 || btn == this.plus1000;
-        final boolean isMinus = btn == this.minus1 || btn == this.minus10 || btn == this.minus100 || btn == this.minus1000;
-
-        if (isPlus || isMinus) {
-            this.addQty((long) this.getQty(btn) * this.unitScale());
+        if (this.steps.isStep(btn)) {
+            this.applyStep(btn);
         }
     }
 
@@ -366,18 +344,19 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         this.amountToCraft.setSelectionPos(0);
     }
 
-    private void addQty(final long i) {
+    private void applyStep(final GuiButton btn) {
+        final int scale = this.unitScale();
         long result = this.parseAmount(this.amountToCraft.getText());
 
         // An untouched suggestion is a starting point, not a number the player picked, so the first
-        // press replaces it. Steps of a single base unit still add, which is what "+1" always did.
-        if (this.pristine && i > 1) {
+        // press replaces it. Steps of a single base unit still add, which is what "+1" always did, and a
+        // factor has nothing to replace - it works from the suggestion just as well.
+        if (this.pristine && this.steps.isAdditive() && this.steps.stepOf(btn) * (long) scale > 1) {
             result = 0;
         }
         this.pristine = false;
 
-        result += i;
-        result = Math.max(this.getMinAmount(), Math.min(this.getMaxAmount(), result));
+        result = this.steps.apply(btn, result, this.getMinAmount(), this.getMaxAmount(), scale);
 
         this.amountToCraft.setText(this.formatAmount(result));
     }

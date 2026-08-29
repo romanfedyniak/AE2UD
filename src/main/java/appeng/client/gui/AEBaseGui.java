@@ -77,8 +77,6 @@ import yalter.mousetweaks.api.IMTModGuiContainer2;
 
 import java.awt.*;
 import java.io.IOException;
-import java.text.DecimalFormat;
-import java.text.ParseException;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -121,15 +119,6 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         final Joiner joiner = Joiner.on(delimiter);
 
         return joiner.join(toolTip);
-    }
-
-    protected int getQty(final GuiButton btn) {
-        try {
-            final DecimalFormat df = new DecimalFormat("+#;-#");
-            return df.parse(btn.displayString).intValue();
-        } catch (final ParseException e) {
-            return 0;
-        }
     }
 
     @Override

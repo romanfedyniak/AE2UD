@@ -27,9 +27,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AmountEntry;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiNumberBox;
+import appeng.client.gui.widgets.GuiStepButtons;
 import appeng.container.implementations.ContainerLevelEmitter;
 import appeng.container.slot.SlotFakeTypeOnly;
-import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -71,14 +71,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     private GuiButton unitToggle;
 
-    private GuiButton plus1;
-    private GuiButton plus10;
-    private GuiButton plus100;
-    private GuiButton plus1000;
-    private GuiButton minus1;
-    private GuiButton minus10;
-    private GuiButton minus100;
-    private GuiButton minus1000;
+    private final GuiStepButtons steps = new GuiStepButtons();
 
     private GuiImgButton levelMode;
     private GuiImgButton craftingMode;
@@ -110,20 +103,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
         this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.craftingMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.CRAFT_VIA_REDSTONE, YesNo.NO);
 
-        final int a = AEConfig.instance().levelByStackAmounts(0);
-        final int b = AEConfig.instance().levelByStackAmounts(1);
-        final int c = AEConfig.instance().levelByStackAmounts(2);
-        final int d = AEConfig.instance().levelByStackAmounts(3);
-
-        this.buttonList.add(this.plus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 17, 22, 20, "+" + a));
-        this.buttonList.add(this.plus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 17, 28, 20, "+" + b));
-        this.buttonList.add(this.plus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 17, 32, 20, "+" + c));
-        this.buttonList.add(this.plus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 17, 38, 20, "+" + d));
-
-        this.buttonList.add(this.minus1 = new GuiButton(0, this.guiLeft + 20, this.guiTop + 59, 22, 20, "-" + a));
-        this.buttonList.add(this.minus10 = new GuiButton(0, this.guiLeft + 48, this.guiTop + 59, 28, 20, "-" + b));
-        this.buttonList.add(this.minus100 = new GuiButton(0, this.guiLeft + 82, this.guiTop + 59, 32, 20, "-" + c));
-        this.buttonList.add(this.minus1000 = new GuiButton(0, this.guiLeft + 120, this.guiTop + 59, 38, 20, "-" + d));
+        this.steps.addTo(this.buttonList, this.guiLeft, this.guiTop + 17, this.guiTop + 59);
 
         this.buttonList.add(this.levelMode);
         this.buttonList.add(this.redstoneMode);
@@ -148,14 +128,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
         // configure enabled status...
         this.level.setEnabled(notCraftingMode);
-        this.plus1.enabled = notCraftingMode;
-        this.plus10.enabled = notCraftingMode;
-        this.plus100.enabled = notCraftingMode;
-        this.plus1000.enabled = notCraftingMode;
-        this.minus1.enabled = notCraftingMode;
-        this.minus10.enabled = notCraftingMode;
-        this.minus100.enabled = notCraftingMode;
-        this.minus1000.enabled = notCraftingMode;
+        this.steps.setEnabled(notCraftingMode);
         this.levelMode.enabled = notCraftingMode;
         this.redstoneMode.enabled = notCraftingMode;
 
@@ -183,6 +156,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
 
+        this.steps.update();
         this.syncField();
 
         final String symbol = AmountEntry.symbol(this.getFilteredKey(), this.unitScale());
@@ -268,21 +242,15 @@ public class GuiLevelEmitter extends GuiUpgradeable {
             return;
         }
 
-        final boolean isPlus = btn == this.plus1 || btn == this.plus10 || btn == this.plus100 || btn == this.plus1000;
-        final boolean isMinus = btn == this.minus1 || btn == this.minus10 || btn == this.minus100 || btn == this.minus1000;
-
-        if (isPlus || isMinus) {
-            this.addQty((long) this.getQty(btn) * this.unitScale());
+        if (this.steps.isStep(btn)) {
+            this.applyStep(btn);
         }
     }
 
-    private void addQty(final long i) {
+    private void applyStep(final GuiButton btn) {
         final int scale = this.unitScale();
-
-        long result = AmountEntry.parse(this.level.getText(), scale) + i;
-        if (result < 0) {
-            result = 0;
-        }
+        final long current = AmountEntry.parse(this.level.getText(), scale);
+        final long result = this.steps.apply(btn, current, 0, Long.MAX_VALUE, scale);
 
         this.level.setText(AmountEntry.format(result, scale));
         this.sendLevel(result);
