@@ -97,7 +97,9 @@ public class GuiLevelEmitter extends GuiUpgradeable {
             this.levelMode.set(((ContainerLevelEmitter) this.cvb).getLevelMode());
         }
 
-        this.drawThreshold();
+        if (notCraftingMode) {
+            this.drawThreshold();
+        }
     }
 
     /**
