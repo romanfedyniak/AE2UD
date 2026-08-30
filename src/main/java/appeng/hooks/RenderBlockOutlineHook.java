@@ -8,7 +8,7 @@ import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.SelectedPart;
 import appeng.api.util.AEPartLocation;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.facade.FacadePart;
 import appeng.facade.IFacadeItem;
 import appeng.items.parts.ItemFacade;
@@ -62,7 +62,7 @@ public class RenderBlockOutlineHook {
         BlockPos pos = hitResult.getBlockPos();
 
         // Render the placement preview
-        if (AEConfig.instance().showPlacementPreview()) {
+        if (AEClientConfig.instance().showPlacementPreview()) {
             renderPartPlacementPreview(player, hitResult, stack, partialTicks);
         }
 
@@ -71,7 +71,7 @@ public class RenderBlockOutlineHook {
 
             // Try to render facade placement preview here, since it's a
             // convenient time to do it due to having the Part Host already.
-            if (AEConfig.instance().showPlacementPreview()) {
+            if (AEClientConfig.instance().showPlacementPreview()) {
                 renderFacadePlacementPreview(host, player, hitResult, stack, partialTicks);
             }
 

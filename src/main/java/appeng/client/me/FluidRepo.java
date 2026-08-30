@@ -27,7 +27,7 @@ import appeng.api.stacks.AEKey;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.container.me.GridInventoryEntry;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.fluids.util.FluidSorters;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -89,7 +89,7 @@ public class FluidRepo {
 
         final Enum viewMode = this.sortSrc.getSortDisplay();
         final boolean needsZeroCopy = viewMode == ViewItems.CRAFTABLE;
-        final boolean terminalSearchToolTips = AEConfig.instance().getConfigManager().getSetting(Settings.SEARCH_TOOLTIPS) != YesNo.NO;
+        final boolean terminalSearchToolTips = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_TOOLTIPS) != YesNo.NO;
 
         for (GridInventoryEntry entry : this.entries.values()) {
             if (viewMode == ViewItems.CRAFTABLE && !entry.isCraftable()) {

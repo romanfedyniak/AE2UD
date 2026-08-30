@@ -22,6 +22,7 @@ package appeng.entity;
 import appeng.api.AEApi;
 import appeng.api.definitions.IMaterials;
 import appeng.client.EffectType;
+import appeng.core.AEClientConfig;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.features.AEFeature;
@@ -63,7 +64,7 @@ public final class EntityChargedQuartz extends AEBaseEntityItem {
             return;
         }
 
-        if (Platform.isClient() && this.delay > 30 && AEConfig.instance().isEnableEffects()) {
+        if (Platform.isClient() && this.delay > 30 && AEClientConfig.instance().isEnableEffects()) {
             AppEng.proxy.spawnEffect(EffectType.Lightning, this.world, this.posX, this.posY, this.posZ, null);
             this.delay = 0;
         }

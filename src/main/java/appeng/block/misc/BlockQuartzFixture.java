@@ -23,7 +23,7 @@ import appeng.api.util.IOrientable;
 import appeng.api.util.IOrientableBlock;
 import appeng.block.AEBaseBlock;
 import appeng.client.render.effects.LightningFX;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.helpers.ICustomCollision;
 import appeng.helpers.MetaRotation;
@@ -126,7 +126,7 @@ public class BlockQuartzFixture extends AEBaseBlock implements IOrientableBlock,
     @Override
     @SideOnly(Side.CLIENT)
     public void randomDisplayTick(final IBlockState state, final World w, final BlockPos pos, final Random r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+        if (!AEClientConfig.instance().isEnableEffects()) {
             return;
         }
 

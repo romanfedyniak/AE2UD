@@ -22,7 +22,7 @@ package appeng.decorative.solid;
 import appeng.api.AEApi;
 import appeng.api.exceptions.MissingDefinitionException;
 import appeng.client.render.effects.ChargedOreFX;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -73,7 +73,7 @@ public class BlockChargedQuartzOre extends BlockQuartzOre {
     @Override
     @SideOnly(Side.CLIENT)
     public void randomDisplayTick(final IBlockState state, final World w, final BlockPos pos, final Random r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+        if (!AEClientConfig.instance().isEnableEffects()) {
             return;
         }
 

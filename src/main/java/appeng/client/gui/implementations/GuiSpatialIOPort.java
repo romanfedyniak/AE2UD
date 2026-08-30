@@ -23,7 +23,7 @@ import appeng.api.config.Settings;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerSpatialIOPort;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
 import appeng.tile.spatial.TileSpatialIOPort;
 import appeng.util.Platform;
@@ -55,8 +55,8 @@ public class GuiSpatialIOPort extends AEBaseGui {
         final boolean backwards = Mouse.isButtonDown(1);
 
         if (btn == this.units) {
-            AEConfig.instance().nextPowerUnit(backwards);
-            this.units.set(AEConfig.instance().selectedPowerUnit());
+            AEClientConfig.instance().nextPowerUnit(backwards);
+            this.units.set(AEClientConfig.instance().selectedPowerUnit());
         }
     }
 
@@ -64,7 +64,7 @@ public class GuiSpatialIOPort extends AEBaseGui {
     public void initGui() {
         super.initGui();
 
-        this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEConfig.instance().selectedPowerUnit());
+        this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEClientConfig.instance().selectedPowerUnit());
         this.buttonList.add(this.units);
     }
 

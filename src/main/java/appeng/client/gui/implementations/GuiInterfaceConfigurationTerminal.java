@@ -24,7 +24,7 @@ import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.stacks.AEFluidKey;
 import appeng.core.AELog;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -121,7 +121,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void initGui() {
         Keyboard.enableRepeatEvents(true);
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
@@ -185,7 +185,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.buttonList.clear();
-        this.terminalStyleBox.set(AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
+        this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
         this.buttonList.add(this.terminalStyleBox);
         this.addExtraButtons();
 
@@ -269,11 +269,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         if (btn == this.terminalStyleBox) {
-            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
             final String search = this.searchFieldInputs.getText();
-            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.initGui();
             this.searchFieldInputs.setText(search);
         } else if (guiButtonHashMap.containsKey(btn)) {

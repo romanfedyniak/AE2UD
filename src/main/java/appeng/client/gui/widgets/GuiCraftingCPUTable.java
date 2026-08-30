@@ -32,7 +32,7 @@ import appeng.api.util.IConfigManager;
 import appeng.client.gui.AEBaseGui;
 import appeng.container.implementations.CraftingCPUStatus;
 import appeng.container.implementations.ICraftingCPUTableHost;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -124,7 +124,7 @@ public class GuiCraftingCPUTable extends Gui {
         this.scrollbar.setWidth(12);
         this.scrollbar.setHeight(rows * SLOT_HEIGHT - 1);
 
-        final IConfigManager config = AEConfig.instance().getConfigManager();
+        final IConfigManager config = AEClientConfig.instance().getConfigManager();
         int left = this.parent.getGuiLeft() - WIDTH + BUTTON_LEFT;
         final int top = this.parent.getGuiTop() - BUTTON_ROW_HEIGHT;
 
@@ -172,7 +172,7 @@ public class GuiCraftingCPUTable extends Gui {
             return false;
         }
 
-        final IConfigManager config = AEConfig.instance().getConfigManager();
+        final IConfigManager config = AEClientConfig.instance().getConfigManager();
         final Enum<?> next = Platform.rotateEnum(config.getSetting(setting), Mouse.isButtonDown(1),
                 setting.getPossibleValues());
         config.putSetting(setting, next);
@@ -202,7 +202,7 @@ public class GuiCraftingCPUTable extends Gui {
      * what the item list below belongs to - is never hidden from the one looking at it.
      */
     private void rebuildDisplayed() {
-        final IConfigManager config = AEConfig.instance().getConfigManager();
+        final IConfigManager config = AEClientConfig.instance().getConfigManager();
         final CpuActivityFilter activity = (CpuActivityFilter) config.getSetting(Settings.CPU_FILTER_ACTIVITY);
         final CpuModeFilter mode = (CpuModeFilter) config.getSetting(Settings.CPU_FILTER_MODE);
         final String search = this.searchField == null ? "" : this.searchField.getText().trim().toLowerCase();

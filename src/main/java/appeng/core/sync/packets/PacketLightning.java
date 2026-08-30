@@ -20,7 +20,7 @@ package appeng.core.sync.packets;
 
 
 import appeng.client.render.effects.LightningFX;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
@@ -66,7 +66,7 @@ public class PacketLightning extends AppEngPacket {
     @SideOnly(Side.CLIENT)
     public void clientPacketData(final INetworkInfo network, final AppEngPacket packet, final EntityPlayer player) {
         try {
-            if (Platform.isClient() && AEConfig.instance().isEnableEffects()) {
+            if (Platform.isClient() && AEClientConfig.instance().isEnableEffects()) {
                 final LightningFX fx = new LightningFX(AppEng.proxy.getWorld(), this.x, this.y, this.z, 0.0f, 0.0f, 0.0f);
                 Minecraft.getMinecraft().effectRenderer.addEffect(fx);
             }

@@ -21,7 +21,6 @@ package appeng.core;
 
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Longs;
-import net.minecraftforge.common.config.ConfigCategory;
 import net.minecraftforge.common.config.Property;
 
 
@@ -110,7 +109,7 @@ public final class AmountSteps {
      * nothing, or one that empties the field it is meant to raise.
      */
     public static void save(final int[][] values, final Mode[] modes) {
-        final AEConfig config = AEConfig.instance();
+        final AEClientConfig config = AEClientConfig.instance();
 
         for (final Group group : Group.values()) {
             final int g = group.ordinal();
@@ -152,7 +151,7 @@ public final class AmountSteps {
         return Longs.constrainToRange(result, min, max);
     }
 
-    static void load(final AEConfig config) {
+    static void load(final AEClientConfig config) {
         for (final Group group : Group.values()) {
             for (int i = 0; i < COUNT; i++) {
                 final int fallback = DEFAULT_STEPS[group.ordinal()][i];
@@ -168,8 +167,6 @@ public final class AmountSteps {
             mode.setComment("What those four buttons do with their steps: ADD or MULTIPLY.");
             MODES[group.ordinal()] = parse(mode.getString(), fallback);
         }
-
-        dropOldKeys(config);
     }
 
     private static Mode parse(final String name, final Mode fallback) {
@@ -179,19 +176,5 @@ public final class AmountSteps {
             }
         }
         return fallback;
-    }
-
-    /**
-     * The keys the three separate per-screen sets used to live under. Nothing reads them any more, and a
-     * key that is written back to the file every save but governs nothing is worse than no key at all.
-     */
-    private static void dropOldKeys(final AEConfig config) {
-        final ConfigCategory client = config.getCategory("Client");
-
-        for (int i = 1; i <= COUNT; i++) {
-            client.remove("craftAmtButton" + i);
-            client.remove("priorityAmtButton" + i);
-            client.remove("levelAmtButton" + i);
-        }
     }
 }

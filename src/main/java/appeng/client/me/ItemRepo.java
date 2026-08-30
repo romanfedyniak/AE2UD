@@ -31,7 +31,7 @@ import appeng.client.gui.widgets.ISortSource;
 import appeng.container.me.GridInventoryEntry;
 import appeng.container.implementations.TerminalCraftingPin;
 import appeng.api.storage.IPlayerTerminalPins;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
@@ -208,7 +208,7 @@ public class ItemRepo {
             lastView = viewMode;
         }
 
-        final Enum searchMode = AEConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE);
+        final Enum searchMode = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE);
         if (lastSearchMode != searchMode) {
             resort = true;
             lastSearchMode = searchMode;
@@ -323,7 +323,7 @@ public class ItemRepo {
 
         final boolean needsZeroCopy = viewMode == ViewItems.CRAFTABLE;
 
-        final boolean terminalSearchToolTips = AEConfig.instance().getConfigManager().getSetting(Settings.SEARCH_TOOLTIPS) != YesNo.NO;
+        final boolean terminalSearchToolTips = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_TOOLTIPS) != YesNo.NO;
 
         boolean searchMod = false;
 

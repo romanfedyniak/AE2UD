@@ -46,6 +46,7 @@ import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.core.AEClientConfig;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -176,7 +177,7 @@ public class Platform {
     public static String formatPowerLong(final long n, final boolean isRate) {
         double p = ((double) n) / 100;
 
-        final PowerUnits displayUnits = AEConfig.instance().selectedPowerUnit();
+        final PowerUnits displayUnits = AEClientConfig.instance().selectedPowerUnit();
         p = PowerUnits.AE.convertTo(displayUnits, p);
 
         final String[] preFixes = {

@@ -1,6 +1,6 @@
 package appeng.client.render;
 
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.math.BlockPos;
@@ -53,7 +53,7 @@ public class BlockPosHighlighter {
      * than somewhere behind. The nearest one, when several were highlighted at once.
      */
     public static void turnPlayerTowards(Collection<BlockPos> blocks) {
-        if (blocks.isEmpty() || !AEConfig.instance().turnToHighlightedBlock()) {
+        if (blocks.isEmpty() || !AEClientConfig.instance().turnToHighlightedBlock()) {
             return;
         }
 

@@ -28,7 +28,7 @@ import appeng.container.implementations.TerminalCraftingPin;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.ButtonToolTips;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
@@ -93,7 +93,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                     currentToolTip.add(format);
                 }
 
-                if (myStack.isCraftable() && AEConfig.instance().isShowCraftableTooltip()) {
+                if (myStack.isCraftable() && AEClientConfig.instance().isShowCraftableTooltip()) {
                     final String local = ButtonToolTips.ItemsCraftable.getLocal();
                     currentToolTip.add(TextFormatting.GRAY + local);
                 }

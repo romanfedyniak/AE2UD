@@ -27,7 +27,7 @@ import appeng.client.render.effects.*;
 import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.api.AEApi;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKeyTypes;
@@ -196,7 +196,7 @@ public class ClientHelper extends ServerHelper {
 
     @Override
     public void spawnEffect(final EffectType effect, final World world, final double posX, final double posY, final double posZ, final Object o) {
-        if (AEConfig.instance().isEnableEffects()) {
+        if (AEClientConfig.instance().isEnableEffects()) {
             switch (effect) {
                 case Assembler:
                     this.spawnAssembler(world, posX, posY, posZ, o);

@@ -20,29 +20,21 @@ package appeng.core;
 
 
 import appeng.api.config.*;
-import appeng.api.util.IConfigManager;
-import appeng.api.util.IConfigurableObject;
 import appeng.core.features.AEFeature;
 import appeng.core.settings.TickRates;
 import appeng.items.materials.MaterialType;
-import appeng.util.ConfigManager;
-import appeng.util.IConfigManagerHost;
-import appeng.util.Platform;
 import com.google.common.collect.Sets;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
-import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.ModContainer;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.io.File;
 import java.util.*;
 import java.util.stream.Stream;
 
 
-public final class AEConfig extends Configuration implements IConfigurableObject, IConfigManagerHost {
+public final class AEConfig extends Configuration {
 
     public static final String VERSION = appeng.Tags.VERSION;
     public static final String PACKET_CHANNEL = "AE";
@@ -59,7 +51,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private static final double DEFAULT_RF_EXCHANGE = 0.5;
     // Config instance
     private static AEConfig instance;
-    private final IConfigManager settings = new ConfigManager(this);
 
     private final EnumSet<AEFeature> featureFlags = EnumSet.noneOf(AEFeature.class);
     private final File configFile;
@@ -73,22 +64,12 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private int adHocNetworkChannels = 8;
     private int p2pTunnelChannelCost = 1;
     private int formationPlaneEntityLimit = 128;
-    private boolean enableEffects = true;
-    private boolean useColoredCraftingStatus;
-    private boolean disableColoredCableRecipesInJEI = true;
     private int craftingCalculationTimePerTick = 5;
     private boolean craftingCPURequiresSingleChunk = false;
     private int craftingCPUMaxSizeX = 17;
     private int craftingCPUMaxSizeY = 17;
     private int craftingCPUMaxSizeZ = 17;
     private double crystalResonanceGeneratorRate = 20.0;
-    private PowerUnits selectedPowerUnit = PowerUnits.AE;
-    private boolean showCraftableTooltip = true;
-    private boolean showPlacementPreview = true;
-    private boolean turnToHighlightedBlock = true;
-    private boolean showCellContentsPreview = true;
-    private boolean showCraftingPins = true;
-    private boolean showPlayerPins = true;
 
     // Spatial IO/Dimension
     private int storageProviderID = -1;
@@ -133,8 +114,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         super(configFile);
         this.configFile = configFile;
 
-        MinecraftForge.EVENT_BUS.register(this);
-
         PowerUnits.EU.conversionRatio = this.get("PowerRatios", "IC2", DEFAULT_IC2_EXCHANGE).getDouble(DEFAULT_IC2_EXCHANGE);
         PowerUnits.RF.conversionRatio = this.get("PowerRatios", "ForgeEnergy", DEFAULT_RF_EXCHANGE).getDouble(DEFAULT_RF_EXCHANGE);
         PowerUnits.GTEU.conversionRatio = this.get("PowerRatios", "GTEU", DEFAULT_GTEU_EXCHANGE).getDouble(DEFAULT_GTEU_EXCHANGE);
@@ -157,16 +136,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.grinderOres = this.get("GrindStone", "grinderOres", this.grinderOres, "The list of types to handle. Specify without a prefix like ore or dust.").getStringList();
         this.grinderBlackList = Sets.newHashSet(this.get("GrindStone", "blacklist", new String[]{}, "Blacklists the exact oredict name from being handled by any recipe.").getStringList());
         this.oreDoublePercentage = this.get("GrindStone", "oreDoublePercentage", this.oreDoublePercentage, "Chance to actually get an output with stacksize > 1.").getDouble(this.oreDoublePercentage);
-
-        this.settings.registerSetting(Settings.SEARCH_TOOLTIPS, YesNo.YES);
-        this.settings.registerSetting(Settings.TERMINAL_STYLE, TerminalStyle.SMALL);
-        this.settings.registerSetting(Settings.HIDE_STORED, YesNo.NO);
-        this.settings.registerSetting(Settings.SEARCH_MODE, SearchBoxMode.AUTOSEARCH);
-        this.settings.registerSetting(Settings.AMOUNT_ENTRY_UNITS, YesNo.NO);
-        this.settings.registerSetting(Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.ALL);
-        this.settings.registerSetting(Settings.CPU_FILTER_MODE, CpuModeFilter.ALL);
-        this.settings.registerSetting(Settings.CPU_SORT_BY, CpuSortOrder.NAME);
-        this.settings.registerSetting(Settings.CPU_SORT_DIRECTION, SortDir.ASCENDING);
 
         this.spawnChargedChance = (float) (1.0 - this.get("worldGen", "spawnChargedChance", 1.0 - this.spawnChargedChance).getDouble(1.0 - this.spawnChargedChance));
         this.minMeteoriteDistance = this.get("worldGen", "minMeteoriteDistance", this.minMeteoriteDistance).getInt(this.minMeteoriteDistance);
@@ -206,8 +175,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.maxControllerSizeZ = Math.min(Math.max(this.get("ControllerSize", "maxControllerSizeZ", this.maxControllerSizeZ).getInt(this.maxControllerSizeZ), 1), 63);
 
 
-        this.clientSync();
-
         this.addCustomCategoryComment("features", "Warning: Disabling a feature may disable other features depending on it.");
         for (final AEFeature feature : AEFeature.values()) {
             if (feature.isVisible()) {
@@ -227,12 +194,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
             if (version.contains(imb.getVersion())) {
                 this.featureFlags.remove(AEFeature.ALPHA_PASS);
             }
-        }
-
-        try {
-            this.selectedPowerUnit = PowerUnits.valueOf(this.get("Client", "PowerUnit", this.selectedPowerUnit.name(), this.getListComment(this.selectedPowerUnit)).getString());
-        } catch (final Throwable t) {
-            this.selectedPowerUnit = PowerUnits.AE;
         }
 
         for (final TickRates tr : TickRates.values()) {
@@ -267,57 +228,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public static AEConfig instance() {
         return instance;
-    }
-
-    private void clientSync() {
-        this.disableColoredCableRecipesInJEI = this.get("Client", "disableColoredCableRecipesInJEI", true).getBoolean(true);
-        this.enableEffects = this.get("Client", "enableEffects", true).getBoolean(true);
-        this.useColoredCraftingStatus = this.get("Client", "useColoredCraftingStatus", true).getBoolean(true);
-        this.showCraftableTooltip = this.get("Client", "showCraftableTooltip", true, "Whether to add \"Craftable\" to item tooltips when they can be crafted automatically.").getBoolean(true);
-        this.showPlacementPreview = this.get("Client", "showPlacementPreview", true, "Whether to show a preview of part and facade placement.").getBoolean(true);
-        this.turnToHighlightedBlock = this.get("Client", "turnToHighlightedBlock", true,
-                "Whether highlighting a block also turns the player to face it.").getBoolean(true);
-        this.showCellContentsPreview = this.get("Client", "showCellContentsPreview", true, "Whether to show a preview of cell contents in tooltips.").getBoolean(true);
-        this.showCraftingPins = this.get("Client", "showCraftingPins", true,
-                "Whether terminals show active crafting jobs pinned above their contents.").getBoolean(true);
-        this.showPlayerPins = this.get("Client", "showPlayerPins", true,
-                "Whether terminals show persistent player pins.").getBoolean(true);
-
-        AmountSteps.load(this);
-
-        for (final Settings e : this.settings.getSettings()) {
-            final String Category = "Client"; // e.getClass().getSimpleName();
-            Enum<?> value = this.settings.getSetting(e);
-
-            final Property p = this.get(Category, e.name(), value.name(), this.getListComment(value));
-
-            try {
-                value = Enum.valueOf(value.getClass(), p.getString());
-            } catch (final IllegalArgumentException er) {
-                AELog.info("Invalid value '" + p.getString() + "' for " + e.name() + " using '" + value.name() + "' instead");
-            }
-
-            this.settings.putSetting(e, value);
-        }
-    }
-
-    private String getListComment(final Enum value) {
-        String comment = null;
-
-        if (value != null) {
-            final EnumSet set = EnumSet.allOf(value.getClass());
-
-            for (final Object Oeg : set) {
-                final Enum eg = (Enum) Oeg;
-                if (comment == null) {
-                    comment = "Possible Values: " + eg.name();
-                } else {
-                    comment += ", " + eg.name();
-                }
-            }
-        }
-
-        return comment;
     }
 
     public boolean isFeatureEnabled(final AEFeature f) {
@@ -360,22 +270,9 @@ public final class AEConfig extends Configuration implements IConfigurableObject
             this.get("spatialio", "storageDimensionID", this.storageDimensionID).set(this.storageDimensionID);
         }
 
-        this.get("Client", "PowerUnit", this.selectedPowerUnit.name(), this.getListComment(this.selectedPowerUnit)).set(this.selectedPowerUnit.name());
-
         if (this.hasChanged()) {
             super.save();
         }
-    }
-
-    @SubscribeEvent
-    public void onConfigChanged(final ConfigChangedEvent.OnConfigChangedEvent eventArgs) {
-        if (eventArgs.getModID().equals(AppEng.MOD_ID)) {
-            this.clientSync();
-        }
-    }
-
-    public boolean disableColoredCableRecipesInJEI() {
-        return this.disableColoredCableRecipesInJEI;
     }
 
     public String getFilePath() {
@@ -392,21 +289,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         p.setComment("OreDictionary Names: " + mt.getOreName());
 
         return !p.getBoolean(true);
-    }
-
-    @Override
-    public void updateSetting(final IConfigManager manager, final Enum setting, final Enum newValue) {
-        for (final Settings e : this.settings.getSettings()) {
-            if (e == setting) {
-                final String Category = "Client";
-                final Property p = this.get(Category, e.name(), this.settings.getSetting(e).name(), this.getListComment(newValue));
-                p.set(newValue.name());
-            }
-        }
-
-        if (this.updatable) {
-            this.save();
-        }
     }
 
     public int getFreeMaterial(final int varID) {
@@ -442,11 +324,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         return this.getFreeIDSLot(varID, "parts");
     }
 
-    @Override
-    public IConfigManager getConfigManager() {
-        return this.settings;
-    }
-
     public Enum getSetting(final String category, final Class<? extends Enum> class1, final Enum myDefault) {
         final String name = class1.getSimpleName();
         final Property p = this.get(category, name, myDefault.name());
@@ -466,15 +343,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
         this.save();
     }
 
-    public PowerUnits selectedPowerUnit() {
-        return this.selectedPowerUnit;
-    }
-
-    public void nextPowerUnit(final boolean backwards) {
-        this.selectedPowerUnit = Platform.rotateEnum(this.selectedPowerUnit, backwards, Settings.POWER_UNITS.getPossibleValues());
-        this.save();
-    }
-
     // Getters
     public boolean isRemoveCrashingItemsOnLoad() {
         return this.removeCrashingItemsOnLoad;
@@ -482,42 +350,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
 
     public int getFormationPlaneEntityLimit() {
         return this.formationPlaneEntityLimit;
-    }
-
-    public boolean isEnableEffects() {
-        return this.enableEffects;
-    }
-
-    public boolean isUseColoredCraftingStatus() {
-        return this.useColoredCraftingStatus;
-    }
-
-    public boolean isShowCraftableTooltip() {
-        return this.showCraftableTooltip;
-    }
-
-    public boolean showPlacementPreview() {
-        return this.showPlacementPreview;
-    }
-
-    public boolean turnToHighlightedBlock() {
-        return this.turnToHighlightedBlock;
-    }
-
-    public boolean showCellContentsPreview() {
-        return showCellContentsPreview;
-    }
-
-    public boolean showCraftingPins() {
-        return showCraftingPins;
-    }
-
-    public boolean showPlayerPins() {
-        return showPlayerPins;
-    }
-
-    public boolean isDisableColoredCableRecipesInJEI() {
-        return this.disableColoredCableRecipesInJEI;
     }
 
     public int getCraftingCalculationTimePerTick() {
@@ -551,10 +383,6 @@ public final class AEConfig extends Configuration implements IConfigurableObject
     private int getCraftingCPUMaxSize(final String key, final int fallback) {
         final int size = this.get("craftingCPU", key, fallback, "How many blocks long a crafting CPU may be along this axis, from 1 to 64. AE's own limit is 17.").getInt(fallback);
         return Math.min(Math.max(size, 1), 64);
-    }
-
-    public PowerUnits getSelectedPowerUnit() {
-        return this.selectedPowerUnit;
     }
 
     public int getStorageProviderID() {

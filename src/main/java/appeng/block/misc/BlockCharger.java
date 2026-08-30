@@ -25,7 +25,7 @@ import appeng.block.AEBaseTileBlock;
 import appeng.client.render.effects.LightningFX;
 import appeng.client.render.renderable.ItemRenderable;
 import appeng.client.render.tesr.ModularTESR;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.helpers.ICustomCollision;
 import appeng.tile.AEBaseTile;
@@ -84,7 +84,7 @@ public class BlockCharger extends AEBaseTileBlock implements ICustomCollision {
     @Override
     @SideOnly(Side.CLIENT)
     public void randomDisplayTick(final IBlockState state, final World w, final BlockPos pos, final Random r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+        if (!AEClientConfig.instance().isEnableEffects()) {
             return;
         }
 

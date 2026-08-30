@@ -33,7 +33,7 @@ import appeng.client.gui.widgets.ISortSource;
 import appeng.client.me.ItemRepo;
 import appeng.client.me.SlotME;
 import appeng.container.implementations.ContainerNetworkStatus;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
 import appeng.util.Platform;
 import net.minecraft.client.gui.GuiButton;
@@ -84,13 +84,13 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         final boolean backwards = Mouse.isButtonDown(1);
 
         if (btn == this.units) {
-            AEConfig.instance().nextPowerUnit(backwards);
-            this.units.set(AEConfig.instance().selectedPowerUnit());
+            AEClientConfig.instance().nextPowerUnit(backwards);
+            this.units.set(AEClientConfig.instance().selectedPowerUnit());
         } else if (btn == this.terminalStyleBox) {
-            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.buttonList.clear();
             this.initGui();
         }
@@ -98,12 +98,12 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
 
     @Override
     public void initGui() {
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
-        this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEConfig.instance().selectedPowerUnit());
+        this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEClientConfig.instance().selectedPowerUnit());
         this.buttonList.add(this.units);
         this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28,
                 Settings.TERMINAL_STYLE, style);

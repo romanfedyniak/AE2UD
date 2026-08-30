@@ -125,11 +125,13 @@ public final class AppEng {
         this.configDirectory = new File(event.getModConfigurationDirectory().getPath(), "AppliedEnergistics2");
 
         final File configFile = new File(this.configDirectory, "AppliedEnergistics2.cfg");
+        final File clientConfigFile = new File(this.configDirectory, "Client.cfg");
         final File facadeFile = new File(this.configDirectory, "Facades.cfg");
         final File recipeFile = new File(this.configDirectory, "CustomRecipes.cfg");
         final Configuration recipeConfiguration = new Configuration(recipeFile);
 
         AEConfig.init(configFile);
+        AEClientConfig.init(clientConfigFile);
         FacadeConfig.init(facadeFile);
 
         this.exportConfig = new ForgeExportConfig(recipeConfiguration);
@@ -203,6 +205,7 @@ public final class AppEng {
 
         AppEng.proxy.postInit();
         AEConfig.instance().save();
+        AEClientConfig.instance().save();
 
         NonBlockingItems.INSTANCE.init();
 

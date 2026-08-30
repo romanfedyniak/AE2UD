@@ -41,7 +41,7 @@ import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -164,7 +164,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     public void initGui() {
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         final int availableRows = (this.height - 64 - FIXED_HEIGHT) / ROW_HEIGHT;
         this.rows = Math.max(MIN_ROWS, style.getRows(availableRows));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
@@ -499,10 +499,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         final boolean backwards = Mouse.isButtonDown(1);
 
         if (btn == this.terminalStyleBox) {
-            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.buttonList.clear();
             this.initGui();
             return;

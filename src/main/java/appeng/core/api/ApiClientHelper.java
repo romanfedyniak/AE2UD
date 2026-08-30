@@ -21,7 +21,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.IClientHelper;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.me.storage.BasicCellInventory;
@@ -112,7 +112,7 @@ public class ApiClientHelper implements IClientHelper {
                 }
             }
         } else {
-            if (!AEConfig.instance().showCellContentsPreview()) {
+            if (!AEClientConfig.instance().showCellContentsPreview()) {
                 return;
             }
 

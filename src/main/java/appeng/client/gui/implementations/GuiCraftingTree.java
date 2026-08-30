@@ -36,7 +36,7 @@ import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiCraftingPlanTree;
 import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.container.implementations.ContainerCraftingTree;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
@@ -125,7 +125,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     public void initGui() {
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
 
         this.xSize = Math.max(MIN_WIDTH,
                 Math.min(MAX_WIDTH, this.width - 2 * (GuiCraftingCPUTable.WIDTH + 8)));
@@ -326,10 +326,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         }
 
         if (btn == this.terminalStyleBox) {
-            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.buttonList.clear();
             this.initGui();
             return;

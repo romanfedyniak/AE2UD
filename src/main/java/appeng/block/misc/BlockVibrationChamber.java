@@ -21,7 +21,7 @@ package appeng.block.misc;
 
 import appeng.api.util.AEPartLocation;
 import appeng.block.AEBaseTileBlock;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.sync.GuiBridge;
 import appeng.tile.AEBaseTile;
 import appeng.tile.misc.TileVibrationChamber;
@@ -87,7 +87,7 @@ public final class BlockVibrationChamber extends AEBaseTileBlock {
 
     @Override
     public void randomDisplayTick(final IBlockState state, final World w, final BlockPos pos, final Random r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+        if (!AEClientConfig.instance().isEnableEffects()) {
             return;
         }
 

@@ -22,7 +22,7 @@ package appeng.block.misc;
 import appeng.api.util.IOrientableBlock;
 import appeng.block.AEBaseTileBlock;
 import appeng.client.render.effects.LightningFX;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.tile.misc.TileQuartzGrowthAccelerator;
 import appeng.util.Platform;
@@ -69,7 +69,7 @@ public class BlockQuartzGrowthAccelerator extends AEBaseTileBlock implements IOr
     @SideOnly(Side.CLIENT)
     @Override
     public void randomDisplayTick(final IBlockState state, final World w, final BlockPos pos, final Random r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+        if (!AEClientConfig.instance().isEnableEffects()) {
             return;
         }
 

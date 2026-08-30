@@ -50,7 +50,7 @@ import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotFakeCraftingMatrix;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
@@ -256,12 +256,12 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             int nextPlayer = this.playerPinRows;
             int available = Math.max(0, this.rows - 1);
             if (crafting) {
-                int visiblePlayer = AEConfig.instance().showPlayerPins() ? nextPlayer : 0;
+                int visiblePlayer = AEClientConfig.instance().showPlayerPins() ? nextPlayer : 0;
                 nextCrafting = Math.max(0, Math.min(IPlayerTerminalPins.MAX_ROWS,
                         nextCrafting + (backwards ? -1 : 1)));
                 nextCrafting = Math.min(nextCrafting, Math.max(0, available - visiblePlayer));
             } else {
-                int visibleCrafting = AEConfig.instance().showCraftingPins() ? nextCrafting : 0;
+                int visibleCrafting = AEClientConfig.instance().showCraftingPins() ? nextCrafting : 0;
                 nextPlayer = Math.max(0, Math.min(IPlayerTerminalPins.MAX_ROWS,
                         nextPlayer + (backwards ? -1 : 1)));
                 nextPlayer = Math.min(nextPlayer, Math.max(0, available - visibleCrafting));
@@ -277,9 +277,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 final Enum next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
 
                 if (btn == this.terminalStyleBox) {
-                    AEConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
+                    AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
                 } else if (btn == this.searchBoxSettings) {
-                    AEConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
+                    AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
                 } else {
                     try {
                         NetworkHandler.instance().sendToServer(new PacketValueConfig(iBtn.getSetting().name(), next.name()));
@@ -315,7 +315,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         final int magicNumber = 114 + 1;
         final int extraSpace = this.height - magicNumber - this.reservedSpace;
 
-        final TerminalStyle terminalStyle = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle terminalStyle = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         this.rows = terminalStyle.getRows((int) Math.floor(extraSpace / 18));
         if (this.rows > this.maxRows) {
             this.rows = this.maxRows;
@@ -327,7 +327,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         int maxPinRows = Math.max(0, this.rows - 1);
         this.visibleCraftingPinRows = this.getVisibleCraftingPinRows(maxPinRows);
-        this.visiblePlayerPinRows = this.supportsTerminalPins && AEConfig.instance().showPlayerPins()
+        this.visiblePlayerPinRows = this.supportsTerminalPins && AEClientConfig.instance().showPlayerPins()
                 ? Math.min(this.playerPinRows, maxPinRows - this.visibleCraftingPinRows) : 0;
         this.normalRows = Math.max(1, this.rows - this.visibleCraftingPinRows - this.visiblePlayerPinRows);
 
@@ -387,7 +387,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         offset += 20;
 
         this.buttonList.add(
-                this.searchBoxSettings = new GuiImgButton(this.guiLeft - 18, offset, Settings.SEARCH_MODE, AEConfig.instance()
+                this.searchBoxSettings = new GuiImgButton(this.guiLeft - 18, offset, Settings.SEARCH_MODE, AEClientConfig.instance()
                         .getConfigManager()
                         .getSetting(
                                 Settings.SEARCH_MODE)));
@@ -395,7 +395,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         offset += 20;
 
         if (this.supportsTerminalStyle()) {
-            this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEConfig.instance()
+            this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEClientConfig.instance()
                     .getConfigManager()
                     .getSetting(Settings.TERMINAL_STYLE)));
             offset += 20;
@@ -407,7 +407,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
 
-        if (this.supportsTerminalPins && (AEConfig.instance().showCraftingPins() || AEConfig.instance().showPlayerPins())) {
+        if (this.supportsTerminalPins && (AEClientConfig.instance().showCraftingPins() || AEClientConfig.instance().showPlayerPins())) {
             offset += this.supportsKeyTypeSelection ? 20 : 0;
             this.buttonList.add(this.pinsButton = new GuiPinsButton(this.guiLeft - 18, offset));
             this.pinsButton.setRows(this.craftingPinRows, this.playerPinRows);
@@ -426,7 +426,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.craftingStatusBtn.setHideEdge(13);
         }
 
-        final Enum searchModeSetting = AEConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE);
+        final Enum searchModeSetting = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE);
 
         this.isAutoFocus = SearchBoxMode.AUTOSEARCH == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting || SearchBoxMode.AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH_KEEP == searchModeSetting;
         final boolean isKeepFilter = SearchBoxMode.AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.MANUAL_SEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_MANUAL_SEARCH_KEEP == searchModeSetting;
@@ -526,7 +526,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.terminalCraftingPins = new ArrayList<>(craftingPins);
         int maxPinRows = Math.max(0, this.rows - 1);
         int newVisibleCraftingRows = this.getVisibleCraftingPinRows(maxPinRows);
-        int newVisiblePlayerRows = this.supportsTerminalPins && AEConfig.instance().showPlayerPins()
+        int newVisiblePlayerRows = this.supportsTerminalPins && AEClientConfig.instance().showPlayerPins()
                 ? Math.min(this.playerPinRows, maxPinRows - newVisibleCraftingRows) : 0;
         layoutChanged |= oldVisibleCraftingRows != newVisibleCraftingRows
                 || oldVisiblePlayerRows != newVisiblePlayerRows;
@@ -544,7 +544,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     private int getVisibleCraftingPinRows(int maxPinRows) {
-        if (!this.supportsTerminalPins || !AEConfig.instance().showCraftingPins()
+        if (!this.supportsTerminalPins || !AEClientConfig.instance().showCraftingPins()
                 || this.terminalCraftingPins.isEmpty()) {
             return 0;
         }
@@ -644,7 +644,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             }
         } else if (slot instanceof SlotME && !(slot instanceof PinSlotME)
                 && clickType == ClickType.CLONE && isShiftKeyDown()
-                && this.supportsTerminalPins && AEConfig.instance().showPlayerPins()) {
+                && this.supportsTerminalPins && AEClientConfig.instance().showPlayerPins()) {
             GridInventoryEntry entry = ((SlotME) slot).getEntry();
             if (entry != null) {
                 this.togglePlayerPin(entry.getWhat());

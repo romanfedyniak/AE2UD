@@ -31,7 +31,7 @@ import appeng.client.me.SlotDisconnected;
 import appeng.container.implementations.ContainerInterfaceTerminal;
 import appeng.container.implementations.ContainerWirelessInterfaceTerminal;
 import appeng.container.slot.AppEngSlot;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -172,7 +172,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         final int jeiPadding = jeiEnabled ? 22 + 18 : 0;
         final int extraSpace = this.height - MAGIC_HEIGHT_NUMBER - jeiPadding;
         final int availableRows = extraSpace / 18;
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
 
         return Math.max(6, style.getRows(availableRows));
     }
@@ -290,7 +290,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         guiButtonAssemblersOnly.set(onlyMolecularAssemblers ? ActionItems.MOLECULAR_ASSEMBLERS_ON : ActionItems.MOLECULAR_ASSEMBLERS_OFF);
         guiButtonHideFull.set(onlyShowWithSpace ? ActionItems.TOGGLE_SHOW_FULL_INTERFACES_OFF : ActionItems.TOGGLE_SHOW_FULL_INTERFACES_ON);
         guiButtonBrokenRecipes.set(onlyBrokenRecipes ? ActionItems.TOGGLE_SHOW_ONLY_INVALID_PATTERNS_ON : ActionItems.TOGGLE_SHOW_ONLY_INVALID_PATTERNS_OFF);
-        terminalStyleBox.set(AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
+        terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
 
         buttonList.add(guiButtonAssemblersOnly);
         buttonList.add(guiButtonHideFull);
@@ -377,7 +377,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 final Enum<?> next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
 
                 if (btn == this.terminalStyleBox) {
-                    AEConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
+                    AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
                     this.reinitalize();
                 }
                 iBtn.set(next);

@@ -22,7 +22,7 @@ package appeng.client.gui;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.AEKey;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiTextField;
@@ -97,11 +97,11 @@ public final class AmountEntry {
     }
 
     public static boolean unitsEnabled() {
-        return AEConfig.instance().getConfigManager().getSetting(Settings.AMOUNT_ENTRY_UNITS) == YesNo.YES;
+        return AEClientConfig.instance().getConfigManager().getSetting(Settings.AMOUNT_ENTRY_UNITS) == YesNo.YES;
     }
 
     public static void toggleUnits() {
-        AEConfig.instance().getConfigManager()
+        AEClientConfig.instance().getConfigManager()
                 .putSetting(Settings.AMOUNT_ENTRY_UNITS, unitsEnabled() ? YesNo.NO : YesNo.YES);
     }
 

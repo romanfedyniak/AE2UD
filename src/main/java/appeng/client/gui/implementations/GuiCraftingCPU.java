@@ -38,7 +38,7 @@ import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.container.implementations.ContainerCraftingCPU;
-import appeng.core.AEConfig;
+import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
@@ -152,19 +152,19 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
         if (this.toggleHideStored == btn) {
             final YesNo next = (YesNo) Platform.rotateEnum(
-                    AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED),
+                    AEClientConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED),
                     Mouse.isButtonDown(1), Settings.HIDE_STORED.getPossibleValues());
-            AEConfig.instance().getConfigManager().putSetting(Settings.HIDE_STORED, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.HIDE_STORED, next);
             this.toggleHideStored.set(next);
             this.setScrollBar();
             return;
         }
 
         if (this.terminalStyleBox == btn) {
-            final TerminalStyle current = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+            final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            AEConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.buttonList.clear();
             this.initGui();
             return;
@@ -206,7 +206,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
     @Override
     public void initGui() {
-        final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
+        final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         final int availableRows = (this.height - 64 - FIXED_HEIGHT) / ROW_HEIGHT;
         this.rows = Math.max(MIN_ROWS, style.getRows(availableRows));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
@@ -225,7 +225,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                 Settings.TERMINAL_STYLE, style);
         // Directly under the terminal-style button, on whichever side that screen puts it.
         this.toggleHideStored = new GuiImgButton(this.terminalStyleBox.x, this.terminalStyleBox.y + 20,
-                Settings.HIDE_STORED, AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
+                Settings.HIDE_STORED, AEClientConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.buttonList.add(this.toggleHideStored);
 
         if (this.canEditSelectionMode()) {
@@ -242,7 +242,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
      * is left rather than what has been gathered.
      */
     private void rebuildDisplayed() {
-        final boolean hideStored = AEConfig.instance().getConfigManager()
+        final boolean hideStored = AEClientConfig.instance().getConfigManager()
                 .getSetting(Settings.HIDE_STORED) == YesNo.YES;
 
         this.displayed.clear();
@@ -265,7 +265,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float btn) {
         this.cancel.enabled = !this.visual.isEmpty();
-        this.toggleHideStored.set(AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
+        this.toggleHideStored.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.suspend.enabled = this.cancel.enabled;
         this.suspend.displayString = this.craftingCpu.suspended ? GuiText.Resume.getLocal() : GuiText.Suspend.getLocal();
         // Nothing to order while nothing is being crafted, the same condition the two buttons beside it use.
@@ -368,7 +368,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
                 final boolean stalled = waitingAmount > 0;
 
-                if (AEConfig.instance().isUseColoredCraftingStatus() && (stalled || active || scheduled)) {
+                if (AEClientConfig.instance().isUseColoredCraftingStatus() && (stalled || active || scheduled)) {
                     // Orange outranks the other two: green and yellow both mean the network is getting on
                     // with it, and orange means it cannot until someone brings this. A row where a machine
                     // is making part of the amount and the rest is waited for is still a row to look at.
