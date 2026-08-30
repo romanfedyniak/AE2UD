@@ -21,8 +21,6 @@ package appeng.parts.misc;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
-import appeng.api.upgrades.UpgradeCards;
-import appeng.api.definitions.IMaterials;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
@@ -39,18 +37,16 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
-import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.Reflected;
-import appeng.items.misc.ItemEncodedPattern;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartBasicState;
 import appeng.parts.PartModel;
-import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.misc.TileInterface;
+import appeng.util.MemoryCardSettings;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 import appeng.util.inv.IAEAppEngInventory;
@@ -70,7 +66,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -307,58 +302,22 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
 
     @Override
     public NBTTagCompound downloadSettings(SettingsFrom from, NBTTagCompound compound) {
-        NBTTagCompound output = super.downloadSettings(from, compound);
+        final NBTTagCompound output = super.downloadSettings(from, compound);
+
         if (from == SettingsFrom.MEMORY_CARD) {
-            final IItemHandler inv = this.getInventoryByName("patterns");
-            if (inv instanceof AppEngInternalInventory) {
-                ((AppEngInternalInventory) inv).writeToNBT(output, "patterns");
-            }
+            MemoryCardSettings.exportPatterns(this.getInventoryByName("patterns"), output);
         }
+
         return output;
     }
 
     @Override
     public void uploadSettings(SettingsFrom from, NBTTagCompound compound, EntityPlayer player) {
         super.uploadSettings(from, compound, player);
-        final IItemHandler inv = this.getInventoryByName("patterns");
-        if (inv instanceof AppEngInternalInventory) {
-            final AppEngInternalInventory target = (AppEngInternalInventory) inv;
-            AppEngInternalInventory tmp = new AppEngInternalInventory(null, target.getSlots());
-            tmp.readFromNBT(compound, "patterns");
-            PlayerMainInvWrapper playerInv = new PlayerMainInvWrapper(player.inventory);
-            final IMaterials materials = AEApi.instance().definitions().materials();
-            int missingPatternsToEncode = 0;
-            int amountPatternSlots = 8 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()) * 9;
 
-            for (int i = 0; i < inv.getSlots(); i++) {
-                if (target.getStackInSlot(i).getItem() instanceof ItemEncodedPattern) {
-                    ItemStack blank = materials.blankPattern().maybeStack(target.getStackInSlot(i).getCount()).get();
-                    if (!player.addItemStackToInventory(blank)) {
-                        player.dropItem(blank, true);
-                    }
-                    target.setStackInSlot(i, ItemStack.EMPTY);
-                }
-            }
-
-            for (int x = 0; x < amountPatternSlots; x++) {
-                if (!tmp.getStackInSlot(x).isEmpty()) {
-                    boolean found = false;
-                    for (int i = 0; i < playerInv.getSlots(); i++) {
-                        if (materials.blankPattern().isSameAs(playerInv.getStackInSlot(i))) {
-                            target.setStackInSlot(x, tmp.getStackInSlot(x));
-                            playerInv.getStackInSlot(i).shrink(1);
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        missingPatternsToEncode++;
-                    }
-                }
-            }
-            if (Platform.isServer() && missingPatternsToEncode > 0) {
-                player.sendMessage(PlayerMessages.MissingPatternsToEncode.get());
-            }
+        if (from == SettingsFrom.MEMORY_CARD) {
+            MemoryCardSettings.importPatterns(this.getInventoryByName("patterns"),
+                    this.duality.getUsablePatternSlots(), compound, player);
         }
     }
 }

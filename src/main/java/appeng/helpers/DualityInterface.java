@@ -606,12 +606,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return false;
     }
 
+    /** Nine to a row: the row the interface is born with, plus one for every expansion card. */
+    public int getUsablePatternSlots() {
+        return 9 * (1 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()));
+    }
+
     public void dropExcessPatterns() {
         IItemHandler patterns = getPatterns();
 
         List<ItemStack> dropList = new ArrayList<>();
         for (int invSlot = 0; invSlot < patterns.getSlots(); invSlot++) {
-            if (invSlot > 8 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()) * 9) {
+            if (invSlot >= this.getUsablePatternSlots()) {
                 ItemStack is = patterns.getStackInSlot(invSlot);
                 if (is.isEmpty()) {
                     continue;
