@@ -27,9 +27,11 @@ import appeng.api.util.IOrientable;
 import appeng.core.AELog;
 import appeng.core.features.IStackSrc;
 import appeng.helpers.ICustomNameObject;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.helpers.IPriorityHost;
 import appeng.hooks.TickHandler;
 import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.util.MemoryCardSettings;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 import io.netty.buffer.ByteBuf;
@@ -311,6 +313,11 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
      * @param compound compound of source
      */
     public void uploadSettings(final SettingsFrom from, final NBTTagCompound compound, EntityPlayer player) {
+        // Ahead of the filter below: how many of its slots a machine offers is decided by the cards in it.
+        if (compound != null && from == SettingsFrom.MEMORY_CARD && this instanceof ISegmentedInventory) {
+            MemoryCardSettings.importUpgrades(((ISegmentedInventory) this).getInventoryByName("upgrades"), compound, player);
+        }
+
         if (compound != null && this instanceof IConfigurableObject) {
             final IConfigManager cm = ((IConfigurableObject) this).getConfigManager();
             if (cm != null) {
@@ -321,6 +328,12 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
         if (this instanceof IPriorityHost) {
             final IPriorityHost pHost = (IPriorityHost) this;
             pHost.setPriority(compound.getInteger("priority"));
+        }
+
+        // Guarded, unlike the priority above: a card written before machines carried this one says nothing
+        // about it, and reading a missing tag would order every craft at zero.
+        if (this instanceof ICraftPriorityTarget && compound.hasKey("craftPriority")) {
+            ((ICraftPriorityTarget) this).setCraftPriority(compound.getInteger("craftPriority"));
         }
 
         if (this instanceof ISegmentedInventory) {
@@ -379,10 +392,18 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
             output.setInteger("priority", pHost.getPriority());
         }
 
+        if (this instanceof ICraftPriorityTarget) {
+            output.setInteger("craftPriority", ((ICraftPriorityTarget) this).getCraftPriority());
+        }
+
         if (this instanceof ISegmentedInventory) {
             final IItemHandler inv = ((ISegmentedInventory) this).getInventoryByName("config");
             if (inv instanceof AppEngInternalAEInventory) {
                 ((AppEngInternalAEInventory) inv).writeToNBT(output, "config");
+            }
+
+            if (from == SettingsFrom.MEMORY_CARD) {
+                MemoryCardSettings.exportUpgrades(((ISegmentedInventory) this).getInventoryByName("upgrades"), output);
             }
         }
 

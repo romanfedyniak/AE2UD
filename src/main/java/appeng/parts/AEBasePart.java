@@ -30,6 +30,7 @@ import appeng.api.parts.*;
 import appeng.api.util.*;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.ICustomNameObject;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.helpers.IPriorityHost;
 import appeng.items.parts.ItemPart;
 import appeng.items.parts.PartType;
@@ -40,6 +41,7 @@ import appeng.parts.automation.PartLevelEmitter;
 import appeng.parts.misc.PartOreDicStorageBus;
 import appeng.parts.networking.PartCable;
 import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.util.MemoryCardSettings;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
 import com.google.common.base.Preconditions;
@@ -308,6 +310,12 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
      */
     public void uploadSettings(final SettingsFrom from, final NBTTagCompound compound, EntityPlayer player) {
         if (compound != null) {
+            // Ahead of the filter below, and of any patterns a subclass restores after us: how many slots
+            // a machine offers either of them is decided by the cards standing in it.
+            if (from == SettingsFrom.MEMORY_CARD) {
+                MemoryCardSettings.importUpgrades(this.getInventoryByName("upgrades"), compound, player);
+            }
+
             final IConfigManager cm = this.getConfigManager();
             if (cm != null) {
                 cm.readFromNBT(compound);
@@ -327,6 +335,12 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
         if (this instanceof IPriorityHost) {
             final IPriorityHost pHost = (IPriorityHost) this;
             pHost.setPriority(compound.getInteger("priority"));
+        }
+
+        // Guarded, unlike the priority above: a card written before machines carried this one says nothing
+        // about it, and reading a missing tag would order every craft at zero.
+        if (this instanceof ICraftPriorityTarget && compound.hasKey("craftPriority")) {
+            ((ICraftPriorityTarget) this).setCraftPriority(compound.getInteger("craftPriority"));
         }
 
         final IItemHandler inv = this.getInventoryByName("config");
@@ -370,6 +384,10 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             cm.writeToNBT(output);
         }
 
+        if (from == SettingsFrom.MEMORY_CARD) {
+            MemoryCardSettings.exportUpgrades(this.getInventoryByName("upgrades"), output);
+        }
+
         if (this instanceof PartOreDicStorageBus oreDicStorageBus) {
             output.setString("oreMatch", oreDicStorageBus.getOreExp());
         }
@@ -381,6 +399,10 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
         if (this instanceof IPriorityHost) {
             final IPriorityHost pHost = (IPriorityHost) this;
             output.setInteger("priority", pHost.getPriority());
+        }
+
+        if (this instanceof ICraftPriorityTarget) {
+            output.setInteger("craftPriority", ((ICraftPriorityTarget) this).getCraftPriority());
         }
 
         final IItemHandler inv = this.getInventoryByName("config");

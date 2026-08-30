@@ -25,6 +25,7 @@ import appeng.api.util.AEColor;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.items.AEBaseItem;
+import appeng.util.MemoryCardSettings;
 import appeng.util.Platform;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
@@ -42,6 +43,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -64,6 +66,23 @@ public class ToolMemoryCard extends AEBaseItem implements IMemoryCard {
         final NBTTagCompound data = this.getData(stack);
         if (data.hasKey("tooltip")) {
             lines.add(I18n.translateToLocal(this.getLocalizedName(data.getString("tooltip") + ".name", data.getString("tooltip"))));
+        }
+
+        final int cards = MemoryCardSettings.countStored(data, "upgrades");
+        final int patterns = MemoryCardSettings.countStored(data, "patterns");
+
+        if (cards > 0 || patterns > 0) {
+            final List<String> carried = new ArrayList<>(2);
+
+            if (cards > 0) {
+                carried.add(I18n.translateToLocalFormatted(GuiText.MemoryCardCards.getUnlocalized(), cards));
+            }
+
+            if (patterns > 0) {
+                carried.add(I18n.translateToLocalFormatted(GuiText.MemoryCardPatterns.getUnlocalized(), patterns));
+            }
+
+            lines.add(TextFormatting.GRAY + String.join(", ", carried));
         }
 
         if (data.hasKey("freq")) {

@@ -43,6 +43,7 @@ public enum PlayerMessages {
     StationCanNotBeLocated,
     SettingCleared,
     MissingPatternsToEncode,
+    MissingUpgradesToInstall,
     InterfaceInOtherDimParam,
     InterfaceInOtherDim,
     InterfaceHighlighted,

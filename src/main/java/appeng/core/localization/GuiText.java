@@ -286,6 +286,10 @@ public enum GuiText {
     // Used on the pattern terminal blank slot, when the network supplies it
     BlankPatternInNetwork,
 
+    // Used on the memory card, to say what a copy carries
+    MemoryCardCards,
+    MemoryCardPatterns,
+
     // Used in Annihilation Planes
     CanBeEnchanted,
     IncreasedEnergyUseFromEnchants,
