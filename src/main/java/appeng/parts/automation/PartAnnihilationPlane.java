@@ -124,7 +124,7 @@ public class PartAnnihilationPlane extends PartUpgradeable
             // Which strategies exist is decided once and cached, so it has to be rebuilt.
             this.pickupStrategies = null;
             this.refresh();
-        }, keyType -> true);
+        }, StackWorldBehaviors.withPickupStrategy()::contains);
         this.updateFilter();
     }
 

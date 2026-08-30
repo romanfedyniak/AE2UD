@@ -93,7 +93,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
             this.getHost().markForSave();
             // Which strategies exist is decided once and cached, so it has to be rebuilt.
             this.placementStrategy = null;
-        }, keyType -> true);
+        }, StackWorldBehaviors.withPlacementStrategy()::contains);
     }
 
     /**

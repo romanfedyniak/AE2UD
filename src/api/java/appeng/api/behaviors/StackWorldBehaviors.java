@@ -115,6 +115,10 @@ public final class StackWorldBehaviors {
         return Collections.unmodifiableSet(placementStrategies.keySet());
     }
 
+    public static Set<AEKeyType> withPickupStrategy() {
+        return Collections.unmodifiableSet(pickupStrategies.keySet());
+    }
+
     /**
      * @return one strategy per registered type that passes {@code forTypes}. Composing them into a
      *         single facade is left to the caller, which lives in {@code src/main}.
