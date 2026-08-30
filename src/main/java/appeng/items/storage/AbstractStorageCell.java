@@ -24,6 +24,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.exceptions.MissingDefinitionException;
 import appeng.api.implementations.items.IItemGroup;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.StorageCell;
@@ -113,9 +114,13 @@ public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCe
         return true;
     }
 
+    /**
+     * A slot per card the cell can take. Only an item cell is offered the fuzzy card, so it gets one more
+     * than the rest - the same rule upstream uses, counted against this fork's own set of cards.
+     */
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return new CellUpgrades(is, 2);
+        return new CellUpgrades(is, this.getKeyTypes().contains(AEKeyType.items()) ? 5 : 4);
     }
 
     @Override

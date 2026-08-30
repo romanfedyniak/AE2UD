@@ -104,6 +104,8 @@ public interface IMaterials {
 
     IItemDefinition cardFakeCrafting();
 
+    IItemDefinition cardEqualDistribution();
+
     IItemDefinition enderDust();
 
     IItemDefinition flour();

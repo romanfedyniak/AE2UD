@@ -21,6 +21,7 @@ package appeng.me.storage;
 
 import javax.annotation.Nullable;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
@@ -100,6 +101,10 @@ public class BasicCellInventory implements StorageCell {
     @Nullable
     private Object2LongMap<AEKeyType> storedAmountsByType;
     private boolean isPersisted = true;
+    private final boolean equalDistribution;
+    /** What the shares divide, and into how many. Both 0 without the card. See {@link #getMaxAmountPerType}. */
+    private final long distributableBytes;
+    private final long shares;
 
     private BasicCellInventory(final IBasicCellItem cellType, final ItemStack o, @Nullable final ISaveProvider container) {
         this.i = o;
@@ -125,6 +130,7 @@ public class BasicCellInventory implements StorageCell {
         boolean hasInverter = false;
         boolean hasFuzzy = false;
         boolean hasSticky = false;
+        boolean hasEqualDistribution = false;
 
         // ICellWorkbenchItem does not forbid a null upgrades inventory - this fork's creative cell returned
         // null for years, safely, because CreativeCellInventory never read it. Treating null as "no upgrades"
@@ -139,11 +145,14 @@ public class BasicCellInventory implements StorageCell {
                 hasInverter = true;
             } else if (ItemStack.areItemsEqual(is, UpgradeCards.sticky())) {
                 hasSticky = true;
+            } else if (ItemStack.areItemsEqual(is, UpgradeCards.equalDistribution())) {
+                hasEqualDistribution = true;
             }
         }
         this.sticky = hasSticky;
 
         final IPartitionList.Builder builder = IPartitionList.builder();
+        final Set<AEKey> configuredKeys = new HashSet<>();
         for (int x = 0; config != null && x < config.getSlots(); x++) {
             final ItemStack is = config.getStackInSlot(x);
             if (!is.isEmpty()) {
@@ -154,6 +163,7 @@ public class BasicCellInventory implements StorageCell {
                 final GenericStack configured = AppEngInternalAEInventory.toGenericStack(is);
                 if (configured != null) {
                     builder.add(configured.what());
+                    configuredKeys.add(configured.what());
                 }
             }
         }
@@ -164,6 +174,56 @@ public class BasicCellInventory implements StorageCell {
 
         this.partitionListMode = hasInverter ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST;
         this.partitionList = builder.build();
+
+        this.equalDistribution = hasEqualDistribution;
+        this.shares = hasEqualDistribution ? this.countShares(configuredKeys.size(), hasFuzzy) : 0;
+        this.distributableBytes = hasEqualDistribution
+                ? Math.max(0, this.getTotalBytes() - (long) this.getBytesPerType() * this.shares)
+                : 0;
+    }
+
+    /**
+     * Into how many equal parts the cell is cut: the partition list when there is one to count - a fuzzy
+     * list stands for more keys than it holds, so it cannot be - and the cell's own type limit otherwise.
+     */
+    private long countShares(final int configuredKeys, final boolean hasFuzzy) {
+        if (!hasFuzzy && this.partitionListMode == IncludeExclude.WHITELIST && configuredKeys > 0) {
+            return Math.min(this.maxItemTypes, configuredKeys);
+        }
+
+        return this.maxItemTypes;
+    }
+
+    /**
+     * The most of {@code type} one key may hold, or {@link Long#MAX_VALUE} without the distribution card.
+     * <p>
+     * The division happens in the key type's own unit rather than in bytes, because a byte is eight items
+     * but only a quarter of a bucket, and rounding a share of bytes upwards would promise each type more
+     * than the cell can actually hold. Bytes reserved for the types themselves are taken off the top first,
+     * since no type can spend them. A cell naming one key type - which is every cell shipped - gets exactly
+     * the numbers upstream computes.
+     */
+    public long getMaxAmountPerType(final AEKeyType type) {
+        if (!this.equalDistribution) {
+            return Long.MAX_VALUE;
+        }
+
+        final long total = this.distributableBytes * type.getAmountPerByte();
+        return Math.max(0, (total + this.shares - 1) / this.shares);
+    }
+
+    public boolean isEqualDistribution() {
+        return this.equalDistribution;
+    }
+
+    /** Into how many parts the cell is cut, and 0 without the distribution card. */
+    public long getShares() {
+        return this.shares;
+    }
+
+    /** What each of those parts is worth. Rounded down, so it never claims room the cell does not have. */
+    public long getBytesPerShare() {
+        return this.shares <= 0 ? 0 : this.distributableBytes / this.shares;
     }
 
     /**
@@ -403,6 +463,10 @@ public class BasicCellInventory implements StorageCell {
 
         final long currentAmount = this.getCellItems().getLong(what);
         long remainingItemCount = this.getRemainingItemCount(type);
+
+        if (this.equalDistribution) {
+            remainingItemCount = Math.max(0, Math.min(this.getMaxAmountPerType(type) - currentAmount, remainingItemCount));
+        }
 
         if (currentAmount <= 0) {
             if (!this.canHoldNewItem(type)) {

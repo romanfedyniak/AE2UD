@@ -134,7 +134,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return new CellUpgrades(is, 2);
+        return new CellUpgrades(is, 4);
     }
 
     @Override

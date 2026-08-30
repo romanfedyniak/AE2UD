@@ -2047,6 +2047,16 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     reason: one piece, additive for every caller, and no nearer to swapping `ICraftingJob` for
     `ICraftingPlan`.
 
+26. **`IMaterials.cardEqualDistribution()` and `UpgradeCards.equalDistribution()`** - additive, and the
+    pair an addon needs to name the card on a cell of its own. Upstream has both (it is upstream's
+    card), reached through `AEItems.EQUAL_DISTRIBUTION_CARD`; the definitions split is this fork's.
+    `BasicCellInventory.getMaxAmountPerType(AEKeyType)` and `isEqualDistribution()` come with it, and
+    are the only part that is not a straight port: upstream divides the cell into a count of items,
+    which one number can express because an upstream cell serves exactly one key type. A cell here may
+    name several, and a byte is eight items but a quarter of a bucket, so the share is divided in each
+    type's own unit as it is asked for. For a cell naming one type the arithmetic is upstream's,
+    number for number.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

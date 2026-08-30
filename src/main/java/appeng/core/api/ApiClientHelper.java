@@ -23,6 +23,9 @@ import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.IClientHelper;
 import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
+import net.minecraft.client.resources.I18n;
+
+import java.text.NumberFormat;
 import appeng.core.localization.Tooltips;
 import appeng.me.storage.BasicCellInventory;
 
@@ -54,6 +57,15 @@ public class ApiClientHelper implements IClientHelper {
 
         lines.add(Tooltips.bytesUsed(cellInventory.getUsedBytes(), cellInventory.getTotalBytes()).getFormattedText());
         lines.add(Tooltips.typesUsed(cellInventory.getStoredItemTypes(), cellInventory.getTotalItemTypes()).getFormattedText());
+
+        // The share, not the free space, is what stops a cell taking more once the card is in - and it is
+        // not something the two lines above can be read to mean. The divisor is named as well as the share,
+        // since every question about this number is really a question about what it was divided by.
+        if (cellInventory.isEqualDistribution()) {
+            lines.add(I18n.format(GuiText.EqualDistributionOf.getUnlocalized(),
+                    NumberFormat.getInstance().format(cellInventory.getBytesPerShare()),
+                    cellInventory.getShares(), cellInventory.getTotalItemTypes()));
+        }
 
         final boolean showAdvanced = Minecraft.getMinecraft().gameSettings.advancedItemTooltips
                 || Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
