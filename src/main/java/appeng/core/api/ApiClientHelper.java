@@ -24,6 +24,7 @@ import appeng.api.util.IClientHelper;
 import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.TextFormatting;
 
 import java.text.NumberFormat;
 import appeng.core.localization.Tooltips;
@@ -65,6 +66,14 @@ public class ApiClientHelper implements IClientHelper {
             lines.add(I18n.format(GuiText.EqualDistributionOf.getUnlocalized(),
                     NumberFormat.getInstance().format(cellInventory.getBytesPerShare()),
                     cellInventory.getShares(), cellInventory.getTotalItemTypes()));
+        }
+
+        // Red where it is dangerous. On a partitioned cell the card destroys the overflow of the types
+        // the player named; on an unpartitioned one it destroys the overflow of all sixty-three the cell
+        // happens to have picked up, which is not what anyone means to set up.
+        if (cellInventory.isVoidOverflow()) {
+            final String line = GuiText.OverflowDestruction.getLocal();
+            lines.add(cellInventory.isPreformatted() ? line : TextFormatting.RED + line);
         }
 
         final boolean showAdvanced = Minecraft.getMinecraft().gameSettings.advancedItemTooltips

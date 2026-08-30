@@ -43,6 +43,11 @@ public final class UpgradeCards {
         return stack(AEApi.instance().definitions().materials().cardFakeCrafting());
     }
 
+    /** Not {@code void()}, which is a keyword. The item reads "Overflow Destruction Card". */
+    public static ItemStack voidCard() {
+        return stack(AEApi.instance().definitions().materials().cardVoid());
+    }
+
     public static ItemStack equalDistribution() {
         return stack(AEApi.instance().definitions().materials().cardEqualDistribution());
     }

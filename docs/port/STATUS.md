@@ -2057,6 +2057,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     type's own unit as it is asked for. For a cell naming one type the arithmetic is upstream's,
     number for number.
 
+27. **`IMaterials.cardVoid()` and `UpgradeCards.voidCard()`** - additive, the pair for the overflow
+    destruction card, named `voidCard` because `void` is a keyword. Upstream reaches the same card
+    through `AEItems.VOID_CARD`. `BasicCellInventory.isVoidOverflow()` comes with it. One deliberate
+    departure from upstream's behaviour, not its shape: upstream applies the card *after* the check
+    that refuses a non-empty storage cell, so such a cell pushed at a carded, unpartitioned cell is
+    destroyed. Here that check sits with the three refusals before it - wrong key type, filtered out,
+    blacklisted - all of which say "this cell will never hold this" rather than "this cell is full",
+    and none of which the card was meant to reach.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

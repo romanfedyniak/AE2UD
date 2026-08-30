@@ -102,6 +102,7 @@ public class BasicCellInventory implements StorageCell {
     private Object2LongMap<AEKeyType> storedAmountsByType;
     private boolean isPersisted = true;
     private final boolean equalDistribution;
+    private final boolean voidOverflow;
     /** What the shares divide, and into how many. Both 0 without the card. See {@link #getMaxAmountPerType}. */
     private final long distributableBytes;
     private final long shares;
@@ -131,6 +132,7 @@ public class BasicCellInventory implements StorageCell {
         boolean hasFuzzy = false;
         boolean hasSticky = false;
         boolean hasEqualDistribution = false;
+        boolean hasVoid = false;
 
         // ICellWorkbenchItem does not forbid a null upgrades inventory - this fork's creative cell returned
         // null for years, safely, because CreativeCellInventory never read it. Treating null as "no upgrades"
@@ -147,6 +149,8 @@ public class BasicCellInventory implements StorageCell {
                 hasSticky = true;
             } else if (ItemStack.areItemsEqual(is, UpgradeCards.equalDistribution())) {
                 hasEqualDistribution = true;
+            } else if (ItemStack.areItemsEqual(is, UpgradeCards.voidCard())) {
+                hasVoid = true;
             }
         }
         this.sticky = hasSticky;
@@ -176,6 +180,7 @@ public class BasicCellInventory implements StorageCell {
         this.partitionList = builder.build();
 
         this.equalDistribution = hasEqualDistribution;
+        this.voidOverflow = hasVoid;
         this.shares = hasEqualDistribution ? this.countShares(configuredKeys.size(), hasFuzzy) : 0;
         this.distributableBytes = hasEqualDistribution
                 ? Math.max(0, this.getTotalBytes() - (long) this.getBytesPerType() * this.shares)
@@ -224,6 +229,10 @@ public class BasicCellInventory implements StorageCell {
     /** What each of those parts is worth. Rounded down, so it never claims room the cell does not have. */
     public long getBytesPerShare() {
         return this.shares <= 0 ? 0 : this.distributableBytes / this.shares;
+    }
+
+    public boolean isVoidOverflow() {
+        return this.voidOverflow;
     }
 
     /**
@@ -453,7 +462,10 @@ public class BasicCellInventory implements StorageCell {
             return 0;
         }
 
-        // A non-empty storage cell may not be stored recursively inside this one.
+        // A non-empty storage cell may not be stored recursively inside this one. Kept above the void
+        // card with the three refusals before it: all four say "this cell will never hold this", which is
+        // not the overflow the card is there to destroy. Upstream voids this one; a player's full cell
+        // vanishing because it was pushed at a carded one is not worth mirroring.
         if (what instanceof AEItemKey itemKey) {
             final StorageCell nested = StorageCells.getCellInventory(itemKey.toStack(), null);
             if (nested != null && !nested.canFitInsideCell()) {
@@ -461,6 +473,23 @@ public class BasicCellInventory implements StorageCell {
             }
         }
 
+        final long inserted = this.innerInsert(what, amount, mode, type);
+
+        if (!this.voidOverflow) {
+            return inserted;
+        }
+
+        // An unformatted cell that can take no new type would otherwise swallow everything the network
+        // offers it, including things it never held and could not have started holding.
+        if (!this.isPreformatted() && !this.canHoldNewItem(type) && !this.getCellItems().containsKey(what)) {
+            return inserted;
+        }
+
+        return amount;
+    }
+
+    /** What would really fit, before the void card is allowed to say otherwise. */
+    private long innerInsert(final AEKey what, final long amount, final Actionable mode, final AEKeyType type) {
         final long currentAmount = this.getCellItems().getLong(what);
         long remainingItemCount = this.getRemainingItemCount(type);
 

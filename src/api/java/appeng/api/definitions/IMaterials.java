@@ -106,6 +106,8 @@ public interface IMaterials {
 
     IItemDefinition cardEqualDistribution();
 
+    IItemDefinition cardVoid();
+
     IItemDefinition enderDust();
 
     IItemDefinition flour();

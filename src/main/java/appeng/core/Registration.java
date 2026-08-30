@@ -539,27 +539,33 @@ final class Registration {
         upgrades.add(UpgradeCards.inverter(), items.cell1k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.cell1k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.cell1k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.cell1k(), 1);
 
         upgrades.add(UpgradeCards.fuzzy(), items.cell4k(), 1);
         upgrades.add(UpgradeCards.inverter(), items.cell4k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.cell4k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.cell4k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.cell4k(), 1);
 
         upgrades.add(UpgradeCards.fuzzy(), items.cell16k(), 1);
         upgrades.add(UpgradeCards.inverter(), items.cell16k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.cell16k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.cell16k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.cell16k(), 1);
 
         upgrades.add(UpgradeCards.fuzzy(), items.cell64k(), 1);
         upgrades.add(UpgradeCards.inverter(), items.cell64k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.cell64k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.cell64k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.cell64k(), 1);
 
         upgrades.add(UpgradeCards.fuzzy(), items.portableCell(), 1);
         upgrades.add(UpgradeCards.inverter(), items.portableCell(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.portableCell(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.portableCell(), 1);
 
         upgrades.add(UpgradeCards.equalDistribution(), items.colorApplicator(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.colorApplicator(), 1);
 
         upgrades.add(UpgradeCards.fuzzy(), items.viewCell(), 1);
         upgrades.add(UpgradeCards.inverter(), items.viewCell(), 1);
@@ -571,18 +577,22 @@ final class Registration {
         upgrades.add(UpgradeCards.inverter(), items.fluidCell1k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.fluidCell1k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.fluidCell1k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.fluidCell1k(), 1);
 
         upgrades.add(UpgradeCards.inverter(), items.fluidCell4k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.fluidCell4k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.fluidCell4k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.fluidCell4k(), 1);
 
         upgrades.add(UpgradeCards.inverter(), items.fluidCell16k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.fluidCell16k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.fluidCell16k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.fluidCell16k(), 1);
 
         upgrades.add(UpgradeCards.inverter(), items.fluidCell64k(), 1);
         upgrades.add(UpgradeCards.sticky(), items.fluidCell64k(), 1);
         upgrades.add(UpgradeCards.equalDistribution(), items.fluidCell64k(), 1);
+        upgrades.add(UpgradeCards.voidCard(), items.fluidCell64k(), 1);
 
         // Storage Bus
         upgrades.add(UpgradeCards.fuzzy(), parts.storageBus(), 1);

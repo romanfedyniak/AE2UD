@@ -266,6 +266,7 @@ public enum GuiText {
     Fuzzy,
     Sticky,
     EqualDistributionOf,
+    OverflowDestruction,
 
     // Used in a ME Interface when no appropriate TileEntity was detected near it
     Nothing,
