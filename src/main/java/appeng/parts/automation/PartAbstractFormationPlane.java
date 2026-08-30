@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableSet;
+
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import net.minecraft.item.ItemStack;
@@ -27,7 +29,13 @@ import appeng.api.config.PlaneMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
 import appeng.api.upgrades.UpgradeCards;
+import appeng.api.config.PowerMultiplier;
+import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.ICraftingGrid;
+import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
@@ -48,8 +56,11 @@ import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
+import appeng.core.AELog;
 import appeng.core.settings.TickRates;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.helpers.IPriorityHost;
+import appeng.helpers.MultiCraftingTracker;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -69,7 +80,8 @@ import appeng.util.prioritylist.IPartitionList;
  * put per-type behaviour on the part instead of on the key type.
  */
 public abstract class PartAbstractFormationPlane extends PartUpgradeable
-        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost, IGridTickable {
+        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost, IGridTickable,
+        ICraftingRequester, ICraftPriorityTarget {
 
     private boolean wasActive = false;
     private int priority = 0;
@@ -82,12 +94,15 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     private IPartitionList filter;
     private final KeyTypeSelection keyTypeSelection;
     private final IActionSource source = new MachineSource(this);
+    private final MultiCraftingTracker craftingTracker = new MultiCraftingTracker(this, 63, this);
+    private int craftPriority = 0;
 
     public PartAbstractFormationPlane(ItemStack is) {
         super(is);
 
         this.getConfigManager().registerSetting(Settings.PLANE_MODE, PlaneMode.PASSIVE);
         this.getConfigManager().registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
+        this.getConfigManager().registerSetting(Settings.CRAFT_ONLY, YesNo.NO);
 
         this.keyTypeSelection = new KeyTypeSelection(() -> {
             this.getHost().markForSave();
@@ -189,10 +204,12 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         final MEStorage storage;
         final IEnergySource energy;
         final KeyCounter network;
+        final ICraftingGrid crafting;
         try {
             storage = this.getProxy().getStorage().getInventory();
             network = this.getProxy().getStorage().getCachedInventory();
             energy = this.getProxy().getEnergy();
+            crafting = this.getProxy().getCrafting();
         } catch (final GridAccessException e) {
             return false;
         }
@@ -203,6 +220,13 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         for (int x = 0; x < config.getSlots() && x < slotsToUse; x++) {
             final GenericStack request = config.getAEStackInSlot(x);
             if (request == null) {
+                continue;
+            }
+
+            if (this.craftOnly()) {
+                if (this.orderCraft(crafting, x, request.what())) {
+                    return true;
+                }
                 continue;
             }
 
@@ -219,6 +243,8 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
                 if (this.place(storage, energy, request.what())) {
                     return true;
                 }
+            } else if (this.isCraftingEnabled() && this.orderCraft(crafting, x, request.what())) {
+                return true;
             }
         }
 
@@ -243,6 +269,79 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         }
 
         return placed > 0;
+    }
+
+    /**
+     * Orders exactly one placement's worth. Asking for more would leave the rest with the cpu: a plane that
+     * has just put a block down is blocked until somebody takes it away, and the job would never close.
+     */
+    private boolean orderCraft(final ICraftingGrid cg, final int slot, final AEKey what) {
+        final long amount = this.placementAmount(what);
+
+        try {
+            return this.craftingTracker.handleCrafting(slot, amount, what,
+                    () -> this.placeInWorld(what, amount, Actionable.SIMULATE) > 0, this.getTile().getWorld(),
+                    this.getProxy().getGrid(), cg, this.source);
+        } catch (final GridAccessException e) {
+            return false;
+        }
+    }
+
+    private boolean craftOnly() {
+        return this.isCraftingEnabled() && this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
+    }
+
+    private boolean isCraftingEnabled() {
+        return this.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+    }
+
+    @Override
+    public ImmutableSet<ICraftingLink> getRequestedJobs() {
+        return this.craftingTracker.getRequestedJobs();
+    }
+
+    @Override
+    public void jobStateChange(final ICraftingLink link) {
+        this.craftingTracker.jobStateChange(link);
+    }
+
+    /**
+     * The result goes straight into the world rather than through {@link #insert}: an active plane is not
+     * mounted as storage, and this is a delivery to it rather than something the network is pushing at it.
+     */
+    @Override
+    public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
+        try {
+            if (this.getProxy().isActive()) {
+                final IEnergyGrid energy = this.getProxy().getEnergy();
+                final double power = items.amount();
+
+                if (energy.extractAEPower(power, mode, PowerMultiplier.CONFIG) > power - 0.01) {
+                    final long placed = this.placeInWorld(items.what(), items.amount(), mode);
+                    final long remaining = items.amount() - placed;
+
+                    if (remaining <= 0) {
+                        return null;
+                    }
+                    return new GenericStack(items.what(), remaining);
+                }
+            }
+        } catch (final GridAccessException e) {
+            AELog.debug(e);
+        }
+
+        return items;
+    }
+
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    @Override
+    public void setCraftPriority(final int priority) {
+        this.craftPriority = priority;
+        this.getHost().markForSave();
     }
 
     /** How much of one key to take per operation: one unit - a block, a bucket - unless a subclass says more. */
@@ -469,6 +568,8 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     public void readFromNBT(final NBTTagCompound data) {
         super.readFromNBT(data);
         this.priority = data.getInteger("priority");
+        this.craftPriority = data.getInteger("craftPriority");
+        this.craftingTracker.readFromNBT(data);
         this.keyTypeSelection.readFromNBT(data);
     }
 
@@ -476,6 +577,8 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     public void writeToNBT(final NBTTagCompound data) {
         super.writeToNBT(data);
         data.setInteger("priority", this.getPriority());
+        data.setInteger("craftPriority", this.craftPriority);
+        this.craftingTracker.writeToNBT(data);
         this.keyTypeSelection.writeToNBT(data);
     }
 

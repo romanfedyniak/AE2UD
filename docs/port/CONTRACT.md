@@ -1127,6 +1127,10 @@ default void onStackReturnNetwork(GenericStack stack);
 // appeng.helpers.MultiCraftingTracker
 public boolean handleCrafting(int x, long itemToCraft, AEKey what, InventoryAdaptor d, World w,
         IGrid g, ICraftingGrid cg, IActionSource mySrc);
+// ...and, since the formation plane's destination is the world rather than an inventory, an overload
+// that takes the answer instead of the adaptor. The frozen one delegates to it.
+public boolean handleCrafting(int x, long itemToCraft, AEKey what, BooleanSupplier destinationAccepts,
+        World w, IGrid g, ICraftingGrid cg, IActionSource mySrc);
 
 // appeng.helpers.PatternHelper implements ICraftingPatternDetails
 GenericStack[] getInputs()/getCondensedInputs()/getCondensedOutputs()/getOutputs();
@@ -1372,6 +1376,14 @@ crafting API is out of scope for v1), so `PartExportBus` obtains that adaptor th
 `PartSharedItemBus` always did (`getHandler()`) purely for that one pre-check; the actual push once a craft
 completes (`injectCraftedItems`) goes through the generic `StackExportStrategy.push(...)`, not the adaptor.
 This is not a regression — it is the shape wave 1b/2 already committed to.
+
+**Since resolved for everything but the bus.** The active formation plane orders crafts too, and its
+destination is a block of the world, which no `InventoryAdaptor` describes. `handleCrafting` gained an
+overload taking a `BooleanSupplier` for the destination's answer; the frozen signature is now a wrapper
+that computes that answer from the adaptor, so `PartExportBus` is untouched and keeps the item-only
+pre-check it always had. The overload itself is key-agnostic — the `AEItemKey` cast existed solely to
+build the `ItemStack` that `simulateAdd` needs. It is asked lazily, only when a job is about to be started
+or submitted, because the plane answers it by simulating a placement into the world.
 
 **`StorageImportStrategy`/`StorageExportStrategy`/`HandlerStrategy` are adapted, not literal ports.**
 AE2-original's versions talk to the adjacent block through a raw `Storage<ItemVariant>`/`ResourceHandler`

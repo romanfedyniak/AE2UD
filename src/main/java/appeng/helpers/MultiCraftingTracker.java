@@ -37,6 +37,7 @@ import net.minecraft.world.World;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.BooleanSupplier;
 
 
 public class MultiCraftingTracker {
@@ -77,49 +78,60 @@ public class MultiCraftingTracker {
         }
     }
 
+    /** For a destination that is an inventory: it takes the result only if the whole stack fits. */
     public boolean handleCrafting(final int x, final long itemToCraft, final AEKey what, final InventoryAdaptor d, final World w, final IGrid g, final ICraftingGrid cg, final IActionSource mySrc) {
-        if (what instanceof AEItemKey itemKey) {
-            ItemStack inputStack = itemKey.toStack((int) Math.min(itemToCraft, Integer.MAX_VALUE));
+        if (!(what instanceof AEItemKey itemKey)) {
+            return false;
+        }
 
-            ItemStack remaining = d.simulateAdd(inputStack);
+        return this.handleCrafting(x, itemToCraft, what,
+                () -> d.simulateAdd(itemKey.toStack((int) Math.min(itemToCraft, Integer.MAX_VALUE))).isEmpty(),
+                w, g, cg, mySrc);
+    }
 
-            if (remaining.isEmpty()) {
-                final Future<ICraftingJob> craftingJob = this.getJob(x);
+    /**
+     * @param destinationAccepts whether whatever ordered this can still receive the result. Asked only when a
+     * job is about to be started or submitted, since answering it can be as dear as simulating the delivery.
+     */
+    public boolean handleCrafting(final int x, final long itemToCraft, final AEKey what, final BooleanSupplier destinationAccepts, final World w, final IGrid g, final ICraftingGrid cg, final IActionSource mySrc) {
+        if (this.getLink(x) != null) {
+            return false;
+        }
 
-                if (this.getLink(x) != null) {
-                    return false;
-                } else if (craftingJob != null) {
+        final Future<ICraftingJob> craftingJob = this.getJob(x);
 
-                    try {
-                        ICraftingJob job = null;
-                        if (craftingJob.isDone()) {
-                            job = craftingJob.get();
-                        }
+        if (craftingJob == null) {
+            if (destinationAccepts.getAsBoolean()) {
+                this.setJob(x, cg.beginCraftingJob(w, g, mySrc, new GenericStack(what, itemToCraft), null));
+            }
+            return false;
+        }
 
-                        if (job != null) {
-                            final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc,
-                                    this.priority.getCraftPriority()).link();
+        try {
+            if (!craftingJob.isDone()) {
+                return false;
+            }
 
-                            this.setJob(x, null);
+            final ICraftingJob job = craftingJob.get();
 
-                            if (link != null) {
-                                this.setLink(x, link);
+            if (job != null && destinationAccepts.getAsBoolean()) {
+                final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc,
+                        this.priority.getCraftPriority()).link();
 
-                                return true;
-                            }
-                        }
-                    } catch (final InterruptedException e) {
-                        // :P
-                    } catch (final ExecutionException e) {
-                        // :P
-                    }
-                } else {
-                    if (this.getLink(x) == null) {
-                        this.setJob(x, cg.beginCraftingJob(w, g, mySrc, new GenericStack(what, itemToCraft), null));
-                    }
+                this.setJob(x, null);
+
+                if (link != null) {
+                    this.setLink(x, link);
+
+                    return true;
                 }
             }
+        } catch (final InterruptedException e) {
+            // :P
+        } catch (final ExecutionException e) {
+            // :P
         }
+
         return false;
     }
 

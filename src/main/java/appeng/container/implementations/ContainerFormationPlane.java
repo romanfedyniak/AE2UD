@@ -35,6 +35,9 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
     @GuiSync(8)
     public PlaneMode planeMode = PlaneMode.PASSIVE;
 
+    @GuiSync(5)
+    public YesNo craftingMode = YesNo.NO;
+
     public ContainerFormationPlane(final InventoryPlayer ip, final PartFormationPlane te) {
         super(ip, te);
     }
@@ -63,6 +66,7 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
             this.setFuzzyMode((FuzzyMode) this.getUpgradeable().getConfigManager().getSetting(Settings.FUZZY_MODE));
             this.setPlaceMode((YesNo) this.getUpgradeable().getConfigManager().getSetting(Settings.PLACE_BLOCK));
             this.planeMode = (PlaneMode) this.getUpgradeable().getConfigManager().getSetting(Settings.PLANE_MODE);
+            this.craftingMode = (YesNo) this.getUpgradeable().getConfigManager().getSetting(Settings.CRAFT_ONLY);
         }
 
         this.standardDetectAndSendChanges();
@@ -81,6 +85,10 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
 
     public PlaneMode getPlaneMode() {
         return this.planeMode;
+    }
+
+    public YesNo getCraftingMode() {
+        return this.craftingMode;
     }
 
     private void setPlaceMode(final YesNo placeMode) {

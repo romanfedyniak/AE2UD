@@ -25,6 +25,8 @@ import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.config.PlaneMode;
 import appeng.api.config.RedstoneMode;
+import appeng.api.upgrades.UpgradeCards;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerFormationPlane;
@@ -49,6 +51,8 @@ public class GuiFormationPlane extends GuiUpgradeable {
     private GuiImgButton clear;
     private GuiImgButton keyTypes;
     private GuiImgButton planeMode;
+    private GuiImgButton craftMode;
+    private GuiCraftPriorityButton craftPriority;
 
     public GuiFormationPlane(final InventoryPlayer inventoryPlayer, final PartFormationPlane te) {
         super(new ContainerFormationPlane(inventoryPlayer, te));
@@ -63,6 +67,9 @@ public class GuiFormationPlane extends GuiUpgradeable {
         this.placeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.PLACE_BLOCK, YesNo.YES);
         this.redstoneMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
         this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.craftMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.CRAFT_ONLY, YesNo.NO);
+        // Under the button the crafting card already adds, and shown on the same terms as that one.
+        this.craftPriority = new GuiCraftPriorityButton(this.guiLeft - 18, this.guiTop + 8);
 
         this.column.clear();
         this.column.add(this.clear);
@@ -71,6 +78,8 @@ public class GuiFormationPlane extends GuiUpgradeable {
         this.column.add(this.placeMode);
         this.column.add(this.redstoneMode);
         this.column.add(this.fuzzyMode);
+        this.column.add(this.craftMode);
+        this.column.add(this.craftPriority);
 
         this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
         this.buttonList.addAll(this.column);
@@ -91,6 +100,32 @@ public class GuiFormationPlane extends GuiUpgradeable {
 
         if (this.planeMode != null) {
             this.planeMode.set(((ContainerFormationPlane) this.cvb).getPlaneMode());
+        }
+
+        if (this.craftMode != null) {
+            this.craftMode.set(((ContainerFormationPlane) this.cvb).getCraftingMode());
+        }
+    }
+
+    /**
+     * A crafting card is only worth anything to a plane that fetches what it places, so both of its buttons
+     * wait for the active mode as well as for the card.
+     */
+    @Override
+    protected void handleButtonVisibility() {
+        super.handleButtonVisibility();
+
+        final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0
+                && ((ContainerFormationPlane) this.cvb).getPlaneMode() == PlaneMode.ACTIVE;
+
+        if (this.craftMode != null) {
+            this.craftMode.setVisibility(carded);
+        }
+
+        if (this.craftPriority != null) {
+            this.craftPriority.visible = carded;
+            this.craftPriority.enabled = carded;
+            this.craftPriority.setPriority(this.cvb.getCraftPriority());
         }
     }
 
@@ -115,6 +150,11 @@ public class GuiFormationPlane extends GuiUpgradeable {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.placeMode.getSetting(), backwards));
         } else if (btn == this.planeMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.planeMode.getSetting(), backwards));
+        } else if (btn == this.craftMode) {
+            NetworkHandler.instance().sendToServer(new PacketConfigButton(this.craftMode.getSetting(), backwards));
+        } else if (btn == this.craftPriority) {
+            this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                    UpgradeCards.crafting(), this.cvb));
         }
     }
 }

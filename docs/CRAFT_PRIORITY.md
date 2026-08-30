@@ -83,10 +83,12 @@ Cancel sits beside it on both screens already doing strictly more to that job.
 
 ## Machines that order crafts
 
-Two carry a crafting card and order jobs of their own - the ME Interface (`DualityInterface`) and the
-Export Bus (`PartExportBus`). Both implement `ICraftPriorityTarget`, keep the number in their own NBT under
-`craftPriority`, and hand it to `MultiCraftingTracker`, which reads it at each submit rather than holding a
-copy. Their button appears only while the crafting card is in, under the button that card already adds.
+Three carry a crafting card and order jobs of their own - the ME Interface (`DualityInterface`), the
+Export Bus (`PartExportBus`) and the Formation Plane in active mode (`PartAbstractFormationPlane`). All
+implement `ICraftPriorityTarget`, keep the number in their own NBT under `craftPriority`, and hand it to
+`MultiCraftingTracker`, which reads it at each submit rather than holding a copy. Their button appears only
+while the crafting card is in, under the button that card already adds - and on the plane, only while it is
+in the mode that can use the card at all.
 
 The interface's container is opened on its **host** rather than on the duality (`ContainerInterface` passes
 `getInterfaceDuality().getHost()` to `super`), so `IInterfaceHost` answers `ICraftPriorityTarget` with two
