@@ -1,3 +1,9 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2026 AE2UD contributors
+ */
+
 package appeng.api.networking.crafting;
 
 import com.github.bsideup.jabel.Desugar;

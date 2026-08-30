@@ -1,4 +1,10 @@
 /*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2026 AE2UD contributors
+ */
+
+/*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
  *
