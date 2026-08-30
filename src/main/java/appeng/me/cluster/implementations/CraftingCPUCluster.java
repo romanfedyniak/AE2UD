@@ -137,6 +137,8 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private int remainingOperations;
     private boolean somethingChanged;
     private boolean suspended = false;
+    /** Orders this job against the other running ones when they want the same machine. See {@link #setCraftPriority}. */
+    private int craftPriority = 0;
     private CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
 
     private long lastTime;
@@ -434,6 +436,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         fireCraftedEventForRequester();
         this.requestingPlayerUUID = null;
         this.requestingPlayerName = null;
+        this.setCraftPriority(0);
     }
 
     /**
@@ -646,6 +649,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         notifyRequester(true);
         this.requestingPlayerUUID = null;
         this.requestingPlayerName = null;
+        this.setCraftPriority(0);
         this.finalOutput = null;
         this.updateCPU();
 
@@ -1109,7 +1113,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.markDirty();
     }
 
-    public ICraftingSubmitResult submitJob(final IGrid g, final ICraftingJob job, final IActionSource src, final ICraftingRequester requestingMachine) {
+    public ICraftingSubmitResult submitJob(final IGrid g, final ICraftingJob job, final IActionSource src, final ICraftingRequester requestingMachine, final int priority) {
         if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty() || this.isBusy()) {
             return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_BUSY);
         }
@@ -1140,6 +1144,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 this.waiting = false;
                 this.isComplete = false;
                 this.suspended = false;
+                this.setCraftPriority(priority);
 
                 // Store the requesting player if present.
                 if (src instanceof PlayerSource playerSource && playerSource.player().isPresent()) {
@@ -1210,6 +1215,31 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public void setSuspended(final boolean suspended) {
         this.suspended = suspended;
+    }
+
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    /**
+     * Higher goes first when two running jobs want the same machine, and equal priorities take turns; a job
+     * that competes with nothing is not slowed down by a low one. The grid keeps the order the cpus are asked
+     * in, so it is told the moment this moves.
+     */
+    public void setCraftPriority(final int priority) {
+        if (this.craftPriority == priority) {
+            return;
+        }
+
+        this.craftPriority = priority;
+        this.markDirty();
+
+        final IGrid g = this.getGrid();
+        if (g != null) {
+            final CraftingGridCache cc = g.getCache(ICraftingGrid.class);
+            cc.markCraftOrderDirty();
+        }
     }
 
     @Override
@@ -1376,6 +1406,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         data.setBoolean("waiting", this.waiting);
         data.setBoolean("isComplete", this.isComplete);
         data.setBoolean("suspended", this.suspended);
+        data.setInteger("craftPriority", this.craftPriority);
 
         if (this.myLastLink != null) {
             final NBTTagCompound link = new NBTTagCompound();
@@ -1461,6 +1492,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.waiting = data.getBoolean("waiting");
         this.isComplete = data.getBoolean("isComplete");
         this.suspended = data.getBoolean("suspended");
+        this.craftPriority = data.getInteger("craftPriority");
 
         if (data.hasKey("link")) {
             final NBTTagCompound link = data.getCompoundTag("link");

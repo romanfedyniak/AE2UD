@@ -131,7 +131,21 @@ public interface ICraftingGrid extends IGridCache
 	 * loading as well as the {@link ICraftingRequester} methods; if you sent null, discard it after checking
 	 * the result. On failure {@link ICraftingSubmitResult#errorCode()} says why the job did not start.
 	 */
-	ICraftingSubmitResult submitJob( ICraftingJob job, ICraftingRequester requestingMachine, ICraftingCPU target, boolean prioritizePower, IActionSource src );
+	default ICraftingSubmitResult submitJob( ICraftingJob job, ICraftingRequester requestingMachine, ICraftingCPU target, boolean prioritizePower, IActionSource src )
+	{
+		return this.submitJob( job, requestingMachine, target, prioritizePower, src, 0 );
+	}
+
+	/**
+	 * Submit the job the way {@link #submitJob(ICraftingJob, ICraftingRequester, ICraftingCPU, boolean, IActionSource)}
+	 * does, at a priority.
+	 *
+	 * @param priority orders the running jobs against each other when they compete for the same machine: the
+	 * job with the higher priority is offered a freed machine first, and jobs of equal priority take turns.
+	 * It does not change which cpu is picked, and a job that competes with nothing is not slowed down by a
+	 * low priority. The cpu carries it for as long as the job runs and returns to 0 when it ends.
+	 */
+	ICraftingSubmitResult submitJob( ICraftingJob job, ICraftingRequester requestingMachine, ICraftingCPU target, boolean prioritizePower, IActionSource src, int priority );
 
 	/**
 	 * @return list of all the crafting cpus on the grid

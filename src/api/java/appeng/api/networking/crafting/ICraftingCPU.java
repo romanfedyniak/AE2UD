@@ -114,4 +114,12 @@ public interface ICraftingCPU
 	{
 		return false;
 	}
+
+	/**
+	 * @return the priority of the job this cpu is running, and 0 while it runs none.
+	 */
+	default int getCraftPriority()
+	{
+		return 0;
+	}
 }

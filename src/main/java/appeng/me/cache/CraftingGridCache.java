@@ -90,6 +90,9 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     private final Set<CraftingCPUCluster> craftingCPUClusters = new HashSet<>();
+    /** The same clusters, in the order they are offered work. See {@link #orderedCPUs()}. */
+    private List<CraftingCPUCluster> orderedCPUClusters = new ArrayList<>();
+    private boolean craftOrderDirty = true;
     private final Set<ICraftingProvider> craftingProviders = new HashSet<>();
     private final Map<IGridNode, ICraftingWatcher> craftingWatchers = new HashMap<>();
     private final IGrid grid;
@@ -140,7 +143,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
         long remaining = amount;
 
-        for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
+        for (final CraftingCPUCluster cpu : this.orderedCPUs()) {
             if (remaining <= 0) {
                 break;
             }
@@ -169,8 +172,52 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             }
         }
 
-        for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
+        final List<CraftingCPUCluster> cpus = this.orderedCPUs();
+        this.rotateEqualPriorities(cpus);
+
+        for (final CraftingCPUCluster cpu : cpus) {
             cpu.updateCraftingLogic(this.grid, this.energyGrid, this);
+        }
+    }
+
+    /**
+     * The clusters in priority order. Both the tick and {@link #insert} walk this, so the job that is offered a
+     * freed machine first is also offered a returning item first.
+     * <p>
+     * Rebuilding replaces the list rather than sorting it in place: a job finishing inside the tick loop below
+     * resets its priority, and the insert that follows would otherwise re-sort the list being iterated.
+     */
+    private List<CraftingCPUCluster> orderedCPUs() {
+        if (this.craftOrderDirty) {
+            this.craftOrderDirty = false;
+
+            final List<CraftingCPUCluster> ordered = new ArrayList<>(this.craftingCPUClusters);
+            ordered.sort(Comparator.comparingInt(CraftingCPUCluster::getCraftPriority).reversed());
+            this.orderedCPUClusters = ordered;
+        }
+
+        return this.orderedCPUClusters;
+    }
+
+    /** Called when a cpu's priority moves, since the order above is only rebuilt when something says so. */
+    public void markCraftOrderDirty() {
+        this.craftOrderDirty = true;
+    }
+
+    /**
+     * One step per tick within each run of equal priorities, so two jobs that are worth the same take turns at
+     * a freed machine instead of the earlier one holding it forever.
+     */
+    private void rotateEqualPriorities(final List<CraftingCPUCluster> cpus) {
+        int start = 0;
+
+        for (int i = 1; i <= cpus.size(); i++) {
+            if (i == cpus.size() || cpus.get(i).getCraftPriority() != cpus.get(start).getCraftPriority()) {
+                if (i - start > 1) {
+                    Collections.rotate(cpus.subList(start, i), -1);
+                }
+                start = i;
+            }
         }
     }
 
@@ -328,6 +375,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
 
     private void updateCPUClusters() {
         this.craftingCPUClusters.clear();
+        this.craftOrderDirty = true;
 
         for (Object cls: StreamSupport.stream(grid.getMachinesClasses().spliterator(), false).filter(TileCraftingStorageTile.class::isAssignableFrom).toArray()) {
             for (final IGridNode cst : this.grid.getMachines((Class<? extends IGridHost>) cls)) {
@@ -489,7 +537,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     @Override
-    public ICraftingSubmitResult submitJob(final ICraftingJob job, final ICraftingRequester requestingMachine, final ICraftingCPU target, final boolean prioritizePower, final IActionSource src) {
+    public ICraftingSubmitResult submitJob(final ICraftingJob job, final ICraftingRequester requestingMachine, final ICraftingCPU target, final boolean prioritizePower, final IActionSource src, final int priority) {
         if (job.isSimulation()) {
             return CraftingSubmitResult.failed(CraftingSubmitErrorCode.INCOMPLETE_PLAN);
         }
@@ -558,7 +606,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
         }
 
-        return cpuCluster.submitJob(this.grid, job, src, requestingMachine);
+        return cpuCluster.submitJob(this.grid, job, src, requestingMachine, priority);
     }
 
     @Override

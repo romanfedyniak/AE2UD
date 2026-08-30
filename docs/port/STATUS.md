@@ -2038,6 +2038,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     api package, but the line is here because they were the mod's other number abbreviator, tests included,
     and that algorithm now lives once, in `AEKeyFormatting`. Their two callers ask `AEKeyType.items()`.
 
+25. **A priority on a crafting job** (`ICraftingGrid.submitJob(..., int priority)`, plus a `default
+    ICraftingCPU.getCraftPriority()`) - **breaking for an implementor of `ICraftingGrid`**, which now has to
+    answer the priority-carrying overload; the old five-argument one became a `default` that delegates with
+    0, so every caller is unaffected, and the cpu half is a `default` returning 0, so an implementor of
+    `ICraftingCPU` is unaffected outright. Upstream has nothing of the kind - the idea is AE2CraftPriority's
+    - so the naming is the fork's own. This is item 14 again, done to the same interface for the same
+    reason: one piece, additive for every caller, and no nearer to swapping `ICraftingJob` for
+    `ICraftingPlan`.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
