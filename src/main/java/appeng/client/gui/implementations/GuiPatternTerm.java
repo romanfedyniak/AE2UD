@@ -306,8 +306,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.container.setActivePage(this.pageScrollBar.getCurrentScroll());
         this.container.refreshOutputIfDirty();
         this.container.updateSlotVisibility();
-        // Buttons are drawn between the background and the foreground layer, so they have to be placed
-        // here rather than in drawFG, or a mode switch leaves them a frame behind.
+        // Buttons are drawn between the background and the foreground layer, so which ones show and
+        // where they sit have to be decided here; from drawFG they would always be a frame behind.
+        this.handleButtonVisibility();
         this.layOutButtons();
 
         for (final Slot slot : this.inventorySlots.inventorySlots) {
@@ -322,6 +323,17 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        super.drawFG(offsetX, offsetY, mouseX, mouseY);
+        this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
+        this.drawFluidSubstitutionHint();
+
+        if (!this.container.isCraftingMode()) {
+            this.pageScrollBar.draw(this);
+        }
+    }
+
+    /** Which half of the button cluster belongs to the mode on screen. */
+    private void handleButtonVisibility() {
         if (this.container.isCraftingMode()) {
             this.tabCraftButton.visible = true;
             this.tabProcessButton.visible = false;
@@ -362,14 +374,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.plusOneBtn.visible = true;
             this.minusOneBtn.visible = true;
             this.invertBtn.visible = true;
-        }
-
-        super.drawFG(offsetX, offsetY, mouseX, mouseY);
-        this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
-        this.drawFluidSubstitutionHint();
-
-        if (!this.container.isCraftingMode()) {
-            this.pageScrollBar.draw(this);
         }
     }
 

@@ -910,9 +910,17 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
+    /**
+     * The catch-up runs before the sync, not after: the first sync goes out as the terminal opens, and a
+     * field still holding its default there means the screen draws the wrong mode until the next tick.
+     */
     @Override
     public void detectAndSendChanges() {
+        this.readHostState();
         super.detectAndSendChanges();
+    }
+
+    private void readHostState() {
         if (Platform.isServer()) {
             if (getPart() != null) {
                 if (this.isCraftingMode() != this.getPart().isCraftingRecipe()) {
