@@ -213,8 +213,12 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
                         return true;
                     }
                 }
-            } else if (this.place(storage, energy, request.what())) {
-                return true;
+            } else if (network.get(request.what()) > 0) {
+                // Asked before the world, since place() simulates through the item's own placement logic. The
+                // fuzzy branch above never needed the check: it walks what the network holds.
+                if (this.place(storage, energy, request.what())) {
+                    return true;
+                }
             }
         }
 
