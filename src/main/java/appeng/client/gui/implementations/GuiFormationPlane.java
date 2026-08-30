@@ -23,6 +23,8 @@ import appeng.api.config.ActionItems;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.api.config.PlaneMode;
+import appeng.api.config.RedstoneMode;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.container.implementations.ContainerFormationPlane;
@@ -46,6 +48,7 @@ public class GuiFormationPlane extends GuiUpgradeable {
     private GuiImgButton placeMode;
     private GuiImgButton clear;
     private GuiImgButton keyTypes;
+    private GuiImgButton planeMode;
 
     public GuiFormationPlane(final InventoryPlayer inventoryPlayer, final PartFormationPlane te) {
         super(new ContainerFormationPlane(inventoryPlayer, te));
@@ -55,17 +58,22 @@ public class GuiFormationPlane extends GuiUpgradeable {
     @Override
     protected void addButtons() {
         this.clear = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS, ActionItems.CLOSE);
-        this.keyTypes = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.ACTIONS, ActionItems.CONFIGURE_PLACED_TYPES);
-        this.placeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.PLACE_BLOCK, YesNo.YES);
-        // Last in the column because it is the only one here that hides.
-        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        this.keyTypes = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.ACTIONS, ActionItems.CONFIGURE_PLACED_TYPES);
+        this.planeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.PLANE_MODE, PlaneMode.PASSIVE);
+        this.placeMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.PLACE_BLOCK, YesNo.YES);
+        this.redstoneMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
+        this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+
+        this.column.clear();
+        this.column.add(this.clear);
+        this.column.add(this.keyTypes);
+        this.column.add(this.planeMode);
+        this.column.add(this.placeMode);
+        this.column.add(this.redstoneMode);
+        this.column.add(this.fuzzyMode);
 
         this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
-
-        this.buttonList.add(this.clear);
-        this.buttonList.add(this.keyTypes);
-        this.buttonList.add(this.placeMode);
-        this.buttonList.add(this.fuzzyMode);
+        this.buttonList.addAll(this.column);
     }
 
     @Override
@@ -79,6 +87,10 @@ public class GuiFormationPlane extends GuiUpgradeable {
 
         if (this.placeMode != null) {
             this.placeMode.set(((ContainerFormationPlane) this.cvb).getPlaceMode());
+        }
+
+        if (this.planeMode != null) {
+            this.planeMode.set(((ContainerFormationPlane) this.cvb).getPlaneMode());
         }
     }
 
@@ -101,6 +113,8 @@ public class GuiFormationPlane extends GuiUpgradeable {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_KEY_TYPES));
         } else if (btn == this.placeMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.placeMode.getSetting(), backwards));
+        } else if (btn == this.planeMode) {
+            NetworkHandler.instance().sendToServer(new PacketConfigButton(this.planeMode.getSetting(), backwards));
         }
     }
 }

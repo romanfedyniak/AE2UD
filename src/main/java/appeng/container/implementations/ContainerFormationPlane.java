@@ -32,6 +32,9 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
     @GuiSync(6)
     public YesNo placeMode;
 
+    @GuiSync(8)
+    public PlaneMode planeMode = PlaneMode.PASSIVE;
+
     public ContainerFormationPlane(final InventoryPlayer ip, final PartFormationPlane te) {
         super(ip, te);
     }
@@ -59,6 +62,7 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
         if (Platform.isServer()) {
             this.setFuzzyMode((FuzzyMode) this.getUpgradeable().getConfigManager().getSetting(Settings.FUZZY_MODE));
             this.setPlaceMode((YesNo) this.getUpgradeable().getConfigManager().getSetting(Settings.PLACE_BLOCK));
+            this.planeMode = (PlaneMode) this.getUpgradeable().getConfigManager().getSetting(Settings.PLANE_MODE);
         }
 
         this.standardDetectAndSendChanges();
@@ -73,6 +77,10 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
 
     public YesNo getPlaceMode() {
         return this.placeMode;
+    }
+
+    public PlaneMode getPlaneMode() {
+        return this.planeMode;
     }
 
     private void setPlaceMode(final YesNo placeMode) {

@@ -593,6 +593,8 @@ final class Registration {
         upgrades.add(UpgradeCards.fuzzy(), parts.formationPlane(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.formationPlane(), 1);
         upgrades.addCapacityCardSupport(parts.formationPlane(), 5, 5);
+        upgrades.add(UpgradeCards.redstone(), parts.formationPlane(), 1);
+        upgrades.addSpeedCardSupport(parts.formationPlane(), 4);
 
         // Matter Cannon
         upgrades.add(UpgradeCards.fuzzy(), items.massCannon(), 1);

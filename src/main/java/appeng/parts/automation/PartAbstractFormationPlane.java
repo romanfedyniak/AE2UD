@@ -1,9 +1,12 @@
 package appeng.parts.automation;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
+
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -20,14 +23,22 @@ import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
+import appeng.api.config.PlaneMode;
+import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
 import appeng.api.upgrades.UpgradeCards;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -35,12 +46,14 @@ import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
-import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
+import appeng.core.settings.TickRates;
 import appeng.helpers.IPriorityHost;
 import appeng.me.GridAccessException;
+import appeng.me.helpers.MachineSource;
 import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 
 /**
@@ -56,7 +69,7 @@ import appeng.util.prioritylist.IPartitionList;
  * put per-type behaviour on the part instead of on the key type.
  */
 public abstract class PartAbstractFormationPlane extends PartUpgradeable
-        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost {
+        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost, IGridTickable {
 
     private boolean wasActive = false;
     private int priority = 0;
@@ -68,9 +81,13 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     @Nullable
     private IPartitionList filter;
     private final KeyTypeSelection keyTypeSelection;
+    private final IActionSource source = new MachineSource(this);
 
     public PartAbstractFormationPlane(ItemStack is) {
         super(is);
+
+        this.getConfigManager().registerSetting(Settings.PLANE_MODE, PlaneMode.PASSIVE);
+        this.getConfigManager().registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.IGNORE);
 
         this.keyTypeSelection = new KeyTypeSelection(() -> {
             this.getHost().markForSave();
@@ -127,7 +144,110 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
         this.updateFilter();
         this.getHost().markForSave();
+        this.remountStorage();
+        this.wake();
     }
+
+    @Override
+    public RedstoneMode getRSMode() {
+        return (RedstoneMode) this.getConfigManager().getSetting(Settings.REDSTONE_CONTROLLED);
+    }
+
+    public boolean isActiveMode() {
+        return this.getConfigManager().getSetting(Settings.PLANE_MODE) == PlaneMode.ACTIVE;
+    }
+
+    /** A plane that reported nothing to do sleeps, so anything widening what it may place must rouse it. */
+    protected final void wake() {
+        try {
+            this.getProxy().getTick().alertDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            // :P
+        }
+    }
+
+    @Override
+    public TickingRequest getTickingRequest(final IGridNode node) {
+        return new TickingRequest(TickRates.FormationPlane.getMin(), TickRates.FormationPlane.getMax(), false, true);
+    }
+
+    @Override
+    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
+        if (!this.isActiveMode() || this.isSleeping() || !this.getProxy().isActive()) {
+            return TickRateModulation.SLEEP;
+        }
+
+        return this.placeFromNetwork() ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
+    }
+
+    /** The slots are read as a list of what to fetch, not as a filter, so an inverter card means nothing here. */
+    private boolean placeFromNetwork() {
+        if (this.blocked) {
+            return false;
+        }
+
+        final MEStorage storage;
+        final IEnergySource energy;
+        final KeyCounter network;
+        try {
+            storage = this.getProxy().getStorage().getInventory();
+            network = this.getProxy().getStorage().getCachedInventory();
+            energy = this.getProxy().getEnergy();
+        } catch (final GridAccessException e) {
+            return false;
+        }
+
+        final AppEngInternalAEInventory config = this.getConfigInventory();
+        final int slotsToUse = this.getFilterSlotsInUse();
+
+        for (int x = 0; x < config.getSlots() && x < slotsToUse; x++) {
+            final GenericStack request = config.getAEStackInSlot(x);
+            if (request == null) {
+                continue;
+            }
+
+            if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+                final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
+                for (final Object2LongMap.Entry<AEKey> match : new ArrayList<>(network.findFuzzy(request.what(), fzMode))) {
+                    if (this.place(storage, energy, match.getKey())) {
+                        return true;
+                    }
+                }
+            } else if (this.place(storage, energy, request.what())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Asks the world first, so a blocked plane does not take a stack out of the network and put it back. */
+    private boolean place(final MEStorage storage, final IEnergySource energy, final AEKey what) {
+        final long wanted = this.placementAmount(what);
+        if (this.placeInWorld(what, wanted, Actionable.SIMULATE) <= 0) {
+            return false;
+        }
+
+        final long taken = Platform.poweredExtraction(energy, storage, what, wanted, this.source, Actionable.MODULATE);
+        if (taken <= 0) {
+            return false;
+        }
+
+        final long placed = this.placeInWorld(what, taken, Actionable.MODULATE);
+        if (placed < taken) {
+            storage.insert(what, taken - placed, Actionable.MODULATE, this.source);
+        }
+
+        return placed > 0;
+    }
+
+    /** How much of one key to take per operation: one unit - a block, a bucket - unless a subclass says more. */
+    protected long placementAmount(final AEKey what) {
+        return what.getAmountPerUnit();
+    }
+
+    /** Places without consulting the filter: both paths into this have already asked it. */
+    protected abstract long placeInWorld(AEKey what, long amount, Actionable mode);
 
     protected final void updateFilter() {
         var builder = IPartitionList.builder();
@@ -260,6 +380,10 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
             if (this.placementStrategy != null) {
                 this.placementStrategy.clearBlocked();
             }
+
+            if (!this.blocked) {
+                this.wake();
+            }
         }
     }
 
@@ -365,7 +489,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
 
     @Override
     public void mountInventories(final IStorageMounts mounts) {
-        if (this.getProxy().isActive()) {
+        if (this.getProxy().isActive() && !this.isActiveMode()) {
             this.updateFilter();
             mounts.mount(this, this.priority);
         }

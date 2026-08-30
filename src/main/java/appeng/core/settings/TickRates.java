@@ -36,6 +36,8 @@ public enum TickRates {
 
     AnnihilationPlane(2, 120),
 
+    FormationPlane(5, 60),
+
     METunnel(5, 20),
 
     Inscriber(1, 1),

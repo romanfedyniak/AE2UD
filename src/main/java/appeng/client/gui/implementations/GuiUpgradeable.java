@@ -115,6 +115,23 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
 
     protected abstract void addButtons();
 
+    private static final int COLUMN_TOP = 8;
+    private static final int COLUMN_SPACING = 20;
+
+    /** The left-hand buttons in the order they appear; filling it packs them, so a hidden one leaves no gap. */
+    protected final List<GuiImgButton> column = new ArrayList<>();
+
+    protected final void layoutColumn() {
+        int y = this.guiTop + COLUMN_TOP;
+        for (final GuiImgButton button : this.column) {
+            if (!button.isVisible()) {
+                continue;
+            }
+            button.y = y;
+            y += COLUMN_SPACING;
+        }
+    }
+
     /**
      * The key type a filter names while the machine is set to ignore that type, or null when the slot is one
      * the machine acts on - which is every slot of a machine that has no say in its types.
@@ -201,6 +218,8 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
     }
 
     protected void handleButtonVisibility() {
+        this.layoutColumn();
+
         if (this.redstoneMode != null) {
             this.redstoneMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.redstone()) > 0);
         }

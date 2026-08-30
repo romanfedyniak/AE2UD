@@ -85,6 +85,8 @@ public enum Settings
 
 	PLACE_BLOCK( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 
+	PLANE_MODE( EnumSet.allOf( PlaneMode.class ) ),
+
 	SCHEDULING_MODE( EnumSet.allOf( SchedulingMode.class ) ),
 
 	CPU_SELECTION_MODE( EnumSet.allOf( CpuSelectionMode.class ) ),

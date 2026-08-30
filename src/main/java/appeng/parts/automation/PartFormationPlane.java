@@ -38,6 +38,7 @@ import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKey;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.core.sync.GuiBridge;
 import appeng.items.parts.PartModels;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -74,6 +75,7 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
 
         if (inv == this.config) {
             this.updateFilter();
+            this.wake();
         }
     }
 
@@ -129,13 +131,41 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
             return 0;
         }
 
-        // No key-type check: PlacementStrategyFacade answers 0 for a type it holds no strategy for, which
-        // covers both a type nobody registered one for and a type the player turned off - those are left out
-        // when the facade is built. Per-type behaviour belongs to the key type rather than to the part:
-        // PLACE_BLOCK is passed to every strategy, and the ones it makes no sense for ignore it.
+        return this.placeInWorld(what, amount, mode);
+    }
+
+    // No key-type check: the facade answers 0 for a type it holds no strategy for, which covers both a type
+    // nobody registered one for and a type the player turned off.
+    @Override
+    protected long placeInWorld(final AEKey what, final long amount, final Actionable mode) {
         final boolean placeAsEntity = this.getConfigManager().getSetting(Settings.PLACE_BLOCK) != YesNo.YES;
 
         return this.getPlacementStrategies().placeInWorld(what, amount, mode, placeAsEntity);
+    }
+
+    /** A block goes down one at a time whatever it is handed; only a thrown stack can come in quantity. */
+    @Override
+    protected long placementAmount(final AEKey what) {
+        if (this.getConfigManager().getSetting(Settings.PLACE_BLOCK) == YesNo.YES) {
+            return what.getAmountPerUnit();
+        }
+
+        return (long) what.getAmountPerOperation() * this.dropMultiplier();
+    }
+
+    private int dropMultiplier() {
+        switch (this.getInstalledUpgrades(UpgradeCards.speed())) {
+            case 0:
+                return 1;
+            case 1:
+                return 8;
+            case 2:
+                return 32;
+            case 3:
+                return 64;
+            default:
+                return 96;
+        }
     }
 
     @Override

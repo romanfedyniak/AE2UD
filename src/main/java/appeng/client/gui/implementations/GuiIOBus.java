@@ -60,9 +60,7 @@ import java.util.List;
  */
 public class GuiIOBus extends GuiUpgradeable {
 
-    private static final int SPACING = 20;
 
-    private final List<GuiImgButton> column = new ArrayList<>();
 
     private GuiImgButton clear;
     private GuiImgButton craftMode;
@@ -82,7 +80,6 @@ public class GuiIOBus extends GuiUpgradeable {
         this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         this.craftMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.CRAFT_ONLY, YesNo.NO);
 
-        // This order is the layout: the column is packed top-down from it, skipping whatever is hidden.
         this.column.clear();
         this.column.add(this.clear);
         // Only the import bus has a say here: what an export bus moves is named in its filter.
@@ -155,23 +152,6 @@ public class GuiIOBus extends GuiUpgradeable {
             // No capacity card in the condition: it used to stand in for "this bus has more than one
             // slot", which stopped being true once two rows are free.
             this.schedulingMode.setVisibility(this.bc instanceof PartExportBus);
-        }
-
-        this.layoutColumn();
-    }
-
-    /**
-     * Packs the visible buttons down the left column with no gaps, the way upstream's
-     * {@code VerticalButtonBar} does. Runs every frame because a card can appear or leave at any moment.
-     */
-    private void layoutColumn() {
-        int y = this.guiTop + 8;
-        for (final GuiImgButton button : this.column) {
-            if (!button.isVisible()) {
-                continue;
-            }
-            button.y = y;
-            y += SPACING;
         }
     }
 
