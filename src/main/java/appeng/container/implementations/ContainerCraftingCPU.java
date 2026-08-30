@@ -32,6 +32,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.client.gui.implementations.GuiCraftingCPU;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
@@ -66,7 +67,7 @@ import java.util.Set;
  * {@link #detectAndSendChanges()} via {@link CraftingCPUCluster#getItemStack(AEKey, CraftingItemList)},
  * exactly as {@link ICraftingCPUListener}'s javadoc describes.
  */
-public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCPUListener, ICustomNameObject {
+public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCPUListener, ICustomNameObject, ICraftPriorityTarget {
 
     /**
      * Every key this container has ever reported to its GUI. Replaces the old {@code IItemList<IAEItemStack>}
@@ -91,6 +92,8 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
     public boolean suspended = false;
     @GuiSync(3)
     public CpuSelectionMode selectionMode = CpuSelectionMode.ANY;
+    @GuiSync(4)
+    public int craftPriority = 0;
     private GuiCraftingCPU guiCraftingCPU;
 
     public ContainerCraftingCPU(final InventoryPlayer ip, final Object te) {
@@ -156,6 +159,22 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
         this.setEstimatedTime(-1);
     }
 
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    /**
+     * Not gated by {@link #allowsConfiguration()}: a priority belongs to the job rather than to the
+     * processor, and Cancel beside it already does strictly more to a job from the same two screens.
+     */
+    @Override
+    public void setCraftPriority(final int priority) {
+        if (this.getMonitor() != null) {
+            this.getMonitor().setCraftPriority(priority);
+        }
+    }
+
     public void suspendCrafting() {
         if (this.getMonitor() != null) {
             this.getMonitor().setSuspended(!this.getMonitor().isSuspended());
@@ -201,6 +220,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
         if (Platform.isServer() && this.getMonitor() != null) {
             this.suspended = this.getMonitor().isSuspended();
             this.selectionMode = this.getMonitor().getSelectionMode();
+            this.craftPriority = this.getMonitor().getCraftPriority();
             if (this.getEstimatedTime() >= 0) {
                 final long elapsedTime = this.getMonitor().getElapsedTime();
                 final double remainingItems = this.getMonitor().getRemainingItemCount();

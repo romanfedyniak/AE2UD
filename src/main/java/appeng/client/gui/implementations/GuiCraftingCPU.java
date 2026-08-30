@@ -19,6 +19,7 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.Settings;
@@ -32,6 +33,7 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.AEColor;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.IKeyUnderMouse;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.ISortSource;
@@ -81,6 +83,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private static final int SUSPEND_TOP_OFFSET = 25;
     private static final int SUSPEND_HEIGHT = 20;
     private static final int SUSPEND_WIDTH = 50;
+    private static final int PRIORITY_LEFT_OFFSET = SUSPEND_LEFT_OFFSET - 16 - 4;
 
     private static final int TITLE_TOP_OFFSET = 7;
     private static final int TITLE_LEFT_OFFSET = 8;
@@ -104,6 +107,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private final List<AEKey> displayed = new ArrayList<>();
     private GuiButton cancel;
     private GuiButton suspend;
+    private GuiCraftPriorityButton priority;
     protected GuiImgButton terminalStyleBox;
     protected GuiImgButton toggleHideStored;
     private GuiImgButton selectionMode;
@@ -136,6 +140,15 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.priority == btn) {
+            // Over this screen rather than in its place: a container switch would lose the list of what
+            // the processor is holding, which is the whole of what this screen is.
+            this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                    AEApi.instance().definitions().blocks().craftingUnit().maybeStack(1).orElse(ItemStack.EMPTY),
+                    this.craftingCpu));
+            return;
+        }
 
         if (this.toggleHideStored == btn) {
             final YesNo next = (YesNo) Platform.rotateEnum(
@@ -205,6 +218,9 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.suspend = new GuiButton(0, this.guiLeft + SUSPEND_LEFT_OFFSET, this.guiTop + this.ySize - SUSPEND_TOP_OFFSET, SUSPEND_WIDTH, SUSPEND_HEIGHT, GuiText.Suspend
                 .getLocal());
         this.buttonList.add(this.suspend);
+        this.priority = new GuiCraftPriorityButton(this.guiLeft + PRIORITY_LEFT_OFFSET,
+                this.guiTop + this.ySize - SUSPEND_TOP_OFFSET + 2);
+        this.buttonList.add(this.priority);
         this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
         // Directly under the terminal-style button, on whichever side that screen puts it.
@@ -252,6 +268,9 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.toggleHideStored.set(AEConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.suspend.enabled = this.cancel.enabled;
         this.suspend.displayString = this.craftingCpu.suspended ? GuiText.Resume.getLocal() : GuiText.Suspend.getLocal();
+        // Nothing to order while nothing is being crafted, the same condition the two buttons beside it use.
+        this.priority.enabled = this.cancel.enabled;
+        this.priority.setPriority(this.craftingCpu.craftPriority);
         if (this.selectionMode != null) {
             this.selectionMode.set(this.craftingCpu.selectionMode);
         }

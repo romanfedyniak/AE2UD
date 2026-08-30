@@ -119,12 +119,12 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
     private static final int COLUMN_SPACING = 20;
 
     /** The left-hand buttons in the order they appear; filling it packs them, so a hidden one leaves no gap. */
-    protected final List<GuiImgButton> column = new ArrayList<>();
+    protected final List<GuiButton> column = new ArrayList<>();
 
     protected final void layoutColumn() {
         int y = this.guiTop + COLUMN_TOP;
-        for (final GuiImgButton button : this.column) {
-            if (!button.isVisible()) {
+        for (final GuiButton button : this.column) {
+            if (!button.visible) {
                 continue;
             }
             button.y = y;

@@ -127,6 +127,7 @@ public class PacketCraftRequest extends AppEngPacket {
                             ccc.setAutoStart(this.heldShift);
                             ccc.setJob(futureJob);
                             ccc.setRequest(cca.getItemToCraft(), this.amount, this.craftMissing);
+                            ccc.craftPriority = cca.craftPriority;
                             cca.detectAndSendChanges();
                         }
                     }

@@ -101,6 +101,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_TERMINAL_MODE(PacketSwitchTerminalMode.class),
 
+        PACKET_CRAFT_PRIORITY(PacketCraftPriority.class),
+
         ;
 
 

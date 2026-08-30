@@ -29,7 +29,7 @@ import net.minecraft.util.EnumFacing;
 import java.util.EnumSet;
 
 
-public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICraftingRequester {
+public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICraftingRequester, ICraftPriorityTarget {
 
     DualityInterface getInterfaceDuality();
 
@@ -41,5 +41,16 @@ public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICr
 
     default void onStackReturnNetwork(GenericStack stack) {
         getInterfaceDuality().onStackReturnedToNetwork(stack);
+    }
+
+    /** The container is opened on the host rather than on the duality, so the host has to answer for it. */
+    @Override
+    default int getCraftPriority() {
+        return getInterfaceDuality().getCraftPriority();
+    }
+
+    @Override
+    default void setCraftPriority(final int priority) {
+        getInterfaceDuality().setCraftPriority(priority);
     }
 }

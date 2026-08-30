@@ -114,7 +114,7 @@ import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 
-public class DualityInterface implements IGridTickable, MEStorage, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost {
+public class DualityInterface implements IGridTickable, MEStorage, IInventoryDestination, IAEAppEngInventory, IConfigManagerHost, ICraftingProvider, IUpgradeableHost, ICraftPriorityTarget {
     private static final GenericStack[] EMPTY_EXTRAS = new GenericStack[0];
     public static final int NUMBER_OF_STORAGE_SLOTS = 9;
     /**
@@ -146,6 +146,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private final Accessor accessor = new Accessor();
     private boolean hasConfig = false;
     private int priority;
+    /** What a craft this interface orders is worth against the other running jobs. */
+    private int craftPriority;
     private Set<ICraftingPatternDetails> craftingList = null;
     private List<ItemStack> waitingToSend = null;
     private MEStorage destination;
@@ -172,7 +174,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.cm.registerSetting(Settings.UNLOCK, LockCraftingMode.NONE);
 
         this.iHost = ih;
-        this.craftingTracker = new MultiCraftingTracker(this.iHost, 9);
+        this.craftingTracker = new MultiCraftingTracker(this.iHost, 9, this);
 
         final MachineSource actionSource = new MachineSource(this.iHost);
         this.mySource = actionSource;
@@ -260,6 +262,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.cm.writeToNBT(data);
         this.craftingTracker.writeToNBT(data);
         data.setInteger("priority", this.priority);
+        data.setInteger("craftPriority", this.craftPriority);
 
         if (unlockEvent == UnlockCraftingEvent.PULSE) {
             data.setByte("unlockEvent", (byte) 1);
@@ -329,6 +332,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         }
 
         this.craftingTracker.readFromNBT(data);
+        this.craftPriority = data.getInteger("craftPriority");
 
         // fix upgrade slot size mismatch
         NBTTagCompound up = data.getCompoundTag("upgrades");
@@ -1695,6 +1699,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     public int getPriority() {
         return this.priority;
+    }
+
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    @Override
+    public void setCraftPriority(final int priority) {
+        this.craftPriority = priority;
+        this.iHost.saveChanges();
     }
 
     public void setPriority(final int newValue) {

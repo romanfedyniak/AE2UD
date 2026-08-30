@@ -19,6 +19,7 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.features.IWirelessTermHandler;
@@ -33,6 +34,7 @@ import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiCraftErrorPanel;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -50,6 +52,7 @@ import com.google.common.base.Joiner;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -69,6 +72,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     /** The Start button hangs off this edge and grows leftwards, so its right side never moves. */
     private static final int START_RIGHT = 212;
     private static final int START_WIDTH = 50;
+    private static final int PRIORITY_GAP = 4;
 
     private static final int MIN_ROWS = 5;
     private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
@@ -120,6 +124,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private GuiBridge OriginalGui;
     private GuiButton cancel;
     private GuiButton start;
+    private GuiCraftPriorityButton priority;
     private GuiTabButton showTree;
     private GuiImgButton terminalStyleBox;
     private GuiIconButton saveImage;
@@ -147,6 +152,16 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         return ((ContainerCraftConfirm) this.inventorySlots).isAutoStart();
     }
 
+    /**
+     * Drawn over this screen rather than in its place: the plan cost a whole crafting calculation to work
+     * out, and switching containers to type one number would throw it away.
+     */
+    protected void openPriority() {
+        this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                AEApi.instance().definitions().blocks().craftingUnit().maybeStack(1).orElse(ItemStack.EMPTY),
+                this.ccc));
+    }
+
     @Override
     public void initGui() {
         final TerminalStyle style = (TerminalStyle) AEConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
@@ -159,6 +174,9 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 START_WIDTH, 20, GuiText.Start.getLocal());
         this.start.enabled = false;
         this.buttonList.add(this.start);
+
+        this.priority = new GuiCraftPriorityButton(0, this.guiTop + this.ySize - 23);
+        this.buttonList.add(this.priority);
 
         this.cpuTable.initGui(this.rows, this.buttonList);
 
@@ -203,6 +221,9 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         // rather than nudged by a fixed amount, so a translation longer than either English word still fits.
         this.start.width = Math.max(START_WIDTH, this.fontRenderer.getStringWidth(this.start.displayString) + 12);
         this.start.x = this.guiLeft + START_RIGHT - this.start.width;
+        // Follows Start leftwards, so the two stay together whichever label Start is wearing.
+        this.priority.setPriority(this.ccc.getCraftPriority());
+        this.priority.x = this.start.x - PRIORITY_GAP - this.priority.width;
         // Nothing to draw a tree or a picture of until the job has been worked out.
         this.showTree.enabled = this.ccc.getUsedBytes() > 0;
         this.saveImage.enabled = !this.visual.isEmpty();
@@ -505,6 +526,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 // nothing to step back to - go straight to the terminal instead of an empty amount screen.
                 NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.OriginalGui));
             }
+        }
+
+        if (btn == this.priority) {
+            this.openPriority();
+            return;
         }
 
         if (btn == this.start) {

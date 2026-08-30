@@ -29,6 +29,7 @@ import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.container.slot.*;
 import appeng.items.contents.NetworkToolViewer;
 import appeng.items.tools.ToolNetworkTool;
@@ -52,7 +53,7 @@ import java.util.List;
 import java.util.Map;
 
 
-public abstract class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost {
+public abstract class ContainerUpgradeable extends AEBaseContainer implements IOptionalSlotHost, ICraftPriorityTarget {
 
     private final IUpgradeableHost upgradeable;
     @GuiSync(0)
@@ -67,6 +68,9 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
      */
     @GuiSync(12)
     public String keyTypes = "";
+    /** Only ever anything but 0 on a machine that orders crafts of its own - see {@link ICraftPriorityTarget}. */
+    @GuiSync(13)
+    public int craftPriority = 0;
 
     private String decodedFrom;
     private Map<AEKeyType, Boolean> decoded = Collections.emptyMap();
@@ -239,6 +243,10 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
      * rather than in {@link #detectAndSendChanges()} - several subclasses replace that method wholesale.
      */
     protected void standardDetectAndSendChanges() {
+        if (Platform.isServer() && this.upgradeable instanceof ICraftPriorityTarget host) {
+            this.craftPriority = host.getCraftPriority();
+        }
+
         if (Platform.isServer() && this.upgradeable instanceof KeyTypeSelectionHost) {
             this.keyTypes = KeyTypeSelection.encode(((KeyTypeSelectionHost) this.upgradeable).getKeyTypeSelection().enabled());
         }
@@ -262,6 +270,18 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
 
         if (cleared != null) {
             this.forceSendEmpty(cleared);
+        }
+    }
+
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    @Override
+    public void setCraftPriority(final int priority) {
+        if (this.upgradeable instanceof ICraftPriorityTarget host) {
+            host.setCraftPriority(priority);
         }
     }
 

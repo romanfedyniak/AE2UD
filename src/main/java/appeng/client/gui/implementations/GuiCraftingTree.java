@@ -19,6 +19,7 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.stacks.AEKey;
@@ -28,6 +29,7 @@ import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
@@ -47,6 +49,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -76,6 +79,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private static final int FOOTER_HEIGHT = 28;
     /** Cancel against the left edge and Start against the right, as on the plan screen. */
     private static final int BUTTON_MARGIN = 6;
+    private static final int PRIORITY_GAP = 4;
     private static final int BUTTON_WIDTH = 54;
 
     private static final int CANVAS_COLOR = 0xFF3B3B3B;
@@ -98,6 +102,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private MEGuiTextField searchField;
     private GuiTabButton back;
     private GuiButton start;
+    private GuiCraftPriorityButton priority;
     private GuiButton cancel;
     private GuiButton missingOnly;
     private GuiImgButton terminalStyleBox;
@@ -154,6 +159,9 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
                 BUTTON_WIDTH, 20, GuiText.Start.getLocal());
         this.buttonList.add(this.start);
 
+        this.priority = new GuiCraftPriorityButton(0, buttonTop + 2);
+        this.buttonList.add(this.priority);
+
         // Only when there is a screen to go back to, the same condition the plan screen puts on its own.
         if (this.originalGui != null || this.container.hasAmountScreen) {
             this.cancel = new GuiButton(0, this.guiLeft + BUTTON_MARGIN, buttonTop, BUTTON_WIDTH, 20,
@@ -207,6 +215,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         this.start.width = Math.max(BUTTON_WIDTH,
                 this.fontRenderer.getStringWidth(this.start.displayString) + 12);
         this.start.x = this.guiLeft + this.xSize - BUTTON_MARGIN - this.start.width;
+        // Follows Start leftwards, as it does on the plan screen. The number is the container's, and this
+        // screen's container is the plan screen's, so the two always agree.
+        this.priority.setPriority(this.container.getCraftPriority());
+        this.priority.x = this.start.x - PRIORITY_GAP - this.priority.width;
         this.missingOnly.enabled = this.tree.hasMissing();
         this.missingOnly.displayString = this.missingOnly.enabled
                 ? GuiText.ShowMissingOnly.getLocal() + ": "
@@ -333,6 +345,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
             } else if (this.originalGui != null) {
                 NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.originalGui));
             }
+        } else if (btn == this.priority) {
+            this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                    AEApi.instance().definitions().blocks().craftingUnit().maybeStack(1).orElse(ItemStack.EMPTY),
+                    this.container));
         } else if (btn == this.start) {
             try {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("Terminal.Start",

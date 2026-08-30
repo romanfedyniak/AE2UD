@@ -29,6 +29,7 @@ import appeng.api.config.YesNo;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerIOBus;
 import appeng.container.slot.SlotFake;
@@ -64,6 +65,7 @@ public class GuiIOBus extends GuiUpgradeable {
 
     private GuiImgButton clear;
     private GuiImgButton craftMode;
+    private GuiCraftPriorityButton craftPriority;
     private GuiImgButton schedulingMode;
     private GuiImgButton keyTypes;
 
@@ -92,6 +94,10 @@ public class GuiIOBus extends GuiUpgradeable {
         this.column.add(this.redstoneMode);
         this.column.add(this.fuzzyMode);
         this.column.add(this.craftMode);
+
+        // Under the button the crafting card already adds, and shown on the same terms as that one.
+        this.craftPriority = new GuiCraftPriorityButton(this.guiLeft - 18, this.guiTop + 8);
+        this.column.add(this.craftPriority);
 
         this.buttonList.addAll(this.column);
     }
@@ -148,6 +154,12 @@ public class GuiIOBus extends GuiUpgradeable {
         if (this.craftMode != null) {
             this.craftMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0);
         }
+        if (this.craftPriority != null) {
+            final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+            this.craftPriority.visible = carded;
+            this.craftPriority.enabled = carded;
+            this.craftPriority.setPriority(this.cvb.getCraftPriority());
+        }
         if (this.schedulingMode != null) {
             // No capacity card in the condition: it used to stand in for "this bus has more than one
             // slot", which stopped being true once two rows are free.
@@ -181,6 +193,11 @@ public class GuiIOBus extends GuiUpgradeable {
 
         if (btn == this.craftMode) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(this.craftMode.getSetting(), backwards));
+        }
+
+        if (btn == this.craftPriority) {
+            this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                    UpgradeCards.crafting(), this.cvb));
         }
 
         if (btn == this.schedulingMode) {

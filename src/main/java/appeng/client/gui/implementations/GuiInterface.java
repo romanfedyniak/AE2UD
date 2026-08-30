@@ -22,6 +22,8 @@ package appeng.client.gui.implementations;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.api.upgrades.UpgradeCards;
+import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiImgLabel;
 import appeng.client.gui.widgets.GuiTabButton;
@@ -43,6 +45,7 @@ import java.io.IOException;
 public class GuiInterface extends GuiUpgradeable {
 
     private GuiTabButton priority;
+    private GuiCraftPriorityButton craftPriority;
     private GuiImgButton UnlockMode;
     private GuiImgButton BlockMode;
     private GuiToggleButton interfaceMode;
@@ -72,6 +75,10 @@ public class GuiInterface extends GuiUpgradeable {
 
         this.interfaceMode = new GuiToggleButton(this.guiLeft - 18, this.guiTop + 44, 84, 85, GuiText.InterfaceTerminal.getLocal(), GuiText.InterfaceTerminalHint.getLocal());
         this.buttonList.add(this.interfaceMode);
+
+        // Last in the column, and only while the card that lets an interface order a craft is in.
+        this.craftPriority = new GuiCraftPriorityButton(this.guiLeft - 18, this.guiTop + 62);
+        this.buttonList.add(this.craftPriority);
     }
 
     protected void addLabel() {
@@ -115,6 +122,18 @@ public class GuiInterface extends GuiUpgradeable {
     }
 
     @Override
+    protected void handleButtonVisibility() {
+        super.handleButtonVisibility();
+
+        if (this.craftPriority != null) {
+            final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+            this.craftPriority.visible = carded;
+            this.craftPriority.enabled = carded;
+            this.craftPriority.setPriority(this.cvb.getCraftPriority());
+        }
+    }
+
+    @Override
     protected String getBackground() {
         int upgrades = ((ContainerInterface) this.cvb).getPatternUpgrades();
         if (upgrades == 0) {
@@ -132,6 +151,12 @@ public class GuiInterface extends GuiUpgradeable {
 
         if (btn == this.priority) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_PRIORITY));
+        }
+
+        if (btn == this.craftPriority) {
+            this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
+                    UpgradeCards.crafting(), this.cvb));
+            return;
         }
 
         if (btn == this.interfaceMode) {

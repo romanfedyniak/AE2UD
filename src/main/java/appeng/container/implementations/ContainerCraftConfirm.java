@@ -43,6 +43,7 @@ import appeng.api.storage.MEStorage;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.AELog;
@@ -74,7 +75,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
 
-public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingCPUTableHost {
+public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingCPUTableHost, ICraftPriorityTarget {
 
     public static final long USED_PERCENT_SCALE = 10_000;
 
@@ -136,6 +137,10 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
      */
     @GuiSync(14)
     public String missingIngredient = "";
+    /** What the job will be started at. Kept here rather than on the terminal, so the tree and the plan
+     * screens share it: one is the other's container. */
+    @GuiSync(15)
+    public int craftPriority = 0;
     private GuiCraftConfirm guiCraftConfirm;
 
     public ContainerCraftConfirm(final InventoryPlayer ip, final ITerminalHost te) {
@@ -399,7 +404,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
         if (this.result != null && !this.isSimulation()) {
             final ICraftingGrid cc = grid.getCache(ICraftingGrid.class);
-            final ICraftingSubmitResult submitted = cc.submitJob(this.result, null, this.cpuTable.getSelectedCpu(), true, this.getActionSrc());
+            final ICraftingSubmitResult submitted = cc.submitJob(this.result, null, this.cpuTable.getSelectedCpu(), true, this.getActionSrc(), this.craftPriority);
             this.setAutoStart(false);
             if (!submitted.successful()) {
                 // The plan is kept, so the screen's Retry can submit this very plan again and Replan is a
@@ -446,6 +451,16 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
     public boolean isAutoStart() {
         return this.autoStart;
+    }
+
+    @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    @Override
+    public void setCraftPriority(final int priority) {
+        this.craftPriority = priority;
     }
 
     public void setAutoStart(final boolean autoStart) {
@@ -507,6 +522,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
         to.setRequest(this.requestedKey, this.requestedAmount, this.requestedCraftMissing);
         to.hasAmountScreen = this.hasAmountScreen;
+        to.craftPriority = this.craftPriority;
         to.setAutoStart(false);
 
         final FutureTask<ICraftingJob> finished = new FutureTask<>(() -> this.result);
@@ -528,6 +544,10 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
         if (this.requestedKey != null) {
             amount.setRequest(this.requestedKey, this.requestedAmount, this.requestedCraftMissing);
         }
+
+        // Cancel on the plan screen goes back to edit the same order, so the priority typed for it is part
+        // of what is being edited. The amount screen only carries it; it has nothing to show it with.
+        amount.craftPriority = this.craftPriority;
     }
 
     public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {

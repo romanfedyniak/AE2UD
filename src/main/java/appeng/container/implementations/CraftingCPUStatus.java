@@ -28,6 +28,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
     private final String sourcePlayer;
     private final boolean suspended;
     private final CpuSelectionMode selectionMode;
+    private final int craftPriority;
 
     public CraftingCPUStatus() {
         this.serverCluster = null;
@@ -42,6 +43,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.sourcePlayer = null;
         this.suspended = false;
         this.selectionMode = CpuSelectionMode.ANY;
+        this.craftPriority = 0;
     }
 
     public CraftingCPUStatus(ICraftingCPU cluster, int serial) {
@@ -65,6 +67,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.coprocessors = cluster.getCoProcessors();
         this.suspended = cluster.isSuspended();
         this.selectionMode = cluster.getSelectionMode();
+        this.craftPriority = cluster.getCraftPriority();
     }
 
     public CraftingCPUStatus(NBTTagCompound i) {
@@ -79,6 +82,7 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         this.craftingElapsedTime = i.getLong("craftingElapsedTime");
         this.sourcePlayer = i.hasKey("sourcePlayer") ? i.getString("sourcePlayer") : null;
         this.suspended = i.getBoolean("suspended");
+        this.craftPriority = i.getInteger("craftPriority");
         final int mode = i.getInteger("selectionMode");
         this.selectionMode = mode >= 0 && mode < CpuSelectionMode.values().length
                 ? CpuSelectionMode.values()[mode]
@@ -108,6 +112,9 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
         i.setLong("remainingItems", remainingItems);
         i.setLong("craftingElapsedTime", craftingElapsedTime);
         i.setBoolean("suspended", suspended);
+        if (craftPriority != 0) {
+            i.setInteger("craftPriority", craftPriority);
+        }
         if (selectionMode != CpuSelectionMode.ANY) {
             i.setInteger("selectionMode", selectionMode.ordinal());
         }
@@ -179,6 +186,10 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     public boolean isSuspended() {
         return suspended;
+    }
+
+    public int getCraftPriority() {
+        return craftPriority;
     }
 
     public CpuSelectionMode getSelectionMode() {

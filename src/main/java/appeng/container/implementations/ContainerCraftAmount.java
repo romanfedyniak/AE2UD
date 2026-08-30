@@ -57,6 +57,8 @@ public class ContainerCraftAmount extends AEBaseContainer {
      */
     @GuiSync(11)
     public boolean initialCraftMissing;
+    /** Carried for a plan the player stepped back from, never shown here. Not synced: only the server reads it. */
+    public int craftPriority = 0;
 
     /**
      * Restores an order the player is coming back to edit, rather than one they have just started.

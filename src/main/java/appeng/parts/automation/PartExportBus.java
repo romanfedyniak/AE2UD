@@ -59,6 +59,7 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.core.sync.GuiBridge;
+import appeng.helpers.ICraftPriorityTarget;
 import appeng.helpers.MultiCraftingTracker;
 import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
@@ -83,7 +84,7 @@ import appeng.util.prioritylist.IPartitionList;
  * deliberately out-of-scope alignment per CONTRACT.md &sect;4.4), so this is not a regression this
  * wave introduced.
  */
-public class PartExportBus extends PartSharedItemBus implements ICraftingRequester {
+public class PartExportBus extends PartSharedItemBus implements ICraftingRequester, ICraftPriorityTarget {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/export_bus_base");
 
     @PartModels
@@ -95,7 +96,8 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     @PartModels
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, new ResourceLocation(AppEng.MOD_ID, "part/export_bus_has_channel"));
 
-    private final MultiCraftingTracker craftingTracker = new MultiCraftingTracker(this, 63);
+    private final MultiCraftingTracker craftingTracker = new MultiCraftingTracker(this, 63, this);
+    private int craftPriority = 0;
     private final IActionSource mySrc;
     private int nextSlot = 0;
     private boolean didSomething = false;
@@ -114,8 +116,20 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     }
 
     @Override
+    public int getCraftPriority() {
+        return this.craftPriority;
+    }
+
+    @Override
+    public void setCraftPriority(final int priority) {
+        this.craftPriority = priority;
+        this.saveChanges();
+    }
+
+    @Override
     public void readFromNBT(final NBTTagCompound extra) {
         super.readFromNBT(extra);
+        this.craftPriority = extra.getInteger("craftPriority");
         this.craftingTracker.readFromNBT(extra);
         this.nextSlot = extra.getInteger("nextSlot");
     }
@@ -123,6 +137,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     @Override
     public void writeToNBT(final NBTTagCompound extra) {
         super.writeToNBT(extra);
+        extra.setInteger("craftPriority", this.craftPriority);
         this.craftingTracker.writeToNBT(extra);
         extra.setInteger("nextSlot", this.nextSlot);
     }

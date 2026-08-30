@@ -43,13 +43,16 @@ public class MultiCraftingTracker {
 
     private final int size;
     private final ICraftingRequester owner;
+    /** What the machine orders at. Read at each submit rather than kept, so the setting takes at once. */
+    private final ICraftPriorityTarget priority;
 
     private Future<ICraftingJob>[] jobs = null;
     private ICraftingLink[] links = null;
 
-    public MultiCraftingTracker(final ICraftingRequester o, final int size) {
+    public MultiCraftingTracker(final ICraftingRequester o, final int size, final ICraftPriorityTarget priority) {
         this.owner = o;
         this.size = size;
+        this.priority = priority;
     }
 
     public void readFromNBT(final NBTTagCompound extra) {
@@ -94,7 +97,8 @@ public class MultiCraftingTracker {
                         }
 
                         if (job != null) {
-                            final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc).link();
+                            final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc,
+                                    this.priority.getCraftPriority()).link();
 
                             this.setJob(x, null);
 

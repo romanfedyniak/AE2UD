@@ -37,7 +37,7 @@ public class GuiIconButton extends GuiButton implements ITooltip {
     private static final int SIZE = 16;
 
     private final int iconIndex;
-    private final String message;
+    private String message;
 
     public GuiIconButton(final int x, final int y, final int iconIndex, final String message) {
         super(0, 0, SIZE, "");
@@ -71,6 +71,11 @@ public class GuiIconButton extends GuiButton implements ITooltip {
         this.mouseDragged(minecraft, mouseX, mouseY);
 
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    /** For a button whose tooltip carries a value, which has to be written again when the value moves. */
+    public void setMessage(final String message) {
+        this.message = message;
     }
 
     @Override

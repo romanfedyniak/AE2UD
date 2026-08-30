@@ -575,6 +575,18 @@ public class GuiCraftingCPUTable extends Gui {
                     : cpu.getSourcePlayer());
             tooltip.append(TextFormatting.RESET);
             tooltip.append('\n');
+
+            // Left out at 0, which is nearly every job: a line saying "no opinion" on every tooltip is noise.
+            if (cpu.getCraftPriority() != 0) {
+                tooltip.append(TextFormatting.GREEN);
+                tooltip.append(GuiText.CraftPriority.getLocal());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append(": ");
+                tooltip.append(TextFormatting.GOLD);
+                tooltip.append(cpu.getCraftPriority());
+                tooltip.append(TextFormatting.RESET);
+                tooltip.append('\n');
+            }
         }
         if (cpu.getStorage() > 0) {
             tooltip.append(GuiText.Bytes.getLocal());
