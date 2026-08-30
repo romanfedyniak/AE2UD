@@ -92,6 +92,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
      */
     private int activePage = 0;
 
+    /**
+     * Set when the crafting matrix changed and the result is stale. The server pushes one packet per slot
+     * when the terminal opens, and each of those used to cost a walk of the whole recipe registry.
+     */
+    private boolean outputDirty = false;
+
     @GuiSync(97)
     public boolean craftingMode = true;
     @GuiSync(96)
@@ -291,7 +297,34 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     @Override
     public void putStackInSlot(int slotID, ItemStack stack) {
         super.putStackInSlot(slotID, stack);
-        this.getAndUpdateOutput();
+
+        if (this.isCraftingMode() && this.isCraftingMatrixSlot(slotID)) {
+            this.outputDirty = true;
+        }
+    }
+
+    private boolean isCraftingMatrixSlot(final int slotID) {
+        if (slotID < 0 || slotID >= this.inventorySlots.size()) {
+            return false;
+        }
+
+        final Slot slot = this.inventorySlots.get(slotID);
+
+        for (final SlotFakeCraftingMatrix matrixSlot : this.craftingSlots) {
+            if (matrixSlot == slot) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Called once per frame by the screen, so a burst of slot updates costs one recipe lookup, not one each. */
+    public void refreshOutputIfDirty() {
+        if (this.outputDirty) {
+            this.outputDirty = false;
+            this.getAndUpdateOutput();
+        }
     }
 
     /**
@@ -347,7 +380,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             this.resendSlots();
         }
         if (s == this.craftSlot && Platform.isClient()) {
-            this.getAndUpdateOutput();
+            this.outputDirty = true;
         }
     }
 
@@ -702,7 +735,9 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
     protected ItemStack getAndUpdateOutput() {
         final World world = this.getPlayerInv().player.world;
-        final InventoryCrafting ic = new InventoryCrafting(this, 3, 3);
+        // Not this container: every setInventorySlotContents below would then fire onCraftMatrixChanged,
+        // and each of those is a full detectAndSendChanges.
+        final InventoryCrafting ic = new InventoryCrafting(new ContainerNull(), 3, 3);
 
         for (int x = 0; x < ic.getSizeInventory(); x++) {
             ic.setInventorySlotContents(x, this.crafting.getStackInSlot(x));

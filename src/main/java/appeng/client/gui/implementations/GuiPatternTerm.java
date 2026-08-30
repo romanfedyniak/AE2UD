@@ -304,6 +304,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         }
 
         this.container.setActivePage(this.pageScrollBar.getCurrentScroll());
+        this.container.refreshOutputIfDirty();
         this.container.updateSlotVisibility();
         // Buttons are drawn between the background and the foreground layer, so they have to be placed
         // here rather than in drawFG, or a mode switch leaves them a frame behind.
