@@ -249,6 +249,7 @@ public final class ApiItems implements IItems {
         // rv1
         this.encodedPattern = registry.item("encoded_pattern", ItemEncodedPattern::new)
                 .features(AEFeature.PATTERNS)
+                .rendering(new ItemEncodedPatternRendering())
                 .build();
 
         this.paintBall = registry.item("paint_ball", ItemPaintBall::new)

@@ -39,6 +39,7 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
@@ -62,6 +63,28 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
 
     public ItemEncodedPattern() {
         this.setMaxStackSize(64);
+    }
+
+    /**
+     * Read straight off the tag rather than through {@link #getPatternForItem}, which needs a world and
+     * decodes the whole recipe. This is asked for every pattern drawn and for every name shown.
+     */
+    public static boolean isCraftingPattern(final ItemStack stack) {
+        final NBTTagCompound tag = stack.getTagCompound();
+        return tag != null && tag.getBoolean("crafting");
+    }
+
+    /**
+     * The two say what they are by name as well as by colour, so the terminal search finds one kind of them.
+     * An unencoded stack - one that got here without a tag - keeps the plain name.
+     */
+    @Override
+    public String getItemStackDisplayName(final ItemStack stack) {
+        if (stack.getTagCompound() == null) {
+            return super.getItemStackDisplayName(stack);
+        }
+
+        return (isCraftingPattern(stack) ? GuiText.CraftingPattern : GuiText.ProcessingPattern).getLocal();
     }
 
     @Override
