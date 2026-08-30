@@ -34,9 +34,9 @@ import java.util.function.Function;
 
 
 /**
- * Supplies the model for {@link appeng.items.misc.WrappedGenericStack}. Like {@link DummyFluidItemModel} it
- * declares no textures of its own: the base model exists only to inherit {@code item/generated}'s transforms,
- * and the actual geometry is chosen per stack by {@link WrappedGenericStackDispatcherBakedModel}.
+ * Supplies the model for {@link appeng.items.misc.WrappedGenericStack}. It declares no textures of its own:
+ * the base model exists only to inherit {@code item/generated}'s transforms, and the actual geometry is
+ * chosen per stack by {@link WrappedGenericStackDispatcherBakedModel}.
  */
 public class WrappedGenericStackModel implements IModel {
     // We use this to get the default item transforms and make our lives easier

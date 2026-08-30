@@ -32,14 +32,17 @@ import java.util.List;
 
 
 /**
+ * A model that is nothing but a fixed list of quads - what one sprite looks like when extruded into an item.
+ * Built once per texture by {@link WrappedGenericStackDispatcherBakedModel#getSpriteModel}.
+ *
  * @author DrummerMC
  * @version rv6 - 2018-01-22
  * @since rv6 2018-01-22
  */
-public class DummyFluidBakedModel implements IBakedModel {
+public class SpriteBakedModel implements IBakedModel {
     private final ImmutableList<BakedQuad> quads;
 
-    public DummyFluidBakedModel(ImmutableList<BakedQuad> quads) {
+    public SpriteBakedModel(ImmutableList<BakedQuad> quads) {
         this.quads = quads;
     }
 

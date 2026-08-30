@@ -29,6 +29,9 @@ import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
 import appeng.core.AEConfig;
 import appeng.api.AEApi;
+import appeng.api.client.AEKeyRendering;
+import appeng.api.stacks.AEKeyTypes;
+import appeng.client.render.keytypes.FluidKeyRenderHandler;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -108,6 +111,8 @@ public class ClientHelper extends ServerHelper {
 
     @Override
     public void init() {
+        AEKeyRendering.register(AEKeyTypes.fluids(), new FluidKeyRenderHandler());
+
         for (ActionKey key : ActionKey.values()) {
             final KeyBinding binding = new KeyBinding(key.getTranslationKey(), key.getConflictContext(),
                     key.getDefaultKey(), KEY_CATEGORY);
