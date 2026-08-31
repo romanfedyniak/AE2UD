@@ -19,7 +19,9 @@
 package appeng.tile.misc;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.ticking.IGridTickable;
@@ -27,9 +29,12 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.DimensionalCoord;
 import appeng.core.settings.TickRates;
 import appeng.me.GridAccessException;
+import appeng.parts.automation.DefinitionUpgradeInventory;
+import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.grid.AENetworkInvTile;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
@@ -42,19 +47,25 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntityFurnace;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.List;
 
 
-public class TileVibrationChamber extends AENetworkInvTile implements IGridTickable {
+public class TileVibrationChamber extends AENetworkInvTile implements IGridTickable, ISegmentedInventory {
     public static final double POWER_PER_TICK = 5;
     public static final int MIN_BURN_SPEED = 20;
     public static final int MAX_BURN_SPEED = 200;
     public static final double DILATION_SCALING = 25.0; // x4 ~ 40 AE/t at max
+    public static final int UPGRADE_SLOTS = 3;
     private final AppEngInternalInventory inv = new AppEngInternalInventory(this, 1);
     private final IItemHandler invExt = new WrapperFilteredItemHandler(this.inv, new FuelSlotFilter());
+    private final UpgradeInventory upgrades = new DefinitionUpgradeInventory(
+            AEApi.instance().definitions().blocks().vibrationChamber(), this, UPGRADE_SLOTS);
 
     private int burnSpeed = 100;
     private double burnTime = 0;
@@ -95,6 +106,7 @@ public class TileVibrationChamber extends AENetworkInvTile implements IGridTicka
         data.setDouble("burnTime", this.getBurnTime());
         data.setDouble("maxBurnTime", this.getMaxBurnTime());
         data.setInteger("burnSpeed", this.getBurnSpeed());
+        this.upgrades.writeToNBT(data, "upgrades");
         return data;
     }
 
@@ -104,6 +116,32 @@ public class TileVibrationChamber extends AENetworkInvTile implements IGridTicka
         this.setBurnTime(data.getDouble("burnTime"));
         this.setMaxBurnTime(data.getDouble("maxBurnTime"));
         this.setBurnSpeed(data.getInteger("burnSpeed"));
+        this.upgrades.readFromNBT(data, "upgrades");
+    }
+
+    @Override
+    public void getDrops(final World w, final BlockPos pos, final List<ItemStack> drops) {
+        super.getDrops(w, pos, drops);
+
+        for (int slot = 0; slot < this.upgrades.getSlots(); slot++) {
+            final ItemStack is = this.upgrades.getStackInSlot(slot);
+            if (!is.isEmpty()) {
+                drops.add(is);
+            }
+        }
+    }
+
+    @Override
+    public IItemHandler getInventoryByName(final String name) {
+        return name.equals("upgrades") ? this.upgrades : null;
+    }
+
+    /**
+     * AE out of one tick of fuel. Each energy card is worth half of what the chamber makes on its own, so
+     * three of them get two and a half times the power out of the same coal.
+     */
+    public double getPowerPerTick() {
+        return POWER_PER_TICK * (1 + this.upgrades.getInstalledPoints(CardTraits.ENERGY) / 2.0);
     }
 
     @Override
@@ -177,7 +215,7 @@ public class TileVibrationChamber extends AENetworkInvTile implements IGridTicka
 
         try {
             final IEnergyGrid grid = this.getProxy().getEnergy();
-            final double newPower = timePassed * POWER_PER_TICK;
+            final double newPower = timePassed * this.getPowerPerTick();
             final double overFlow = grid.injectPower(newPower, Actionable.SIMULATE);
 
             // burn the over flow.

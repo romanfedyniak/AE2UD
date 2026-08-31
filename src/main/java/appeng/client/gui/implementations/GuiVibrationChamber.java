@@ -28,8 +28,15 @@ import appeng.tile.misc.TileVibrationChamber;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class GuiVibrationChamber extends AEBaseGui {
+
+    /** Where every machine wears its upgrade strip, and with it the slots ten pixels inside it. */
+    private static final int UPGRADES_X = 177;
 
     private final ContainerVibrationChamber cvc;
     private GuiProgressBar pb;
@@ -53,7 +60,7 @@ public class GuiVibrationChamber extends AEBaseGui {
         this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.VibrationChamber.getLocal()), 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
 
-        this.pb.setFullMsg(TileVibrationChamber.POWER_PER_TICK * this.cvc.getCurrentProgress() / TileVibrationChamber.DILATION_SCALING + " AE/t");
+        this.pb.setFullMsg(this.cvc.getPowerPerTick() * this.cvc.getCurrentProgress() / TileVibrationChamber.DILATION_SCALING + " AE/t");
 
         if (this.cvc.getRemainingBurnTime() > 0) {
             final int i1 = this.cvc.getRemainingBurnTime() * 12 / 100;
@@ -71,5 +78,18 @@ public class GuiVibrationChamber extends AEBaseGui {
         this.pb.x = 99 + this.guiLeft;
         this.pb.y = 36 + this.guiTop;
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, this.ySize);
+
+        // The strip is kept aside from where every other machine keeps it, at 177: the progress bar this
+        // screen alone has is already drawn out of those columns.
+        this.drawTexturedModalRect(offsetX + UPGRADES_X, offsetY, 212, 0, 35,
+                14 + TileVibrationChamber.UPGRADE_SLOTS * 18);
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
+        area.add(new Rectangle(this.guiLeft + UPGRADES_X, this.guiTop, 35,
+                14 + TileVibrationChamber.UPGRADE_SLOTS * 18));
+        return area;
     }
 }

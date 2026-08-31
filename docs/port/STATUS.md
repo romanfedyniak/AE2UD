@@ -2122,6 +2122,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `GuiWirelessUpgradePlate`, out of the same one-slot texture, so a screen names how many slots it has
     and nothing else has to change to grow it.
 
+    The vibration chamber gained an upgrade inventory, which it never had, and with it
+    `ISegmentedInventory` - so a memory card copies its cards along with everything else, for free.
+    Upstream's card multiplies energy per fuel-tick by `1 + cards / 2`; the same arithmetic applies here
+    to `POWER_PER_TICK`, which is this version's name for the same quantity. Its screen keeps the upgrade
+    strip at x=212 in its own texture rather than the usual 177, because the progress bar this machine
+    alone has is drawn out of those columns; the art is the inscriber's, row for row.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

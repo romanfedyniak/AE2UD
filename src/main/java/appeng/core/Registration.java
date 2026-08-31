@@ -652,6 +652,10 @@ final class Registration {
         // Inscriber
         upgrades.addTraitSupport(CardTraits.SPEED, blocks.inscriber(), 3);
 
+        // Vibration Chamber
+        upgrades.addTraitSupport(CardTraits.ENERGY, blocks.vibrationChamber(), 3);
+        upgrades.setTraitLimit(CardTraits.ENERGY, blocks.vibrationChamber(), 3);
+
         upgrades.add(UpgradeCards.quantumLink(), blocks.quantumLink(), 1);
 
         // Wireless Terminal Handler. The three left over from before there was one terminal are handlers too,

@@ -26,6 +26,7 @@ import appeng.container.slot.SlotRestrictedInput;
 import appeng.tile.misc.TileVibrationChamber;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraftforge.items.IItemHandler;
 
 
 public class ContainerVibrationChamber extends AEBaseContainer implements IProgressProvider {
@@ -42,7 +43,18 @@ public class ContainerVibrationChamber extends AEBaseContainer implements IProgr
         this.addSlotToContainer(new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.FUEL, vibrationChamber.getInternalInventory(), 0, 80, 37, this
                 .getInventoryPlayer()));
 
+        final IItemHandler upgrades = vibrationChamber.getInventoryByName("upgrades");
+        for (int slot = 0; slot < TileVibrationChamber.UPGRADE_SLOTS; slot++) {
+            this.addSlotToContainer(new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
+                    upgrades, slot, 187, 8 + slot * 18, this.getInventoryPlayer()).setNotDraggable());
+        }
+
         this.bindPlayerInventory(ip, 0, 166 - /* height of player inventory */82);
+    }
+
+    /** What the chamber makes out of one tick of fuel, which its energy cards raise. */
+    public double getPowerPerTick() {
+        return this.vibrationChamber.getPowerPerTick();
     }
 
     @Override
