@@ -274,14 +274,19 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     /**
      * Orders exactly one placement's worth. Asking for more would leave the rest with the cpu: a plane that
      * has just put a block down is blocked until somebody takes it away, and the job would never close.
+     * <p>
+     * Whether the world can take it is answered from {@link #blocked} rather than by simulating the
+     * placement: a simulation hands the item to the world's fake player, which is audible for anything that
+     * makes a noise being placed, and this runs on every tick the network holds none of what the plane is
+     * meant to place. The flag says the same thing and costs nothing, and is kept up to date by whatever
+     * changes the block in front.
      */
     private boolean orderCraft(final ICraftingGrid cg, final int slot, final AEKey what) {
         final long amount = this.placementAmount(what);
 
         try {
-            return this.craftingTracker.handleCrafting(slot, amount, what,
-                    () -> this.placeInWorld(what, amount, Actionable.SIMULATE) > 0, this.getTile().getWorld(),
-                    this.getProxy().getGrid(), cg, this.source);
+            return this.craftingTracker.handleCrafting(slot, amount, what, () -> !this.blocked,
+                    this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.source);
         } catch (final GridAccessException e) {
             return false;
         }
@@ -311,6 +316,12 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
      */
     @Override
     public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
+        // A cpu that cannot hand its result over tries again on every tick, so a blocked plane would run the
+        // item's own placement logic that often for as long as the block in front stands there.
+        if (this.blocked) {
+            return items;
+        }
+
         try {
             if (this.getProxy().isActive()) {
                 final IEnergyGrid energy = this.getProxy().getEnergy();
