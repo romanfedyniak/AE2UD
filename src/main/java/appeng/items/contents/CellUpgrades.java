@@ -19,6 +19,7 @@
 package appeng.items.contents;
 
 
+import appeng.api.upgrades.IUpgradeInventoryListener;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.util.Platform;
 import net.minecraft.item.ItemStack;
@@ -28,7 +29,16 @@ public final class CellUpgrades extends StackUpgradeInventory {
     private final ItemStack is;
 
     public CellUpgrades(final ItemStack is, final int upgrades) {
-        super(is, null, upgrades);
+        this(is, upgrades, null);
+    }
+
+    /**
+     * @param listener told after every change, for a host that has to work something out from its cards.
+     *                 It is handed this inventory, not the stack: {@link #getUpgradableItem()} answers with
+     *                 a copy, so anything writing back to the item has to hold the real one itself.
+     */
+    public CellUpgrades(final ItemStack is, final int upgrades, final IUpgradeInventoryListener listener) {
+        super(is, null, upgrades, listener);
         this.is = is;
         this.readFromNBT(Platform.openNbtData(is), "upgrades");
     }
@@ -36,5 +46,6 @@ public final class CellUpgrades extends StackUpgradeInventory {
     @Override
     protected void onContentsChanged(int slot) {
         this.writeToNBT(Platform.openNbtData(this.is), "upgrades");
+        this.saveChanges();
     }
 }

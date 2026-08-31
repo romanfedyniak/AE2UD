@@ -48,6 +48,9 @@ public final class CardTraits {
     /** Gives a host a redstone mode. */
     public static final CardTrait REDSTONE = CardTrait.of(id("redstone"));
 
+    /** A larger battery on a powered tool. What one point is worth is the tool's own business. */
+    public static final CardTrait ENERGY = CardTrait.of(id("energy"));
+
     /** A row of nine more pattern slots each, capped per host. */
     public static final CardTrait PATTERN_EXPANSION = CardTrait.of(id("pattern_expansion"));
 

@@ -503,6 +503,7 @@ final class Registration {
         upgrades.registerCard(UpgradeCards.equalDistribution(), CardTraits.EQUAL_DISTRIBUTION, 1);
         upgrades.registerCard(UpgradeCards.voidCard(), CardTraits.VOID, 1);
         upgrades.registerCard(UpgradeCards.crafting(), CardTraits.CRAFTING, 1);
+        upgrades.registerCard(UpgradeCards.energy(), CardTraits.ENERGY, 1);
         upgrades.registerCard(UpgradeCards.fakeCrafting(), CardTraits.FAKE_CRAFTING, 1);
         upgrades.registerCard(UpgradeCards.redstone(), CardTraits.REDSTONE, 1);
         upgrades.registerCard(UpgradeCards.patternExpansion(), CardTraits.PATTERN_EXPANSION, 1);
@@ -575,10 +576,14 @@ final class Registration {
         upgrades.addTraitSupport(CardTraits.FUZZY, items.portableCell(), 1);
         upgrades.addTraitSupport(CardTraits.INVERTER, items.portableCell(), 1);
         upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.portableCell(), 1);
+        upgrades.addTraitSupport(CardTraits.ENERGY, items.portableCell(), 2);
+        upgrades.setTraitLimit(CardTraits.ENERGY, items.portableCell(), 2);
         upgrades.addTraitSupport(CardTraits.VOID, items.portableCell(), 1);
 
         upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.colorApplicator(), 1);
         upgrades.addTraitSupport(CardTraits.VOID, items.colorApplicator(), 1);
+        upgrades.addTraitSupport(CardTraits.ENERGY, items.colorApplicator(), 2);
+        upgrades.setTraitLimit(CardTraits.ENERGY, items.colorApplicator(), 2);
 
         upgrades.addTraitSupport(CardTraits.FUZZY, items.viewCell(), 1);
         upgrades.addTraitSupport(CardTraits.INVERTER, items.viewCell(), 1);
@@ -638,6 +643,8 @@ final class Registration {
         upgrades.addTraitSupport(CardTraits.FUZZY, items.massCannon(), 1);
         upgrades.addTraitSupport(CardTraits.INVERTER, items.massCannon(), 1);
         upgrades.add(UpgradeCards.speed(), items.massCannon(), 4);
+        upgrades.addTraitSupport(CardTraits.ENERGY, items.massCannon(), 2);
+        upgrades.setTraitLimit(CardTraits.ENERGY, items.massCannon(), 2);
 
         // Molecular Assembler
         upgrades.addTraitSupport(CardTraits.SPEED, blocks.molecularAssembler(), 5);

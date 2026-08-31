@@ -1,0 +1,35 @@
+{
+  "conditions": [
+    {
+      "type": "forge:and",
+      "values": [
+        {
+          "type": "appliedenergistics2:material_exists",
+          "material": "material.card_energy"
+        },
+        {
+          "type": "appliedenergistics2:material_exists",
+          "material": "material.advanced_card"
+        },
+        {
+          "type": "minecraft:item_exists",
+          "item": "appliedenergistics2:dense_energy_cell"
+        }
+      ]
+    }
+  ],
+  "result": {
+    "type": "appliedenergistics2:part",
+    "part": "material.card_energy"
+  },
+  "type": "appliedenergistics2:part_shapeless",
+  "ingredients": [
+    {
+      "type": "appliedenergistics2:part",
+      "part": "material.advanced_card"
+    },
+    {
+      "item": "appliedenergistics2:dense_energy_cell"
+    }
+  ]
+}

@@ -23,7 +23,9 @@ import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.core.localization.Tooltips;
+import appeng.api.upgrades.CardTraits;
 import appeng.items.AEBaseItem;
+import appeng.items.contents.CellUpgrades;
 import appeng.util.Platform;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
@@ -32,6 +34,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -137,7 +140,50 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
 
     @Override
     public double getAEMaxPower(final ItemStack is) {
-        return this.powerCapacity;
+        final NBTTagCompound tag = is.getTagCompound();
+
+        return tag != null && tag.hasKey(MAX_POWER_NBT_KEY) ? tag.getDouble(MAX_POWER_NBT_KEY)
+                : this.powerCapacity;
+    }
+
+    /**
+     * Sets what this one stack can hold, for a tool whose battery grows with the cards in it. Written to the
+     * stack rather than worked out on demand, because the durability bar asks for the maximum on every frame
+     * and reading an upgrade inventory means deserialising one.
+     *
+     * <p>Charge above the new maximum is lost: pulling a card out of a full tool leaves the tool full.</p>
+     */
+    protected final void setAEMaxPower(final ItemStack is, final double maxPower) {
+        final NBTTagCompound data = Platform.openNbtData(is);
+
+        if (maxPower == this.powerCapacity) {
+            data.removeTag(MAX_POWER_NBT_KEY);
+        } else {
+            data.setDouble(MAX_POWER_NBT_KEY, maxPower);
+        }
+
+        if (data.getDouble(CURRENT_POWER_NBT_KEY) > maxPower) {
+            data.setDouble(CURRENT_POWER_NBT_KEY, maxPower);
+        }
+    }
+
+    /**
+     * @param multiplier how many times the tool's default battery it now holds
+     */
+    protected final void setAEMaxPowerMultiplier(final ItemStack is, final int multiplier) {
+        this.setAEMaxPower(is, multiplier * this.powerCapacity);
+    }
+
+    /**
+     * An upgrade inventory that resizes this stack's battery as energy cards come and go.
+     *
+     * @param perCard how many times the tool's own battery one card is worth. Eight for a tool built
+     *                around a plain energy cell, because the card is crafted with a dense one.
+     */
+    protected final IItemHandler upgradesWithEnergyCards(final ItemStack is, final int slots,
+            final int perCard) {
+        return new CellUpgrades(is, slots, upgrades -> this.setAEMaxPowerMultiplier(is,
+                1 + upgrades.getInstalledPoints(CardTraits.ENERGY) * perCard));
     }
 
     @Override

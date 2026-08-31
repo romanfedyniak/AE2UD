@@ -359,7 +359,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return new CellUpgrades(is, 4);
+        return this.upgradesWithEnergyCards(is, 4, 8);
     }
 
     @Override

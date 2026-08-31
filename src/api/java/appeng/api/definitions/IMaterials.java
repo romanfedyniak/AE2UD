@@ -108,6 +108,8 @@ public interface IMaterials {
 
     IItemDefinition cardVoid();
 
+    IItemDefinition cardEnergy();
+
     IItemDefinition enderDust();
 
     IItemDefinition flour();

@@ -691,6 +691,7 @@ item.appliedenergistics2.material.card_sticky.name=Sticky Card
 item.appliedenergistics2.material.card_fake_crafting.name=Fake Crafting Card
 item.appliedenergistics2.material.card_equal_distribution.name=Equal Distribution Card
 item.appliedenergistics2.material.card_void.name=Overflow Destruction Card
+item.appliedenergistics2.material.card_energy.name=Energy Card
 
 item.appliedenergistics2.multi_part.annihilation_plane.name=ME Annihilation Plane
 item.appliedenergistics2.multi_part.cable_anchor.name=Cable Anchor

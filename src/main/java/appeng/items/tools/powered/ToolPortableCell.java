@@ -34,7 +34,6 @@ import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.items.contents.CellConfig;
-import appeng.items.contents.CellUpgrades;
 import appeng.items.contents.PortableCellViewer;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.util.Platform;
@@ -134,7 +133,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return new CellUpgrades(is, 4);
+        return this.upgradesWithEnergyCards(is, 4, 8);
     }
 
     @Override

@@ -2100,6 +2100,21 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     taking capacity cards without a registered limit reported no capacity points at all. An unregistered
     limit now means no cap. Every AE2UD host registers both together.
 
+29. **`IMaterials.cardEnergy()`, `UpgradeCards.energy()` and `CardTraits.ENERGY`** - additive, the trio for
+    the energy card. Upstream reaches the same card through `AEItems.ENERGY_CARD` and carries how much it is
+    worth on the item itself (`EnergyCardItem.getEnergyMultiplier()`, read back by a static
+    `Upgrades.getEnergyCardMultiplier`); here it is one more trait, so a stronger card from an addon counts
+    without subclassing anything of ours, and `setTraitLimit` keeps it from running away. What one point is
+    worth stays with the tool, exactly as upstream leaves it at the call site: eight times the tool's own
+    battery for anything built around a plain energy cell, since the card is crafted with a dense one.
+
+    `AEBasePoweredItem` gained `setAEMaxPower` / `setAEMaxPowerMultiplier` / `upgradesWithEnergyCards`, all
+    `protected final`, and `getAEMaxPower` now reads the `internalMaxPower` tag the class had always
+    reserved before falling back to the configured capacity. Not an api package, but the line is here
+    because the class is the base of every powered tool an addon might extend. `CellUpgrades` takes an
+    optional `IUpgradeInventoryListener`, which is what tells a tool its battery changed; its
+    `onContentsChanged` calls `saveChanges()` now, which it never did.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

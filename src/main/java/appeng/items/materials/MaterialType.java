@@ -121,6 +121,7 @@ public enum MaterialType {
     CARD_FAKE_CRAFTING(63, "material_card_fake_crafting", EnumSet.of(AEFeature.ADVANCED_CARDS, AEFeature.FAKE_CRAFTING_CARD)),
     CARD_EQUAL_DISTRIBUTION(64, "material_card_equal_distribution", EnumSet.of(AEFeature.ADVANCED_CARDS)),
     CARD_VOID(65, "material_card_void", EnumSet.of(AEFeature.BASIC_CARDS)),
+    CARD_ENERGY(66, "material_card_energy", EnumSet.of(AEFeature.ADVANCED_CARDS)),
     ;
 
 

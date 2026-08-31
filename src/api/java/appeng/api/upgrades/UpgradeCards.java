@@ -48,6 +48,11 @@ public final class UpgradeCards {
         return stack(AEApi.instance().definitions().materials().cardVoid());
     }
 
+    /** Gives a powered tool a larger battery. */
+    public static ItemStack energy() {
+        return stack(AEApi.instance().definitions().materials().cardEnergy());
+    }
+
     public static ItemStack equalDistribution() {
         return stack(AEApi.instance().definitions().materials().cardEqualDistribution());
     }

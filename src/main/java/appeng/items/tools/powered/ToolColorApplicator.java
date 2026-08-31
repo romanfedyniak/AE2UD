@@ -40,7 +40,6 @@ import appeng.core.localization.GuiText;
 import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.IBlockTool;
 import appeng.items.contents.CellConfig;
-import appeng.items.contents.CellUpgrades;
 import appeng.items.misc.ItemPaintBall;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.me.helpers.BaseActionSource;
@@ -489,7 +488,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return new CellUpgrades(is, 2);
+        return this.upgradesWithEnergyCards(is, 2, 8);
     }
 
     @Override
