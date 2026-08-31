@@ -35,10 +35,12 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.items.IItemHandler;
 
+import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
+import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -139,19 +141,16 @@ public class BasicCellInventory implements StorageCell {
         // rather than dereferencing it keeps a third-party cell that does the same from crashing the client
         // while it builds the creative search tree, where the stack trace points at a tooltip and not at the
         // cell. This is defensive only; it is not what fixed the creative cell (see ItemCreativeStorageCell).
+        final IUpgradeRegistry registry = AEApi.instance().registries().upgrades();
         for (int x = 0; upgrades != null && x < upgrades.getSlots(); x++) {
             final ItemStack is = upgrades.getStackInSlot(x);
-            if (ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
-                hasFuzzy = true;
-            } else if (ItemStack.areItemsEqual(is, UpgradeCards.inverter())) {
-                hasInverter = true;
-            } else if (ItemStack.areItemsEqual(is, UpgradeCards.sticky())) {
-                hasSticky = true;
-            } else if (ItemStack.areItemsEqual(is, UpgradeCards.equalDistribution())) {
-                hasEqualDistribution = true;
-            } else if (ItemStack.areItemsEqual(is, UpgradeCards.voidCard())) {
-                hasVoid = true;
-            }
+            // Asked once per card rather than as a chain of alternatives: one card may carry several of
+            // these, and the cell takes every one it declared.
+            hasFuzzy |= registry.isTraitSupported(is, CardTraits.FUZZY, this.i);
+            hasInverter |= registry.isTraitSupported(is, CardTraits.INVERTER, this.i);
+            hasSticky |= registry.isTraitSupported(is, CardTraits.STICKY, this.i);
+            hasEqualDistribution |= registry.isTraitSupported(is, CardTraits.EQUAL_DISTRIBUTION, this.i);
+            hasVoid |= registry.isTraitSupported(is, CardTraits.VOID, this.i);
         }
         this.sticky = hasSticky;
 

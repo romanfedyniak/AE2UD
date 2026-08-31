@@ -158,6 +158,11 @@ public class ContainerCellWorkbench extends ContainerUpgradeable {
         return idx < this.availableUpgrades();
     }
 
+    /** The cell being worked on, which is the host its cards are judged against. */
+    public ItemStack getCell() {
+        return this.workBench.getInventoryByName("cell").getStackInSlot(0);
+    }
+
     public IItemHandler getCellUpgradeInventory() {
         final IItemHandler upgradeInventory = this.workBench.getCellUpgradeInventory();
 

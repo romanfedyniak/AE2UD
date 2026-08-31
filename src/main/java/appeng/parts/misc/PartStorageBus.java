@@ -512,9 +512,9 @@ public class PartStorageBus extends PartUpgradeable
         // extraction and visibility on hasReadAccess unconditionally; the new one only does either when told to
         // via setExtractFiltering, so READ (and the whitelist) must always be asked here to reproduce that.
         this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
-        this.handler.setWhitelist(this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+        this.handler.setWhitelist(this.isInstalled(CardTraits.INVERTER) ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
         this.handler.setPartitionList(this.createFilter());
-        this.handler.setSticky(this.getInstalledUpgrades(UpgradeCards.sticky()) > 0);
+        this.handler.setSticky(this.isInstalled(CardTraits.STICKY));
 
         // update sleep state...
         if (wasSleeping != (this.monitor == null)) {
@@ -543,12 +543,12 @@ public class PartStorageBus extends PartUpgradeable
 
     /**
      * Builds the priority/filter list from the config slots. Overridden by {@link PartOreDicStorageBus} to swap in
-     * an ore-dictionary rule list instead - everything else (ACCESS, STORAGE_FILTER, UpgradeCards.inverter(),
-     * UpgradeCards.sticky(), priority) is shared, unchanged, through {@link #getInternalHandler()}.
+     * an ore-dictionary rule list instead - everything else (ACCESS, STORAGE_FILTER, the inverter and sticky
+     * traits, priority) is shared, unchanged, through {@link #getInternalHandler()}.
      */
     protected IPartitionList createFilter() {
         final IPartitionList.Builder filterBuilder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+        if (this.isInstalled(CardTraits.FUZZY)) {
             filterBuilder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
 

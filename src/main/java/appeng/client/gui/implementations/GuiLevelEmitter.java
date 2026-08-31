@@ -18,7 +18,7 @@
 
 package appeng.client.gui.implementations;
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.config.*;
@@ -124,7 +124,7 @@ public class GuiLevelEmitter extends GuiUpgradeable {
      * threshold governs nothing while one is in.
      */
     private boolean canSetLevel() {
-        return this.bc.getInstalledUpgrades(UpgradeCards.crafting()) == 0;
+        return !this.bc.isInstalled(CardTraits.CRAFTING);
     }
 
     @Override
@@ -160,14 +160,14 @@ public class GuiLevelEmitter extends GuiUpgradeable {
 
     @Override
     protected void handleButtonVisibility() {
-        final boolean crafting = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+        final boolean crafting = this.bc.isInstalled(CardTraits.CRAFTING);
 
         // These two share a slot in the column, and a level emitter takes a fuzzy card and a crafting card
         // at once, so both were drawn one on top of the other. The crafting one wins because the other
         // governs nothing while it is there: isLevelEmitterOn answers with isRequesting and returns before
         // it ever reaches the level comparison that fuzzy matching applies to.
         this.craftingMode.setVisibility(crafting);
-        this.fuzzyMode.setVisibility(!crafting && this.bc.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0);
+        this.fuzzyMode.setVisibility(!crafting && this.bc.isInstalled(CardTraits.FUZZY));
     }
 
     @Override

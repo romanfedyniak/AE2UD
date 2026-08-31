@@ -19,7 +19,7 @@
 package appeng.helpers;
 
 import appeng.api.upgrades.CardTrait;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.config.*;
@@ -609,7 +609,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     /** Nine to a row: the row the interface is born with, plus one for every expansion card. */
     public int getUsablePatternSlots() {
-        return 9 * (1 + this.getInstalledUpgrades(UpgradeCards.patternExpansion()));
+        return 9 * (1 + this.getInstalledPoints(CardTraits.PATTERN_EXPANSION));
     }
 
     public void dropExcessPatterns() {
@@ -631,7 +631,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             Platform.spawnDrops(world, blockPos, dropList);
         }
 
-        this.gridProxy.setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(UpgradeCards.patternExpansion()))));
+        this.gridProxy.setIdlePowerUsage(Math.pow(4, (this.getInstalledPoints(CardTraits.PATTERN_EXPANSION))));
     }
 
     @Override
@@ -910,7 +910,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     private boolean handleCrafting(final int x, final InventoryAdaptor d, final GenericStack itemStack) {
         try {
-            if (this.getInstalledUpgrades(UpgradeCards.crafting()) > 0 && itemStack != null) {
+            if (this.isInstalled(CardTraits.CRAFTING) && itemStack != null) {
                 return this.craftingTracker.handleCrafting(x, itemStack.amount(), itemStack.what(), d, this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
             }
         } catch (final GridAccessException e) {
@@ -1026,7 +1026,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     @Override
     public void updateSetting(final IConfigManager manager, final Enum settingName, final Enum newValue) {
-        if (this.getInstalledUpgrades(UpgradeCards.crafting()) == 0) {
+        if (!this.isInstalled(CardTraits.CRAFTING)) {
             this.cancelCrafting();
         }
 
@@ -1055,7 +1055,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     @Override
     public boolean isFakeCrafting() {
-        return this.getInstalledUpgrades(UpgradeCards.fakeCrafting()) > 0;
+        return this.isInstalled(CardTraits.FAKE_CRAFTING);
     }
 
     @Override

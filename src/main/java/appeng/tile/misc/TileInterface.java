@@ -22,7 +22,7 @@ package appeng.tile.misc;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.upgrades.CardTrait;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingLink;
@@ -145,7 +145,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
 
         super.onReady();
         this.duality.initialize();
-        this.getProxy().setIdlePowerUsage(Math.pow(4, (this.getInstalledUpgrades(UpgradeCards.patternExpansion()))));
+        this.getProxy().setIdlePowerUsage(Math.pow(4, (this.getInstalledPoints(CardTraits.PATTERN_EXPANSION))));
     }
 
     @Override

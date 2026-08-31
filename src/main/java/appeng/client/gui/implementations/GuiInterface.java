@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -126,7 +127,7 @@ public class GuiInterface extends GuiUpgradeable {
         super.handleButtonVisibility();
 
         if (this.craftPriority != null) {
-            final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+            final boolean carded = this.bc.isInstalled(CardTraits.CRAFTING);
             this.craftPriority.visible = carded;
             this.craftPriority.enabled = carded;
             this.craftPriority.setPriority(this.cvb.getCraftPriority());

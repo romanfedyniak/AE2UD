@@ -37,7 +37,7 @@ import appeng.api.config.PowerMultiplier;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingGrid;
@@ -197,7 +197,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
 
             final int before = context.getOperationsRemaining();
 
-            if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+            if (this.isInstalled(CardTraits.FUZZY)) {
                 for (var fuzzyEntry : ImmutableList.copyOf(storageService.getCachedInventory().findFuzzy(what, fzMode))) {
                     if (fuzzyEntry.getLongValue() > 0) {
                         this.exportOne(context, fuzzyEntry.getKey());
@@ -318,7 +318,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     }
 
     private boolean isCraftingEnabled() {
-        return this.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+        return this.isInstalled(CardTraits.CRAFTING);
     }
 
     private int getStartingSlot(final SchedulingMode schedulingMode, final int x) {

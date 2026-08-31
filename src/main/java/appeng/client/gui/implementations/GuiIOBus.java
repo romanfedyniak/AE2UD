@@ -24,6 +24,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.AmountFormat;
@@ -152,10 +153,10 @@ public class GuiIOBus extends GuiUpgradeable {
         super.handleButtonVisibility();
 
         if (this.craftMode != null) {
-            this.craftMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0);
+            this.craftMode.setVisibility(this.bc.isInstalled(CardTraits.CRAFTING));
         }
         if (this.craftPriority != null) {
-            final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+            final boolean carded = this.bc.isInstalled(CardTraits.CRAFTING);
             this.craftPriority.visible = carded;
             this.craftPriority.enabled = carded;
             this.craftPriority.setPriority(this.cvb.getCraftPriority());

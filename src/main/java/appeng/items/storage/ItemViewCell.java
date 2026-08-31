@@ -19,8 +19,10 @@
 package appeng.items.storage;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
+import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyTypes;
@@ -81,17 +83,11 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
                 final IItemHandler config = vc.getConfigInventory(currentViewCell);
                 final FuzzyMode fzMode = vc.getFuzzyMode(currentViewCell);
 
-                boolean hasInverter = false;
-                boolean hasFuzzy = false;
-
-                for (int x = 0; x < upgrades.getSlots(); x++) {
-                    final ItemStack is = upgrades.getStackInSlot(x);
-                    if (ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
-                        hasFuzzy = true;
-                    } else if (ItemStack.areItemsEqual(is, UpgradeCards.inverter())) {
-                        hasInverter = true;
-                    }
-                }
+                final IUpgradeRegistry registry = AEApi.instance().registries().upgrades();
+                final boolean hasInverter = registry.getInstalledPoints(upgrades, currentViewCell,
+                        CardTraits.INVERTER) > 0;
+                final boolean hasFuzzy = registry.getInstalledPoints(upgrades, currentViewCell,
+                        CardTraits.FUZZY) > 0;
 
                 boolean any = false;
                 for (int x = 0; x < config.getSlots(); x++) {

@@ -20,7 +20,6 @@ package appeng.tile.storage;
 
 import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.CardTraits;
-import appeng.api.upgrades.UpgradeCards;
 
 
 import appeng.api.AEApi;
@@ -209,7 +208,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     }
 
     private boolean isEnabled() {
-        if (this.getInstalledUpgrades(UpgradeCards.redstone()) == 0) {
+        if (!this.isInstalled(CardTraits.REDSTONE)) {
             return true;
         }
         final RedstoneMode rs = (RedstoneMode) this.manager.getSetting(Settings.REDSTONE_CONTROLLED);

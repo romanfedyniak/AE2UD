@@ -18,7 +18,7 @@
 
 package appeng.container.implementations;
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.config.*;
@@ -88,7 +88,7 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        return myDuality.getInstalledUpgrades(UpgradeCards.patternExpansion()) >= idx;
+        return myDuality.getInstalledPoints(CardTraits.PATTERN_EXPANSION) >= idx;
     }
 
     @Override
@@ -141,7 +141,7 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
     }
 
     public int getPatternUpgrades() {
-        return this.myDuality.getInstalledUpgrades(UpgradeCards.patternExpansion());
+        return this.myDuality.getInstalledPoints(CardTraits.PATTERN_EXPANSION);
     }
 
     public LockCraftingMode getCraftingLockedReason() {

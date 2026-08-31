@@ -18,7 +18,7 @@
 
 package appeng.client.gui.implementations;
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.config.*;
@@ -221,10 +221,10 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
         this.layoutColumn();
 
         if (this.redstoneMode != null) {
-            this.redstoneMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.redstone()) > 0);
+            this.redstoneMode.setVisibility(this.bc.isInstalled(CardTraits.REDSTONE));
         }
         if (this.fuzzyMode != null) {
-            this.fuzzyMode.setVisibility(this.bc.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0);
+            this.fuzzyMode.setVisibility(this.bc.isInstalled(CardTraits.FUZZY));
         }
     }
 

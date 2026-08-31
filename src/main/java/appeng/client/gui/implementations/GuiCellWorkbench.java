@@ -18,7 +18,8 @@
 
 package appeng.client.gui.implementations;
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.AEApi;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.config.*;
@@ -113,15 +114,8 @@ public class GuiCellWorkbench extends GuiUpgradeable {
     protected void handleButtonVisibility() {
         this.copyMode.setState(this.workbench.getCopyMode() == CopyMode.CLEAR_ON_REMOVE);
 
-        boolean hasFuzzy = false;
-        final IItemHandler inv = this.workbench.getCellUpgradeInventory();
-        for (int x = 0; x < inv.getSlots(); x++) {
-            final ItemStack is = inv.getStackInSlot(x);
-            if (!is.isEmpty() && ItemStack.areItemsEqual(is, UpgradeCards.fuzzy())) {
-                hasFuzzy = true;
-            }
-        }
-        this.fuzzyMode.setVisibility(hasFuzzy);
+        this.fuzzyMode.setVisibility(AEApi.instance().registries().upgrades().getInstalledPoints(
+                this.workbench.getCellUpgradeInventory(), this.workbench.getCell(), CardTraits.FUZZY) > 0);
     }
 
     @Override

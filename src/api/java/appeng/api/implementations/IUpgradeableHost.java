@@ -43,6 +43,10 @@ public interface IUpgradeableHost extends IConfigurableObject, ISegmentedInvento
 		return 0;
 	}
 
+	default boolean isInstalled( CardTrait trait ) {
+		return this.getInstalledPoints( trait ) > 0;
+	}
+
 	/**
 	 * the tile...
 	 *

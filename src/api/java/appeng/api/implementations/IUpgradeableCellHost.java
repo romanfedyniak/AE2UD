@@ -43,4 +43,8 @@ public interface IUpgradeableCellHost extends IConfigurableObject, ISegmentedInv
         return 0;
     }
 
+    default boolean isInstalled(CardTrait trait) {
+        return this.getInstalledPoints(trait) > 0;
+    }
+
 }

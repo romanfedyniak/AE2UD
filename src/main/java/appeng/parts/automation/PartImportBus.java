@@ -31,6 +31,7 @@ import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
@@ -181,13 +182,13 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
         }
 
         final IPartitionList filter = this.buildFilter();
-        final FuzzyMode fzMode = this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0
+        final FuzzyMode fzMode = this.isInstalled(CardTraits.FUZZY)
                 ? (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE)
                 : null;
 
         final StackTransferContextImpl context = new StackTransferContextImpl(internalStorage, energy, this.source,
                 this.calculateItemsToSend(), filter, fzMode);
-        context.setInverted(this.getInstalledUpgrades(UpgradeCards.inverter()) > 0);
+        context.setInverted(this.isInstalled(CardTraits.INVERTER));
 
         this.importStrategy.transfer(context);
 
@@ -198,11 +199,11 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
      * Builds the partition list from the bus' configured slots, matching the pre-port behaviour where
      * an unconfigured bus imports anything and a configured one imports either the listed keys or their
      * complement when an inverter card is installed. Matching is fuzzy or precise depending
-     * on {@code UpgradeCards.fuzzy()}.
+     * on {@link CardTraits#FUZZY}.
      */
     private IPartitionList buildFilter() {
         final var builder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+        if (this.isInstalled(CardTraits.FUZZY)) {
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
         for (int x = 0; x < this.availableSlots(); x++) {

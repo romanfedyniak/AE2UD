@@ -2081,6 +2081,20 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `IUpgradeInventory`, so a cell handing back an upgrade inventory of its own still gets the same
     answers; `IUpgradeInventory`'s two are one-line wrappers, and the slot filter asks nothing else.
 
+    Every card the fork ships is described this way, not only speed and capacity: `CardTraits` also names
+    `FUZZY`, `INVERTER`, `STICKY`, `EQUAL_DISTRIBUTION`, `VOID`, `CRAFTING`, `FAKE_CRAFTING`, `REDSTONE`
+    and `PATTERN_EXPANSION`, and `IUpgradeableHost`/`IUpgradeableCellHost` carry a `default
+    isInstalled(CardTrait)` beside `getInstalledPoints`. Two cards are deliberately left out because
+    neither is a property of the host: the magnet card, which is pulled out as a stack to read its own
+    filter and its own cards, and the quantum link card, which sits in a machine's own slot and never in
+    an upgrade inventory. Both keep a plain `add(...)` association.
+
+    A third-party cell is the one thing this can catch out. `ICellWorkbenchItem.getUpgradesInventory`
+    returns a bare `IItemHandler`, so a cell that never filtered its own slots used to get fuzzy matching
+    from AE2's card simply because the item matched. A trait counts only where the host declared it, so
+    such a cell has to register: `upgrades.addTraitSupport(CardTraits.FUZZY, itsCell, 1)`. Every cell,
+    view cell, portable cell, matter cannon and colour applicator of AE2UD's own already did.
+
     One behavioural difference, and only in a state nothing was ever in: `getInstalledCapacityPoints()`
     clamped with `Math.min(points, getCapacityLimit(host))`, and an unregistered limit reads 0 - so a host
     taking capacity cards without a registered limit reported no capacity points at all. An unregistered

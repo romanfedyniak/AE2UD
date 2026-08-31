@@ -25,6 +25,7 @@ import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.config.PlaneMode;
 import appeng.api.config.RedstoneMode;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -115,7 +116,7 @@ public class GuiFormationPlane extends GuiUpgradeable {
     protected void handleButtonVisibility() {
         super.handleButtonVisibility();
 
-        final boolean carded = this.bc.getInstalledUpgrades(UpgradeCards.crafting()) > 0
+        final boolean carded = this.bc.isInstalled(CardTraits.CRAFTING)
                 && ((ContainerFormationPlane) this.cvb).getPlaneMode() == PlaneMode.ACTIVE;
 
         if (this.craftMode != null) {

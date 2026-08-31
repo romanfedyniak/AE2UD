@@ -29,7 +29,6 @@ import appeng.api.config.PlaneMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
 import appeng.api.upgrades.CardTraits;
-import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGridNode;
@@ -231,7 +230,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
                 continue;
             }
 
-            if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+            if (this.isInstalled(CardTraits.FUZZY)) {
                 final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);
                 for (final Object2LongMap.Entry<AEKey> match : new ArrayList<>(network.findFuzzy(request.what(), fzMode))) {
                     if (this.place(storage, energy, match.getKey())) {
@@ -298,7 +297,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     }
 
     private boolean isCraftingEnabled() {
-        return this.getInstalledUpgrades(UpgradeCards.crafting()) > 0;
+        return this.isInstalled(CardTraits.CRAFTING);
     }
 
     @Override
@@ -366,7 +365,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
 
     protected final void updateFilter() {
         var builder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+        if (this.isInstalled(CardTraits.FUZZY)) {
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
         var config = getConfigInventory();
@@ -378,7 +377,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
             }
         }
         this.filter = builder.build();
-        this.filterMode = this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST
+        this.filterMode = this.isInstalled(CardTraits.INVERTER) ? IncludeExclude.BLACKLIST
                 : IncludeExclude.WHITELIST;
     }
 

@@ -21,6 +21,7 @@ package appeng.parts.automation;
 
 import appeng.api.config.RedstoneMode;
 import appeng.api.upgrades.CardTrait;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.IConfigManager;
 import appeng.parts.PartBasicState;
@@ -65,7 +66,7 @@ public abstract class PartUpgradeable extends PartBasicState implements IAEAppEn
     }
 
     protected boolean isSleeping() {
-        if (this.getInstalledUpgrades(UpgradeCards.redstone()) > 0) {
+        if (this.isInstalled(CardTraits.REDSTONE)) {
             switch (this.getRSMode()) {
                 case IGNORE:
                     return false;

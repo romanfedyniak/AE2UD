@@ -19,7 +19,7 @@
 package appeng.block.storage;
 
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AEPartLocation;
 import appeng.block.AEBaseTileBlock;
 import appeng.core.sync.GuiBridge;
@@ -68,7 +68,7 @@ public class BlockIOPort extends AEBaseTileBlock {
     public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
         final TileIOPort te = this.getTileEntity(world, pos);
         if (te != null) {
-            if (te.getInstalledUpgrades(UpgradeCards.redstone()) != 0) {
+            if (te.isInstalled(CardTraits.REDSTONE)) {
                 te.updateRedstoneState();
             }
         }

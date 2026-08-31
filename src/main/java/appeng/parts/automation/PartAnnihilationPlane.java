@@ -67,7 +67,6 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.api.upgrades.CardTraits;
-import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.KeyTypeSelection;
@@ -201,7 +200,7 @@ public class PartAnnihilationPlane extends PartUpgradeable
      */
     private void updateFilter() {
         final IPartitionList.Builder builder = IPartitionList.builder();
-        if (this.getInstalledUpgrades(UpgradeCards.fuzzy()) > 0) {
+        if (this.isInstalled(CardTraits.FUZZY)) {
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
 
@@ -214,7 +213,7 @@ public class PartAnnihilationPlane extends PartUpgradeable
         }
 
         this.filter = builder.build();
-        this.filterMode = this.getInstalledUpgrades(UpgradeCards.inverter()) > 0 ? IncludeExclude.BLACKLIST
+        this.filterMode = this.isInstalled(CardTraits.INVERTER) ? IncludeExclude.BLACKLIST
                 : IncludeExclude.WHITELIST;
     }
 

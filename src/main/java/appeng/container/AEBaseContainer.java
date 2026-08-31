@@ -24,7 +24,6 @@ import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.config.SecurityPermissions;
-import appeng.api.definitions.IItemDefinition;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -42,7 +41,6 @@ import appeng.api.storage.MEStorage;
 import appeng.client.me.SlotME;
 import appeng.container.guisync.GuiSync;
 import appeng.container.guisync.SyncData;
-import appeng.container.implementations.ContainerInterface;
 import appeng.container.slot.*;
 import appeng.container.slot.SlotRestrictedInput.PlacableItemType;
 import appeng.core.AELog;
@@ -346,9 +344,6 @@ public abstract class AEBaseContainer extends Container {
                 return ItemStack.EMPTY;
             }
             
-            IItemDefinition expansionCard = AEApi.instance().definitions().materials().cardPatternExpansion();
-            ContainerInterface casted;
-
             final List<Slot> selectedSlots = new ArrayList<>();
 
             /**
@@ -358,10 +353,6 @@ public abstract class AEBaseContainer extends Container {
                 tis = this.transferStackToContainer(tis);
 
                 if (!tis.isEmpty()) {
-                    if (this instanceof ContainerInterface && expansionCard.isSameAs(tis) && (casted = (ContainerInterface) this).getPatternUpgrades() == casted.availableUpgrades() - 1) {
-                        return ItemStack.EMPTY; // Don't insert more pattern expansions than maximum useful
-                    }
-
                     // target slots in the container...
                     for (final Object inventorySlot : this.inventorySlots) {
                         final AppEngSlot cs = (AppEngSlot) inventorySlot;
@@ -492,11 +483,9 @@ public abstract class AEBaseContainer extends Container {
                             } else {
                                 this.updateSlot(d);
                                 
-                                if (
-                                    (d instanceof SlotRestrictedInput && ((SlotRestrictedInput) d).getPlaceableItemType() == PlacableItemType.ENCODED_PATTERN) ||
-                                    (this instanceof ContainerInterface && expansionCard.isSameAs(tis) && (casted = (ContainerInterface) this).getPatternUpgrades() == casted.availableUpgrades() - 1)
-                                    ) {
-                                    break; // Only insert one pattern when shift-clicking into interfaces, and don't insert more pattern expansions than maximum useful
+                                if (d instanceof SlotRestrictedInput
+                                        && ((SlotRestrictedInput) d).getPlaceableItemType() == PlacableItemType.ENCODED_PATTERN) {
+                                    break; // Only insert one pattern when shift-clicking into interfaces
                                 }
                             }
                         }

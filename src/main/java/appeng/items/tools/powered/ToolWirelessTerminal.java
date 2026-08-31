@@ -18,7 +18,7 @@
 
 package appeng.items.tools.powered;
 
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 
 
 import appeng.api.AEApi;
@@ -339,11 +339,11 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                         CellConfig c = (CellConfig) im.getConfigInventory(is);
                         CellUpgrades u = (CellUpgrades) im.getUpgradesInventory(is);
                         FuzzyMode fz = null;
-                        boolean isFuzzy = u.getInstalledUpgrades(UpgradeCards.fuzzy()) == 1;
+                        boolean isFuzzy = u.isInstalled(CardTraits.FUZZY);
                         if (isFuzzy) {
                             fz = im.getFuzzyMode(is);
                         }
-                        boolean inverted = u.getInstalledUpgrades(UpgradeCards.inverter()) == 1;
+                        boolean inverted = u.isInstalled(CardTraits.INVERTER);
 
                         List<EntityItem> ei = worldIn.getEntitiesWithinAABB(EntityItem.class,
                                 new AxisAlignedBB(

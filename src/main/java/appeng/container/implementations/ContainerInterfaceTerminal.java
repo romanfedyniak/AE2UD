@@ -20,7 +20,7 @@ package appeng.container.implementations;
 
 
 import appeng.api.config.Settings;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
@@ -442,7 +442,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             this.sortBy = dual.getSortValue();
             this.pos = dual.getLocation().getPos();
             this.dim = dual.getLocation().getWorld().provider.getDimension();
-            this.numUpgrades = dual.getInstalledUpgrades(UpgradeCards.patternExpansion());
+            this.numUpgrades = dual.getInstalledPoints(CardTraits.PATTERN_EXPANSION);
             this.fake = dual.isFakeCrafting();
             this.icon = dual.getMachineIdentity().getIcon();
         }
