@@ -14,14 +14,14 @@ import net.minecraft.util.ResourceLocation;
 public final class CardTraits {
 
     /** How often a machine acts. Uncapped: a host takes as many points as the cards in it carry. */
-    public static final CardTrait SPEED = CardTrait.of(id("speed"),
+    public static final CardTrait SPEED = CardTrait.counted(id("speed"),
             "gui.tooltips.appliedenergistics2.SpeedPoints");
 
     /**
      * How much of a filter a host offers. Capped per host through
      * {@link IUpgradeRegistry#setTraitLimit}, because the rows have to exist in a screen.
      */
-    public static final CardTrait CAPACITY = CardTrait.of(id("capacity"),
+    public static final CardTrait CAPACITY = CardTrait.counted(id("capacity"),
             "gui.tooltips.appliedenergistics2.CapacityPoints");
 
     /** Matches a filter loosely, by damage or by ore dictionary. */
@@ -49,10 +49,10 @@ public final class CardTraits {
     public static final CardTrait REDSTONE = CardTrait.of(id("redstone"));
 
     /** A larger battery on a powered tool. What one point is worth is the tool's own business. */
-    public static final CardTrait ENERGY = CardTrait.of(id("energy"));
+    public static final CardTrait ENERGY = CardTrait.counted(id("energy"));
 
     /** A row of nine more pattern slots each, capped per host. */
-    public static final CardTrait PATTERN_EXPANSION = CardTrait.of(id("pattern_expansion"));
+    public static final CardTrait PATTERN_EXPANSION = CardTrait.counted(id("pattern_expansion"));
 
     private CardTraits() {
     }

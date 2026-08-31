@@ -323,7 +323,8 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
      * than a cell does, and the card is one dense cell either way.
      */
     public void applyEnergyCards(final ItemStack stack, final IUpgradeInventory upgrades) {
-        this.setAEMaxPowerMultiplier(stack, 1 + upgrades.getInstalledPoints(CardTraits.ENERGY));
+        this.setAEMaxPowerMultiplier(stack, 1 + upgrades.getInstalledPoints(CardTraits.ENERGY)
+                * AEConfig.instance().getEnergyCardWirelessTerminal());
     }
 
     public void magnetLogic(ItemStack stack, World worldIn, Entity entityIn) {

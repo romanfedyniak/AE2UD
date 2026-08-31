@@ -30,17 +30,36 @@ public final class CardTrait {
 
     private final ResourceLocation id;
     private volatile String tooltipKey;
+    private volatile boolean counted;
 
     private CardTrait(final ResourceLocation id) {
         this.id = id;
     }
 
     /**
-     * A trait that says nothing of itself in a card's tooltip. Right for anything a card either has or has
-     * not, where the list of hosts underneath already tells the whole story.
+     * A trait a host either has or has not, where a second card carrying it adds nothing to the first -
+     * overflow destruction, sticky, fuzzy matching. Says nothing of itself in a card's tooltip either,
+     * because the list of hosts underneath already tells the whole story.
      */
     public static CardTrait of(final ResourceLocation id) {
         return of(id, null);
+    }
+
+    /**
+     * A trait where a second card adds to the first: speed, capacity, energy, pattern expansion. Hosts read
+     * it as a total rather than as a yes, and how much of it they take is worth putting in a config.
+     */
+    public static CardTrait counted(final ResourceLocation id) {
+        return counted(id, null);
+    }
+
+    /**
+     * @param tooltipKey a translation key taking the point total, printed on every card carrying the trait
+     */
+    public static CardTrait counted(final ResourceLocation id, @Nullable final String tooltipKey) {
+        final CardTrait trait = of(id, tooltipKey);
+        trait.counted = true;
+        return trait;
     }
 
     /**
@@ -75,6 +94,14 @@ public final class CardTrait {
     @Nullable
     public String getTooltipKey() {
         return this.tooltipKey;
+    }
+
+    /**
+     * Whether a second card carrying this trait adds to the first. Sticky once set, so a bare
+     * {@link #of(ResourceLocation)} elsewhere does not quietly undo the declaration.
+     */
+    public boolean isCounted() {
+        return this.counted;
     }
 
     @Override

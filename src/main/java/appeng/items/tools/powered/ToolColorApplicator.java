@@ -488,7 +488,7 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return this.upgradesWithEnergyCards(is, 2, 8);
+        return this.upgradesWithEnergyCards(is, 2, AEConfig.instance().getEnergyCardColorApplicator());
     }
 
     @Override

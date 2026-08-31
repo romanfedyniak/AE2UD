@@ -26,6 +26,7 @@ import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.definitions.IBlocks;
 import appeng.api.definitions.IItemDefinition;
+import appeng.api.definitions.IMaterials;
 import appeng.api.definitions.IItems;
 import appeng.api.definitions.IParts;
 import appeng.api.features.IRecipeHandlerRegistry;
@@ -475,12 +476,64 @@ final class Registration {
         }
     }
 
+    /**
+     * Registers a host as taking a trait from any card carrying it, with how many of them fit read from the
+     * config. Zero there means the host does not take the card at all, which the registry itself refuses to
+     * express - hence the check rather than an argument.
+     *
+     * <p>Only a counted trait is asked about. A card that means the same whether one or three of it are in
+     * has no number to tune, and there are twice as many of those as of the rest.</p>
+     */
+    private static void support(final IUpgradeRegistry upgrades, final CardTrait trait,
+            final IItemDefinition host, final int cards) {
+        final int configured = trait.isCounted() ? AEConfig.instance().getUpgradeCards(trait, host, cards)
+                : cards;
+        if (configured > 0) {
+            upgrades.addTraitSupport(trait, host, configured);
+        }
+    }
+
+    /**
+     * Offers a cap on how many points of a trait a host will take, with none by default. AE2's own cards are
+     * worth a point each and cannot get past the count that already limits them, so a cap says nothing until
+     * an addon ships a card worth several - and whether that is too much for this pack is the pack's call.
+     */
+    private static void limit(final IUpgradeRegistry upgrades, final CardTrait trait,
+            final IItemDefinition host) {
+        final int configured = AEConfig.instance().getTraitLimit(trait, host, 0);
+        if (configured > 0) {
+            upgrades.setTraitLimit(trait, host, configured);
+        }
+    }
+
+    private static void card(final IUpgradeRegistry upgrades, final ItemStack card, final CardTrait trait,
+            final int points) {
+        final int configured = AEConfig.instance().getCardPoints(trait, points);
+        if (configured > 0) {
+            upgrades.registerCard(card, trait, configured);
+        }
+    }
+
+    /**
+     * A card tied to one host by name rather than by what it confers. There is no trait to ask whether it
+     * counts, so the number it was registered with answers instead: the two cards here that carry no trait
+     * at all - the magnet and the quantum link - are one to a host and stay out of the config.
+     */
+    private static void exact(final IUpgradeRegistry upgrades, final IItemDefinition card,
+            final IItemDefinition host, final int cards) {
+        final int configured = cards > 1 ? AEConfig.instance().getUpgradeCards(card, host, cards) : cards;
+        if (configured > 0) {
+            card.maybeStack(1).ifPresent(stack -> upgrades.add(stack, host, configured));
+        }
+    }
+
     void postInit(final FMLPostInitializationEvent event) {
         final IRegistryContainer registries = Api.INSTANCE.registries();
         ApiDefinitions definitions = Api.INSTANCE.definitions();
         final IParts parts = definitions.parts();
         final IBlocks blocks = definitions.blocks();
         final IItems items = definitions.items();
+        final IMaterials materials = definitions.materials();
         final IUpgradeRegistry upgrades = registries.upgrades();
 
         this.registerSpatialDimension();
@@ -494,169 +547,169 @@ final class Registration {
 
         definitions.getRegistry().getBootstrapComponents(IPostInitComponent.class).forEachRemaining(b -> b.postInitialize(event.getSide()));
 
-        upgrades.registerCard(UpgradeCards.speed(), CardTraits.SPEED, 1);
-        upgrades.registerCard(UpgradeCards.capacity(), CardTraits.CAPACITY, 1);
+        card(upgrades, UpgradeCards.speed(), CardTraits.SPEED, 1);
+        card(upgrades, UpgradeCards.capacity(), CardTraits.CAPACITY, 1);
 
-        upgrades.registerCard(UpgradeCards.fuzzy(), CardTraits.FUZZY, 1);
-        upgrades.registerCard(UpgradeCards.inverter(), CardTraits.INVERTER, 1);
-        upgrades.registerCard(UpgradeCards.sticky(), CardTraits.STICKY, 1);
-        upgrades.registerCard(UpgradeCards.equalDistribution(), CardTraits.EQUAL_DISTRIBUTION, 1);
-        upgrades.registerCard(UpgradeCards.voidCard(), CardTraits.VOID, 1);
-        upgrades.registerCard(UpgradeCards.crafting(), CardTraits.CRAFTING, 1);
-        upgrades.registerCard(UpgradeCards.energy(), CardTraits.ENERGY, 1);
-        upgrades.registerCard(UpgradeCards.fakeCrafting(), CardTraits.FAKE_CRAFTING, 1);
-        upgrades.registerCard(UpgradeCards.redstone(), CardTraits.REDSTONE, 1);
-        upgrades.registerCard(UpgradeCards.patternExpansion(), CardTraits.PATTERN_EXPANSION, 1);
+        card(upgrades, UpgradeCards.fuzzy(), CardTraits.FUZZY, 1);
+        card(upgrades, UpgradeCards.inverter(), CardTraits.INVERTER, 1);
+        card(upgrades, UpgradeCards.sticky(), CardTraits.STICKY, 1);
+        card(upgrades, UpgradeCards.equalDistribution(), CardTraits.EQUAL_DISTRIBUTION, 1);
+        card(upgrades, UpgradeCards.voidCard(), CardTraits.VOID, 1);
+        card(upgrades, UpgradeCards.crafting(), CardTraits.CRAFTING, 1);
+        card(upgrades, UpgradeCards.energy(), CardTraits.ENERGY, 1);
+        card(upgrades, UpgradeCards.fakeCrafting(), CardTraits.FAKE_CRAFTING, 1);
+        card(upgrades, UpgradeCards.redstone(), CardTraits.REDSTONE, 1);
+        card(upgrades, UpgradeCards.patternExpansion(), CardTraits.PATTERN_EXPANSION, 1);
 
         // Interface
-        upgrades.addTraitSupport(CardTraits.CRAFTING, parts.iface(), 1);
-        upgrades.addTraitSupport(CardTraits.CRAFTING, blocks.iface(), 1);
-        upgrades.addTraitSupport(CardTraits.FAKE_CRAFTING, parts.iface(), 1);
-        upgrades.addTraitSupport(CardTraits.FAKE_CRAFTING, blocks.iface(), 1);
-        upgrades.addTraitSupport(CardTraits.PATTERN_EXPANSION, parts.iface(), 3);
-        upgrades.addTraitSupport(CardTraits.PATTERN_EXPANSION, blocks.iface(), 3);
-        upgrades.setTraitLimit(CardTraits.PATTERN_EXPANSION, parts.iface(), 3);
-        upgrades.setTraitLimit(CardTraits.PATTERN_EXPANSION, blocks.iface(), 3);
+        support(upgrades, CardTraits.CRAFTING, parts.iface(), 1);
+        support(upgrades, CardTraits.CRAFTING, blocks.iface(), 1);
+        support(upgrades, CardTraits.FAKE_CRAFTING, parts.iface(), 1);
+        support(upgrades, CardTraits.FAKE_CRAFTING, blocks.iface(), 1);
+        support(upgrades, CardTraits.PATTERN_EXPANSION, parts.iface(), 3);
+        support(upgrades, CardTraits.PATTERN_EXPANSION, blocks.iface(), 3);
+        limit(upgrades, CardTraits.PATTERN_EXPANSION, parts.iface());
+        limit(upgrades, CardTraits.PATTERN_EXPANSION, blocks.iface());
 
         // Fluid Interface
 
         // IO Port!
-        upgrades.addTraitSupport(CardTraits.SPEED, blocks.iOPort(), 3);
-        upgrades.addTraitSupport(CardTraits.REDSTONE, blocks.iOPort(), 1);
+        support(upgrades, CardTraits.SPEED, blocks.iOPort(), 3);
+        support(upgrades, CardTraits.REDSTONE, blocks.iOPort(), 1);
 
         // Level Emitter!
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.levelEmitter(), 1);
-        upgrades.addTraitSupport(CardTraits.CRAFTING, parts.levelEmitter(), 1);
+        support(upgrades, CardTraits.FUZZY, parts.levelEmitter(), 1);
+        support(upgrades, CardTraits.CRAFTING, parts.levelEmitter(), 1);
 
         // Import Bus
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.importBus(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, parts.importBus(), 1);
-        upgrades.addTraitSupport(CardTraits.REDSTONE, parts.importBus(), 1);
-        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.importBus(), 5);
-        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.importBus(), 5);
-        upgrades.addTraitSupport(CardTraits.SPEED, parts.importBus(), 4);
+        support(upgrades, CardTraits.FUZZY, parts.importBus(), 1);
+        support(upgrades, CardTraits.INVERTER, parts.importBus(), 1);
+        support(upgrades, CardTraits.REDSTONE, parts.importBus(), 1);
+        support(upgrades, CardTraits.CAPACITY, parts.importBus(), 5);
+        limit(upgrades, CardTraits.CAPACITY, parts.importBus());
+        support(upgrades, CardTraits.SPEED, parts.importBus(), 4);
 
         // Fluid Import Bus
 
         // Export Bus
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.exportBus(), 1);
-        upgrades.addTraitSupport(CardTraits.REDSTONE, parts.exportBus(), 1);
-        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.exportBus(), 5);
-        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.exportBus(), 5);
-        upgrades.addTraitSupport(CardTraits.SPEED, parts.exportBus(), 4);
-        upgrades.addTraitSupport(CardTraits.CRAFTING, parts.exportBus(), 1);
+        support(upgrades, CardTraits.FUZZY, parts.exportBus(), 1);
+        support(upgrades, CardTraits.REDSTONE, parts.exportBus(), 1);
+        support(upgrades, CardTraits.CAPACITY, parts.exportBus(), 5);
+        limit(upgrades, CardTraits.CAPACITY, parts.exportBus());
+        support(upgrades, CardTraits.SPEED, parts.exportBus(), 4);
+        support(upgrades, CardTraits.CRAFTING, parts.exportBus(), 1);
 
         // Fluid Export Bus
 
         // Storage Cells
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.cell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.cell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.cell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.cell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.cell1k(), 1);
+        support(upgrades, CardTraits.FUZZY, items.cell1k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell1k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell1k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell1k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell1k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.cell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.cell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.cell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.cell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.cell4k(), 1);
+        support(upgrades, CardTraits.FUZZY, items.cell4k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell4k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell4k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell4k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell4k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.cell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.cell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.cell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.cell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.cell16k(), 1);
+        support(upgrades, CardTraits.FUZZY, items.cell16k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell16k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell16k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell16k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell16k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.cell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.cell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.cell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.cell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.cell64k(), 1);
+        support(upgrades, CardTraits.FUZZY, items.cell64k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell64k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell64k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell64k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell64k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.portableCell(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.portableCell(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.portableCell(), 1);
-        upgrades.addTraitSupport(CardTraits.ENERGY, items.portableCell(), 2);
-        upgrades.setTraitLimit(CardTraits.ENERGY, items.portableCell(), 2);
-        upgrades.addTraitSupport(CardTraits.VOID, items.portableCell(), 1);
+        support(upgrades, CardTraits.FUZZY, items.portableCell(), 1);
+        support(upgrades, CardTraits.INVERTER, items.portableCell(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.portableCell(), 1);
+        support(upgrades, CardTraits.ENERGY, items.portableCell(), 2);
+        limit(upgrades, CardTraits.ENERGY, items.portableCell());
+        support(upgrades, CardTraits.VOID, items.portableCell(), 1);
 
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.colorApplicator(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.colorApplicator(), 1);
-        upgrades.addTraitSupport(CardTraits.ENERGY, items.colorApplicator(), 2);
-        upgrades.setTraitLimit(CardTraits.ENERGY, items.colorApplicator(), 2);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.colorApplicator(), 1);
+        support(upgrades, CardTraits.VOID, items.colorApplicator(), 1);
+        support(upgrades, CardTraits.ENERGY, items.colorApplicator(), 2);
+        limit(upgrades, CardTraits.ENERGY, items.colorApplicator());
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.viewCell(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.viewCell(), 1);
+        support(upgrades, CardTraits.FUZZY, items.viewCell(), 1);
+        support(upgrades, CardTraits.INVERTER, items.viewCell(), 1);
 
-        upgrades.addTraitSupport(CardTraits.FUZZY, AEApi.instance().definitions().materials().cardMagnet(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, AEApi.instance().definitions().materials().cardMagnet(), 1);
+        support(upgrades, CardTraits.FUZZY, materials.cardMagnet(), 1);
+        support(upgrades, CardTraits.INVERTER, materials.cardMagnet(), 1);
 
         // Fluid Cells
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.fluidCell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.fluidCell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.fluidCell1k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.fluidCell1k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.fluidCell1k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell1k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell1k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell1k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.fluidCell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.fluidCell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.fluidCell4k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.fluidCell4k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.fluidCell4k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell4k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell4k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell4k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.fluidCell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.fluidCell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.fluidCell16k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.fluidCell16k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.fluidCell16k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell16k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell16k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell16k(), 1);
 
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.fluidCell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.STICKY, items.fluidCell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.EQUAL_DISTRIBUTION, items.fluidCell64k(), 1);
-        upgrades.addTraitSupport(CardTraits.VOID, items.fluidCell64k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.fluidCell64k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell64k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell64k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell64k(), 1);
 
         // Storage Bus
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.storageBus(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, parts.storageBus(), 1);
-        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.storageBus(), 5);
-        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.storageBus(), 5);
-        upgrades.addTraitSupport(CardTraits.STICKY, parts.storageBus(), 1);
+        support(upgrades, CardTraits.FUZZY, parts.storageBus(), 1);
+        support(upgrades, CardTraits.INVERTER, parts.storageBus(), 1);
+        support(upgrades, CardTraits.CAPACITY, parts.storageBus(), 5);
+        limit(upgrades, CardTraits.CAPACITY, parts.storageBus());
+        support(upgrades, CardTraits.STICKY, parts.storageBus(), 1);
 
         // OreDict Storage Bus
-        upgrades.addTraitSupport(CardTraits.STICKY, parts.oreDictStorageBus(), 1);
+        support(upgrades, CardTraits.STICKY, parts.oreDictStorageBus(), 1);
 
         // Storage Bus Fluids
 
         // Annihilation Plane
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.annihilationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, parts.annihilationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.annihilationPlane(), 5);
-        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.annihilationPlane(), 5);
+        support(upgrades, CardTraits.FUZZY, parts.annihilationPlane(), 1);
+        support(upgrades, CardTraits.INVERTER, parts.annihilationPlane(), 1);
+        support(upgrades, CardTraits.CAPACITY, parts.annihilationPlane(), 5);
+        limit(upgrades, CardTraits.CAPACITY, parts.annihilationPlane());
 
         // Formation Plane
-        upgrades.addTraitSupport(CardTraits.FUZZY, parts.formationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, parts.formationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.formationPlane(), 5);
-        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.formationPlane(), 5);
-        upgrades.addTraitSupport(CardTraits.REDSTONE, parts.formationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.CRAFTING, parts.formationPlane(), 1);
-        upgrades.addTraitSupport(CardTraits.SPEED, parts.formationPlane(), 4);
+        support(upgrades, CardTraits.FUZZY, parts.formationPlane(), 1);
+        support(upgrades, CardTraits.INVERTER, parts.formationPlane(), 1);
+        support(upgrades, CardTraits.CAPACITY, parts.formationPlane(), 5);
+        limit(upgrades, CardTraits.CAPACITY, parts.formationPlane());
+        support(upgrades, CardTraits.REDSTONE, parts.formationPlane(), 1);
+        support(upgrades, CardTraits.CRAFTING, parts.formationPlane(), 1);
+        support(upgrades, CardTraits.SPEED, parts.formationPlane(), 4);
 
         // Matter Cannon
-        upgrades.addTraitSupport(CardTraits.FUZZY, items.massCannon(), 1);
-        upgrades.addTraitSupport(CardTraits.INVERTER, items.massCannon(), 1);
-        upgrades.add(UpgradeCards.speed(), items.massCannon(), 4);
-        upgrades.addTraitSupport(CardTraits.ENERGY, items.massCannon(), 2);
-        upgrades.setTraitLimit(CardTraits.ENERGY, items.massCannon(), 2);
+        support(upgrades, CardTraits.FUZZY, items.massCannon(), 1);
+        support(upgrades, CardTraits.INVERTER, items.massCannon(), 1);
+        exact(upgrades, materials.cardSpeed(), items.massCannon(), 4);
+        support(upgrades, CardTraits.ENERGY, items.massCannon(), 2);
+        limit(upgrades, CardTraits.ENERGY, items.massCannon());
 
         // Molecular Assembler
-        upgrades.addTraitSupport(CardTraits.SPEED, blocks.molecularAssembler(), 5);
+        support(upgrades, CardTraits.SPEED, blocks.molecularAssembler(), 5);
 
         // Inscriber
-        upgrades.addTraitSupport(CardTraits.SPEED, blocks.inscriber(), 3);
+        support(upgrades, CardTraits.SPEED, blocks.inscriber(), 3);
 
         // Vibration Chamber
-        upgrades.addTraitSupport(CardTraits.ENERGY, blocks.vibrationChamber(), 3);
-        upgrades.setTraitLimit(CardTraits.ENERGY, blocks.vibrationChamber(), 3);
+        support(upgrades, CardTraits.ENERGY, blocks.vibrationChamber(), 3);
+        limit(upgrades, CardTraits.ENERGY, blocks.vibrationChamber());
 
-        upgrades.add(UpgradeCards.quantumLink(), blocks.quantumLink(), 1);
+        exact(upgrades, materials.cardQuantumLink(), blocks.quantumLink(), 1);
 
         // Wireless Terminal Handler. The three left over from before there was one terminal are handlers too,
         // so one that has not been converted yet still opens and still holds its charge.
@@ -670,9 +723,9 @@ final class Registration {
             id.maybeItem().ifPresent(terminal -> registries.wireless().registerWirelessHandler((IWirelessTermHandler) terminal));
         }
 
-        upgrades.add(UpgradeCards.magnet(), items.wirelessTerminal(), 1);
-        upgrades.addTraitSupport(CardTraits.ENERGY, items.wirelessTerminal(), 2);
-        upgrades.setTraitLimit(CardTraits.ENERGY, items.wirelessTerminal(), 2);
+        exact(upgrades, materials.cardMagnet(), items.wirelessTerminal(), 1);
+        support(upgrades, CardTraits.ENERGY, items.wirelessTerminal(), 2);
+        limit(upgrades, CardTraits.ENERGY, items.wirelessTerminal());
 
         // Charge Rates
         items.chargedStaff().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 320d));

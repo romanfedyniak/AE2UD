@@ -133,7 +133,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return this.upgradesWithEnergyCards(is, 4, 8);
+        return this.upgradesWithEnergyCards(is, 4, AEConfig.instance().getEnergyCardPortableCell());
     }
 
     @Override

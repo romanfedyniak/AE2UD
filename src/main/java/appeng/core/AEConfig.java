@@ -29,6 +29,9 @@ import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fml.common.ModContainer;
 
+import appeng.api.definitions.IItemDefinition;
+import appeng.api.upgrades.CardTrait;
+
 import java.io.File;
 import java.util.*;
 import java.util.stream.Stream;
@@ -70,6 +73,13 @@ public final class AEConfig extends Configuration {
     private int craftingCPUMaxSizeY = 17;
     private int craftingCPUMaxSizeZ = 17;
     private double crystalResonanceGeneratorRate = 20.0;
+
+    // Energy card. What one point of it is worth is each host's own business, so each names its own.
+    private double energyCardPortableCell = 8.0;
+    private double energyCardMatterCannon = 8.0;
+    private double energyCardColorApplicator = 8.0;
+    private double energyCardWirelessTerminal = 1.0;
+    private double energyCardVibrationChamber = 0.5;
 
     // Spatial IO/Dimension
     private int storageProviderID = -1;
@@ -219,7 +229,98 @@ public final class AEConfig extends Configuration {
             this.crystalResonanceGeneratorRate = Math.max(0, this.get("crystalResonanceGenerator", "rate", this.crystalResonanceGeneratorRate, "How much energy a crystal resonance generator makes per tick. Only one of them runs on a network, whatever the number built. Zero turns them off.").getDouble(this.crystalResonanceGeneratorRate));
         }
 
+        this.describeUpgradeCategories();
+
+        this.energyCardPortableCell = this.energyCardMultiplier("portableCell", this.energyCardPortableCell);
+        this.energyCardMatterCannon = this.energyCardMultiplier("matterCannon", this.energyCardMatterCannon);
+        this.energyCardColorApplicator = this.energyCardMultiplier("colorApplicator", this.energyCardColorApplicator);
+        this.energyCardWirelessTerminal = this.energyCardMultiplier("wirelessTerminal", this.energyCardWirelessTerminal);
+        this.energyCardVibrationChamber = this.energyCardMultiplier("vibrationChamber", this.energyCardVibrationChamber);
+
         this.updatable = true;
+    }
+
+    /**
+     * Said once on each category rather than on every entry in it: these hold one line per host, and the same
+     * paragraph repeated forty times buries the values it is meant to explain.
+     */
+    private void describeUpgradeCategories() {
+        this.setCategoryComment("upgrades.cards", "How many cards of a kind fit in each machine, part, cell "
+                + "and tool. Only the cards a second of which adds to the first are listed - the rest mean "
+                + "the same whether one or three are in. Zero refuses the card there outright.");
+        this.setCategoryComment("upgrades.points", "The most points of an upgrade a host takes, however many "
+                + "its cards carry. Zero, the default, lets it take them all: AE2's own cards are worth a "
+                + "point each and are already limited by how many fit, so a cap here only starts to mean "
+                + "something once an addon ships a card worth several.");
+        this.setCategoryComment("upgrades.cardPoints", "What one card of each kind is worth wherever it is "
+                + "installed. Zero stops it conferring its upgrade at all.");
+        this.setCategoryComment("energyCard", "How much of a machine's own capacity one energy card adds. "
+                + "Zero makes the card do nothing there.");
+    }
+
+    private double energyCardMultiplier(final String host, final double fallback) {
+        return Math.max(0, this.get("energyCard", host, fallback).getDouble(fallback));
+    }
+
+    public double getEnergyCardPortableCell() {
+        return this.energyCardPortableCell;
+    }
+
+    public double getEnergyCardMatterCannon() {
+        return this.energyCardMatterCannon;
+    }
+
+    public double getEnergyCardColorApplicator() {
+        return this.energyCardColorApplicator;
+    }
+
+    public double getEnergyCardWirelessTerminal() {
+        return this.energyCardWirelessTerminal;
+    }
+
+    public double getEnergyCardVibrationChamber() {
+        return this.energyCardVibrationChamber;
+    }
+
+    /**
+     * How many cards carrying a trait fit in a host. Read while the upgrade registry is being filled rather
+     * than up front, because the hosts are not known until then.
+     *
+     * @return zero when the host should not take the card at all
+     */
+    public int getUpgradeCards(final CardTrait trait, final IItemDefinition host, final int fallback) {
+        return this.upgradeCards(trait.getId().getPath() + '.' + host.identifier(), fallback);
+    }
+
+    /**
+     * The same, for a card tied to one host by name rather than by what it confers.
+     */
+    public int getUpgradeCards(final IItemDefinition card, final IItemDefinition host, final int fallback) {
+        return this.upgradeCards(lastPart(card.identifier()) + '.' + host.identifier(), fallback);
+    }
+
+    private int upgradeCards(final String key, final int fallback) {
+        return Math.max(0, this.get("upgrades.cards", key, fallback).getInt(fallback));
+    }
+
+    /**
+     * @return the most points of a trait a host may end up with, or zero for no cap at all
+     */
+    public int getTraitLimit(final CardTrait trait, final IItemDefinition host, final int fallback) {
+        return Math.max(0, this.get("upgrades.points", trait.getId().getPath() + '.' + host.identifier(),
+                fallback).getInt(fallback));
+    }
+
+    /**
+     * @return what one card is worth, or zero to stop it conferring the upgrade at all
+     */
+    public int getCardPoints(final CardTrait trait, final int fallback) {
+        return Math.max(0, this.get("upgrades.cardPoints", trait.getId().getPath(), fallback)
+                .getInt(fallback));
+    }
+
+    private static String lastPart(final String identifier) {
+        return identifier.substring(identifier.lastIndexOf('.') + 1);
     }
 
     public static void init(final File configFile) {

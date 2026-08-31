@@ -170,7 +170,7 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
     /**
      * @param multiplier how many times the tool's default battery it now holds
      */
-    protected final void setAEMaxPowerMultiplier(final ItemStack is, final int multiplier) {
+    protected final void setAEMaxPowerMultiplier(final ItemStack is, final double multiplier) {
         this.setAEMaxPower(is, multiplier * this.powerCapacity);
     }
 
@@ -178,10 +178,11 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
      * An upgrade inventory that resizes this stack's battery as energy cards come and go.
      *
      * @param perCard how many times the tool's own battery one card is worth. Eight for a tool built
-     *                around a plain energy cell, because the card is crafted with a dense one.
+     *                around a plain energy cell, because the card is crafted with a dense one - though the
+     *                config has the last word on all of these.
      */
     protected final IItemHandler upgradesWithEnergyCards(final ItemStack is, final int slots,
-            final int perCard) {
+            final double perCard) {
         return new CellUpgrades(is, slots, upgrades -> this.setAEMaxPowerMultiplier(is,
                 1 + upgrades.getInstalledPoints(CardTraits.ENERGY) * perCard));
     }

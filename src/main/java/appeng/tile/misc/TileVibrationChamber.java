@@ -31,6 +31,7 @@ import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.upgrades.CardTraits;
 import appeng.api.util.DimensionalCoord;
+import appeng.core.AEConfig;
 import appeng.core.settings.TickRates;
 import appeng.me.GridAccessException;
 import appeng.parts.automation.DefinitionUpgradeInventory;
@@ -141,7 +142,8 @@ public class TileVibrationChamber extends AENetworkInvTile implements IGridTicka
      * three of them get two and a half times the power out of the same coal.
      */
     public double getPowerPerTick() {
-        return POWER_PER_TICK * (1 + this.upgrades.getInstalledPoints(CardTraits.ENERGY) / 2.0);
+        return POWER_PER_TICK * (1 + this.upgrades.getInstalledPoints(CardTraits.ENERGY)
+                * AEConfig.instance().getEnergyCardVibrationChamber());
     }
 
     @Override
