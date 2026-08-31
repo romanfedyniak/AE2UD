@@ -31,14 +31,22 @@ public interface IUpgradeInventory extends IItemHandler {
     int getMaxInstalled(ItemStack upgradeCard);
 
     /**
-     * Returns the saturated sum of speed points supplied by installed cards.
+     * Returns the points of a trait the installed cards supply, capped by the host's limit for it.
      */
-    int getInstalledSpeedPoints();
+    int getInstalledPoints(CardTrait trait);
 
     /**
-     * Returns the sum of capacity points, capped to the host's registered capacity limit.
+     * Whether any installed card carries this trait at all.
      */
-    int getInstalledCapacityPoints();
+    default boolean isInstalled(final CardTrait trait) {
+        return this.getInstalledPoints(trait) > 0;
+    }
+
+    /**
+     * Whether one more of this card would do the host any good. The single place the rule lives; the
+     * inventory's own filter asks nothing else.
+     */
+    boolean canInstall(ItemStack upgradeCard);
 
     void readFromNBT(NBTTagCompound data, String name);
 

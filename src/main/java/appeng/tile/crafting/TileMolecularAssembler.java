@@ -38,6 +38,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.IStorageMonitorableAccessor;
 import appeng.api.storage.MEStorage;
+import appeng.api.upgrades.CardTrait;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.DimensionalCoord;
@@ -276,13 +278,8 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.upgrades.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.upgrades.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.upgrades.getInstalledPoints(trait);
     }
 
     @Override
@@ -476,7 +473,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
         this.reboot = false;
         final int speed = UpgradeSpeedCalculations.molecularAssemblerSpeed(
-                this.upgrades.getInstalledSpeedPoints());
+                this.upgrades.getInstalledPoints(CardTraits.SPEED));
         this.progress += this.userPower(ticksSinceLastCall, speed, speed / 10.0);
 
         if (this.progress >= 100) {

@@ -18,6 +18,8 @@
 
 package appeng.tile.storage;
 
+import appeng.api.upgrades.CardTrait;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 
 
@@ -294,7 +296,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
 
     private TickRateModulation doWork() {
         TickRateModulation ret = TickRateModulation.SLEEP;
-        long itemsToMove = UpgradeSpeedCalculations.ioPortTransferLimit(this.getInstalledSpeedPoints());
+        long itemsToMove = UpgradeSpeedCalculations.ioPortTransferLimit(this.getInstalledPoints(CardTraits.SPEED));
 
         try {
             final IEnergySource energy = this.getProxy().getEnergy();
@@ -345,13 +347,8 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.upgrades.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.upgrades.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.upgrades.getInstalledPoints(trait);
     }
 
     /**

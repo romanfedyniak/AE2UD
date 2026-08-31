@@ -18,6 +18,7 @@
 
 package appeng.helpers;
 
+import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.UpgradeCards;
 
 
@@ -928,13 +929,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.upgrades == null ? 0 : this.upgrades.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.upgrades == null ? 0 : this.upgrades.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.upgrades == null ? 0 : this.upgrades.getInstalledPoints(trait);
     }
 
     @Override

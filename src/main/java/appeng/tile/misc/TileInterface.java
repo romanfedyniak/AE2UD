@@ -21,6 +21,7 @@ package appeng.tile.misc;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
+import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.networking.IGridNode;
@@ -277,13 +278,8 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.duality.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.duality.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.duality.getInstalledPoints(trait);
     }
 
     @Override

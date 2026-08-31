@@ -20,6 +20,8 @@ package appeng.core;
 
 
 import appeng.api.AEApi;
+import appeng.api.upgrades.CardTrait;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.IUpgradeRegistry;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.definitions.IBlocks;
@@ -151,15 +153,12 @@ final class Registration {
         }
 
         final List<String> tooltip = event.getToolTip();
-        final int speedPoints = upgrades.getSpeedPoints(card);
-        final int capacityPoints = upgrades.getCapacityPoints(card);
-        if (speedPoints > 0) {
-            tooltip.add(TextFormatting.GRAY + I18n.format(
-                    "gui.tooltips.appliedenergistics2.SpeedPoints", speedPoints));
-        }
-        if (capacityPoints > 0) {
-            tooltip.add(TextFormatting.GRAY + I18n.format(
-                    "gui.tooltips.appliedenergistics2.CapacityPoints", capacityPoints));
+        for (final Map.Entry<CardTrait, Integer> trait : upgrades.getTraits(card).entrySet()) {
+            // A trait a card either has or has not says nothing here: the hosts printed below already do.
+            final String key = trait.getKey().getTooltipKey();
+            if (key != null) {
+                tooltip.add(TextFormatting.GRAY + I18n.format(key, trait.getValue()));
+            }
         }
 
         final Map<ItemStack, Integer> supported = upgrades.getSupportedObjects(card);
@@ -495,8 +494,8 @@ final class Registration {
 
         definitions.getRegistry().getBootstrapComponents(IPostInitComponent.class).forEachRemaining(b -> b.postInitialize(event.getSide()));
 
-        upgrades.registerSpeedCard(UpgradeCards.speed(), 1);
-        upgrades.registerCapacityCard(UpgradeCards.capacity(), 1);
+        upgrades.registerCard(UpgradeCards.speed(), CardTraits.SPEED, 1);
+        upgrades.registerCard(UpgradeCards.capacity(), CardTraits.CAPACITY, 1);
 
         // Interface
         upgrades.add(UpgradeCards.crafting(), parts.iface(), 1);
@@ -509,7 +508,7 @@ final class Registration {
         // Fluid Interface
 
         // IO Port!
-        upgrades.addSpeedCardSupport(blocks.iOPort(), 3);
+        upgrades.addTraitSupport(CardTraits.SPEED, blocks.iOPort(), 3);
         upgrades.add(UpgradeCards.redstone(), blocks.iOPort(), 1);
 
         // Level Emitter!
@@ -520,16 +519,18 @@ final class Registration {
         upgrades.add(UpgradeCards.fuzzy(), parts.importBus(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.importBus(), 1);
         upgrades.add(UpgradeCards.redstone(), parts.importBus(), 1);
-        upgrades.addCapacityCardSupport(parts.importBus(), 5, 5);
-        upgrades.addSpeedCardSupport(parts.importBus(), 4);
+        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.importBus(), 5);
+        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.importBus(), 5);
+        upgrades.addTraitSupport(CardTraits.SPEED, parts.importBus(), 4);
 
         // Fluid Import Bus
 
         // Export Bus
         upgrades.add(UpgradeCards.fuzzy(), parts.exportBus(), 1);
         upgrades.add(UpgradeCards.redstone(), parts.exportBus(), 1);
-        upgrades.addCapacityCardSupport(parts.exportBus(), 5, 5);
-        upgrades.addSpeedCardSupport(parts.exportBus(), 4);
+        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.exportBus(), 5);
+        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.exportBus(), 5);
+        upgrades.addTraitSupport(CardTraits.SPEED, parts.exportBus(), 4);
         upgrades.add(UpgradeCards.crafting(), parts.exportBus(), 1);
 
         // Fluid Export Bus
@@ -597,7 +598,8 @@ final class Registration {
         // Storage Bus
         upgrades.add(UpgradeCards.fuzzy(), parts.storageBus(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.storageBus(), 1);
-        upgrades.addCapacityCardSupport(parts.storageBus(), 5, 5);
+        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.storageBus(), 5);
+        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.storageBus(), 5);
         upgrades.add(UpgradeCards.sticky(), parts.storageBus(), 1);
 
         // OreDict Storage Bus
@@ -608,15 +610,17 @@ final class Registration {
         // Annihilation Plane
         upgrades.add(UpgradeCards.fuzzy(), parts.annihilationPlane(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.annihilationPlane(), 1);
-        upgrades.addCapacityCardSupport(parts.annihilationPlane(), 5, 5);
+        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.annihilationPlane(), 5);
+        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.annihilationPlane(), 5);
 
         // Formation Plane
         upgrades.add(UpgradeCards.fuzzy(), parts.formationPlane(), 1);
         upgrades.add(UpgradeCards.inverter(), parts.formationPlane(), 1);
-        upgrades.addCapacityCardSupport(parts.formationPlane(), 5, 5);
+        upgrades.addTraitSupport(CardTraits.CAPACITY, parts.formationPlane(), 5);
+        upgrades.setTraitLimit(CardTraits.CAPACITY, parts.formationPlane(), 5);
         upgrades.add(UpgradeCards.redstone(), parts.formationPlane(), 1);
         upgrades.add(UpgradeCards.crafting(), parts.formationPlane(), 1);
-        upgrades.addSpeedCardSupport(parts.formationPlane(), 4);
+        upgrades.addTraitSupport(CardTraits.SPEED, parts.formationPlane(), 4);
 
         // Matter Cannon
         upgrades.add(UpgradeCards.fuzzy(), items.massCannon(), 1);
@@ -624,10 +628,10 @@ final class Registration {
         upgrades.add(UpgradeCards.speed(), items.massCannon(), 4);
 
         // Molecular Assembler
-        upgrades.addSpeedCardSupport(blocks.molecularAssembler(), 5);
+        upgrades.addTraitSupport(CardTraits.SPEED, blocks.molecularAssembler(), 5);
 
         // Inscriber
-        upgrades.addSpeedCardSupport(blocks.inscriber(), 3);
+        upgrades.addTraitSupport(CardTraits.SPEED, blocks.inscriber(), 3);
 
         upgrades.add(UpgradeCards.quantumLink(), blocks.quantumLink(), 1);
 

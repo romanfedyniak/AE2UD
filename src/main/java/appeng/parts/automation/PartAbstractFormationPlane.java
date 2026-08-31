@@ -28,6 +28,7 @@ import appeng.api.config.IncludeExclude;
 import appeng.api.config.PlaneMode;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.config.YesNo;
@@ -132,7 +133,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
      * expanded into with a Capacity Card), mirroring the pre-port {@code slotsToUse} calculation.
      */
     protected int getFilterSlotsInUse() {
-        return 18 + this.getInstalledCapacityPoints() * 9;
+        return 18 + this.getInstalledPoints(CardTraits.CAPACITY) * 9;
     }
 
     @Override

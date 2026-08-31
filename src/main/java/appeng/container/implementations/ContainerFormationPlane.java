@@ -21,6 +21,7 @@ package appeng.container.implementations;
 
 
 import appeng.api.config.*;
+import appeng.api.upgrades.CardTraits;
 import appeng.container.guisync.GuiSync;
 import appeng.parts.automation.PartFormationPlane;
 import appeng.util.Platform;
@@ -74,7 +75,7 @@ public class ContainerFormationPlane extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        final int upgrades = this.getUpgradeable().getInstalledCapacityPoints();
+        final int upgrades = this.getUpgradeable().getInstalledPoints(CardTraits.CAPACITY);
 
         return upgrades > idx;
     }

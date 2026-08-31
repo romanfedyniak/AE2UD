@@ -22,6 +22,7 @@ package appeng.container.implementations;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
+import appeng.api.upgrades.CardTraits;
 import appeng.parts.automation.PartAnnihilationPlane;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -67,6 +68,6 @@ public class ContainerAnnihilationPlane extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        return this.getUpgradeable().getInstalledCapacityPoints() > idx;
+        return this.getUpgradeable().getInstalledPoints(CardTraits.CAPACITY) > idx;
     }
 }

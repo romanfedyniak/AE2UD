@@ -18,6 +18,7 @@
 
 package appeng.parts.misc;
 
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 
 
@@ -551,7 +552,7 @@ public class PartStorageBus extends PartUpgradeable
             filterBuilder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
 
-        final int slotsToUse = 18 + this.getInstalledCapacityPoints() * 9;
+        final int slotsToUse = 18 + this.getInstalledPoints(CardTraits.CAPACITY) * 9;
         for (int x = 0; x < this.Config.getSlots() && x < slotsToUse; x++) {
             final GenericStack is = this.Config.getAEStackInSlot(x);
             if (is != null) {

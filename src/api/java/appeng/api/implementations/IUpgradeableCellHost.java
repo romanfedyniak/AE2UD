@@ -26,6 +26,7 @@ package appeng.api.implementations;
 
 import net.minecraft.item.ItemStack;
 import appeng.api.implementations.tiles.ISegmentedInventory;
+import appeng.api.upgrades.CardTrait;
 import appeng.api.util.IConfigurableObject;
 
 
@@ -38,11 +39,7 @@ public interface IUpgradeableCellHost extends IConfigurableObject, ISegmentedInv
         return 0;
     }
 
-    default int getInstalledSpeedPoints() {
-        return 0;
-    }
-
-    default int getInstalledCapacityPoints() {
+    default int getInstalledPoints(CardTrait trait) {
         return 0;
     }
 

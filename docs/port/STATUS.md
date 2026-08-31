@@ -2066,6 +2066,26 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     blacklisted - all of which say "this cell will never hold this" rather than "this cell is full",
     and none of which the card was meant to reach.
 
+28. **The upgrade-card registry describes a card by what it confers** (`appeng.api.upgrades.CardTrait`
+    and `CardTraits`, plus `IUpgradeRegistry.registerCard` / `addTraitSupport` / `setTraitLimit` /
+    `getPoints` / `getTraits` / `isTraitSupported` / `getTraitLimit` / `getInstalledPoints` / `canInstall`,
+    and `IUpgradeInventory.getInstalledPoints` / `isInstalled` / `canInstall`) - **breaking**: the twelve
+    speed- and capacity-specific methods are gone, and `IUpgradeableHost` and `IUpgradeableCellHost` answer
+    one `getInstalledPoints(CardTrait)` instead of two named ones. Speed and capacity are ordinary traits
+    now, `CardTraits.SPEED` and `CardTraits.CAPACITY`. Upstream has no equivalent: it recognises a card by
+    item (`upgrades.isInstalled(AEItems.VOID_CARD)`) and carries its one counted card, energy, as an item
+    subclass with a getter. The point of the change is the case neither shape allows - an addon's card
+    conferring an AE2 trait, so one card can stand in for two - and the rule that makes it safe is that a
+    trait counts only where the host declared it, never merely because the card fitted through some other
+    trait. `getInstalledPoints` and `canInstall` take a plain `IItemHandler` rather than an
+    `IUpgradeInventory`, so a cell handing back an upgrade inventory of its own still gets the same
+    answers; `IUpgradeInventory`'s two are one-line wrappers, and the slot filter asks nothing else.
+
+    One behavioural difference, and only in a state nothing was ever in: `getInstalledCapacityPoints()`
+    clamped with `Math.min(points, getCapacityLimit(host))`, and an unregistered limit reads 0 - so a host
+    taking capacity cards without a registered limit reported no capacity points at all. An unregistered
+    limit now means no cap. Every AE2UD host registers both together.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

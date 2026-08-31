@@ -9,9 +9,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import com.google.common.math.IntMath;
+
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
+import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeInventoryListener;
 import appeng.api.upgrades.IUpgradeRegistry;
@@ -20,11 +24,10 @@ import appeng.parts.automation.StackUpgradeInventory;
 
 public final class UpgradeRegistry implements IUpgradeRegistry {
 
-    private final Map<StackKey, CardTraits> cards = new LinkedHashMap<>();
+    private final Map<StackKey, CardRegistration> cards = new LinkedHashMap<>();
     private final Map<StackKey, Map<StackKey, Integer>> associations = new LinkedHashMap<>();
-    private final Map<StackKey, Integer> speedSupport = new LinkedHashMap<>();
-    private final Map<StackKey, CapacitySupport> capacitySupport = new LinkedHashMap<>();
-    private final Map<StackKey, Integer> capacityLimits = new LinkedHashMap<>();
+    private final Map<CardTrait, Map<StackKey, Integer>> traitSupport = new LinkedHashMap<>();
+    private final Map<CardTrait, Map<StackKey, Integer>> traitLimits = new LinkedHashMap<>();
 
     @Override
     public synchronized void add(final ItemStack upgradeCard, final ItemStack upgradableObject,
@@ -32,57 +35,37 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
         requirePositive(maxSupported, "maxSupported");
         final StackKey card = StackKey.of(upgradeCard, "upgradeCard");
         final StackKey host = StackKey.of(upgradableObject, "upgradableObject");
-        this.cards.computeIfAbsent(card, ignored -> new CardTraits());
+        this.cards.computeIfAbsent(card, ignored -> new CardRegistration());
         putConsistent(this.associations.computeIfAbsent(card, ignored -> new LinkedHashMap<>()), host,
                 maxSupported, "upgrade association");
     }
 
     @Override
-    public synchronized void registerSpeedCard(final ItemStack upgradeCard, final int speedPoints,
-            final boolean inheritStandardSupport) {
-        requirePositive(speedPoints, "speedPoints");
+    public synchronized void registerCard(final ItemStack upgradeCard, final CardTrait trait,
+            final int points, final boolean inheritSupport) {
+        requirePositive(points, "points");
+        Objects.requireNonNull(trait, "trait");
         final StackKey card = StackKey.of(upgradeCard, "upgradeCard");
-        final CardTraits traits = this.cards.computeIfAbsent(card, ignored -> new CardTraits());
-        traits.setSpeed(speedPoints, inheritStandardSupport);
+        this.cards.computeIfAbsent(card, ignored -> new CardRegistration())
+                .set(trait, points, inheritSupport);
     }
 
     @Override
-    public synchronized void addSpeedCardSupport(final ItemStack upgradableObject, final int maxSupported) {
+    public synchronized void addTraitSupport(final CardTrait trait, final ItemStack upgradableObject,
+            final int maxSupported) {
         requirePositive(maxSupported, "maxSupported");
-        putConsistent(this.speedSupport, StackKey.of(upgradableObject, "upgradableObject"), maxSupported,
-                "speed-card support");
+        Objects.requireNonNull(trait, "trait");
+        putConsistent(this.traitSupport.computeIfAbsent(trait, ignored -> new LinkedHashMap<>()),
+                StackKey.of(upgradableObject, "upgradableObject"), maxSupported, "trait support");
     }
 
     @Override
-    public synchronized void registerCapacityCard(final ItemStack upgradeCard, final int capacityPoints,
-            final boolean inheritStandardSupport) {
-        requirePositive(capacityPoints, "capacityPoints");
-        final StackKey card = StackKey.of(upgradeCard, "upgradeCard");
-        final CardTraits traits = this.cards.computeIfAbsent(card, ignored -> new CardTraits());
-        traits.setCapacity(capacityPoints, inheritStandardSupport);
-    }
-
-    @Override
-    public synchronized void addCapacityCardSupport(final ItemStack upgradableObject, final int maxSupported,
-            final int maxCapacityPoints) {
-        requirePositive(maxSupported, "maxSupported");
-        requirePositive(maxCapacityPoints, "maxCapacityPoints");
-        final StackKey host = StackKey.of(upgradableObject, "upgradableObject");
-        final CapacitySupport support = new CapacitySupport(maxSupported, maxCapacityPoints);
-        final CapacitySupport previousSupport = this.capacitySupport.get(host);
-        if (previousSupport != null && !previousSupport.equals(support)) {
-            throw new IllegalArgumentException("Conflicting capacity-card support for " + upgradableObject);
-        }
-        requireConsistent(this.capacityLimits, host, maxCapacityPoints, "capacity limit");
-        this.capacitySupport.putIfAbsent(host, support);
-        this.capacityLimits.putIfAbsent(host, maxCapacityPoints);
-    }
-
-    @Override
-    public synchronized void setCapacityLimit(final ItemStack upgradableObject, final int maxCapacityPoints) {
-        requirePositive(maxCapacityPoints, "maxCapacityPoints");
-        putConsistent(this.capacityLimits, StackKey.of(upgradableObject, "upgradableObject"), maxCapacityPoints,
-                "capacity limit");
+    public synchronized void setTraitLimit(final CardTrait trait, final ItemStack upgradableObject,
+            final int maxPoints) {
+        requirePositive(maxPoints, "maxPoints");
+        Objects.requireNonNull(trait, "trait");
+        putConsistent(this.traitLimits.computeIfAbsent(trait, ignored -> new LinkedHashMap<>()),
+                StackKey.of(upgradableObject, "upgradableObject"), maxPoints, "trait limit");
     }
 
     @Override
@@ -94,67 +77,122 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
         final StackKey card = StackKey.of(upgradeCard);
         final StackKey host = StackKey.of(upgradableObject);
         int result = getOrZero(this.associations.get(card), host);
-        final CardTraits traits = this.cards.get(card);
-        if (traits != null) {
-            if (traits.inheritSpeedSupport) {
-                result = Math.max(result, this.speedSupport.getOrDefault(host, 0));
-            }
-            if (traits.inheritCapacitySupport) {
-                final CapacitySupport support = this.capacitySupport.get(host);
-                if (support != null) {
-                    result = Math.max(result, support.maxCards);
+
+        final CardRegistration registration = this.cards.get(card);
+        if (registration != null) {
+            for (final Map.Entry<CardTrait, TraitPoints> entry : registration.traits.entrySet()) {
+                if (entry.getValue().inheritSupport) {
+                    result = Math.max(result, getOrZero(this.traitSupport.get(entry.getKey()), host));
                 }
             }
+        }
+
+        return result;
+    }
+
+    @Override
+    public synchronized int getPoints(final ItemStack upgradeCard, final CardTrait trait) {
+        final CardRegistration registration = this.getRegistration(upgradeCard);
+        if (registration == null) {
+            return 0;
+        }
+
+        final TraitPoints points = registration.traits.get(trait);
+        return points == null ? 0 : points.points;
+    }
+
+    @Override
+    public synchronized Map<CardTrait, Integer> getTraits(final ItemStack upgradeCard) {
+        final Map<CardTrait, Integer> result = new LinkedHashMap<>();
+        final CardRegistration registration = this.getRegistration(upgradeCard);
+        if (registration != null) {
+            registration.traits.forEach((trait, points) -> result.put(trait, points.points));
         }
         return result;
     }
 
     @Override
-    public synchronized int getSpeedPoints(final ItemStack upgradeCard) {
-        final CardTraits traits = getTraits(upgradeCard);
-        return traits == null ? 0 : traits.speedPoints;
-    }
-
-    @Override
-    public synchronized boolean isSpeedCardSupported(final ItemStack upgradeCard,
+    public synchronized boolean isTraitSupported(final ItemStack upgradeCard, final CardTrait trait,
             final ItemStack upgradableObject) {
-        if (upgradeCard.isEmpty() || upgradableObject.isEmpty()) {
+        if (upgradableObject.isEmpty()) {
             return false;
         }
-        final StackKey card = StackKey.of(upgradeCard);
-        final StackKey host = StackKey.of(upgradableObject);
-        final CardTraits traits = this.cards.get(card);
-        return traits != null && traits.speedPoints > 0
-                && (getOrZero(this.associations.get(card), host) > 0
-                        || traits.inheritSpeedSupport && this.speedSupport.containsKey(host));
-    }
 
-    @Override
-    public synchronized int getCapacityPoints(final ItemStack upgradeCard) {
-        final CardTraits traits = getTraits(upgradeCard);
-        return traits == null ? 0 : traits.capacityPoints;
-    }
-
-    @Override
-    public synchronized boolean isCapacityCardSupported(final ItemStack upgradeCard,
-            final ItemStack upgradableObject) {
-        if (upgradeCard.isEmpty() || upgradableObject.isEmpty()) {
+        final CardRegistration registration = this.getRegistration(upgradeCard);
+        if (registration == null) {
             return false;
         }
-        final StackKey card = StackKey.of(upgradeCard);
+
+        final TraitPoints points = registration.traits.get(trait);
+        if (points == null) {
+            return false;
+        }
+
         final StackKey host = StackKey.of(upgradableObject);
-        final CardTraits traits = this.cards.get(card);
-        return traits != null && traits.capacityPoints > 0 && this.capacityLimits.containsKey(host)
-                && (getOrZero(this.associations.get(card), host) > 0
-                        || traits.inheritCapacitySupport && this.capacitySupport.containsKey(host));
+        return getOrZero(this.associations.get(StackKey.of(upgradeCard)), host) > 0
+                || points.inheritSupport && getOrZero(this.traitSupport.get(trait), host) > 0;
     }
 
     @Override
-    public synchronized int getCapacityLimit(final ItemStack upgradableObject) {
+    public synchronized int getTraitLimit(final CardTrait trait, final ItemStack upgradableObject) {
         if (upgradableObject.isEmpty()) {
             return 0;
         }
-        return this.capacityLimits.getOrDefault(StackKey.of(upgradableObject), 0);
+
+        return getOrZero(this.traitLimits.get(trait), StackKey.of(upgradableObject));
+    }
+
+    @Override
+    public synchronized int getInstalledPoints(final IItemHandler installed,
+            final ItemStack upgradableObject, final CardTrait trait) {
+        int points = 0;
+
+        for (int slot = 0; installed != null && slot < installed.getSlots(); slot++) {
+            final ItemStack card = installed.getStackInSlot(slot);
+            if (card.isEmpty() || !this.isTraitSupported(card, trait, upgradableObject)) {
+                continue;
+            }
+
+            points = IntMath.saturatedAdd(points,
+                    IntMath.saturatedMultiply(this.getPoints(card, trait), card.getCount()));
+        }
+
+        final int limit = this.getTraitLimit(trait, upgradableObject);
+        return limit > 0 ? Math.min(points, limit) : points;
+    }
+
+    @Override
+    public synchronized boolean canInstall(final ItemStack upgradeCard, final ItemStack upgradableObject,
+            final IItemHandler installed) {
+        if (upgradeCard.isEmpty()) {
+            return false;
+        }
+
+        if (countInstalled(installed, upgradeCard) >= this.getMaxInstallable(upgradeCard, upgradableObject)) {
+            return false;
+        }
+
+        final CardRegistration registration = this.getRegistration(upgradeCard);
+        if (registration == null) {
+            return true;
+        }
+
+        boolean confersAnything = false;
+        for (final CardTrait trait : registration.traits.keySet()) {
+            if (!this.isTraitSupported(upgradeCard, trait, upgradableObject)) {
+                continue;
+            }
+
+            confersAnything = true;
+            final int limit = this.getTraitLimit(trait, upgradableObject);
+            if (limit <= 0 || this.getInstalledPoints(installed, upgradableObject, trait) < limit) {
+                return true;
+            }
+        }
+
+        // Nothing it brings works here, so nothing it brings can be full either: the plain association is
+        // what let it in, and that was already counted above.
+        return !confersAnything;
     }
 
     @Override
@@ -175,13 +213,20 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
             exact.forEach((host, max) -> mergeMaximum(result, host.toStack(), max));
         }
 
-        final CardTraits traits = this.cards.get(card);
-        if (traits != null && traits.inheritSpeedSupport) {
-            this.speedSupport.forEach((host, max) -> mergeMaximum(result, host.toStack(), max));
+        final CardRegistration registration = this.cards.get(card);
+        if (registration != null) {
+            for (final Map.Entry<CardTrait, TraitPoints> entry : registration.traits.entrySet()) {
+                if (!entry.getValue().inheritSupport) {
+                    continue;
+                }
+
+                final Map<StackKey, Integer> support = this.traitSupport.get(entry.getKey());
+                if (support != null) {
+                    support.forEach((host, max) -> mergeMaximum(result, host.toStack(), max));
+                }
+            }
         }
-        if (traits != null && traits.inheritCapacitySupport) {
-            this.capacitySupport.forEach((host, support) -> mergeMaximum(result, host.toStack(), support.maxCards));
-        }
+
         return result;
     }
 
@@ -197,8 +242,21 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
         return new ItemUpgradeInventory(upgradableItem, slots, listener);
     }
 
-    private CardTraits getTraits(final ItemStack stack) {
+    private CardRegistration getRegistration(final ItemStack stack) {
         return stack.isEmpty() ? null : this.cards.get(StackKey.of(stack));
+    }
+
+    private static int countInstalled(final IItemHandler installed, final ItemStack upgradeCard) {
+        int count = 0;
+
+        for (int slot = 0; installed != null && slot < installed.getSlots(); slot++) {
+            final ItemStack card = installed.getStackInSlot(slot);
+            if (!card.isEmpty() && ItemStack.areItemsEqual(card, upgradeCard)) {
+                count = IntMath.saturatedAdd(count, card.getCount());
+            }
+        }
+
+        return count;
     }
 
     private static int getOrZero(final Map<StackKey, Integer> values, final StackKey key) {
@@ -235,54 +293,25 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
         }
     }
 
-    private static final class CardTraits {
-        private int speedPoints;
-        private int capacityPoints;
-        private boolean inheritSpeedSupport;
-        private boolean inheritCapacitySupport;
+    private static final class CardRegistration {
+        private final Map<CardTrait, TraitPoints> traits = new LinkedHashMap<>();
 
-        private void setSpeed(final int points, final boolean inherit) {
-            if (this.speedPoints != 0 && (this.speedPoints != points || this.inheritSpeedSupport != inherit)) {
-                throw new IllegalArgumentException("Conflicting speed-card registration");
+        private void set(final CardTrait trait, final int points, final boolean inheritSupport) {
+            final TraitPoints previous = this.traits.get(trait);
+            if (previous != null && (previous.points != points || previous.inheritSupport != inheritSupport)) {
+                throw new IllegalArgumentException("Conflicting registration of card trait " + trait);
             }
-            this.speedPoints = points;
-            this.inheritSpeedSupport = inherit;
-        }
-
-        private void setCapacity(final int points, final boolean inherit) {
-            if (this.capacityPoints != 0
-                    && (this.capacityPoints != points || this.inheritCapacitySupport != inherit)) {
-                throw new IllegalArgumentException("Conflicting capacity-card registration");
-            }
-            this.capacityPoints = points;
-            this.inheritCapacitySupport = inherit;
+            this.traits.put(trait, new TraitPoints(points, inheritSupport));
         }
     }
 
-    private static final class CapacitySupport {
-        private final int maxCards;
-        private final int maxPoints;
+    private static final class TraitPoints {
+        private final int points;
+        private final boolean inheritSupport;
 
-        private CapacitySupport(final int maxCards, final int maxPoints) {
-            this.maxCards = maxCards;
-            this.maxPoints = maxPoints;
-        }
-
-        @Override
-        public boolean equals(final Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof CapacitySupport)) {
-                return false;
-            }
-            final CapacitySupport other = (CapacitySupport) obj;
-            return this.maxCards == other.maxCards && this.maxPoints == other.maxPoints;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(this.maxCards, this.maxPoints);
+        private TraitPoints(final int points, final boolean inheritSupport) {
+            this.points = points;
+            this.inheritSupport = inheritSupport;
         }
     }
 
@@ -324,7 +353,7 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
 
         @Override
         public int hashCode() {
-            return 31 * System.identityHashCode(this.item) + this.metadata;
+            return Objects.hash(this.item, this.metadata);
         }
     }
 }

@@ -20,6 +20,7 @@ package appeng.parts.automation;
 
 
 import appeng.api.config.RedstoneMode;
+import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.IConfigManager;
 import appeng.parts.PartBasicState;
@@ -100,13 +101,8 @@ public abstract class PartUpgradeable extends PartBasicState implements IAEAppEn
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.upgrades.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.upgrades.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.upgrades.getInstalledPoints(trait);
     }
 
     @Override

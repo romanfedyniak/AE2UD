@@ -66,6 +66,7 @@ import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.upgrades.UpgradeCards;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
@@ -204,7 +205,7 @@ public class PartAnnihilationPlane extends PartUpgradeable
             builder.fuzzyMode((FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE));
         }
 
-        final int slotsToUse = 18 + this.getInstalledCapacityPoints() * 9;
+        final int slotsToUse = 18 + this.getInstalledPoints(CardTraits.CAPACITY) * 9;
         for (int x = 0; x < this.config.getSlots() && x < slotsToUse; x++) {
             final GenericStack stack = this.config.getAEStackInSlot(x);
             if (stack != null) {

@@ -29,6 +29,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalCoord;
 import appeng.core.AEConfig;
@@ -98,7 +99,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
             final CellUpgrades cu = (CellUpgrades) this.getUpgradesInventory(p.getHeldItem(hand));
             if (cu != null) {
-                shots = UpgradeSpeedCalculations.linearSpeed(cu.getInstalledSpeedPoints());
+                shots = UpgradeSpeedCalculations.linearSpeed(cu.getInstalledPoints(CardTraits.SPEED));
             }
 
             final MEStorage inv = StorageCells.getCellInventory(p.getHeldItem(hand), null);

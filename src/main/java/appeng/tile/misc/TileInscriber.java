@@ -41,6 +41,8 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.upgrades.CardTrait;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
@@ -375,7 +377,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
 
                 // Base 1, increase by 1 for each card
                 final int speedFactor = UpgradeSpeedCalculations.linearSpeed(
-                        this.upgrades.getInstalledSpeedPoints());
+                        this.upgrades.getInstalledPoints(CardTraits.SPEED));
                 final int powerConsumption = IntMath.saturatedMultiply(10, speedFactor);
                 final double powerThreshold = powerConsumption - 0.01;
                 double powerReq = this.extractAEPower(powerConsumption, Actionable.SIMULATE, PowerMultiplier.CONFIG);
@@ -507,13 +509,8 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.upgrades.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.upgrades.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.upgrades.getInstalledPoints(trait);
     }
 
     @Override

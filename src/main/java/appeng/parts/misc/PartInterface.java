@@ -34,6 +34,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.GenericStack;
+import appeng.api.upgrades.CardTrait;
 import appeng.api.util.AECableType;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
@@ -115,13 +116,8 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        return this.duality.getInstalledSpeedPoints();
-    }
-
-    @Override
-    public int getInstalledCapacityPoints() {
-        return this.duality.getInstalledCapacityPoints();
+    public int getInstalledPoints(final CardTrait trait) {
+        return this.duality.getInstalledPoints(trait);
     }
 
     @Override

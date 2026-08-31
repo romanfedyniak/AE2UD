@@ -29,6 +29,7 @@ import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.upgrades.CardTraits;
 import appeng.api.util.IConfigManager;
 import appeng.container.guisync.GuiSync;
 import appeng.me.GridAccessException;
@@ -95,7 +96,7 @@ public class ContainerIOBus extends ContainerUpgradeable {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        return this.getUpgradeable().getInstalledCapacityPoints() > idx;
+        return this.getUpgradeable().getInstalledPoints(CardTraits.CAPACITY) > idx;
     }
 
     @Override

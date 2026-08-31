@@ -23,12 +23,12 @@ import javax.annotation.Nonnull;
 
 import com.google.common.math.IntMath;
 
-import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 
 import appeng.api.AEApi;
+import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeInventoryListener;
 import appeng.api.upgrades.IUpgradeRegistry;
@@ -83,29 +83,13 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
     }
 
     @Override
-    public int getInstalledSpeedPoints() {
-        int points = 0;
-        final IUpgradeRegistry registry = registry();
-        for (final ItemStack stack : this) {
-            if (!stack.isEmpty() && this.getMaxInstalled(stack) > 0) {
-                points = IntMath.saturatedAdd(points,
-                        IntMath.saturatedMultiply(registry.getSpeedPoints(stack), stack.getCount()));
-            }
-        }
-        return points;
+    public int getInstalledPoints(final CardTrait trait) {
+        return registry().getInstalledPoints(this, this.getUpgradableItem(), trait);
     }
 
     @Override
-    public int getInstalledCapacityPoints() {
-        int points = 0;
-        final IUpgradeRegistry registry = registry();
-        for (final ItemStack stack : this) {
-            if (!stack.isEmpty() && this.getMaxInstalled(stack) > 0) {
-                points = IntMath.saturatedAdd(points,
-                        IntMath.saturatedMultiply(registry.getCapacityPoints(stack), stack.getCount()));
-            }
-        }
-        return Math.min(points, registry.getCapacityLimit(this.getUpgradableItem()));
+    public boolean canInstall(final ItemStack upgradeCard) {
+        return registry().canInstall(upgradeCard, this.getUpgradableItem(), this);
     }
 
     @Override
@@ -150,23 +134,7 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
 
         @Override
         public boolean allowInsert(final IItemHandler inv, final int slot, final ItemStack stack) {
-            if (stack.isEmpty() || stack.getItem() == Items.AIR) {
-                return false;
-            }
-
-            final IUpgradeRegistry registry = registry();
-            if (UpgradeInventory.this.getInstalledUpgrades(stack) >= UpgradeInventory.this.getMaxInstalled(stack)) {
-                return false;
-            }
-
-            final int capacityPoints = registry.getCapacityPoints(stack);
-            final int speedPoints = registry.getSpeedPoints(stack);
-            final ItemStack host = UpgradeInventory.this.getUpgradableItem();
-            return capacityPoints == 0 || !registry.isCapacityCardSupported(stack, host)
-                    || (speedPoints > 0
-                            && registry.isSpeedCardSupported(stack, host))
-                    || UpgradeInventory.this.getInstalledCapacityPoints()
-                            < registry.getCapacityLimit(host);
+            return UpgradeInventory.this.canInstall(stack);
         }
     }
 }
