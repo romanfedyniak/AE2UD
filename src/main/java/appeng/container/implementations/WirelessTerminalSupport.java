@@ -16,13 +16,17 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 
+import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.container.AEBaseContainer;
 import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
+import appeng.api.upgrades.IUpgradeInventory;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.items.tools.powered.ToolWirelessTerminal;
 import appeng.parts.automation.StackUpgradeInventory;
+import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
@@ -41,7 +45,7 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
 
     private final AEBaseContainer container;
     private final WirelessTerminalGuiObject terminal;
-    private final AppEngInternalInventory upgrades;
+    private final UpgradeInventory upgrades;
     private final int slot;
 
     private double powerMultiplier = 0.5;
@@ -68,7 +72,7 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
                 : terminal.getItemStack().getTagCompound().getCompoundTag("upgrades"));
     }
 
-    public AppEngInternalInventory getUpgrades() {
+    public UpgradeInventory getUpgrades() {
         return this.upgrades;
     }
 
@@ -141,14 +145,20 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
     /**
      * Right-clicking a magnet card in its slot turns it off and on rather than picking it up.
      *
+     * <p>Asked of whichever upgrade slot was clicked, and answered by what is in it: the card may sit in any
+     * of them, and the slots beside it hold cards that have no such flag and must pick up as usual.</p>
+     *
      * @return true when the click was that, and the container should do nothing else with it.
      */
     public static boolean toggleMagnetCard(final Slot magnetSlot, final int dragType, final ClickType clickType) {
-        if (clickType != ClickType.PICKUP || dragType != 1 || magnetSlot == null || magnetSlot.getStack().isEmpty()) {
+        if (clickType != ClickType.PICKUP || dragType != 1 || magnetSlot == null) {
             return false;
         }
 
         final ItemStack itemStack = magnetSlot.getStack();
+        if (!AEApi.instance().definitions().materials().cardMagnet().isSameAs(itemStack)) {
+            return false;
+        }
         NBTTagCompound tag = itemStack.getTagCompound();
         if (tag == null) {
             tag = new NBTTagCompound();
@@ -168,9 +178,21 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
     @Override
     public void saveChanges() {
         if (Platform.isServer()) {
+            applyEnergyCards(this.terminal.getItemStack(), this.upgrades);
+
             final NBTTagCompound tag = new NBTTagCompound();
             this.upgrades.writeToNBT(tag, "upgrades");
             this.terminal.saveChanges(tag);
+        }
+    }
+
+    /**
+     * Resizes the terminal's battery from the cards now in it. Done here rather than by the inventory itself
+     * because {@link IUpgradeInventory#getUpgradableItem()} answers with a copy, and this has the real stack.
+     */
+    public static void applyEnergyCards(final ItemStack terminal, final IUpgradeInventory upgrades) {
+        if (terminal.getItem() instanceof ToolWirelessTerminal) {
+            ((ToolWirelessTerminal) terminal.getItem()).applyEnergyCards(terminal, upgrades);
         }
     }
 

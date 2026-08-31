@@ -46,6 +46,7 @@ import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.container.interfaces.IInventorySlotAware;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.core.sync.GuiBridge;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.implementations.QuantumCluster;
@@ -81,6 +82,12 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     private final int inventorySlot;
 
     private final AppEngInternalInventory viewCell = new AppEngInternalInventory(this, 5);
+    /**
+     * Read only. The cards are the screen's to change - it holds its own inventory over the same tag - and
+     * this copy is here so that {@link #getInventoryByName} can answer for them. It used to be written back
+     * whenever a pin changed, which wiped whatever the screen had put in: it was loaded from the root of the
+     * item's tag rather than from the branch it is saved to, so it was always empty.
+     */
     private final UpgradeInventory upgrades;
     private final KeyTypeSelection keyTypeSelection;
     private final ITerminalPinStorage terminalPinStorage;
@@ -117,7 +124,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             }
         }
 
-        upgrades = new StackUpgradeInventory(effectiveItem, this, 2);
+        upgrades = new StackUpgradeInventory(effectiveItem, this, IWirelessTerminalContainer.UPGRADE_SLOTS);
         this.keyTypeSelection = new KeyTypeSelection(this::saveKeyTypeSelection, type -> true);
         this.terminalPinStorage = TerminalPinStorages.forItem(this.effectiveItem, this::saveChanges);
 
@@ -315,7 +322,6 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             data = new NBTTagCompound();
         }
         viewCell.writeToNBT(data, "viewCell");
-        upgrades.writeToNBT(data, "upgrades");
     }
     
     public void saveChanges(NBTTagCompound data) {
@@ -330,7 +336,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         NBTTagCompound data = effectiveItem.getTagCompound();
         if (data != null) {
             viewCell.readFromNBT(data);
-            upgrades.readFromNBT(data);
+            upgrades.readFromNBT(data, "upgrades");
             this.keyTypeSelection.readFromNBT(data);
         }
     }

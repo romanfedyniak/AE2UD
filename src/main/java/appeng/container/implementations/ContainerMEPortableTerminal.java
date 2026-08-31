@@ -31,6 +31,7 @@ import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.automation.StackUpgradeInventory;
+import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
@@ -39,9 +40,13 @@ import baubles.api.BaublesApi;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class ContainerMEPortableTerminal extends ContainerMEMonitorable implements IUpgradeableCellContainer, IAEAppEngInventory, IInventorySlotAware,
@@ -52,8 +57,8 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
     private double powerMultiplier = 0.5;
     private int ticks = 0;
 
-    protected AppEngInternalInventory upgrades;
-    protected SlotRestrictedInput magnetSlot;
+    protected UpgradeInventory upgrades;
+    protected final List<Slot> upgradeSlots = new ArrayList<>();
 
     public ContainerMEPortableTerminal(InventoryPlayer ip, WirelessTerminalGuiObject guiObject, boolean bindInventory) {
         super(ip, guiObject, guiObject, bindInventory);
@@ -71,7 +76,7 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
         this.bindPlayerInventory(ip, 0, 0);
 
         this.wirelessTerminalGUIObject = guiObject;
-        this.upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, 2);
+        this.upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, UPGRADE_SLOTS);
         this.loadFromNBT();
         this.setupUpgrades();
     }
@@ -89,7 +94,7 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
             this.lockPlayerInventorySlot(ip.currentItem);
         }
         this.wirelessTerminalGUIObject = (WirelessTerminalGuiObject) guiObject;
-        this.upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, 2);
+        this.upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, UPGRADE_SLOTS);
         this.loadFromNBT();
         this.setupUpgrades();
     }
@@ -150,25 +155,11 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
     @Override
     public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, EntityPlayer player) {
         if (slotId >= 0 && slotId < this.inventorySlots.size()) {
-            if (clickTypeIn == ClickType.PICKUP && dragType == 1) {
-                if (this.inventorySlots.get(slotId) == magnetSlot) {
-                    ItemStack itemStack = magnetSlot.getStack();
-                    if (!magnetSlot.getStack().isEmpty()) {
-                        NBTTagCompound tag = itemStack.getTagCompound();
-                        if (tag == null) {
-                            tag = new NBTTagCompound();
-                        }
-                        if (tag.hasKey("enabled")) {
-                            boolean e = tag.getBoolean("enabled");
-                            tag.setBoolean("enabled", !e);
-                        } else {
-                            tag.setBoolean("enabled", false);
-                        }
-                        magnetSlot.getStack().setTagCompound(tag);
-                        magnetSlot.onSlotChanged();
-                        return ItemStack.EMPTY;
-                    }
-                }
+            final Slot clicked = this.inventorySlots.get(slotId);
+
+            if (this.upgradeSlots.contains(clicked)
+                    && WirelessTerminalSupport.toggleMagnetCard(clicked, dragType, clickTypeIn)) {
+                return ItemStack.EMPTY;
             }
         }
         return super.slotClick(slotId, dragType, clickTypeIn, player);
@@ -194,23 +185,28 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
 
     @Override
     public int availableUpgrades() {
-        return 1;
+        return UPGRADE_SLOTS;
     }
 
     @Override
     public void setupUpgrades() {
-        if (wirelessTerminalGUIObject != null) {
-            for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
-                this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, upgradeSlot, 206, 135 + upgradeSlot * 18, this.getInventoryPlayer());
-                this.magnetSlot.setNotDraggable();
-                this.addSlotToContainer(magnetSlot);
-            }
+        if (wirelessTerminalGUIObject == null) {
+            return;
+        }
+
+        for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
+            final SlotRestrictedInput slot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
+                    upgrades, upgradeSlot, 206, 135 + upgradeSlot * 18, this.getInventoryPlayer());
+            slot.setNotDraggable();
+            this.upgradeSlots.add(this.addSlotToContainer(slot));
         }
     }
 
     @Override
     public void saveChanges() {
         if (Platform.isServer()) {
+            WirelessTerminalSupport.applyEnergyCards(this.wirelessTerminalGUIObject.getItemStack(), this.upgrades);
+
             NBTTagCompound tag = new NBTTagCompound();
             this.upgrades.writeToNBT(tag, "upgrades");
 

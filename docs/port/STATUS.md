@@ -2115,6 +2115,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     optional `IUpgradeInventoryListener`, which is what tells a tool its battery changed; its
     `onContentsChanged` calls `saveChanges()` now, which it never did.
 
+    The wireless terminal takes the card too, which needed three things outside api: a shared
+    `IWirelessTerminalContainer.UPGRADE_SLOTS`, a public `ToolWirelessTerminal.applyEnergyCards`, and
+    `WirelessTerminalSupport.toggleMagnetCard` asking what is in the clicked slot instead of trusting a
+    remembered one. The plate behind those slots is drawn by `appeng.client.gui.widgets`'s
+    `GuiWirelessUpgradePlate`, out of the same one-slot texture, so a screen names how many slots it has
+    and nothing else has to change to grow it.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

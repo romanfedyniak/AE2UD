@@ -15,11 +15,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 
 import appeng.client.gui.widgets.GuiTerminalModeSwitch;
+import appeng.client.gui.widgets.GuiWirelessUpgradePlate;
 import appeng.container.implementations.ContainerWirelessInterfaceConfigurationTerminal;
 import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.helpers.WirelessTerminalGuiObject;
@@ -78,15 +78,16 @@ public class GuiWirelessInterfaceConfigurationTerminal extends GuiInterfaceConfi
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.bindTexture("guis/wirelessupgrades.png");
-        Gui.drawModalRectWithCustomSizedTexture(offsetX + PLATE_X, offsetY + this.plateY(), 0, 0, 32, 32, 32, 32);
+        GuiWirelessUpgradePlate.draw(this, offsetX + PLATE_X, offsetY + this.plateY(),
+                IWirelessTerminalContainer.UPGRADE_SLOTS);
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
     }
 
     @Override
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
-        area.add(new Rectangle(this.guiLeft + PLATE_X, this.guiTop + this.plateY(), 32, 32));
+        GuiWirelessUpgradePlate.addExclusionArea(area, this.guiLeft + PLATE_X, this.guiTop + this.plateY(),
+                IWirelessTerminalContainer.UPGRADE_SLOTS);
         this.modeSwitch.addExclusionAreas(area);
         return area;
     }

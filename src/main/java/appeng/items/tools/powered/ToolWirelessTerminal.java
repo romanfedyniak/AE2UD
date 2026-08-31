@@ -19,6 +19,7 @@
 package appeng.items.tools.powered;
 
 import appeng.api.upgrades.CardTraits;
+import appeng.api.upgrades.IUpgradeInventory;
 
 
 import appeng.api.AEApi;
@@ -314,6 +315,15 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 return;
             }
         }
+    }
+
+    /**
+     * Resizes this terminal's battery from the energy cards in it. One card is worth another terminal's
+     * charge, where the same card is worth eight of a portable cell's - a terminal starts out with far more
+     * than a cell does, and the card is one dense cell either way.
+     */
+    public void applyEnergyCards(final ItemStack stack, final IUpgradeInventory upgrades) {
+        this.setAEMaxPowerMultiplier(stack, 1 + upgrades.getInstalledPoints(CardTraits.ENERGY));
     }
 
     public void magnetLogic(ItemStack stack, World worldIn, Entity entityIn) {

@@ -66,7 +66,6 @@ import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
 import appeng.util.Platform;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -592,7 +591,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
         if (this.isWirelessTerminal()) {
-            exclusionArea.add(new Rectangle(guiLeft + WIRELESS_PLATE_X, guiTop + WIRELESS_PLATE_Y, 32, 32));
+            GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + WIRELESS_PLATE_X,
+                    guiTop + WIRELESS_PLATE_Y, IWirelessTerminalContainer.UPGRADE_SLOTS);
             this.modeSwitch.addExclusionAreas(exclusionArea);
         }
 
@@ -816,9 +816,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
 
         if (this.isWirelessTerminal()) {
-            this.bindTexture("guis/wirelessupgrades.png");
-            Gui.drawModalRectWithCustomSizedTexture(offsetX + WIRELESS_PLATE_X, offsetY + WIRELESS_PLATE_Y, 0, 0,
-                    32, 32, 32, 32);
+            GuiWirelessUpgradePlate.draw(this, offsetX + WIRELESS_PLATE_X, offsetY + WIRELESS_PLATE_Y,
+                    IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
 
         this.bindTexture(this.getBackground());

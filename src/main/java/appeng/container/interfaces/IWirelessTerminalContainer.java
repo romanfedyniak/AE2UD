@@ -20,5 +20,8 @@ import net.minecraft.item.ItemStack;
  */
 public interface IWirelessTerminalContainer {
 
+    /** The magnet card and two energy cards. */
+    int UPGRADE_SLOTS = 3;
+
     ItemStack getTerminal();
 }

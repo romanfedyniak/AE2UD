@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import java.util.List;
+import java.util.ArrayList;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.implementations.ICraftingPatternItem;
@@ -35,6 +37,7 @@ import appeng.core.AEConfig;
 import appeng.core.localization.PlayerMessages;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.automation.StackUpgradeInventory;
+import appeng.parts.automation.UpgradeInventory;
 import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.helpers.WirelessTerminalModes;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -44,6 +47,7 @@ import baubles.api.BaublesApi;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
@@ -60,9 +64,9 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
     private final int slot;
     protected AppEngInternalInventory output;
     protected AppEngInternalInventory pattern;
-    protected AppEngInternalInventory upgrades;
+    protected UpgradeInventory upgrades;
 
-    protected SlotRestrictedInput magnetSlot;
+    protected final List<Slot> upgradeSlots = new ArrayList<>();
 
     private double powerMultiplier = 0.5;
     private int ticks = 0;
@@ -90,7 +94,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
             this.lockPlayerInventorySlot(ip.currentItem);
         }
         this.wirelessTerminalGUIObject = gui;
-        upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, 2);
+        upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, UPGRADE_SLOTS);
 
         this.loadFromNBT();
 
@@ -189,25 +193,11 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
     @Override
     public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, EntityPlayer player) {
         if (slotId >= 0 && slotId < this.inventorySlots.size()) {
-            if (clickTypeIn == ClickType.PICKUP && dragType == 1) {
-                if (this.inventorySlots.get(slotId) == magnetSlot) {
-                    ItemStack itemStack = magnetSlot.getStack();
-                    if (!magnetSlot.getStack().isEmpty()) {
-                        NBTTagCompound tag = itemStack.getTagCompound();
-                        if (tag == null) {
-                            tag = new NBTTagCompound();
-                        }
-                        if (tag.hasKey("enabled")) {
-                            boolean e = tag.getBoolean("enabled");
-                            tag.setBoolean("enabled", !e);
-                        } else {
-                            tag.setBoolean("enabled", false);
-                        }
-                        magnetSlot.getStack().setTagCompound(tag);
-                        magnetSlot.onSlotChanged();
-                        return ItemStack.EMPTY;
-                    }
-                }
+            final Slot clicked = this.inventorySlots.get(slotId);
+
+            if (this.upgradeSlots.contains(clicked)
+                    && WirelessTerminalSupport.toggleMagnetCard(clicked, dragType, clickTypeIn)) {
+                return ItemStack.EMPTY;
             }
         }
         return super.slotClick(slotId, dragType, clickTypeIn, player);
@@ -251,6 +241,8 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
             ((AppEngInternalInventory) processing).writeToNBT(modeTag, "processing");
             this.output.writeToNBT(modeTag, "output");
             this.pattern.writeToNBT(modeTag, "patterns");
+
+            WirelessTerminalSupport.applyEnergyCards(this.wirelessTerminalGUIObject.getItemStack(), this.upgrades);
 
             final NBTTagCompound tag = new NBTTagCompound();
             this.upgrades.writeToNBT(tag, "upgrades");
@@ -310,17 +302,20 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
 
     @Override
     public int availableUpgrades() {
-        return 1;
+        return UPGRADE_SLOTS;
     }
 
     @Override
     public void setupUpgrades() {
-        if (wirelessTerminalGUIObject != null) {
-            for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
-                this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, upgrades, upgradeSlot, 206, 135 + upgradeSlot * 18, this.getInventoryPlayer());
-                this.magnetSlot.setNotDraggable();
-                this.addSlotToContainer(magnetSlot);
-            }
+        if (wirelessTerminalGUIObject == null) {
+            return;
+        }
+
+        for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
+            final SlotRestrictedInput slot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
+                    upgrades, upgradeSlot, 206, 135 + upgradeSlot * 18, this.getInventoryPlayer());
+            slot.setNotDraggable();
+            this.upgradeSlots.add(this.addSlotToContainer(slot));
         }
     }
 

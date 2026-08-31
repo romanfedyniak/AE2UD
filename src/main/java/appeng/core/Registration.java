@@ -667,6 +667,8 @@ final class Registration {
         }
 
         upgrades.add(UpgradeCards.magnet(), items.wirelessTerminal(), 1);
+        upgrades.addTraitSupport(CardTraits.ENERGY, items.wirelessTerminal(), 2);
+        upgrades.setTraitLimit(CardTraits.ENERGY, items.wirelessTerminal(), 2);
 
         // Charge Rates
         items.chargedStaff().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 320d));

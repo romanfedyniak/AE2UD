@@ -10,9 +10,12 @@
 
 package appeng.container.implementations;
 
+import java.util.List;
+import java.util.ArrayList;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
@@ -27,13 +30,13 @@ public class ContainerWirelessInterfaceConfigurationTerminal extends ContainerIn
         implements IInventorySlotAware, IUpgradeableCellContainer, IWirelessTerminalContainer {
 
     private final WirelessTerminalSupport support;
-    protected SlotRestrictedInput magnetSlot;
+    protected final List<Slot> upgradeSlots = new ArrayList<>();
 
     public ContainerWirelessInterfaceConfigurationTerminal(final InventoryPlayer ip,
             final WirelessTerminalGuiObject guiObject) {
         super(ip, guiObject, false);
 
-        this.support = new WirelessTerminalSupport(this, guiObject, 2);
+        this.support = new WirelessTerminalSupport(this, guiObject, UPGRADE_SLOTS);
         this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
         this.setupUpgrades();
     }
@@ -49,8 +52,9 @@ public class ContainerWirelessInterfaceConfigurationTerminal extends ContainerIn
     @Override
     public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, @NotNull EntityPlayer player) {
         if (slotId >= 0 && slotId < this.inventorySlots.size()
-                && this.inventorySlots.get(slotId) == this.magnetSlot
-                && WirelessTerminalSupport.toggleMagnetCard(this.magnetSlot, dragType, clickTypeIn)) {
+                && this.upgradeSlots.contains(this.inventorySlots.get(slotId))
+                && WirelessTerminalSupport.toggleMagnetCard(this.inventorySlots.get(slotId), dragType,
+                        clickTypeIn)) {
             return ItemStack.EMPTY;
         }
 
@@ -74,16 +78,16 @@ public class ContainerWirelessInterfaceConfigurationTerminal extends ContainerIn
 
     @Override
     public int availableUpgrades() {
-        return 1;
+        return UPGRADE_SLOTS;
     }
 
     @Override
     public void setupUpgrades() {
         for (int upgradeSlot = 0; upgradeSlot < this.availableUpgrades(); upgradeSlot++) {
-            this.magnetSlot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
+            final SlotRestrictedInput slot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
                     this.support.getUpgrades(), upgradeSlot, 201, 169 + upgradeSlot * 18, this.getInventoryPlayer());
-            this.magnetSlot.setNotDraggable();
-            this.addSlotToContainer(this.magnetSlot);
+            slot.setNotDraggable();
+            this.upgradeSlots.add(this.addSlotToContainer(slot));
         }
     }
 }
