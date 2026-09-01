@@ -65,6 +65,7 @@ import appeng.integration.Integrations;
 import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -116,6 +117,12 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private final IConfigManager configSrc;
     private final boolean viewCell;
     private final ItemStack[] myCurrentViewCells = new ItemStack[5];
+    /**
+     * Watched beside the stacks themselves: a view cell being switched off changes its NBT in place, so the
+     * stack is the same object and the check above it sees nothing. Only this one field is ever changed that
+     * way, and comparing the cells by content instead would walk sixty-three configured slots a frame.
+     */
+    private final boolean[] myCurrentViewCellsOn = new boolean[5];
     private final ContainerMEMonitorable monitorableContainer;
     private GuiTabButton craftingStatusBtn;
     private GuiImgButton keyTypesBtn;
@@ -841,9 +848,13 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             boolean update = false;
 
             for (int i = 0; i < 5; i++) {
-                if (this.myCurrentViewCells[i] != this.monitorableContainer.getCellViewSlot(i).getStack()) {
+                final ItemStack cell = this.monitorableContainer.getCellViewSlot(i).getStack();
+                final boolean on = ItemToggle.isEnabled(cell);
+
+                if (this.myCurrentViewCells[i] != cell || this.myCurrentViewCellsOn[i] != on) {
                     update = true;
-                    this.myCurrentViewCells[i] = this.monitorableContainer.getCellViewSlot(i).getStack();
+                    this.myCurrentViewCells[i] = cell;
+                    this.myCurrentViewCellsOn[i] = on;
                 }
             }
 

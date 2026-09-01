@@ -28,6 +28,7 @@ import appeng.items.tools.powered.ToolWirelessTerminal;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.inventory.AppEngInternalInventory;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
@@ -151,28 +152,12 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
      * @return true when the click was that, and the container should do nothing else with it.
      */
     public static boolean toggleMagnetCard(final Slot magnetSlot, final int dragType, final ClickType clickType) {
-        if (clickType != ClickType.PICKUP || dragType != 1 || magnetSlot == null) {
+        if (magnetSlot == null
+                || !AEApi.instance().definitions().materials().cardMagnet().isSameAs(magnetSlot.getStack())) {
             return false;
         }
 
-        final ItemStack itemStack = magnetSlot.getStack();
-        if (!AEApi.instance().definitions().materials().cardMagnet().isSameAs(itemStack)) {
-            return false;
-        }
-        NBTTagCompound tag = itemStack.getTagCompound();
-        if (tag == null) {
-            tag = new NBTTagCompound();
-        }
-
-        if (tag.hasKey("enabled")) {
-            tag.setBoolean("enabled", !tag.getBoolean("enabled"));
-        } else {
-            tag.setBoolean("enabled", false);
-        }
-
-        itemStack.setTagCompound(tag);
-        magnetSlot.onSlotChanged();
-        return true;
+        return ItemToggle.toggle(magnetSlot, dragType, clickType);
     }
 
     @Override

@@ -36,6 +36,7 @@ import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
 import appeng.util.InventoryAdaptor;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
 import com.google.common.base.Preconditions;
@@ -93,12 +94,7 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
         }
 
         if (mt == MaterialType.CARD_MAGNET) {
-            final NBTTagCompound c = Platform.openNbtData(stack);
-            if (!c.hasKey("enabled") || c.getBoolean("enabled")) {
-                lines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.Enable"));
-            } else {
-                lines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.Disabled"));
-            }
+            lines.add(ItemToggle.describe(stack));
             lines.add(I18n.translateToLocal("item.appliedenergistics2.material.card_magnet.usage"));
             lines.add(I18n.translateToLocal("item.appliedenergistics2.material.card_magnet.partition"));
         }

@@ -32,11 +32,19 @@ import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 import appeng.util.prioritylist.MergedPriorityList;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.translation.I18n;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
+
+import java.util.List;
 
 
 public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
@@ -71,7 +79,9 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
         MergedPriorityList myMergedList = null;
 
         for (final ItemStack currentViewCell : list) {
-            if (currentViewCell == null || currentViewCell.isEmpty()) {
+            // A cell switched off counts for nothing, here and so everywhere: this is the one place a view
+            // cell becomes a filter, for the terminal's list and for what a recipe may pull out of it alike.
+            if (currentViewCell == null || currentViewCell.isEmpty() || !ItemToggle.isEnabled(currentViewCell)) {
                 continue;
             }
 
@@ -129,6 +139,16 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
             return wrapped == null ? null : wrapped.what();
         }
         return AEItemKey.of(is);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+            final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        lines.add(ItemToggle.describe(stack));
+        lines.add(I18n.translateToLocal("item.appliedenergistics2.view_cell.usage"));
     }
 
     @Override

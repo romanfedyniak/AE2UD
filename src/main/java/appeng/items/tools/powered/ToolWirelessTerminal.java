@@ -40,6 +40,7 @@ import appeng.items.materials.ItemMaterial;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.me.helpers.PlayerSource;
 import appeng.util.ConfigManager;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import baubles.api.BaubleType;
 import baubles.api.BaublesApi;
@@ -342,8 +343,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 for (int s = 0; s < siu.getSlots(); s++) {
                     ItemStack is = siu.getStackInSlot(s);
                     if (AEApi.instance().definitions().materials().cardMagnet().isSameAs(is)) {
-                        NBTTagCompound tag = is.getTagCompound();
-                        if (tag != null && tag.hasKey("enabled") && !tag.getBoolean("enabled")) {
+                        if (!ItemToggle.isEnabled(is)) {
                             return;
                         }
                         ItemMaterial im = (ItemMaterial) is.getItem();

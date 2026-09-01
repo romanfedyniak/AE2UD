@@ -68,10 +68,12 @@ import appeng.me.cluster.implementations.ICraftingCPUListener;
 import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
+import appeng.util.ItemToggle;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.IContainerListener;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -256,6 +258,35 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (bindInventory) {
             this.bindPlayerInventory(ip, 0, 0);
         }
+    }
+
+    /**
+     * Right-clicking a view cell in its own slot switches it off and on rather than picking it up. Only where
+     * the player may edit those slots at all: a terminal that will not let one be taken out has no business
+     * letting it be switched.
+     */
+    @Override
+    public ItemStack slotClick(final int slotId, final int dragType, final ClickType clickType,
+            final EntityPlayer player) {
+        if (this.canAccessViewCells && slotId >= 0 && slotId < this.inventorySlots.size()) {
+            final Slot clicked = this.inventorySlots.get(slotId);
+
+            if (this.isViewCellSlot(clicked) && ItemToggle.toggle(clicked, dragType, clickType)) {
+                return ItemStack.EMPTY;
+            }
+        }
+
+        return super.slotClick(slotId, dragType, clickType, player);
+    }
+
+    private boolean isViewCellSlot(final Slot slot) {
+        for (final SlotRestrictedInput cell : this.cellView) {
+            if (cell == slot) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override
