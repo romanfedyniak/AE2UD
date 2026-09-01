@@ -614,6 +614,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.currentMouseX = mouseX;
         this.currentMouseY = mouseY;
 
+        GuiSlotIndicator.draw(this);
+
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 

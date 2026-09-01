@@ -25,6 +25,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.translation.I18n;
 
+import appeng.api.AEApi;
+
 /**
  * An item that does nothing while it is switched off, kept in a slot rather than carried: the magnet card in
  * a wireless terminal, a view cell in a terminal's own row.
@@ -38,6 +40,15 @@ public final class ItemToggle {
     private static final String ENABLED_TAG = "enabled";
 
     private ItemToggle() {
+    }
+
+    /**
+     * Whether this is one of the items that carries the flag at all. Asked by the screens that draw a switch
+     * beside the slot, so that the slots holding everything else stay bare.
+     */
+    public static boolean isSwitchable(final ItemStack stack) {
+        return AEApi.instance().definitions().items().viewCell().isSameAs(stack)
+                || AEApi.instance().definitions().materials().cardMagnet().isSameAs(stack);
     }
 
     public static boolean isEnabled(final ItemStack stack) {

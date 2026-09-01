@@ -7,6 +7,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 
+import appeng.client.gui.widgets.GuiSlotIndicator;
 import appeng.client.gui.widgets.GuiTerminalModeSwitch;
 import appeng.client.gui.widgets.GuiWirelessUpgradePlate;
 import appeng.container.interfaces.IWirelessTerminalContainer;
@@ -65,6 +66,12 @@ public class GuiWirelessInterfaceTerminal extends GuiInterfaceTerminal {
         GuiWirelessUpgradePlate.draw(this, offsetX + PLATE_X, offsetY + this.plateY(),
                 IWirelessTerminalContainer.UPGRADE_SLOTS);
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
+    }
+
+    @Override
+    public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        super.drawFG(offsetX, offsetY, mouseX, mouseY);
+        GuiSlotIndicator.draw(this);
     }
 
     @Override

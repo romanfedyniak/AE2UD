@@ -146,6 +146,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - A view cell can be switched off without taking it out: right click it in the terminal's own row of them, the way a magnet card in a wireless terminal has always worked. A cell that is off filters nothing at all - not the list, and not what a recipe transferred from HEI or pulled through a crafting terminal may take out of storage, since all four of those ask the same one method. It says which it is in its tooltip, along with how to change it, and so does the magnet card: that line was grey among grey ones on both, and is green or red now.
 
+- A small lamp burns in the corner of every slot holding something that can be switched off, so its state is read off the screen rather than out of a tooltip: the five view cell slots in a terminal, and the upgrade slots on all four wireless terminals wherever a magnet card sits in one. Red for off, green for on. It is drawn over the slot and over the item in it, in the top right corner, which is the one corner a stack size never uses, and it is only ever looked at - the item under it is still switched by right clicking it as before.
+
 
 - Highlighting a block now turns the player to face it. The button beside a row in the Interface Terminal and in the Interface Configuration Terminal, and the machine lookup in the Crafting Tree, all used to draw the red outline and close the screen leaving the player looking wherever they had been - which for an interface behind them meant the answer was on screen and invisible. The view snaps to the block the moment the screen closes; where several were highlighted at once, to the nearest. Turn it off with `turnToHighlightedBlock` in the config's `Client` section.
 
