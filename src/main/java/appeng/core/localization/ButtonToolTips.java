@@ -19,6 +19,8 @@
 package appeng.core.localization;
 
 
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.text.translation.I18n;
 
 
@@ -249,7 +251,24 @@ public enum ButtonToolTips {
     // The wireless terminal's mode switch
     TerminalModeSwitch,
     TerminalModeLocked,
-    TerminalModeUnobtainable;
+    TerminalModeUnobtainable,
+
+    // What a click on a slot does, for the clicks the slot cannot show by itself
+    LeftClick,
+    RightClick,
+    MiddleClick,
+    MouseButton,
+    ShiftRightClick,
+    CtrlLeftClick,
+    CtrlRightClick,
+    CtrlShiftRightClick,
+    SetAction,
+    StoreAction,
+    ModifyAmountAction,
+    ExtractAction,
+    DepositAction,
+    ExtractAllAction,
+    DepositAllAction;
 
     private final String root;
 
@@ -263,6 +282,10 @@ public enum ButtonToolTips {
 
     public String getLocal() {
         return I18n.translateToLocal(this.getUnlocalized());
+    }
+
+    public ITextComponent getLocalizedWithArgs(final Object... args) {
+        return new TextComponentTranslation(this.getUnlocalized(), args);
     }
 
     public String getUnlocalized() {

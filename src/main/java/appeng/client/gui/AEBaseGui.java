@@ -20,7 +20,8 @@ package appeng.client.gui;
 
 
 import appeng.api.behaviors.ContainerItemStrategies;
-import appeng.api.stacks.AEFluidKey;
+import appeng.api.behaviors.ContainerItemStrategy;
+import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -38,6 +39,8 @@ import appeng.container.slot.*;
 import appeng.container.slot.AppEngSlot.hasCalculatedValidness;
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.Tooltips;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
@@ -47,10 +50,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import mezz.jei.api.gui.IGhostIngredientHandler;
+import javax.annotation.Nullable;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -65,10 +71,10 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.fluids.Fluid;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fml.client.config.GuiUtils;
 import net.minecraftforge.fml.common.Optional;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -215,6 +221,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         this.renderHoveredToolTip(mouseX, mouseY);
         this.drawEmptySlotTooltip(mouseX, mouseY);
+        this.drawCarriedSlotTooltip(mouseX, mouseY);
 
         for (final Object c : this.buttonList) {
             if (c instanceof ITooltip) {
@@ -251,6 +258,50 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
     }
 
+    /**
+     * The hints for the hovered slot, drawn on their own. Only while the cursor is carrying something:
+     * vanilla shows no tooltip at all then, so nothing is being covered up, and that is exactly when the
+     * clicks worth explaining differ from the ordinary ones. With an empty hand the same lines are appended
+     * to the item's own tooltip instead, by {@link #getItemToolTip}.
+     */
+    private void drawCarriedSlotTooltip(final int mouseX, final int mouseY) {
+        if (this.mc.player.inventory.getItemStack().isEmpty()) {
+            return;
+        }
+
+        final List<String> hints = this.slotHints(this.hoveredSlot);
+        if (!hints.isEmpty()) {
+            this.drawHoveringText(hints, mouseX, mouseY, this.fontRenderer);
+        }
+    }
+
+    /**
+     * An item's own tooltip with the slot's hints under it. Every screen of the mod that draws an item
+     * tooltip by hand goes through here, so the hints are always the last lines of it rather than landing
+     * in the middle of whatever that screen adds.
+     */
+    protected final void drawSlotTooltip(final List<String> lines, final int x, final int y) {
+        lines.addAll(this.slotHints(this.hoveredSlot));
+        this.drawHoveringText(lines, x, y, this.fontRenderer);
+    }
+
+    @Override
+    protected void renderToolTip(final ItemStack stack, final int x, final int y) {
+        final List<String> hints = this.slotHints(this.hoveredSlot);
+        if (hints.isEmpty()) {
+            super.renderToolTip(stack, x, y);
+            return;
+        }
+
+        final List<String> lines = this.getItemToolTip(stack);
+        lines.addAll(hints);
+
+        final FontRenderer font = stack.getItem().getFontRenderer(stack);
+        GuiUtils.preItemToolTip(stack);
+        this.drawHoveringText(lines, x, y, font == null ? this.fontRenderer : font);
+        GuiUtils.postItemToolTip();
+    }
+
     public List<Rectangle> getJEIExclusionArea() {
         return Collections.emptyList();
     }
@@ -266,17 +317,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     }
 
     /**
-     * @return true if the stack on the cursor holds a fluid, i.e. clicking a filter slot with it should set
-     *         the filter to that fluid rather than to the container item.
+     * @return what the cursor is carrying inside it, if the mod knows how to pour that out - a bucket, a
+     *         tank, whatever an addon has registered a strategy for. Null for an empty hand and for an
+     *         ordinary item, in which case clicking a filter slot sets the filter to the item itself.
      */
-    private boolean holdsFluidContainer() {
-        final ItemStack held = this.mc.player.inventory.getItemStack();
-        if (held.isEmpty()) {
-            return false;
-        }
-
-        final FluidStack fluid = FluidUtil.getFluidContained(held);
-        return fluid != null && fluid.amount > 0;
+    @Nullable
+    private GenericStack heldContents() {
+        return ContainerItemStrategies.getContainedStack(this.mc.player.inventory.getItemStack());
     }
 
     /**
@@ -522,9 +569,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             final InventoryAction action;
             if (mouseButton == 1) {
                 action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
-            } else if (holdsFluidContainer()) {
-                // Left-clicking a filter slot with a bucket or tank in hand sets the filter to the FLUID it
-                // holds, not to the container. Right click still places the container itself, so an item
+            } else if (heldContents() != null) {
+                // Left-clicking a filter slot with a bucket or tank in hand sets the filter to what it
+                // HOLDS, not to the container. Right click still places the container itself, so an item
                 // filter can still be set to a bucket - that is the only way to tell the two apart, since a
                 // bucket is a perfectly ordinary item everywhere else.
                 action = InventoryAction.EMPTY_ITEM;
@@ -609,7 +656,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 case PICKUP: // pickup / set-down.
                     if (mouseButton == 1) {
                         action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
-                    } else if (holdsFluidContainer()) {
+                    } else if (heldContents() != null) {
                         // Left click configures this slot to what the held container *holds*; right click
                         // still places the container itself. Same rule a SlotFake has followed since stage
                         // 0 - the config terminal writes into the very same config inventory, it just
@@ -736,6 +783,135 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
+    }
+
+    /**
+     * What a click on this slot would do, for the clicks nothing on screen shows. Kept beside
+     * {@link #handleMouseClick}, because that method is the vocabulary being written down here: a branch
+     * added there is a line to add here, and the two drift the moment they live apart.
+     *
+     * <p>Only ever the actions the cursor's present state actually offers. A hint for something that would
+     * not happen if it were followed is worse than no hint.</p>
+     */
+    private List<String> slotHints(final Slot slot) {
+        final List<String> hints = new ArrayList<>();
+        if (slot == null) {
+            return hints;
+        }
+
+        final ItemStack carried = this.mc.player.inventory.getItemStack();
+        final GenericStack held = this.heldContents();
+
+        // Ctrl fills or empties every container on the cursor at once, and only a terminal row reads it.
+        final boolean wholeStack = slot instanceof SlotME && carried.getCount() > 1;
+
+        // Left fills what is held from the network - with an empty hand, out of a container the network finds
+        // for itself. An empty bucket counts: what matters is whether the thing on the cursor can take this,
+        // not whether it already holds some. A craftable row with nothing stored orders a craft instead, and
+        // says so without any help from here.
+        final GenericStack stored = storedContents(slot);
+        final boolean fills = stored != null && ContainerItemStrategies.isKeySupported(stored.what())
+                && !this.ordersCraftInstead(slot) && (carried.isEmpty() || accepts(carried, stored));
+
+        if (fills) {
+            hints.add(line(ButtonToolTips.ExtractAction, Tooltips.click(0), Tooltips.nameOf(stored.what())));
+
+            if (wholeStack) {
+                hints.add(line(ButtonToolTips.ExtractAllAction, named(ButtonToolTips.CtrlLeftClick)));
+            }
+        } else if (held != null && slot instanceof SlotME) {
+            // Nothing here to fill it from, so left stores the container itself. Worth saying only because
+            // the right click on the same slot does something else entirely with the same item.
+            hints.add(line(ButtonToolTips.StoreAction, Tooltips.click(0), Tooltips.nameOf(carried)));
+        }
+
+        // Right pours what is held into the network whatever the slot itself holds, empty row included.
+        if (held != null && (slot instanceof SlotME || slot instanceof SlotGenericStorage)) {
+            hints.add(line(ButtonToolTips.DepositAction, Tooltips.click(1), Tooltips.nameOf(held.what())));
+
+            if (wholeStack) {
+                hints.add(line(ButtonToolTips.DepositAllAction, named(ButtonToolTips.CtrlRightClick)));
+            }
+        }
+
+        if (slot instanceof SlotFake || slot instanceof SlotDisconnected) {
+            if (held != null) {
+                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(0), Tooltips.nameOf(held.what())));
+                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), Tooltips.nameOf(carried)));
+            }
+
+            final boolean typed = slot instanceof SlotDisconnected ? slot.getHasStack() : this.allowsTypedAmount(slot);
+            if (typed) {
+                hints.add(line(ButtonToolTips.ModifyAmountAction, Tooltips.click(2)));
+            }
+        }
+
+        // A filled container lying in the player's own inventory pours straight into the network, which is
+        // the one place the action is invisible: the slot looks like any other.
+        if ((slot instanceof SlotPlayerInv || slot instanceof SlotPlayerHotBar) && carried.isEmpty()) {
+            final GenericStack inSlot = ContainerItemStrategies.getContainedStack(slot.getStack());
+            if (inSlot != null) {
+                hints.add(line(ButtonToolTips.DepositAction, named(ButtonToolTips.ShiftRightClick),
+                        Tooltips.nameOf(inSlot.what())));
+
+                if (slot.getStack().getCount() > 1) {
+                    hints.add(line(ButtonToolTips.DepositAllAction, named(ButtonToolTips.CtrlShiftRightClick)));
+                }
+            }
+        }
+
+        return hints;
+    }
+
+    private static String line(final ButtonToolTips format, final Object... args) {
+        return Tooltips.action(format, args).getFormattedText();
+    }
+
+    /** A button chord the mouse-button vocabulary has no number for. */
+    private static ITextComponent named(final ButtonToolTips chord) {
+        return Tooltips.muted(new TextComponentString(chord.getLocal()));
+    }
+
+    /** What the slot holds in the network's own terms, for the slots that stand for stored contents. */
+    @Nullable
+    private static GenericStack storedContents(final Slot slot) {
+        if (slot instanceof SlotME) {
+            final GridInventoryEntry entry = ((SlotME) slot).getEntry();
+            return entry == null ? null : new GenericStack(entry.getWhat(), entry.getStoredAmount());
+        }
+
+        if (slot instanceof SlotGenericStorage) {
+            return GenericStack.unwrapItemStack(slot.getStack());
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether what is on the cursor could take this, so that a hint never offers a click that would do
+     * nothing - a full bucket over a water row cannot be filled any further, and an ordinary item is not a
+     * container at all. Asked for as much as the row actually holds, because a bucket takes a bucketful or
+     * nothing and would refuse a drop.
+     */
+    private static boolean accepts(final ItemStack carried, final GenericStack stored) {
+        final ContainerItemStrategy.Context context = ContainerItemStrategies.openContext(carried,
+                stored.what().getType());
+        if (context == null) {
+            return false;
+        }
+
+        final long room = Math.max(stored.amount(), stored.what().getType().getAmountPerUnit());
+        return context.insert(stored.what(), room, Actionable.SIMULATE) > 0;
+    }
+
+    /** Whether an empty-handed left click on this row would order a craft rather than fill a container. */
+    private boolean ordersCraftInstead(final Slot slot) {
+        if (!(slot instanceof SlotME) || !this.mc.player.inventory.getItemStack().isEmpty()) {
+            return false;
+        }
+
+        final GridInventoryEntry entry = ((SlotME) slot).getEntry();
+        return entry != null && (entry.getStoredAmount() == 0 || isAltKeyDown());
     }
 
     @Override

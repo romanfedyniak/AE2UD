@@ -2129,6 +2129,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     strip at x=212 in its own texture rather than the usual 177, because the progress bar this machine
     alone has is drawn out of those columns; the art is the inscriber's, row for row.
 
+30. **`AEKeyType.getDisplayColour()`** - additive, defaulting to white, and used only where the mod writes
+    a thing's name into a tooltip line it assembles itself. Upstream has nothing of the kind: it builds
+    those lines out of `Component`s and lets each carry its own style, which on 1.12 would mean styling
+    `AEKey.getDisplayName()`. That name cannot be styled - it is cached and shared with the terminal's
+    search field, with Waila and with The One Probe, none of which want a formatting code in it - so the
+    colour is asked for separately, at the point of use. An item is written in the colour of its rarity
+    without the type being asked at all; the hook is for the types that have no rarity to read.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

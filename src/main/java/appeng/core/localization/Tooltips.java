@@ -1,6 +1,9 @@
 package appeng.core.localization;
 
 import appeng.api.config.PowerUnits;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import net.minecraft.item.ItemStack;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.util.text.*;
 
@@ -23,6 +26,10 @@ public final class Tooltips {
     public static final Style UNIT_TEXT = new Style().setColor(TextFormatting.YELLOW).setItalic(false);
     public static final Style NORMAL_TOOLTIP_TEXT = new Style().setColor(TextFormatting.GRAY).setItalic(false);
     public static final Style NUMBER_TEXT = new Style().setColor(TextFormatting.LIGHT_PURPLE).setItalic(false);
+
+    /** What a click does, and the button that does it: the button steps back so the action reads first. */
+    public static final Style ACTION_TEXT = new Style().setColor(TextFormatting.WHITE).setItalic(false);
+    public static final Style MUTED_TEXT = new Style().setColor(TextFormatting.DARK_GRAY).setItalic(false);
 
 
     public static final String[] units = new String[] { "k", "M", "G", "T", "P", "E" };
@@ -75,6 +82,57 @@ public final class Tooltips {
         }
         return guiText.getLocalizedWithArgs(args).createCopy().setStyle(style);
 
+    }
+
+    /**
+     * A line saying what one click on a slot would do - the whole thing one translated string, so that a
+     * language wanting the button after the verb can have it that way.
+     */
+    public static ITextComponent action(final ButtonToolTips line, final Object... args) {
+        return line.getLocalizedWithArgs(args).createCopy().setStyle(ACTION_TEXT);
+    }
+
+    /** The name of a mouse button, for the first argument of every action line. */
+    public static ITextComponent click(final int mouseButton) {
+        final ButtonToolTips name;
+        switch (mouseButton) {
+            case 0:
+                name = ButtonToolTips.LeftClick;
+                break;
+            case 1:
+                name = ButtonToolTips.RightClick;
+                break;
+            case 2:
+                name = ButtonToolTips.MiddleClick;
+                break;
+            default:
+                return muted(ButtonToolTips.MouseButton.getLocalizedWithArgs(mouseButton));
+        }
+
+        return muted(new TextComponentString(name.getLocal()));
+    }
+
+    public static ITextComponent muted(final ITextComponent text) {
+        return text.createCopy().setStyle(MUTED_TEXT);
+    }
+
+    /**
+     * A thing named in its own colour, the way an item is named in the colour of its rarity. Copied before
+     * it is styled: a key's display name is cached and shared with the terminal's search field, with Waila
+     * and with The One Probe, none of which want a colour in it.
+     */
+    public static ITextComponent nameOf(final ItemStack stack) {
+        return new TextComponentString(stack.getDisplayName())
+                .setStyle(new Style().setColor(stack.getRarity().color).setItalic(false));
+    }
+
+    public static ITextComponent nameOf(final AEKey what) {
+        if (what instanceof AEItemKey) {
+            return nameOf(((AEItemKey) what).getReadOnlyStack());
+        }
+
+        return what.getDisplayName().createCopy()
+                .setStyle(new Style().setColor(what.getType().getDisplayColour()).setItalic(false));
     }
 
     public static ITextComponent ofUnformattedNumber(long number) {

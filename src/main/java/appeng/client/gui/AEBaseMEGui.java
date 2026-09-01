@@ -124,7 +124,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                     }
                 }
 
-                this.drawHoveringText(currentToolTip, x, y, this.fontRenderer);
+                this.drawSlotTooltip(currentToolTip, x, y);
 
                 return;
             } else if (stack.getCount() > bigNumber) {
@@ -134,7 +134,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
 
                 currentToolTip.add(TextFormatting.GRAY + format);
 
-                this.drawHoveringText(currentToolTip, x, y, this.fontRenderer);
+                this.drawSlotTooltip(currentToolTip, x, y);
 
                 return;
             }
@@ -147,7 +147,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                 if (s.getStack().getCount() > 1) {
                     final String formattedAmount = NumberFormat.getNumberInstance(Locale.US).format(s.getStack().getCount());
                     currentToolTip.add(TextFormatting.GRAY + formattedAmount);
-                    this.drawHoveringText(currentToolTip, x, y, this.fontRenderer);
+                    this.drawSlotTooltip(currentToolTip, x, y);
                     return;
                 }
             }

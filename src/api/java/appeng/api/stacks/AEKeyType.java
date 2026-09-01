@@ -35,6 +35,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.registries.IForgeRegistryEntry;
 
 import appeng.api.storage.AEKeyFilter;
@@ -142,6 +143,18 @@ public abstract class AEKeyType extends IForgeRegistryEntry.Impl<AEKeyType> {
      */
     public String getUnitSymbol() {
         return "";
+    }
+
+    /**
+     * The colour this type's names are written in where a tooltip names one, the way an item is written in
+     * the colour of its rarity. Not present in upstream AE2.
+     * <p>
+     * Only for tooltips the mod assembles itself. {@link AEKey#getDisplayName()} stays uncoloured, because
+     * the same name is fed to the terminal's search field, to Waila and to The One Probe, none of which
+     * want a formatting code in it.
+     */
+    public TextFormatting getDisplayColour() {
+        return TextFormatting.WHITE;
     }
 
     /**
