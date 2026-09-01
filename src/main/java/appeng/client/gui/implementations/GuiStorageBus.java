@@ -63,7 +63,7 @@ public class GuiStorageBus extends GuiUpgradeable {
         // one row earlier instead of showing a gap in the middle.
         this.fuzzyMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 108, Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
 
-        this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
+        this.buttonList.add(this.priority = GuiTabButton.priority(this.guiLeft + 154, this.guiTop, this.itemRender));
 
         this.buttonList.add(this.keyTypes);
         this.buttonList.add(this.storageFilter);

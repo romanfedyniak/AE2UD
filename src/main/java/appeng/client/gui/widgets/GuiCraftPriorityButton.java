@@ -36,6 +36,9 @@ public class GuiCraftPriorityButton extends GuiIconButton {
     }
 
     public void setPriority(final int priority) {
-        this.setMessage(I18n.format(GuiText.CraftPriorityOf.getUnlocalized(), priority));
+        this.setMessage(String.join("\n",
+                I18n.format(GuiText.CraftPriorityOf.getUnlocalized(), priority),
+                GuiText.CraftPriorityHint.getLocal(), GuiText.CraftPriorityHintNotFaster.getLocal(),
+                GuiText.CraftPriorityHintNotProcessor.getLocal()));
     }
 }

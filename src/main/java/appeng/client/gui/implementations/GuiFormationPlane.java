@@ -82,7 +82,7 @@ public class GuiFormationPlane extends GuiUpgradeable {
         this.column.add(this.craftMode);
         this.column.add(this.craftPriority);
 
-        this.buttonList.add(this.priority = new GuiTabButton(this.guiLeft + 154, this.guiTop, 2 + 4 * 16, GuiText.Priority.getLocal(), this.itemRender));
+        this.buttonList.add(this.priority = GuiTabButton.priority(this.guiLeft + 154, this.guiTop, this.itemRender));
         this.buttonList.addAll(this.column);
     }
 

@@ -20,6 +20,7 @@ package appeng.client.gui.widgets;
 
 
 import appeng.client.gui.AEBaseGui;
+import appeng.core.localization.GuiText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -35,6 +36,21 @@ public class GuiTabButton extends GuiButton implements ITooltip {
     private int hideEdge = 0;
     private int myIcon = -1;
     private ItemStack myItem;
+
+    private static final int PRIORITY_ICON = 2 + 4 * 16;
+
+    /**
+     * The tab into the storage priority screen, which six screens wear identically. Made here because the
+     * number that screen sets says nothing about what it decides, and the tab is the last place to say so
+     * before it is set.
+     */
+    public static GuiTabButton priority(final int x, final int y, final RenderItem ir) {
+        final String message = String.join("\n", GuiText.Priority.getLocal(),
+                GuiText.PriorityHintInsert.getLocal(), GuiText.PriorityHintExtract.getLocal(),
+                GuiText.PriorityHintPreferred.getLocal());
+
+        return new GuiTabButton(x, y, PRIORITY_ICON, message, ir);
+    }
 
     public GuiTabButton(final int x, final int y, final int ico, final String message, final RenderItem ir) {
         super(0, 0, 16, "");

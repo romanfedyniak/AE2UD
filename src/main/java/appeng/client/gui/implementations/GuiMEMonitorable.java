@@ -498,6 +498,21 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.attachModeSwitch();
         this.updateRepoPower();
         super.drawScreen(mouseX, mouseY, partialTicks);
+
+        if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
+            this.drawTooltip(mouseX, mouseY, searchHint());
+        }
+    }
+
+    /**
+     * What the search field understands. Drawn by hand rather than through {@code ITooltip}, because the
+     * field is a {@code GuiTextField} and a class that is both crashes obfuscated - see
+     * {@code MEGuiTooltipTextField}, which wraps one for that very reason.
+     */
+    private static String searchHint() {
+        return String.join("\n", GuiText.SearchHintTitle.getLocal(), GuiText.SearchHintName.getLocal(),
+                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTerms.getLocal(),
+                GuiText.SearchHintExclude.getLocal(), GuiText.SearchHintTooltips.getLocal());
     }
 
     /**

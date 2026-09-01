@@ -293,7 +293,23 @@ public enum GuiText {
     // Used in Annihilation Planes
     CanBeEnchanted,
     IncreasedEnergyUseFromEnchants,
-    Deprecated;
+    Deprecated,
+
+    // How the two priorities actually decide anything, which neither number says by itself
+    PriorityHintInsert,
+    PriorityHintExtract,
+    PriorityHintPreferred,
+    CraftPriorityHint,
+    CraftPriorityHintNotFaster,
+    CraftPriorityHintNotProcessor,
+
+    // What the terminal's search field understands
+    SearchHintTitle,
+    SearchHintName,
+    SearchHintMod,
+    SearchHintTerms,
+    SearchHintExclude,
+    SearchHintTooltips;
 
     private final String root;
 
