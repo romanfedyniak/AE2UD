@@ -31,6 +31,7 @@ import appeng.api.implementations.items.IStorageComponent;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
+import appeng.core.localization.ButtonToolTips;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
@@ -66,6 +67,18 @@ public class SlotRestrictedInput extends AppEngSlot {
 
     public PlacableItemType getPlaceableItemType() {
         return which;
+    }
+
+    /**
+     * What belongs here, while nothing is in it: a restricted slot looks like every other slot when empty,
+     * and the icon behind it is the only clue as to what it wants. A slot given something of its own to say
+     * says that instead - it was given it because the kind of slot was not the interesting part of it.
+     */
+    @Override
+    public String getTooltip() {
+        final String own = super.getTooltip();
+
+        return own == null ? this.which.getDescription() : own;
     }
 
     @Override
@@ -261,41 +274,49 @@ public class SlotRestrictedInput extends AppEngSlot {
     }
 
     public enum PlacableItemType {
-        STORAGE_CELLS(15),
-        ORE(16 + 15),
-        STORAGE_COMPONENT(3 * 16 + 15),
+        STORAGE_CELLS(15, ButtonToolTips.SlotStorageCell),
+        ORE(16 + 15, ButtonToolTips.SlotOre),
+        STORAGE_COMPONENT(3 * 16 + 15, ButtonToolTips.SlotStorageComponent),
 
-        ENCODABLE_ITEM(4 * 16 + 15),
-        TRASH(5 * 16 + 15),
-        VALID_ENCODED_PATTERN_W_OUTPUT(7 * 16 + 15),
-        ENCODED_PATTERN_W_OUTPUT(7 * 16 + 15),
+        ENCODABLE_ITEM(4 * 16 + 15, ButtonToolTips.SlotEncodableItem),
+        TRASH(5 * 16 + 15, ButtonToolTips.SlotTrash),
+        VALID_ENCODED_PATTERN_W_OUTPUT(7 * 16 + 15, ButtonToolTips.SlotEncodedPattern),
+        ENCODED_PATTERN_W_OUTPUT(7 * 16 + 15, ButtonToolTips.SlotEncodedPattern),
 
-        ENCODED_CRAFTING_PATTERN(7 * 16 + 15),
-        ENCODED_PATTERN(7 * 16 + 15),
-        PATTERN(8 * 16 + 15),
-        BLANK_PATTERN(8 * 16 + 15),
-        POWERED_TOOL(9 * 16 + 15),
+        ENCODED_CRAFTING_PATTERN(7 * 16 + 15, ButtonToolTips.SlotEncodedCraftingPattern),
+        ENCODED_PATTERN(7 * 16 + 15, ButtonToolTips.SlotEncodedPattern),
+        PATTERN(8 * 16 + 15, ButtonToolTips.SlotPattern),
+        BLANK_PATTERN(8 * 16 + 15, ButtonToolTips.SlotBlankPattern),
+        POWERED_TOOL(9 * 16 + 15, ButtonToolTips.SlotPoweredTool),
 
-        RANGE_BOOSTER(6 * 16 + 15),
-        QE_SINGULARITY(10 * 16 + 15),
+        RANGE_BOOSTER(6 * 16 + 15, ButtonToolTips.SlotRangeBooster),
+        QE_SINGULARITY(10 * 16 + 15, ButtonToolTips.SlotQESingularity),
 
-        CARD_QUANTUM(13 * 16 + 15),
-        SPATIAL_STORAGE_CELLS(11 * 16 + 15),
+        CARD_QUANTUM(13 * 16 + 15, ButtonToolTips.SlotQuantumCard),
+        SPATIAL_STORAGE_CELLS(11 * 16 + 15, ButtonToolTips.SlotSpatialCell),
 
-        FUEL(12 * 16 + 15),
-        UPGRADES(13 * 16 + 15),
-        WORKBENCH_CELL(15),
-        BIOMETRIC_CARD(14 * 16 + 15),
-        VIEW_CELL(4 * 16 + 14),
+        FUEL(12 * 16 + 15, ButtonToolTips.SlotFuel),
+        UPGRADES(13 * 16 + 15, ButtonToolTips.SlotUpgrade),
+        WORKBENCH_CELL(15, ButtonToolTips.SlotWorkbenchCell),
+        BIOMETRIC_CARD(14 * 16 + 15, ButtonToolTips.SlotBiometricCard),
+        VIEW_CELL(4 * 16 + 14, ButtonToolTips.SlotViewCell),
 
-        INSCRIBER_PLATE(2 * 16 + 14),
-        INSCRIBER_INPUT(3 * 16 + 14),
-        METAL_INGOTS(3 * 16 + 14);
+        INSCRIBER_PLATE(2 * 16 + 14, ButtonToolTips.SlotInscriberPress),
+        INSCRIBER_INPUT(3 * 16 + 14, ButtonToolTips.SlotInscriberInput),
+        METAL_INGOTS(3 * 16 + 14, ButtonToolTips.SlotMetalIngot);
 
         public final int IIcon;
 
-        PlacableItemType(final int o) {
+        private final ButtonToolTips description;
+
+        PlacableItemType(final int o, final ButtonToolTips description) {
             this.IIcon = o;
+            this.description = description;
+        }
+
+        /** What may be put in a slot of this kind, for the slot to say while it stands empty. */
+        public String getDescription() {
+            return this.description.getLocal();
         }
     }
 }

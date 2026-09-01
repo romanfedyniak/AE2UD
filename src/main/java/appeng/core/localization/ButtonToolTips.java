@@ -268,7 +268,35 @@ public enum ButtonToolTips {
     ExtractAction,
     DepositAction,
     ExtractAllAction,
-    DepositAllAction;
+    DepositAllAction,
+
+    // Which way the list beside the button is being sorted, rather than that it can be turned around
+    Ascending,
+    Descending,
+
+    // What belongs in a restricted slot, said while it is empty and cannot say it by itself
+    SlotStorageCell,
+    SlotWorkbenchCell,
+    SlotSpatialCell,
+    SlotStorageComponent,
+    SlotUpgrade,
+    SlotViewCell,
+    SlotBiometricCard,
+    SlotQuantumCard,
+    SlotQESingularity,
+    SlotRangeBooster,
+    SlotEncodableItem,
+    SlotPoweredTool,
+    SlotFuel,
+    SlotOre,
+    SlotMetalIngot,
+    SlotInscriberPress,
+    SlotInscriberInput,
+    SlotPattern,
+    SlotBlankPattern,
+    SlotEncodedPattern,
+    SlotEncodedCraftingPattern,
+    SlotTrash;
 
     private final String root;
 
