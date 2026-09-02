@@ -250,6 +250,7 @@ public enum ButtonToolTips {
 
     // The wireless terminal's mode switch
     TerminalModeSwitch,
+    SearchModePanel,
     TerminalModeLocked,
     TerminalModeUnobtainable,
 

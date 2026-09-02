@@ -40,6 +40,7 @@ public class GuiImgButton extends GuiButton implements ITooltip {
     private final Enum buttonSetting;
     private boolean halfSize = false;
     private String fillVar;
+    private String extraTooltip;
     private Enum currentValue;
 
     public GuiImgButton(final int x, final int y, final Enum idx, final Enum val) {
@@ -365,9 +366,18 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                 sb.replace(i, i + 1, "\n");
             }
 
+            if (this.extraTooltip != null) {
+                sb.append('\n').append(this.extraTooltip);
+            }
+
             return name + '\n' + sb;
         }
         return null;
+    }
+
+    /** A line under the value, for a button that does more than step to the next setting. */
+    public void setExtraTooltip(final String line) {
+        this.extraTooltip = line;
     }
 
     @Override

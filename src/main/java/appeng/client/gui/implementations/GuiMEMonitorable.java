@@ -53,6 +53,7 @@ import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -113,6 +114,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private static final int WIRELESS_PLATE_Y = 127;
 
     private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
+    private final GuiSearchModeSwitch searchModes = new GuiSearchModeSwitch();
     private final int lowerTextureOffset = 0;
     private final IConfigManager configSrc;
     private final boolean viewCell;
@@ -244,6 +246,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     protected void actionPerformed(final GuiButton btn) {
         if (this.modeSwitch.actionPerformed(btn)) {
+            this.searchModes.close();
             return;
         }
 
@@ -273,6 +276,22 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 nextPlayer = Math.min(nextPlayer, Math.max(0, available - visibleCrafting));
             }
             this.setPinRows(nextCrafting, nextPlayer, true);
+        }
+
+        final SearchBoxMode picked = this.searchModes.choose(btn);
+        if (picked != null) {
+            AEClientConfig.instance().getConfigManager().putSetting(Settings.SEARCH_MODE, picked);
+            this.searchBoxSettings.set(picked);
+            this.reinitalize();
+            return;
+        }
+
+        // Right click still steps to the next mode, the way every other setting button in the mod does.
+        if (btn == this.searchBoxSettings && !Mouse.isButtonDown(1)) {
+            // Both panels open leftwards over the same strip, and the wireless one sits below this button.
+            this.modeSwitch.close();
+            this.searchModes.toggleOpen();
+            return;
         }
 
         if (btn instanceof GuiImgButton iBtn) {
@@ -397,6 +416,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                         .getConfigManager()
                         .getSetting(
                                 Settings.SEARCH_MODE)));
+        this.searchBoxSettings.setExtraTooltip(ButtonToolTips.SearchModePanel.getLocal());
 
         offset += 20;
 
@@ -496,6 +516,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
         this.attachModeSwitch();
+        this.searchModes.attach(this.buttonList, this.searchBoxSettings,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE));
         this.updateRepoPower();
         super.drawScreen(mouseX, mouseY, partialTicks);
 
