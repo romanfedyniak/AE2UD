@@ -38,7 +38,6 @@ import appeng.util.prioritylist.IPartitionList;
 import appeng.util.prioritylist.MergedPriorityList;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -148,7 +147,7 @@ public class ItemViewCell extends AEBaseItem implements ICellWorkbenchItem {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
         lines.add(ItemToggle.describe(stack));
-        lines.add(I18n.translateToLocal("item.appliedenergistics2.view_cell.usage"));
+        lines.add(ItemToggle.usage());
     }
 
     @Override

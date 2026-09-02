@@ -95,7 +95,7 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
 
         if (mt == MaterialType.CARD_MAGNET) {
             lines.add(ItemToggle.describe(stack));
-            lines.add(I18n.translateToLocal("item.appliedenergistics2.material.card_magnet.usage"));
+            lines.add(ItemToggle.usage());
             lines.add(I18n.translateToLocal("item.appliedenergistics2.material.card_magnet.partition"));
         }
 

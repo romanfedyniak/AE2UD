@@ -86,4 +86,12 @@ public final class ItemToggle {
                 ? TextFormatting.GREEN + I18n.translateToLocal("gui.tooltips.appliedenergistics2.Enable")
                 : TextFormatting.RED + I18n.translateToLocal("gui.tooltips.appliedenergistics2.Disabled");
     }
+
+    /**
+     * How to change it. Here rather than on each item that can be switched, because the two that could had
+     * drifted into describing the same right click in two different ways.
+     */
+    public static String usage() {
+        return I18n.translateToLocal("gui.tooltips.appliedenergistics2.ToggleUsage");
+    }
 }
