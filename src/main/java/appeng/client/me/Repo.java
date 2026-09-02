@@ -361,6 +361,17 @@ public class Repo {
         this.changed = true;
     }
 
+    /**
+     * Empties the list outright - keys and all - unlike {@link #clear()}, which keeps the keys and zeroes
+     * them. A screen that refills the same repo from a different source needs the old keys gone, or they
+     * stay on show at zero.
+     */
+    public void reset() {
+        this.entries.clear();
+        this.view = new ArrayList<>();
+        this.changed = true;
+    }
+
     public boolean hasPower() {
         return this.hasPower;
     }

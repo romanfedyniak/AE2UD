@@ -44,7 +44,9 @@ import appeng.entity.EntityFloatingItem;
 import appeng.entity.EntityTinyTNTPrimed;
 import appeng.entity.RenderFloatingItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
-import appeng.client.gui.AEBaseGui;
+import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.StorageCell;
+import appeng.client.gui.implementations.GuiCellView;
 import appeng.client.gui.implementations.GuiPatternView;
 import appeng.entity.RenderTinyTNTPrimed;
 import appeng.helpers.HighlighterHandler;
@@ -371,6 +373,27 @@ public class ClientHelper extends ServerHelper {
     }
 
     /**
+     * Opens the cell view for anything the mod can read a cell inventory out of - a storage cell, a portable
+     * terminal, the matter cannon's ammunition, the colour applicator's paint.
+     *
+     * @return true when the stack was a cell and the view was opened.
+     */
+    private static boolean openCellView(final ItemStack stack, final GuiScreen parent) {
+        if (parent instanceof GuiCellView) {
+            return false;
+        }
+
+        final StorageCell cell = StorageCells.getCellInventory(stack, null);
+        if (cell == null) {
+            return false;
+        }
+
+        Minecraft.getMinecraft().displayGuiScreen(
+                new GuiCellView(Minecraft.getMinecraft().player.inventory, cell, stack, parent));
+        return true;
+    }
+
+    /**
      * Opens the pattern view for the encoded pattern under the cursor, from whatever screen the player is
      * in - ours, a vanilla one or another mod's. The stack comes from {@code getSlotUnderMouse()}, which is
      * vanilla and covers the ME terminal too, because a terminal row is a real slot.
@@ -391,7 +414,16 @@ public class ClientHelper extends ServerHelper {
 
         final Slot slot = ((GuiContainer) screen).getSlotUnderMouse();
 
-        if (slot == null || !(slot.getStack().getItem() instanceof ItemEncodedPattern)) {
+        if (slot == null || slot.getStack().isEmpty()) {
+            return;
+        }
+
+        if (openCellView(slot.getStack(), screen)) {
+            event.setCanceled(true);
+            return;
+        }
+
+        if (!(slot.getStack().getItem() instanceof ItemEncodedPattern)) {
             return;
         }
 

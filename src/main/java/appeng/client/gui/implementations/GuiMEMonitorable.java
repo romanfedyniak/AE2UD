@@ -54,6 +54,7 @@ import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.Tooltips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -521,22 +522,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         super.drawScreen(mouseX, mouseY, partialTicks);
 
         if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
-            this.drawTooltip(mouseX, mouseY, searchHint());
+            this.drawTooltip(mouseX, mouseY, Tooltips.searchSyntax());
         }
-    }
-
-    /**
-     * What the search field understands. Drawn by hand rather than through {@code ITooltip}, because the
-     * field is a {@code GuiTextField} and a class that is both crashes obfuscated - see
-     * {@code MEGuiTooltipTextField}, which wraps one for that very reason.
-     */
-    private static String searchHint() {
-        return String.join("\n", GuiText.SearchHintTitle.getLocal(), GuiText.SearchHintName.getLocal(),
-                GuiText.SearchHintTerms.getLocal(), GuiText.SearchHintOr.getLocal(),
-                GuiText.SearchHintPhrase.getLocal(), GuiText.SearchHintExclude.getLocal(),
-                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTooltip.getLocal(),
-                GuiText.SearchHintOreDict.getLocal(), GuiText.SearchHintId.getLocal(),
-                GuiText.SearchHintRegex.getLocal());
     }
 
     /**

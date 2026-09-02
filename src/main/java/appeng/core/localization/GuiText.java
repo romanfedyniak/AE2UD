@@ -304,6 +304,10 @@ public enum GuiText {
     CraftPriorityHintNotProcessor,
 
     // What the terminal's search field understands
+    // The two lists one cell view can show
+    CellContents,
+    CellFilter,
+
     SearchHintTitle,
     SearchHintName,
     SearchHintTerms,
