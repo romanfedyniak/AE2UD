@@ -306,10 +306,15 @@ public enum GuiText {
     // What the terminal's search field understands
     SearchHintTitle,
     SearchHintName,
-    SearchHintMod,
     SearchHintTerms,
+    SearchHintOr,
+    SearchHintPhrase,
     SearchHintExclude,
-    SearchHintTooltips;
+    SearchHintMod,
+    SearchHintTooltip,
+    SearchHintOreDict,
+    SearchHintId,
+    SearchHintRegex;
 
     private final String root;
 

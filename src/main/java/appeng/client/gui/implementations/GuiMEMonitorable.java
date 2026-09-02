@@ -511,8 +511,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
      */
     private static String searchHint() {
         return String.join("\n", GuiText.SearchHintTitle.getLocal(), GuiText.SearchHintName.getLocal(),
-                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTerms.getLocal(),
-                GuiText.SearchHintExclude.getLocal(), GuiText.SearchHintTooltips.getLocal());
+                GuiText.SearchHintTerms.getLocal(), GuiText.SearchHintOr.getLocal(),
+                GuiText.SearchHintPhrase.getLocal(), GuiText.SearchHintExclude.getLocal(),
+                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTooltip.getLocal(),
+                GuiText.SearchHintOreDict.getLocal(), GuiText.SearchHintId.getLocal(),
+                GuiText.SearchHintRegex.getLocal());
     }
 
     /**
@@ -874,6 +877,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
         if (this.searchField != null) {
+            // Red for a query nothing answers, the way HEI marks its own field: it separates "I typed it
+            // wrong" from "the network really has none of that".
+            this.searchField.setTextColor(this.repo.hasMatches() ? 0xFFFFFF : 0xFF5555);
             this.searchField.drawTextBox();
         }
     }
