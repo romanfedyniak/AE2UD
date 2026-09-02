@@ -69,7 +69,6 @@ public class ItemRepo {
 
     private String searchString = "";
     private AEKeyFilter myPartitionList;
-    private String innerSearch = "";
     private boolean hasPower;
 
     private Enum lastView;
@@ -135,10 +134,6 @@ public class ItemRepo {
         this.changed = true;
     }
 
-    void setSearch(final String search) {
-        this.searchString = search == null ? "" : search;
-    }
-
     /**
      * Replaces or removes the row for {@code entry.getWhat()}. {@link GridInventoryEntry#isMeaningful()}
      * false is the server telling us the row is gone - the old code expressed the same "gone" state as a
@@ -160,11 +155,6 @@ public class ItemRepo {
      */
     public GridInventoryEntry getEntry(final AEKey what) {
         return this.entries.get(what);
-    }
-
-    public long getItemCount(final AEKey what) {
-        final GridInventoryEntry e = this.getEntry(what);
-        return e == null ? 0 : e.getStoredAmount();
     }
 
     /**
@@ -327,18 +317,18 @@ public class ItemRepo {
 
         boolean searchMod = false;
 
-        this.innerSearch = searchString.toLowerCase();
-        if (this.innerSearch.startsWith("@")) {
+        String innerSearch = this.searchString.toLowerCase();
+        if (innerSearch.startsWith("@")) {
             searchMod = true;
-            this.innerSearch = this.innerSearch.substring(1);
+            innerSearch = innerSearch.substring(1);
         }
 
-        Pattern m = null;
+        Pattern m;
         try {
-            m = Pattern.compile(this.innerSearch, Pattern.CASE_INSENSITIVE);
+            m = Pattern.compile(innerSearch, Pattern.CASE_INSENSITIVE);
         } catch (final Throwable ignore) {
             try {
-                m = Pattern.compile(Pattern.quote(this.innerSearch), Pattern.CASE_INSENSITIVE);
+                m = Pattern.compile(Pattern.quote(innerSearch), Pattern.CASE_INSENSITIVE);
             } catch (final Throwable __) {
                 return;
             }
@@ -420,10 +410,6 @@ public class ItemRepo {
 
     public void setPower(final boolean hasPower) {
         this.hasPower = hasPower;
-    }
-
-    public int getRowSize() {
-        return this.rowSize;
     }
 
     public void setRowSize(final int rowSize) {

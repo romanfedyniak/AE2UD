@@ -105,7 +105,6 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Optional;
@@ -654,27 +653,6 @@ public class Platform {
                 return "** Exception";
             }
         }
-    }
-
-    public static String getFluidDisplayName(Object o) {
-        if (o == null) {
-            return "** Null";
-        }
-        if (o instanceof AEKey key) {
-            final String n = key.getDisplayName().getFormattedText();
-            return n == null ? "** Null" : n;
-        }
-        FluidStack fluidStack;
-        if (o instanceof FluidStack) {
-            fluidStack = (FluidStack) o;
-        } else {
-            return "**Invalid Object";
-        }
-        String n = fluidStack.getLocalizedName();
-        if (n == null || "".equalsIgnoreCase(n)) {
-            n = fluidStack.getUnlocalizedName();
-        }
-        return n == null ? "** Null" : n;
     }
 
     public static boolean isWrench(final EntityPlayer player, final ItemStack eq, final BlockPos pos) {
