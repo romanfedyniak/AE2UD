@@ -640,7 +640,6 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (this.isWirelessTerminal()) {
             GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + WIRELESS_PLATE_X,
                     guiTop + WIRELESS_PLATE_Y, IWirelessTerminalContainer.UPGRADE_SLOTS);
-            this.modeSwitch.addExclusionAreas(exclusionArea);
         }
 
         return exclusionArea;
