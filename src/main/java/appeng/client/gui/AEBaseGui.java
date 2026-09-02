@@ -98,6 +98,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
     protected static final int PANEL_BORDER = 3;
+    /** The panel sheet, and the square of it each corner takes. */
+    private static final int PANEL_TEXTURE = 64;
+    private static final int PANEL_CORNER = 8;
     protected static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
     protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
     protected static final int PANEL_SHADOW_COLOR = 0xFF555555;
@@ -1308,12 +1311,46 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * {@code drawRect} leaves its colour in {@code GlStateManager}, so reset it before drawing anything
      * textured after this.
      */
-    protected static void drawPanel(final int x, final int y, final int width, final int height) {
-        drawRect(x, y, x + width, y + height, PANEL_OUTLINE_COLOR);
-        drawRect(x + 1, y + 1, x + width - 1, y + height - 1, PANEL_SHADOW_COLOR);
-        drawRect(x + 1, y + 1, x + width - PANEL_BORDER, y + height - PANEL_BORDER, PANEL_LIGHT_COLOR);
-        drawRect(x + PANEL_BORDER, y + PANEL_BORDER, x + width - PANEL_BORDER, y + height - PANEL_BORDER,
-                PANEL_FILL_COLOR);
+    /**
+     * A window of any size, in the shape every window of the mod's already has. Nine pieces of
+     * {@code guis/panel.png}, which is the corners, the edges and the fill of a real one - the Renamer's -
+     * cut out and put in a square: drawing the border with rectangles instead came out with square corners
+     * against every other window's rounded ones.
+     */
+    protected void drawPanel(final int x, final int y, final int width, final int height) {
+        enableSpriteBlending();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        this.bindTexture("guis/panel.png");
+
+        final int c = PANEL_CORNER;
+        final int far = PANEL_TEXTURE - c;
+        final int middleWidth = width - 2 * c;
+        final int middleHeight = height - 2 * c;
+
+        blitPanel(x, y, 0, 0, c, c);
+        blitPanel(x + width - c, y, far, 0, c, c);
+        blitPanel(x, y + height - c, 0, far, c, c);
+        blitPanel(x + width - c, y + height - c, far, far, c, c);
+
+        blitPanel(x + c, y, c, 0, middleWidth, c);
+        blitPanel(x + c, y + height - c, c, far, middleWidth, c);
+        blitPanel(x, y + c, 0, c, c, middleHeight);
+        blitPanel(x + width - c, y + c, far, c, c, middleHeight);
+
+        blitPanel(x + c, y + c, c, c, middleWidth, middleHeight);
+    }
+
+    /** Repeats one piece of the panel sheet over an area, since an edge or the fill can be any length. */
+    private static void blitPanel(final int x, final int y, final int u, final int v, final int width,
+            final int height) {
+        for (int dy = 0; dy < height; dy += PANEL_CORNER) {
+            final int h = Math.min(PANEL_CORNER, height - dy);
+
+            for (int dx = 0; dx < width; dx += PANEL_CORNER) {
+                drawModalRectWithCustomSizedTexture(x + dx, y + dy, u, v, Math.min(PANEL_CORNER, width - dx),
+                        h, PANEL_TEXTURE, PANEL_TEXTURE);
+            }
+        }
     }
 
     /**
@@ -1324,6 +1361,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x - 1, y - 1, x + 17, y + 17, SLOT_SHADOW_COLOR);
         drawRect(x, y, x + 17, y + 17, PANEL_LIGHT_COLOR);
         drawRect(x, y, x + 16, y + 16, SLOT_FILL_COLOR);
+    }
+
+    /**
+     * The same sunken well at any size, for a text field or a scrollbar on a screen that paints itself
+     * rather than wearing a texture with the wells already drawn into it.
+     */
+    protected static void drawWell(final int x, final int y, final int width, final int height) {
+        drawRect(x, y, x + width, y + height, PANEL_SHADOW_COLOR);
+        drawRect(x + 1, y + 1, x + width, y + height, PANEL_LIGHT_COLOR);
+        drawRect(x + 1, y + 1, x + width - 1, y + height - 1, SLOT_FILL_COLOR);
     }
 
     /**
