@@ -30,7 +30,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.ISortSource;
-import appeng.client.me.ItemRepo;
+import appeng.client.me.Repo;
 import appeng.client.me.SlotME;
 import appeng.container.implementations.ContainerNetworkStatus;
 import appeng.core.AEClientConfig;
@@ -56,7 +56,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
     private static final int ROW_HEIGHT = 18;
     private static final int FIXED_HEIGHT = 81;
 
-    private final ItemRepo repo;
+    private final Repo repo;
     private int rows = MIN_ROWS;
     private final ContainerNetworkStatus cns;
     private GuiImgButton units;
@@ -68,7 +68,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         final GuiScrollbar scrollbar = new GuiScrollbar();
 
         this.setScrollBar(scrollbar);
-        this.repo = new ItemRepo(scrollbar, this);
+        this.repo = new Repo(scrollbar, this);
         this.ySize = 153;
         this.xSize = 195;
         this.repo.setRowSize(5);

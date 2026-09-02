@@ -35,7 +35,7 @@ import appeng.core.AEClientConfig;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
-import appeng.util.ItemSorters;
+import appeng.util.KeySorters;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -53,7 +53,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 
-public class ItemRepo {
+public class Repo {
 
     /**
      * Keyed by {@link GridInventoryEntry#getWhat()}. Replaces the old {@code IItemList<IAEItemStack>} -
@@ -85,7 +85,7 @@ public class ItemRepo {
     private int visiblePlayerPinRows;
 
 
-    public ItemRepo(final IScrollSource src, final ISortSource sortSrc) {
+    public Repo(final IScrollSource src, final ISortSource sortSrc) {
         this.src = src;
         this.sortSrc = sortSrc;
     }
@@ -232,8 +232,8 @@ public class ItemRepo {
 
             view = new ArrayList<>();
 
-            ItemSorters.setDirection((appeng.api.config.SortDir) sortDir);
-            ItemSorters.init();
+            KeySorters.setDirection((appeng.api.config.SortDir) sortDir);
+            KeySorters.init();
 
             final Comparator<GridInventoryEntry> c = getComparator(sortBy);
 
@@ -261,20 +261,20 @@ public class ItemRepo {
         final Comparator<Object2LongMap.Entry<AEKey>> c;
 
         if (sortBy == SortOrder.MOD) {
-            c = ItemSorters.CONFIG_BASED_SORT_BY_MOD;
+            c = KeySorters.CONFIG_BASED_SORT_BY_MOD;
         } else if (sortBy == SortOrder.AMOUNT) {
-            c = ItemSorters.CONFIG_BASED_SORT_BY_SIZE;
+            c = KeySorters.CONFIG_BASED_SORT_BY_SIZE;
         } else if (sortBy == SortOrder.INVTWEAKS) {
             if (InventoryBogoSortModule.isLoaded()) {
                 c = InventoryBogoSortModule.COMPARATOR;
             } else {
-                c = ItemSorters.CONFIG_BASED_SORT_BY_INV_TWEAKS;
+                c = KeySorters.CONFIG_BASED_SORT_BY_INV_TWEAKS;
             }
         } else {
-            c = ItemSorters.CONFIG_BASED_SORT_BY_NAME;
+            c = KeySorters.CONFIG_BASED_SORT_BY_NAME;
         }
 
-        // ItemSorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
+        // KeySorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
         // this repo holds GridInventoryEntry rows instead, so adapt rather than touching the wave 1 file.
         return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
     }
@@ -425,7 +425,7 @@ public class ItemRepo {
     }
 
     /**
-     * Minimal adapter so {@link appeng.util.ItemSorters}'s {@code Object2LongMap.Entry<AEKey>}-shaped
+     * Minimal adapter so {@link appeng.util.KeySorters}'s {@code Object2LongMap.Entry<AEKey>}-shaped
      * comparators (built for iterating a {@link appeng.api.stacks.KeyCounter}) can also compare the
      * {@link GridInventoryEntry} rows this repo actually holds, without touching the wave 1 file that
      * defines them.

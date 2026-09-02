@@ -5,7 +5,7 @@ import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
-import appeng.util.ItemSorters;
+import appeng.util.KeySorters;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
@@ -198,11 +198,11 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     @Override
     public int compareTo(CraftingCPUStatus o) {
-        final int a = ItemSorters.compareLong(o.getCoprocessors(), this.getCoprocessors());
+        final int a = KeySorters.compareLong(o.getCoprocessors(), this.getCoprocessors());
         if (a != 0) {
             return a;
         }
-        return ItemSorters.compareLong(o.getStorage(), this.getStorage());
+        return KeySorters.compareLong(o.getStorage(), this.getStorage());
     }
 
     /**

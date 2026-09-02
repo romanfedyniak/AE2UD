@@ -22,7 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.client.gui.widgets.GuiImgButton;
-import appeng.client.me.ItemRepo;
+import appeng.client.me.Repo;
 import appeng.container.implementations.ContainerWirelessCraftingTerminal;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.core.localization.GuiText;

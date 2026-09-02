@@ -14,11 +14,11 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.container.implementations.TerminalCraftingPin;
 
 public final class InternalPinSlotME extends InternalSlotME {
-    private final ItemRepo pinRepo;
+    private final Repo pinRepo;
     private final int pinIndex;
     private final boolean crafting;
 
-    public InternalPinSlotME(ItemRepo repo, int pinIndex, boolean crafting, int x, int y) {
+    public InternalPinSlotME(Repo repo, int pinIndex, boolean crafting, int x, int y) {
         super(repo, 0, x, y);
         this.pinRepo = repo;
         this.pinIndex = pinIndex;

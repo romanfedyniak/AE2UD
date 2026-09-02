@@ -11,7 +11,7 @@ public class InventoryBogoSortModule {
     private static final boolean loaded = Platform.isModLoaded("bogosorter");
 
     /**
-     * Drop-in replacement for {@code ItemSorters.CONFIG_BASED_SORT_BY_INV_TWEAKS}, so it is shaped like
+     * Drop-in replacement for {@code KeySorters.CONFIG_BASED_SORT_BY_INV_TWEAKS}, so it is shaped like
      * the rest of that class: an entry of a {@code KeyCounter}, key plus stored amount.
      * <p>
      * Bogosorter can only order {@link net.minecraft.item.ItemStack}s, so every key reaches it through

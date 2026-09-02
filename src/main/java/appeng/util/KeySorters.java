@@ -34,7 +34,7 @@ import java.util.Comparator;
  * the key half of the entry plays the role identity used to play, the {@code long} value plays the
  * role the stack size used to play.
  */
-public class ItemSorters {
+public class KeySorters {
 
     private static SortDir Direction = SortDir.ASCENDING;
 

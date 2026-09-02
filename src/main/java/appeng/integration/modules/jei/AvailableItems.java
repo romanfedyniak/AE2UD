@@ -127,7 +127,7 @@ class AvailableItems {
      * main inventory, plus the crafting grid on a crafting terminal.
      * <p>
      * The network half used to come from the public {@code ContainerMEMonitorable.items} field. That
-     * field is gone — the client-side listing now lives in the terminal screen's {@code ItemRepo}, which
+     * field is gone — the client-side listing now lives in the terminal screen's {@code Repo}, which
      * is the only place the craftable flag survives the trip from the server. A container with no screen
      * attached contributes nothing rather than failing, so this is safe to call from anywhere.
      */

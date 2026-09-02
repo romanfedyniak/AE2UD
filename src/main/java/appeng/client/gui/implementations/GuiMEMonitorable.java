@@ -41,7 +41,7 @@ import appeng.client.ActionKey;
 import appeng.client.gui.AEBaseMEGui;
 import appeng.client.gui.widgets.*;
 import appeng.client.me.InternalSlotME;
-import appeng.client.me.ItemRepo;
+import appeng.client.me.Repo;
 import appeng.client.me.SlotME;
 import appeng.client.me.PinSlotME;
 import appeng.client.me.InternalPinSlotME;
@@ -105,7 +105,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private static int craftingGridOffsetY;
 
     private static String memoryText = "";
-    protected final ItemRepo repo;
+    protected final Repo repo;
     private final int offsetX = 9;
 
     /** Where the wireless upgrade plate sits, and with it the slot eight pixels inside it. */
@@ -167,7 +167,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         final GuiScrollbar scrollbar = new GuiScrollbar();
         this.setScrollBar(scrollbar);
-        this.repo = new ItemRepo(scrollbar, this);
+        this.repo = new Repo(scrollbar, this);
 
         this.xSize = 185;
         this.ySize = 204;
@@ -203,7 +203,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
      * the network can supply; it used to read {@code ContainerMEMonitorable.items}, which no longer
      * exists because the listing now lives on the client only.
      */
-    public ItemRepo getRepo() {
+    public Repo getRepo() {
         return this.repo;
     }
 
@@ -805,7 +805,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     /**
-     * {@link ItemRepo}'s search string compiles as a regex ({@link Pattern#compile}), so a dropped name
+     * {@link Repo}'s search string compiles as a regex ({@link Pattern#compile}), so a dropped name
      * carrying one of its metacharacters - parentheses are common in addon item names - has to be escaped
      * to search for the name itself rather than misparsing or matching something else entirely.
      */
