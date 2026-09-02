@@ -25,6 +25,7 @@
 package appeng.api.stacks;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nonnull;
@@ -218,6 +219,15 @@ public abstract class AEKey {
     public String getModId() {
         ResourceLocation id = this.getId();
         return id == null ? "minecraft" : id.getNamespace();
+    }
+
+    /**
+     * The Ore Dictionary names this key answers to, for the terminal search's {@code $} channel. Empty
+     * for a type the dictionary does not cover, which is every type but items unless an addon says
+     * otherwise. Not present in upstream AE2, where the same channel searches item tags instead.
+     */
+    public List<String> getOreDictNames() {
+        return Collections.emptyList();
     }
 
     /**

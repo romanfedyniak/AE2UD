@@ -23,9 +23,9 @@ import appeng.api.config.SearchBoxMode;
 import appeng.api.config.Settings;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
-import appeng.api.config.YesNo;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.AEKeyFilter;
+import appeng.client.me.search.RepoSearch;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.container.me.GridInventoryEntry;
@@ -36,7 +36,6 @@ import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.KeySorters;
-import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
@@ -48,7 +47,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -67,15 +65,15 @@ public class Repo {
 
     private int rowSize = 9;
 
-    private String searchString = "";
+    private final RepoSearch search = new RepoSearch();
     private AEKeyFilter myPartitionList;
     private boolean hasPower;
+    private boolean anyMatches = true;
 
     private Enum lastView;
     private Enum lastSearchMode;
     private Enum lastSortBy;
     private Enum lastSortDir;
-    private String lastSearch = "";
 
     private boolean resort = true;
     private boolean changed = false;
@@ -205,12 +203,11 @@ public class Repo {
         }
 
         if (searchMode == SearchBoxMode.JEI_AUTOSEARCH || searchMode == SearchBoxMode.JEI_MANUAL_SEARCH || searchMode == SearchBoxMode.JEI_AUTOSEARCH_KEEP || searchMode == SearchBoxMode.JEI_MANUAL_SEARCH_KEEP) {
-            this.updateJEI(this.searchString);
+            this.updateJEI(this.search.getSearchString());
         }
 
-        if (!lastSearch.equals(searchString)) {
+        if (this.search.refresh()) {
             resort = true;
-            lastSearch = searchString;
         }
 
         final Enum sortBy = this.sortSrc.getSortBy();
@@ -237,6 +234,7 @@ public class Repo {
 
             final Comparator<GridInventoryEntry> c = getComparator(sortBy);
 
+            boolean matched = false;
             final Set<AEKey> visiblePins = new HashSet<>();
             int craftingLimit = Math.min(craftingPins.size(), visibleCraftingPinRows * IPlayerTerminalPins.SLOTS_PER_ROW);
             for (int i = 0; i < craftingLimit; i++) {
@@ -247,11 +245,19 @@ public class Repo {
                 if (playerPins[i] != null) visiblePins.add(playerPins[i]);
             }
 
+            for (final AEKey pinned : visiblePins) {
+                matched |= this.search.matches(pinned);
+            }
+
             for (final GridInventoryEntry entry : this.entries.values()) {
                 if (!visiblePins.contains(entry.getWhat())) {
                     addEntry(entry, viewMode);
                 }
             }
+
+            // A pinned row stays on screen whatever the search says, so it does not reach the view - but it
+            // is still something the query found, and the field must not go red while one is showing.
+            this.anyMatches = matched || !this.view.isEmpty();
 
             view.sort(c);
         }
@@ -309,35 +315,9 @@ public class Repo {
         }
     }
 
-    private void addEntry(GridInventoryEntry entry, Enum viewMode) {
-
-        final boolean needsZeroCopy = viewMode == ViewItems.CRAFTABLE;
-
-        final boolean terminalSearchToolTips = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_TOOLTIPS) != YesNo.NO;
-
-        boolean searchMod = false;
-
-        String innerSearch = this.searchString.toLowerCase();
-        if (innerSearch.startsWith("@")) {
-            searchMod = true;
-            innerSearch = innerSearch.substring(1);
-        }
-
-        Pattern m;
-        try {
-            m = Pattern.compile(innerSearch, Pattern.CASE_INSENSITIVE);
-        } catch (final Throwable ignore) {
-            try {
-                m = Pattern.compile(Pattern.quote(innerSearch), Pattern.CASE_INSENSITIVE);
-            } catch (final Throwable __) {
-                return;
-            }
-        }
-
-        if (this.myPartitionList != null) {
-            if (!this.myPartitionList.matches(entry.getWhat())) {
-                return;
-            }
+    private void addEntry(GridInventoryEntry entry, final Enum viewMode) {
+        if (this.myPartitionList != null && !this.myPartitionList.matches(entry.getWhat())) {
+            return;
         }
 
         if (viewMode == ViewItems.CRAFTABLE && !entry.isCraftable()) {
@@ -348,38 +328,15 @@ public class Repo {
             return;
         }
 
-        final String dspName = (searchMod ? Platform.getModId(entry.getWhat()) : Platform.getItemDisplayName(entry.getWhat())).toLowerCase();
-        boolean foundMatchingItemStack = true;
-
-        for (String term : innerSearch.split(" ")) {
-            if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
-                term = term.substring(1);
-                if (dspName.contains(term)) {
-                    foundMatchingItemStack = false;
-                    break;
-                }
-            } else if (!dspName.contains(term)) {
-                foundMatchingItemStack = false;
-                break;
-            }
+        if (!this.search.matches(entry.getWhat())) {
+            return;
         }
 
-        if (terminalSearchToolTips && !foundMatchingItemStack) {
-            final List<String> tooltip = Platform.getTooltip(entry.getWhat());
-            for (final String line : tooltip) {
-                if (m.matcher(line).find()) {
-                    foundMatchingItemStack = true;
-                    break;
-                }
-            }
+        if (viewMode == ViewItems.CRAFTABLE) {
+            entry = entry.withStoredAmount(0);
         }
 
-        if (foundMatchingItemStack) {
-            if (needsZeroCopy) {
-                entry = entry.withStoredAmount(0);
-            }
-            this.view.add(entry);
-        }
+        this.view.add(entry);
     }
 
     private void updateJEI(String filter) {
@@ -417,11 +374,19 @@ public class Repo {
     }
 
     public String getSearchString() {
-        return this.searchString;
+        return this.search.getSearchString();
     }
 
     public void setSearchString(@Nonnull final String searchString) {
-        this.searchString = searchString;
+        this.search.setSearchString(searchString);
+    }
+
+    /**
+     * Whether the query found anything at all, pinned rows included. False only while a query is typed that
+     * nothing answers - which is what turns the search field red.
+     */
+    public boolean hasMatches() {
+        return this.anyMatches;
     }
 
     /**

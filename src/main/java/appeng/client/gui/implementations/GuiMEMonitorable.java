@@ -82,6 +82,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.fluids.FluidStack;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import org.lwjgl.input.Keyboard;
@@ -94,7 +95,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Arrays;
-import java.util.regex.Pattern;
 
 import org.lwjgl.opengl.GL11;
 
@@ -421,7 +421,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(80, this.offsetX), this.guiTop + 4, 90, 12);
         this.searchField.setEnableBackgroundDrawing(false);
-        this.searchField.setMaxStringLength(25);
+        this.searchField.setMaxStringLength(100);
         this.searchField.setTextColor(0xFFFFFF);
         this.searchField.setSelectionColor(0xFF008000);
         this.searchField.setVisible(true);
@@ -787,7 +787,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
             @Override
             public void accept(Object ignored) {
-                searchField.setText(escapeForSearch(key.getDisplayName().getFormattedText()));
+                searchField.setText(escapeForSearch(
+                        TextFormatting.getTextWithoutFormattingCodes(key.getDisplayName().getUnformattedText())));
                 repo.setSearchString(searchField.getText());
                 setScrollBar();
             }
@@ -805,19 +806,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     /**
-     * {@link Repo}'s search string compiles as a regex ({@link Pattern#compile}), so a dropped name
-     * carrying one of its metacharacters - parentheses are common in addon item names - has to be escaped
-     * to search for the name itself rather than misparsing or matching something else entirely.
+     * A dropped name goes in as one quoted term, so that the spaces in it stay part of the name and none of
+     * the grammar's own characters are read as grammar.
      */
     private static String escapeForSearch(final String name) {
-        final StringBuilder escaped = new StringBuilder(name.length());
-        for (final char c : name.toCharArray()) {
-            if ("\\.^$|?*+()[]{}".indexOf(c) >= 0) {
-                escaped.append('\\');
-            }
-            escaped.append(c);
-        }
-        return escaped.toString();
+        return '"' + name.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
     }
 
     @Override

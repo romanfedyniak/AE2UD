@@ -107,6 +107,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.Optional;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import net.minecraftforge.fml.relauncher.Side;
@@ -131,6 +132,7 @@ import java.util.*;
 @Optional.Interface(iface = "ic2.api.item.ICustomDamageItem", modid = "IC2")
 public class Platform {
     private static final Object2BooleanMap<String> CACHED_MODS = new Object2BooleanOpenHashMap<>();
+    private static final Map<String, String> CACHED_MOD_NAMES = new HashMap<>();
 
     public static final Block AIR_BLOCK = Blocks.AIR;
 
@@ -613,6 +615,17 @@ public class Platform {
 
         final String n = key.getModId();
         return n == null ? "** Null" : n;
+    }
+
+    /**
+     * The human-readable name of a mod, for the terminal search's {@code @} channel: a player types the
+     * name they see in a tooltip far more often than the id.
+     */
+    public static String getModName(final String modId) {
+        return CACHED_MOD_NAMES.computeIfAbsent(modId, id -> {
+            final ModContainer mod = Loader.instance().getIndexedModList().get(id);
+            return mod == null ? id : mod.getName();
+        });
     }
 
     /**

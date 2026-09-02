@@ -25,6 +25,8 @@
 package appeng.api.stacks;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -43,6 +45,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
+import net.minecraftforge.oredict.OreDictionary;
 
 import appeng.api.storage.AEKeyFilter;
 
@@ -162,6 +165,20 @@ public final class AEItemKey extends AEKey {
             stack.setTagCompound(this.tag);
         }
         return stack;
+    }
+
+    @Override
+    public List<String> getOreDictNames() {
+        final int[] ids = OreDictionary.getOreIDs(this.getReadOnlyStack());
+        if (ids.length == 0) {
+            return Collections.emptyList();
+        }
+
+        final List<String> names = new ArrayList<>(ids.length);
+        for (final int id : ids) {
+            names.add(OreDictionary.getOreName(id));
+        }
+        return names;
     }
 
     public boolean matches(ItemStack stack) {

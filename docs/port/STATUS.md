@@ -2137,6 +2137,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     colour is asked for separately, at the point of use. An item is written in the colour of its rarity
     without the type being asked at all; the hook is for the types that have no rarity to read.
 
+31. **`AEKey.getOreDictNames()`** - additive, defaulting to an empty list, overridden by `AEItemKey`. It
+    feeds the terminal search's `$` channel. Upstream's equivalent channel searches item tags, and there
+    are none on this version; the Ore Dictionary is what stands in their place, and it covers items only.
+    Asking the key rather than switching on `AEItemKey` at the search site is the point: an addon's own key
+    type joins the channel by answering, the same reasoning as the strategy layer.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
