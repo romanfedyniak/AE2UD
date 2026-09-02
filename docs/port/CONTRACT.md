@@ -2,6 +2,15 @@
 
 This is the **frozen specification** of the `src/api` surface for the generic storage port. It carries only the *what*, not the *why*.
 
+> **Names that have moved since the port.** What follows names classes as they stood while the port was
+> written. Three have changed since and are deliberately not renamed here, because a record that says
+> something it never said is worse than one that is out of date: `appeng.client.me.ItemRepo` is now
+> `appeng.client.me.Repo` and `appeng.util.ItemSorters` is now `appeng.util.KeySorters` (both renamed
+> 2026-09-02, after the terminal's list turned out to hold every key type rather than items), and
+> `appeng.client.me.FluidRepo` no longer exists at all - it was the separate fluid terminal's list, left
+> unreachable when the `AEKey` model gave every type one terminal, and was deleted the same day along with
+> `InternalFluidSlotME` and `FluidSorters`.
+
 ## Rules for agents (not up for discussion)
 
 The campaign is **big-bang**: `src/main` does not compile from the start of the work until the last wave finishes. You therefore have **no** compiler feedback, and this file replaces it.

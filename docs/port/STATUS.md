@@ -2,6 +2,15 @@
 
 Companion to `CONTRACT.md`. The contract is the *spec*; this file is the *bookmark*.
 
+> **Names that have moved since the port.** What follows names classes as they stood while the port was
+> written. Three have changed since and are deliberately not renamed here, because a record that says
+> something it never said is worse than one that is out of date: `appeng.client.me.ItemRepo` is now
+> `appeng.client.me.Repo` and `appeng.util.ItemSorters` is now `appeng.util.KeySorters` (both renamed
+> 2026-09-02, after the terminal's list turned out to hold every key type rather than items), and
+> `appeng.client.me.FluidRepo` no longer exists at all - it was the separate fluid terminal's list, left
+> unreachable when the `AEKey` model gave every type one terminal, and was deleted the same day along with
+> `InternalFluidSlotME` and `FluidSorters`.
+
 **This file is a record of the port, not a running changelog** - `CHANGES.md` is that, and it is the one
 kept per commit. What is maintained here after the port is the api-amendment registry at the end, which is
 where an api that has drifted from upstream says why. Everything from the 1.5.0 cycle is in `CHANGES.md`;
