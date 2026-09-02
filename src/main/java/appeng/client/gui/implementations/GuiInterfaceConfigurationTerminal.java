@@ -120,7 +120,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(true);
         final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
@@ -179,7 +178,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     public void onGuiClosed() {
         this.saveSearchText(this.searchFieldInputs.getText().toLowerCase());
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

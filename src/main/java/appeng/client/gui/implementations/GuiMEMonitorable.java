@@ -329,7 +329,6 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(true);
 
         PacketTerminalPins.applyPendingSnapshot(this.monitorableContainer);
         this.applyTerminalPinSnapshot(false);
@@ -840,7 +839,6 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
         memoryText = this.searchField.getText();
     }
 

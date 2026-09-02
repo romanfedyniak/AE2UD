@@ -127,7 +127,6 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     public void initGui() {
         // Without this a held digit or backspace fires once. Turned back off in onGuiClosed, which runs
         // before the next screen's initGui, so a screen that wants it can still switch it back on.
-        Keyboard.enableRepeatEvents(true);
 
         super.initGui();
 
@@ -172,7 +171,6 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

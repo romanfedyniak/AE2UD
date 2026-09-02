@@ -26,7 +26,6 @@ public class GuiRenamer extends AEBaseGui {
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(true);
         super.initGui();
 
         this.textField = new MEGuiTextField(this.fontRenderer, this.guiLeft + 9, this.guiTop + 33, 229, 12);
@@ -44,7 +43,6 @@ public class GuiRenamer extends AEBaseGui {
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

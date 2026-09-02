@@ -147,7 +147,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         // what darkens when it takes the keyboard. Only the black inner box is left off.
         this.searchField.setEnableBackgroundDrawing(false);
         // Held keys have to repeat in the search field, as they do on every other screen with one.
-        Keyboard.enableRepeatEvents(true);
 
         this.back = new GuiTabButton(this.guiLeft + this.xSize - 25, this.guiTop - 4, SWITCH_VIEW_ICON,
                 GuiText.CraftingPlan.getLocal(), this.itemRender);
@@ -310,7 +309,6 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     @Override

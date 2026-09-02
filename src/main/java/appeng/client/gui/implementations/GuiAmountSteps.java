@@ -107,7 +107,6 @@ public class GuiAmountSteps extends AEBaseGui {
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(true);
 
         this.remember();
 
@@ -170,7 +169,6 @@ public class GuiAmountSteps extends AEBaseGui {
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
 
         final int[][] steps = new int[Group.values().length][AmountSteps.COUNT];
 

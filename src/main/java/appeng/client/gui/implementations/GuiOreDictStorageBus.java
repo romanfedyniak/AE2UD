@@ -67,14 +67,12 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
 
     @Override
     public void initGui() {
-        Keyboard.enableRepeatEvents(true);
         super.initGui();
     }
 
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        Keyboard.enableRepeatEvents(false);
     }
 
     public void fillRegex(String regex) {

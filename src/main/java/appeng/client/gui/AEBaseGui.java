@@ -131,6 +131,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     public void initGui() {
         super.initGui();
 
+        // Held keys repeat on every screen of the mod's, rather than on the ones that remembered to ask.
+        // A screen without a text field is unaffected: nothing it reads in keyTyped cares about repeats.
+        Keyboard.enableRepeatEvents(true);
+
         final List<Slot> slots = this.getInventorySlots();
         final Iterator<Slot> i = slots.iterator();
         while (i.hasNext()) {
@@ -966,6 +970,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
+        Keyboard.enableRepeatEvents(false);
     }
 
     protected Slot getSlot(final int mouseX, final int mouseY) {
