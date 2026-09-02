@@ -97,14 +97,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private final Set<Slot> drag_click = new HashSet<>();
     protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
-    protected static final int PANEL_BORDER = 3;
     /** The panel sheet, and the square of it each corner takes. */
     private static final int PANEL_TEXTURE = 64;
     private static final int PANEL_CORNER = 8;
-    protected static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
     protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
     protected static final int PANEL_SHADOW_COLOR = 0xFF555555;
-    protected static final int PANEL_OUTLINE_COLOR = 0xFF000000;
     private static final int SLOT_SHADOW_COLOR = 0xFF373737;
     private static final int SLOT_FILL_COLOR = 0xFF8B8B8B;
     private GuiScrollbar myScrollBar = null;
