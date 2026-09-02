@@ -25,13 +25,13 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
-import appeng.client.ActionKey;
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
 import appeng.helpers.PatternHelper;
 import appeng.items.AEBaseItem;
 import appeng.util.Platform;
+import appeng.core.api.ApiClientHelper;
 import appeng.util.item.ItemStackHashStrategy;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
 import net.minecraft.client.resources.I18n;
@@ -209,22 +209,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         }
 
         addAuthor(stack, lines);
-        addViewHint(lines);
-    }
-
-    /**
-     * Only said when the key is actually bound - an unbound key has no name to print, and telling the player
-     * to press nothing is worse than saying nothing.
-     */
-    @SideOnly(Side.CLIENT)
-    private static void addViewHint(final List<String> lines) {
-        final String key = AppEng.proxy.getActionKeyName(ActionKey.VIEW_PATTERN);
-
-        if (key != null) {
-            lines.add(TextFormatting.DARK_GRAY
-                    + I18n.format(GuiText.ViewPatternHint.getUnlocalized(), TextFormatting.GRAY + key
-                            + TextFormatting.DARK_GRAY));
-        }
+        ApiClientHelper.addViewHint(lines);
     }
 
     private static void addAuthor(final ItemStack stack, final List<String> lines) {

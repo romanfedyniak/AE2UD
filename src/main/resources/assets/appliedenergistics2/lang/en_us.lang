@@ -157,6 +157,7 @@ gui.appliedenergistics2.PriorityHintPreferred=Within one priority, storage alrea
 gui.appliedenergistics2.CraftPriorityHint=Higher takes the next free machine
 gui.appliedenergistics2.CraftPriorityHintNotFaster=It never makes a job faster
 gui.appliedenergistics2.CraftPriorityHintNotProcessor=It never picks where a job lands
+gui.appliedenergistics2.AndMoreTypes=and %d more
 gui.appliedenergistics2.CellContents=Stored in this cell
 gui.appliedenergistics2.CellFilter=What this cell accepts
 gui.appliedenergistics2.SearchHintTitle=Search

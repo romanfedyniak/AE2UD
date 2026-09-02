@@ -1,47 +1,54 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2026 AE2UD contributors
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
 package appeng.core.api;
 
-
-import java.util.Collection;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.oredict.OreDictionary;
-
-import org.lwjgl.input.Keyboard;
-
-import appeng.api.config.IncludeExclude;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AmountFormat;
-import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.KeyCounter;
-import appeng.api.storage.cells.StorageCell;
-import appeng.api.util.IClientHelper;
-import appeng.core.AEClientConfig;
-import appeng.core.localization.GuiText;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.text.NumberFormat;
+import appeng.api.config.IncludeExclude;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AmountFormat;
+import appeng.api.storage.cells.StorageCell;
+import appeng.api.util.IClientHelper;
+import appeng.client.ActionKey;
+import appeng.core.AppEng;
+import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.me.storage.BasicCellInventory;
 
-
 /**
- * Renders the storage-cell tooltip (byte/type usage, partitioning, sticky, contents preview).
+ * The storage cell tooltip: how full the cell is, what its cards do to it, and the few things in it that
+ * there is most of.
  * <p/>
- * Only {@link BasicCellInventory} carries the byte/type accounting and partition-list state this tooltip shows;
- * {@link appeng.me.storage.CreativeCellInventory} never reaches this method - {@code ItemCreativeStorageCell} has
- * always rendered its own, simpler tooltip directly from its configuration, bypassing
- * {@link appeng.api.storage.cells.ICellHandler} entirely (see the old {@code ItemCreativeStorageCell}). The
- * {@code instanceof} check below is a direct consequence of {@link StorageCell} - unlike the old generic
- * {@code ICellInventoryHandler<T>} - carrying no such detail on the common interface.
+ * It shows {@value #PREVIEW_ROWS} rows and no more. A cell holding all sixty-three of its types used to
+ * print all sixty-three, which ran off the top and the bottom of the screen; the window the view key opens
+ * is where the whole list belongs, and this says only what the cell is mostly full of.
+ * <p/>
+ * Only {@link BasicCellInventory} carries the byte and type accounting this shows;
+ * {@link appeng.me.storage.CreativeCellInventory} never reaches this method - {@code ItemCreativeStorageCell}
+ * renders its own, simpler tooltip.
  */
 public class ApiClientHelper implements IClientHelper {
+
+    /** How many of a cell's contents a tooltip names before it says how many more there are. */
+    public static final int PREVIEW_ROWS = 5;
 
     @Override
     public void addCellInformation(final StorageCell handler, final List<String> lines) {
@@ -50,7 +57,9 @@ public class ApiClientHelper implements IClientHelper {
         }
 
         if (!(handler instanceof BasicCellInventory)) {
-            // Creative cells (and any future cell that is not a BasicCellInventory) have nothing more to add here.
+            // Creative cells, and any future cell that is not a BasicCellInventory, carry no byte or type
+            // accounting - but they can still be looked into.
+            addViewHint(lines);
             return;
         }
 
@@ -76,88 +85,63 @@ public class ApiClientHelper implements IClientHelper {
             lines.add(cellInventory.isPreformatted() ? line : TextFormatting.RED + line);
         }
 
-        final boolean showAdvanced = Minecraft.getMinecraft().gameSettings.advancedItemTooltips
-                || Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
-
         if (cellInventory.isPreformatted()) {
-            final String list = (cellInventory.getPartitionListMode() == IncludeExclude.WHITELIST ? GuiText.Included : GuiText.Excluded).getLocal();
+            final String list = (cellInventory.getPartitionListMode() == IncludeExclude.WHITELIST
+                    ? GuiText.Included : GuiText.Excluded).getLocal();
+            final String match = (cellInventory.isFuzzy() ? GuiText.Fuzzy : GuiText.Precise).getLocal();
 
-            if (cellInventory.isFuzzy()) {
-                lines.add("[" + GuiText.Partitioned.getLocal() + "]" + " - " + list + ' ' + GuiText.Fuzzy.getLocal());
-            } else {
-                lines.add("[" + GuiText.Partitioned.getLocal() + "]" + " - " + list + ' ' + GuiText.Precise.getLocal());
-            }
+            lines.add("[" + GuiText.Partitioned.getLocal() + "] - " + list + ' ' + match);
 
             if (cellInventory.isSticky()) {
                 lines.add(GuiText.Sticky.getLocal());
             }
+        }
 
-            if (showAdvanced) {
-                final KeyCounter stored = cellInventory.getAvailableStacks();
-                final IItemHandler inv = cellInventory.getConfigInventory();
+        addContents(cellInventory, lines);
+        addViewHint(lines);
+    }
 
-                for (int i = 0; i < inv.getSlots(); i++) {
-                    final ItemStack is = inv.getStackInSlot(i);
-                    if (is.isEmpty()) {
-                        continue;
-                    }
+    /**
+     * How to open the window that holds the whole list. Only said when the key is actually bound - an
+     * unbound key has no name to print, and telling the player to press nothing is worse than saying
+     * nothing.
+     */
+    @SideOnly(Side.CLIENT)
+    public static void addViewHint(final List<String> lines) {
+        final String key = AppEng.proxy.getActionKeyName(ActionKey.VIEW_PATTERN);
 
-                    final AEKey key = keyOf(is);
-                    if (key == null) {
-                        continue;
-                    }
-
-                    if (!cellInventory.isFuzzy()) {
-                        final long stocked = stored.get(key);
-                        lines.add("[" + is.getDisplayName() + "]" + ": " + key.formatAmount(stocked, AmountFormat.FULL));
-                    } else {
-                        final Collection<Object2LongMap.Entry<AEKey>> matches = stored.findFuzzy(key, cellInventory.getFuzzyMode());
-
-                        long size = 0;
-                        for (final Object2LongMap.Entry<AEKey> entry : matches) {
-                            size += entry.getLongValue();
-                        }
-
-                        // The configured item's own name, for every case.
-                        //
-                        // This used to print the ore-dictionary names of a non-damageable item instead -
-                        // "[{dyeBlack, dye}]" for an ink sac - which was both unreadable and misleading:
-                        // a fuzzy partition matches through AEKey.fuzzyEquals, which for items means "same
-                        // item, damage ignored". It has nothing to do with the ore dictionary, so those
-                        // names described a grouping the cell does not actually use.
-                        //
-                        // It also had no else branch, so a non-damageable item with no ore-dictionary
-                        // entry at all printed no line whatsoever.
-                        lines.add("[" + is.getDisplayName() + "]" + ": " + key.formatAmount(size, AmountFormat.FULL));
-                    }
-                }
-            }
-        } else {
-            if (!AEClientConfig.instance().showCellContentsPreview()) {
-                return;
-            }
-
-            if (showAdvanced) {
-                for (final Object2LongMap.Entry<AEKey> entry : cellInventory.getAvailableStacks()) {
-                    final AEKey key = entry.getKey();
-                    // Unformatted: see WrappedGenericStack.getItemStackDisplayName - the trailing RESET
-                    // that getFormattedText() adds would recolour the rest of this line.
-                    lines.add(key.getDisplayName().getUnformattedText() + ": " + key.formatAmount(entry.getLongValue(), AmountFormat.FULL));
-                }
-            }
+        if (key != null) {
+            lines.add(TextFormatting.DARK_GRAY + I18n.format(GuiText.ViewPatternHint.getUnlocalized(),
+                    TextFormatting.GRAY + key + TextFormatting.DARK_GRAY));
         }
     }
 
     /**
-     * Resolves a cell config slot's {@link ItemStack} back into the {@link AEKey} it stands for: the item itself
-     * for ordinary item stacks, or the wrapped key for a {@link GenericStack} placeholder (fluids and any other
-     * non-item type; see {@link GenericStack.Wrapper}).
+     * The few keys there is most of, largest first. What a partitioned cell is set to accept is deliberately
+     * not listed here instead: the filter is a setting, and this line answers what is in the cell - which
+     * used to be silently replaced by the filter, with nothing on screen saying which of the two was shown.
      */
-    private static AEKey keyOf(final ItemStack is) {
-        if (GenericStack.isWrapped(is)) {
-            final GenericStack wrapped = GenericStack.unwrapItemStack(is);
-            return wrapped == null ? null : wrapped.what();
+    private static void addContents(final BasicCellInventory cell, final List<String> lines) {
+        final List<Object2LongMap.Entry<AEKey>> stored = new ArrayList<>();
+
+        for (final Object2LongMap.Entry<AEKey> entry : cell.getAvailableStacks()) {
+            stored.add(entry);
         }
-        return AEItemKey.of(is);
+
+        stored.sort(Comparator.comparingLong(Object2LongMap.Entry<AEKey>::getLongValue).reversed());
+
+        for (int i = 0; i < Math.min(PREVIEW_ROWS, stored.size()); i++) {
+            final AEKey what = stored.get(i).getKey();
+
+            // Unformatted: see WrappedGenericStack.getItemStackDisplayName - the trailing RESET that
+            // getFormattedText() adds would recolour the rest of this line.
+            lines.add(what.getDisplayName().getUnformattedText() + ": "
+                    + what.formatAmount(stored.get(i).getLongValue(), AmountFormat.FULL));
+        }
+
+        if (stored.size() > PREVIEW_ROWS) {
+            lines.add(TextFormatting.DARK_GRAY
+                    + I18n.format(GuiText.AndMoreTypes.getUnlocalized(), stored.size() - PREVIEW_ROWS));
+        }
     }
 }

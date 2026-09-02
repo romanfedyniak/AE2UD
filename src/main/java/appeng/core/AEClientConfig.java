@@ -66,7 +66,6 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     private boolean showCraftableTooltip = true;
     private boolean showPlacementPreview = true;
     private boolean turnToHighlightedBlock = true;
-    private boolean showCellContentsPreview = true;
     private boolean showCraftingPins = true;
     private boolean showPlayerPins = true;
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
@@ -110,7 +109,6 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         this.showPlacementPreview = this.get(CATEGORY, "showPlacementPreview", true, "Whether to show a preview of part and facade placement.").getBoolean(true);
         this.turnToHighlightedBlock = this.get(CATEGORY, "turnToHighlightedBlock", true,
                 "Whether highlighting a block also turns the player to face it.").getBoolean(true);
-        this.showCellContentsPreview = this.get(CATEGORY, "showCellContentsPreview", true, "Whether to show a preview of cell contents in tooltips.").getBoolean(true);
         this.showCraftingPins = this.get(CATEGORY, "showCraftingPins", true,
                 "Whether terminals show active crafting jobs pinned above their contents.").getBoolean(true);
         this.showPlayerPins = this.get(CATEGORY, "showPlayerPins", true,
@@ -226,10 +224,6 @@ public final class AEClientConfig extends Configuration implements IConfigurable
 
     public boolean turnToHighlightedBlock() {
         return this.turnToHighlightedBlock;
-    }
-
-    public boolean showCellContentsPreview() {
-        return this.showCellContentsPreview;
     }
 
     public boolean showCraftingPins() {

@@ -25,10 +25,14 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
+import appeng.core.api.ApiClientHelper;
+import appeng.core.localization.GuiText;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -98,13 +102,32 @@ public class ItemCreativeStorageCell extends AEBaseItem implements ICellWorkbenc
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         final StorageCell inventory = StorageCells.getCellInventory(stack, null);
 
-        if (inventory != null) {
-            for (final ItemStack is : configOf(stack)) {
-                final GenericStack configured = GenericStack.resolveItemStack(is);
-                if (configured != null) {
-                    lines.add(configured.what().getDisplayName().getFormattedText());
-                }
+        if (inventory == null) {
+            return;
+        }
+
+        int named = 0;
+        int total = 0;
+
+        for (final ItemStack is : configOf(stack)) {
+            final GenericStack configured = GenericStack.resolveItemStack(is);
+            if (configured == null) {
+                continue;
+            }
+
+            total++;
+            if (named < ApiClientHelper.PREVIEW_ROWS) {
+                lines.add(configured.what().getDisplayName().getFormattedText());
+                named++;
             }
         }
+
+        // The same rule as any other cell: a filled one used to print all sixty-three of its lines.
+        if (total > named) {
+            lines.add(TextFormatting.DARK_GRAY
+                    + I18n.format(GuiText.AndMoreTypes.getUnlocalized(), total - named));
+        }
+
+        ApiClientHelper.addViewHint(lines);
     }
 }
