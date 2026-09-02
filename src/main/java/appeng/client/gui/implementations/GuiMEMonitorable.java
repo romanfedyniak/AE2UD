@@ -114,7 +114,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private static final int WIRELESS_PLATE_Y = 127;
 
     private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
-    private final GuiSearchModeSwitch searchModes = new GuiSearchModeSwitch();
+    private final GuiSettingPanel searchModes = GuiSettingPanel.searchModes();
     private final int lowerTextureOffset = 0;
     private final IConfigManager configSrc;
     private final boolean viewCell;
@@ -278,9 +278,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.setPinRows(nextCrafting, nextPlayer, true);
         }
 
-        final SearchBoxMode picked = this.searchModes.choose(btn);
+        final Enum picked = this.searchModes.choose(btn);
         if (picked != null) {
-            AEClientConfig.instance().getConfigManager().putSetting(Settings.SEARCH_MODE, picked);
+            AEClientConfig.instance().getConfigManager().putSetting(this.searchModes.getSetting(), picked);
             this.searchBoxSettings.set(picked);
             this.reinitalize();
             return;
@@ -517,7 +517,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
         this.attachModeSwitch();
         this.searchModes.attach(this.buttonList, this.searchBoxSettings,
-                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE));
+                AEClientConfig.instance().getConfigManager().getSetting(this.searchModes.getSetting()));
         this.updateRepoPower();
         super.drawScreen(mouseX, mouseY, partialTicks);
 
