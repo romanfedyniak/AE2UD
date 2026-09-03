@@ -194,6 +194,39 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     }
 
     /**
+     * The search boxes on this screen a key's name can be put into, in screen coordinates. Empty unless the
+     * screen has one; see {@link KeySearchTarget}.
+     */
+    public List<KeySearchTarget> getKeySearchTargets() {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Clicking a search box with something on the cursor searches for it, the same as dragging it there out
+     * of HEI. The item is not put down and not taken: the click only reads what is being carried.
+     */
+    private boolean searchForCarried(final int mouseX, final int mouseY) {
+        final List<KeySearchTarget> targets = this.getKeySearchTargets();
+        if (targets.isEmpty()) {
+            return false;
+        }
+
+        final GenericStack carried = GenericStack.resolveItemStack(this.mc.player.inventory.getItemStack());
+        if (carried == null) {
+            return false;
+        }
+
+        for (final KeySearchTarget target : targets) {
+            if (target.contains(mouseX, mouseY)) {
+                target.accept(carried.what());
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The keep-search button every screen with a search box wears. One client setting answers for all of
      * them, so the click is the same everywhere and lives here rather than five times over.
      *
@@ -482,6 +515,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
         this.drag_click.clear();
+
+        if (btn == 0 && this.searchForCarried(xCoord, yCoord)) {
+            return;
+        }
 
         if (btn == 1) {
             for (final Object o : this.buttonList) {

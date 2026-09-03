@@ -85,6 +85,19 @@ public final class RepoSearch {
         return true;
     }
 
+    /**
+     * A name written as one term of this grammar: quoted, so that the spaces in it stay part of the name
+     * and none of the grammar's own characters are read as grammar.
+     */
+    public static String termFor(final AEKey what) {
+        return quote(TextFormatting.getTextWithoutFormattingCodes(
+                what.getDisplayName().getUnformattedText()));
+    }
+
+    public static String quote(final String name) {
+        return '"' + name.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
+
     public boolean matches(final AEKey what) {
         if (this.matches.containsKey(what)) {
             return this.matches.getBoolean(what);

@@ -9,6 +9,7 @@ import appeng.client.gui.implementations.GuiCraftingCPU;
 import appeng.client.gui.implementations.GuiMEMonitorable;
 import appeng.client.gui.implementations.GuiPatternTerm;
 import appeng.client.gui.implementations.GuiUpgradeable;
+import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.container.interfaces.ISpecialSlotIngredient;
@@ -19,6 +20,7 @@ import mezz.jei.api.gui.ISlotIngredientProvider;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -125,6 +127,21 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         return wrapped != null ? wrapped : stack;
     }
 
+    /**
+     * @return the key a dragged HEI ingredient stands for, or null for anything a pin or a search box has
+     *         no use for - an empty fluid, or a key type HEI has no wrapper for.
+     */
+    @Nullable
+    public static AEKey keyOf(final Object ingredient) {
+        if (ingredient instanceof ItemStack) {
+            final GenericStack stack = GenericStack.resolveItemStack((ItemStack) ingredient);
+            return stack == null ? null : stack.what();
+        } else if (ingredient instanceof FluidStack && ((FluidStack) ingredient).amount > 0) {
+            return AEFluidKey.of((FluidStack) ingredient);
+        }
+        return null;
+    }
+
     private boolean checkSlotArea(GuiContainer gui, GuiCustomSlot slot, int mouseX, int mouseY) {
         int i = gui.guiLeft;
         int j = gui.guiTop;
@@ -148,9 +165,25 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         if (gui instanceof GuiMEMonitorable meGui) {
             List<Target<?>> pinTargets = meGui.getPinGhostTargets(ingredient);
             targets.addAll((List<Target<I>>) (Object) pinTargets);
+        }
 
-            List<Target<?>> searchFieldTargets = meGui.getSearchFieldGhostTargets(ingredient);
-            targets.addAll((List<Target<I>>) (Object) searchFieldTargets);
+        // Dropping an ingredient on a search box searches for its name - the same convention GTNH's NEI
+        // integration used, and now on every box rather than only the terminal's.
+        final AEKey dragged = keyOf(ingredient);
+        if (dragged != null) {
+            for (final KeySearchTarget box : gui.getKeySearchTargets()) {
+                targets.add(new Target<I>() {
+                    @Override
+                    public Rectangle getArea() {
+                        return box.getArea();
+                    }
+
+                    @Override
+                    public void accept(final I ignored) {
+                        box.accept(dragged);
+                    }
+                });
+            }
         }
         return targets;
     }

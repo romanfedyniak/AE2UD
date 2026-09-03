@@ -22,6 +22,7 @@ import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.MEGuiTooltipTextField;
@@ -255,6 +256,23 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 slot.xPos = slot.getX() + 14;
             }
         }
+    }
+
+    /**
+     * The two boxes that ask about items. The third asks about an interface's name, which is not a key and
+     * has nothing to gain from being handed one.
+     */
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        final List<KeySearchTarget> boxes = new ArrayList<>(2);
+        boxes.add(searchBox(this.searchFieldInputs));
+        boxes.add(searchBox(this.searchFieldOutputs));
+        return boxes;
+    }
+
+    private static KeySearchTarget searchBox(final MEGuiTooltipTextField field) {
+        return new KeySearchTarget(new Rectangle(field.x, field.y, field.w, field.h),
+                what -> field.setText(RepoSearch.termFor(what)));
     }
 
     @Override

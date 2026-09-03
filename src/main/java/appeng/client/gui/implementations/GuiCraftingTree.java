@@ -25,6 +25,8 @@ import appeng.api.config.TerminalStyle;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.KeySearchTarget;
+import appeng.client.me.search.RepoSearch;
 import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.widgets.GuiCraftErrorPanel;
@@ -58,6 +60,7 @@ import javax.annotation.Nullable;
 import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -410,6 +413,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         super.mouseClicked(xCoord, yCoord, btn);
 
         this.searchField.mouseClicked(xCoord - this.guiLeft, yCoord - this.guiTop, btn);
+
         this.cpuTable.mouseClicked(xCoord, yCoord, btn);
         this.tree.mouseClicked(xCoord, yCoord);
     }
@@ -437,6 +441,23 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         }
 
         super.handleMouseInput();
+    }
+
+    /**
+     * The one screen whose field is built in the window's coordinates rather than the screen's, so its
+     * rectangle is the only one that has to be moved.
+     */
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchField == null) {
+            return Collections.emptyList();
+        }
+
+        final Rectangle area = this.searchField.getArea();
+        area.translate(this.guiLeft, this.guiTop);
+
+        return Collections.singletonList(new KeySearchTarget(area,
+                what -> this.searchField.setText(RepoSearch.termFor(what))));
     }
 
     @Override

@@ -13,6 +13,7 @@ package appeng.client.gui.implementations;
 import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import net.minecraft.client.gui.GuiButton;
@@ -35,6 +36,8 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.KeySearchTarget;
+import appeng.client.me.search.RepoSearch;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.api.config.Settings;
 import appeng.core.AEClientConfig;
@@ -373,6 +376,21 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
      * The plate and the mode tab are drawn wholly outside the window, so HEI has to be told: its item list
      * would otherwise cover them and swallow the clicks meant for the tab.
      */
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchField == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new KeySearchTarget(this.searchField.getArea(), what -> {
+            this.searchField.setText(RepoSearch.termFor(what));
+            this.repo.setSearchString(this.searchField.getText());
+            this.getScrollBar().setCurrentScroll(0);
+            this.repo.updateView();
+            this.setScrollRange();
+        }));
+    }
+
     @Override
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> areas = new ArrayList<>();

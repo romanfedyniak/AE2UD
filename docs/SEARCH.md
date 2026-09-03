@@ -76,6 +76,17 @@ silent fall back to a literal match when it did not compile. `/.../` is what is 
 It is ours alone - HEI does not understand slashes, so a regex query mirrored into HEI's field finds nothing
 there.
 
+## Putting a key into a box
+
+A screen lists its boxes as `KeySearchTarget`s - a rectangle in screen coordinates, and what to write in
+it - through `AEBaseGui.getKeySearchTargets()`. Two callers read that list: `AEBaseGui.mouseClicked`, for
+an item held on the cursor, and `AEGuiHandler.getTargets`, for an ingredient dragged out of HEI. Neither
+knows anything about text fields, which is the point - the two field classes here share no supertype, and
+the Crafting Plan's field is built in the window's coordinates while every other is built in the screen's.
+
+What goes in is `RepoSearch.termFor(key)`: the display name, stripped of formatting codes and quoted, so
+the whole name is one term. The two boxes that search interface *names* are deliberately not targets.
+
 ## Keeping what was typed
 
 `Settings.SEARCH_KEEP` says whether a box keeps its text when the screen closes, and answers for all five

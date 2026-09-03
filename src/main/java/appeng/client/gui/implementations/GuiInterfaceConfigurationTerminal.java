@@ -26,6 +26,7 @@ import appeng.core.AELog;
 import appeng.core.AEClientConfig;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.MEGuiTextField;
@@ -176,6 +177,21 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         field.setFocused(false);
         field.setText(text);
         return field;
+    }
+
+    /**
+     * The items box only. The one beside it asks about an interface's name, which is not a key.
+     */
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchFieldInputs == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new KeySearchTarget(this.searchFieldInputs.getArea(), what -> {
+            this.searchFieldInputs.setText(RepoSearch.termFor(what));
+            this.refreshList();
+        }));
     }
 
     @Override

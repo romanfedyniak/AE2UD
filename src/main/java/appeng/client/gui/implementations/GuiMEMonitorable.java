@@ -39,6 +39,9 @@ import appeng.api.util.IConfigurableObject;
 import appeng.api.util.KeyTypeSelectionHost;
 import appeng.client.ActionKey;
 import appeng.client.gui.AEBaseMEGui;
+import appeng.client.gui.AEGuiHandler;
+import appeng.client.gui.KeySearchTarget;
+import appeng.client.me.search.RepoSearch;
 import appeng.client.gui.widgets.*;
 import appeng.client.me.InternalSlotME;
 import appeng.client.me.Repo;
@@ -741,23 +744,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
     }
 
-    /**
-     * @return the key a dragged HEI ingredient stands for, or null for anything a pin or the search field
-     *         has no use for (an empty fluid, or a key type HEI has no wrapper for).
-     */
-    @Nullable
-    private static AEKey resolveDraggedKey(Object ingredient) {
-        if (ingredient instanceof ItemStack) {
-            GenericStack stack = GenericStack.resolveItemStack((ItemStack) ingredient);
-            return stack == null ? null : stack.what();
-        } else if (ingredient instanceof FluidStack && ((FluidStack) ingredient).amount > 0) {
-            return AEFluidKey.of((FluidStack) ingredient);
-        }
-        return null;
-    }
-
     public List<IGhostIngredientHandler.Target<?>> getPinGhostTargets(Object ingredient) {
-        final AEKey key = resolveDraggedKey(ingredient);
+        final AEKey key = AEGuiHandler.keyOf(ingredient);
         if (key == null || this.visiblePlayerPinRows == 0) {
             return Collections.emptyList();
         }
@@ -783,31 +771,17 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         return targets;
     }
 
-    /**
-     * Dropping an ingredient from HEI's list onto the search field searches by its name - the same
-     * convention GTNH's NEI integration used.
-     */
-    public List<IGhostIngredientHandler.Target<?>> getSearchFieldGhostTargets(Object ingredient) {
-        final AEKey key = resolveDraggedKey(ingredient);
-        if (key == null) {
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchField == null) {
             return Collections.emptyList();
         }
 
-        final Rectangle area = this.searchField.getArea();
-        return Collections.singletonList(new IGhostIngredientHandler.Target<Object>() {
-            @Override
-            public Rectangle getArea() {
-                return area;
-            }
-
-            @Override
-            public void accept(Object ignored) {
-                searchField.setText(escapeForSearch(
-                        TextFormatting.getTextWithoutFormattingCodes(key.getDisplayName().getUnformattedText())));
-                repo.setSearchString(searchField.getText());
-                setScrollBar();
-            }
-        });
+        return Collections.singletonList(new KeySearchTarget(this.searchField.getArea(), what -> {
+            this.searchField.setText(RepoSearch.termFor(what));
+            this.repo.setSearchString(this.searchField.getText());
+            this.setScrollBar();
+        }));
     }
 
     @Override
@@ -818,14 +792,6 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     public boolean isDisplayedKeyFakeCraftable(final AEKey what) {
         return this.repo.isFakeCraftable(what);
-    }
-
-    /**
-     * A dropped name goes in as one quoted term, so that the spaces in it stay part of the name and none of
-     * the grammar's own characters are read as grammar.
-     */
-    private static String escapeForSearch(final String name) {
-        return '"' + name.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
     }
 
     @Override
