@@ -18,7 +18,6 @@
 
 package appeng.client.gui.implementations;
 
-
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
@@ -34,6 +33,10 @@ import appeng.container.slot.AppEngSlot;
 import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.Tooltips;
+import appeng.client.me.search.RepoSearch;
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEKey;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.helpers.DualityInterface;
@@ -65,7 +68,6 @@ import static appeng.client.render.BlockPosHighlighter.hilightBlock;
 import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
-
 public class GuiInterfaceTerminal extends AEBaseGui {
 
     protected static final int OFFSET_X = 21;
@@ -85,12 +87,15 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private final ArrayList<String> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
     private final Set<Object> matchedStacks = new HashSet<>();
-    private final Map<String, Set<Object>> cachedSearches = new WeakHashMap<>();
     private final Map<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
 
     private final MEGuiTooltipTextField searchFieldOutputs;
     private final MEGuiTooltipTextField searchFieldInputs;
     private final MEGuiTooltipTextField searchFieldNames;
+
+    /** The two boxes that ask about items read the terminals' grammar; the third is a plain name. */
+    private final RepoSearch inputSearch = new RepoSearch();
+    private final RepoSearch outputSearch = new RepoSearch();
 
     private final GuiImgButton guiButtonHideFull;
     private final GuiImgButton guiButtonAssemblersOnly;
@@ -115,8 +120,10 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.jeiEnabled = Platform.isModLoaded("jei");
         this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
-        searchFieldInputs = createTextField(86, 12, ButtonToolTips.SearchFieldInputs.getLocal());
-        searchFieldOutputs = createTextField(86, 12, ButtonToolTips.SearchFieldOutputs.getLocal());
+        searchFieldInputs = createTextField(86, 12,
+                ButtonToolTips.SearchFieldInputs.getLocal() + '\n' + Tooltips.searchSyntax());
+        searchFieldOutputs = createTextField(86, 12,
+                ButtonToolTips.SearchFieldOutputs.getLocal() + '\n' + Tooltips.searchSyntax());
         searchFieldNames = createTextField(71, 12, ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldNames.setFocused(true);
 
@@ -137,8 +144,10 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.jeiEnabled = Platform.isModLoaded("jei");
         this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
-        searchFieldInputs = createTextField(86, 12, ButtonToolTips.SearchFieldInputs.getLocal());
-        searchFieldOutputs = createTextField(86, 12, ButtonToolTips.SearchFieldOutputs.getLocal());
+        searchFieldInputs = createTextField(86, 12,
+                ButtonToolTips.SearchFieldInputs.getLocal() + '\n' + Tooltips.searchSyntax());
+        searchFieldOutputs = createTextField(86, 12,
+                ButtonToolTips.SearchFieldOutputs.getLocal() + '\n' + Tooltips.searchSyntax());
         searchFieldNames = createTextField(71, 12, ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldNames.setFocused(true);
 
@@ -157,7 +166,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
             }
         };
         textField.setEnableBackgroundDrawing(false);
-        textField.setMaxStringLength(25);
+        textField.setMaxStringLength(100);
         textField.setTextColor(0xFFFFFF);
         textField.setCursorPositionZero();
         return textField;
@@ -535,8 +544,6 @@ public class GuiInterfaceTerminal extends AEBaseGui {
 
         if (this.refreshList) {
             this.refreshList = false;
-            // invalid caches on refresh
-            this.cachedSearches.clear();
             this.refreshList();
         }
     }
@@ -551,23 +558,19 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.buttonList.clear();
         this.matchedStacks.clear();
 
-        final String searchFieldInputs = this.searchFieldInputs.getText().toLowerCase();
-        final String searchFieldOutputs = this.searchFieldOutputs.getText().toLowerCase();
-        final String searchFieldNames = this.searchFieldNames.getText().toLowerCase();
+        final String inputQuery = this.searchFieldInputs.getText();
+        final String outputQuery = this.searchFieldOutputs.getText();
+        final String nameQuery = this.searchFieldNames.getText().toLowerCase();
 
-        final Set<Object> cachedSearch = this.getCacheForSearchTerm("IN:" + searchFieldInputs + " OUT:" + searchFieldOutputs
-                + "NAME:" + searchFieldNames + onlyShowWithSpace + onlyMolecularAssemblers + onlyBrokenRecipes);
-        final boolean rebuild = cachedSearch.isEmpty();
+        this.inputSearch.setSearchString(inputQuery);
+        this.inputSearch.refresh();
+        this.outputSearch.setSearchString(outputQuery);
+        this.outputSearch.refresh();
 
         for (final ClientDCInternalInv entry : this.byId.values()) {
-            // ignore inventory if not doing a full rebuild and cache already marks it as miss.
-            if (!rebuild && !cachedSearch.contains(entry)) {
-                continue;
-            }
-
             // Shortcut to skip any filter if search term is ""/empty
 
-            boolean found = searchFieldInputs.isEmpty() && searchFieldOutputs.isEmpty();
+            boolean found = inputQuery.isEmpty() && outputQuery.isEmpty();
             boolean interfaceHasFreeSlots = false;
             boolean interfaceHasBrokenRecipes = false;
 
@@ -587,10 +590,18 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                         interfaceHasBrokenRecipes = true;
                     }
 
-                    if ((!searchFieldInputs.isEmpty() && itemStackMatchesSearchTerm(itemStack, searchFieldInputs, 0))
-                            || (!searchFieldOutputs.isEmpty() && itemStackMatchesSearchTerm(itemStack, searchFieldOutputs, 1))) {
+                    final boolean byInput = !inputQuery.isEmpty()
+                            && patternMatches(itemStack, this.inputSearch, "in", inputQuery);
+                    final boolean byOutput = !outputQuery.isEmpty()
+                            && patternMatches(itemStack, this.outputSearch, "out", outputQuery);
+
+                    if (byInput || byOutput) {
                         found = true;
-                        matchedStacks.add(itemStack);
+                        // A pattern that qualified only by lacking something is not a pattern to point at.
+                        if ((byInput && this.inputSearch.hasPositiveTerms())
+                                || (byOutput && this.outputSearch.hasPositiveTerms())) {
+                            matchedStacks.add(itemStack);
+                        }
                     }
 
                     slot++;
@@ -599,34 +610,28 @@ public class GuiInterfaceTerminal extends AEBaseGui {
 
             // Exit if not found
             if (!found) {
-                cachedSearch.remove(entry);
                 continue;
             }
             // Exit if the interface does not match the name search
-            if (!entry.getName().toLowerCase().contains(searchFieldNames)) {
-                cachedSearch.remove(entry);
+            if (!entry.getName().toLowerCase().contains(nameQuery)) {
                 continue;
             }
             // Exit if molecular assembler filter is on and this is not a molecular assembler
             // Forge documantation said unlocalized name shouldn't be use for logic, so we might need a better way......
             if (onlyMolecularAssemblers && !entry.getUnlocalizedName().equals(MOLECULAR_ASSEMBLER)) {
-                cachedSearch.remove(entry);
                 continue;
             }
             // Exit if we are only showing interfaces with free slots and there are none free in this interface
             if (onlyShowWithSpace && !interfaceHasFreeSlots) {
-                cachedSearch.remove(entry);
                 continue;
             }
             // Exit if we are only showing interfaces with broken patterns and there are no broken patterns in this interface
             if (onlyBrokenRecipes && !interfaceHasBrokenRecipes) {
-                cachedSearch.remove(entry);
                 continue;
             }
 
             // Successful search
             this.byName.put(entry.getName(), entry);
-            cachedSearch.add(entry);
         }
 
         this.names.clear();
@@ -664,69 +669,37 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         }
     }
 
-    private boolean itemStackMatchesSearchTerm(final ItemStack itemStack, final String searchTerm, int pass) {
-        if (itemStack.isEmpty()) {
+    /**
+     * Whether one pattern answers a query on one side of it. The query is asked of the whole side at
+     * once rather than of each ingredient: {@code -iron} means no ingredient is iron, which is not
+     * something a single ingredient can answer.
+     */
+    private static boolean patternMatches(final ItemStack pattern, final RepoSearch search,
+            final String side, final String query) {
+        if (pattern.isEmpty()) {
             return false;
         }
 
-        final NBTTagCompound encodedValue = itemStack.getTagCompound();
-
-        if (encodedValue == null) {
-            return searchTerm.matches(GuiText.InvalidPattern.getLocal());
+        if (pattern.getTagCompound() == null) {
+            // Nothing encoded to read, so it answers only to being named outright.
+            return query.equalsIgnoreCase(GuiText.InvalidPattern.getLocal());
         }
 
-        final NBTTagList tag;
-        if (pass == 0) {
-            tag = encodedValue.getTagList("in", Constants.NBT.TAG_COMPOUND);
-        } else {
-            tag = encodedValue.getTagList("out", Constants.NBT.TAG_COMPOUND);
-        }
-
-        boolean foundMatchingItemStack = false;
-        final String[] splitTerm = searchTerm.split(" ");
-
-        for (int i = 0; i < tag.tagCount(); i++) {
-            final ItemStack parsedItemStack = new ItemStack(tag.getCompoundTagAt(i));
-            if (!parsedItemStack.isEmpty()) {
-                final String displayName = Platform.getItemDisplayName(parsedItemStack).toLowerCase();
-
-                for (String term : splitTerm) {
-                    if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
-                        term = term.substring(1);
-                        if (displayName.contains(term)) {
-                            return false;
-                        }
-                    } else if (displayName.contains(term)) {
-                        foundMatchingItemStack = true;
-                    }
-                }
-            }
-        }
-        return foundMatchingItemStack;
+        return search.matchesAny(ingredientsOf(pattern, side));
     }
 
-    /**
-     * Tries to retrieve a cache for a with search term as keyword.
-     * <p>
-     * If this cache should be empty, it will populate it with an earlier cache if available or at least the cache for
-     * the empty string.
-     *
-     * @param searchTerm the corresponding search
-     * @return a Set matching a superset of the search term
-     */
-    private Set<Object> getCacheForSearchTerm(final String searchTerm) {
-        if (!this.cachedSearches.containsKey(searchTerm)) {
-            this.cachedSearches.put(searchTerm, new HashSet<>());
+    private static List<AEKey> ingredientsOf(final ItemStack pattern, final String side) {
+        final NBTTagList tag = pattern.getTagCompound().getTagList(side, Constants.NBT.TAG_COMPOUND);
+        final List<AEKey> keys = new ArrayList<>(tag.tagCount());
+
+        for (int i = 0; i < tag.tagCount(); i++) {
+            final GenericStack stack = GenericStack.resolveItemStack(new ItemStack(tag.getCompoundTagAt(i)));
+            if (stack != null) {
+                keys.add(stack.what());
+            }
         }
 
-        final Set<Object> cache = this.cachedSearches.get(searchTerm);
-
-        if (cache.isEmpty() && searchTerm.length() > 1) {
-            cache.addAll(this.getCacheForSearchTerm(searchTerm.substring(0, searchTerm.length() - 1)));
-            return cache;
-        }
-
-        return cache;
+        return keys;
     }
 
     private ClientDCInternalInv getById(final long id, final long sortBy, final String string) {

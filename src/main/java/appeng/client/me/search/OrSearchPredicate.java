@@ -13,30 +13,28 @@ package appeng.client.me.search;
 import java.util.List;
 import java.util.function.Predicate;
 
-import appeng.api.stacks.AEKey;
+/** Any group separated by {@code |} may match - of a key, or of a whole set of them. */
+final class OrSearchPredicate<T> implements Predicate<T> {
 
-/** Any group separated by {@code |} may match. */
-final class OrSearchPredicate implements Predicate<AEKey> {
+    private final List<Predicate<T>> groups;
 
-    private final List<Predicate<AEKey>> groups;
-
-    private OrSearchPredicate(final List<Predicate<AEKey>> groups) {
+    private OrSearchPredicate(final List<Predicate<T>> groups) {
         this.groups = groups;
     }
 
-    static Predicate<AEKey> of(final List<Predicate<AEKey>> groups) {
+    static <T> Predicate<T> of(final List<Predicate<T>> groups) {
         if (groups.isEmpty()) {
             return what -> false;
         }
         if (groups.size() == 1) {
             return groups.get(0);
         }
-        return new OrSearchPredicate(groups);
+        return new OrSearchPredicate<>(groups);
     }
 
     @Override
-    public boolean test(final AEKey what) {
-        for (final Predicate<AEKey> group : this.groups) {
+    public boolean test(final T what) {
+        for (final Predicate<T> group : this.groups) {
             if (group.test(what)) {
                 return true;
             }

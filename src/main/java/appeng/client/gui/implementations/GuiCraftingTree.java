@@ -39,6 +39,7 @@ import appeng.container.implementations.ContainerCraftingTree;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
+import appeng.core.localization.Tooltips;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
@@ -146,6 +147,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         // The window draws the terminals' sunken frame behind it; the field keeps its own fill, which is
         // what darkens when it takes the keyboard. Only the black inner box is left off.
         this.searchField.setEnableBackgroundDrawing(false);
+        this.searchField.setMaxStringLength(100);
         // Held keys have to repeat in the search field, as they do on every other screen with one.
 
         this.back = new GuiTabButton(this.guiLeft + this.xSize - 25, this.guiTop - 4, SWITCH_VIEW_ICON,
@@ -295,6 +297,11 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         final String treeTooltip = this.tree.getTooltip(mouseX, mouseY);
         if (treeTooltip != null) {
             this.drawTooltip(mouseX - offsetX, mouseY - offsetY, treeTooltip);
+            return;
+        }
+
+        if (this.searchField.isMouseIn(mouseX - offsetX, mouseY - offsetY)) {
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, Tooltips.searchSyntax());
         }
     }
 

@@ -1,6 +1,22 @@
-# Terminal search
+# Search
 
-What the ME terminal's search field understands, and where each answer comes from.
+What a search field in this mod understands, and where each answer comes from. Renamed from
+`TERMINAL_SEARCH.md`, which is the name older changelog entries know it by, when the grammar stopped
+belonging to the terminal alone.
+
+Five fields read it:
+
+| Screen | Field | Asked of |
+| --- | --- | --- |
+| ME Terminal | the search box | one key per row |
+| Cell view | the search box | one key per row |
+| Crafting Plan tree | the search box | one key per cell |
+| Interface Terminal | Recipe Inputs, Recipe Outputs | one pattern's ingredients, as a set |
+| Interface Configuration Terminal | Configured Items | one interface's configured items, as a set |
+
+The two boxes that name interfaces - the Interface Terminal's third field and the Configuration
+Terminal's second - are plain case-insensitive substrings, and always have been: an interface's name is
+not a key, and none of the channels below have anything to ask of it.
 
 The grammar is HadEnoughItems', on purpose. Under the `JEI_AUTOSEARCH` and `JEI_MANUAL_SEARCH` modes of the
 search-box setting the terminal hands its string to HEI verbatim, so the two panes have to read it the same
@@ -60,10 +76,27 @@ silent fall back to a literal match when it did not compile. `/.../` is what is 
 It is ours alone - HEI does not understand slashes, so a regex query mirrored into HEI's field finds nothing
 there.
 
+## Asked of a set
+
+A pattern is not one key, and neither is an interface's shelf of configured items. `RepoSearch.matchesAny`
+lifts the same compiled terms onto a whole set:
+
+- a **positive** term needs one key in the set to satisfy it;
+- an **excluded** term needs none of them to.
+
+That second line is the whole reason for the method. `-iron` said of a pattern means *no ingredient is
+iron*, and asking it of one ingredient at a time can only mean *this one is not iron*, which every other
+ingredient in the pattern answers yes to. Both readings are compiled in one pass over the terms, so a query
+costs the same as it did.
+
+`RepoSearch.hasPositiveTerms` goes with it. A screen that marks what it found asks this before marking
+anything: under `-iron` everything left qualifies, and lighting up all of it points at nothing.
+
 ## Where it lives
 
 `appeng.client.me.search`. `RepoSearch` holds the compiled query and every cache; `SearchTokenizer` cuts the
-string into groups and terms; one predicate class per channel.
+string into groups and terms; one predicate class per channel. A screen with a field of its own keeps a
+`RepoSearch` per field, feeds it on every change and asks `matches` or `matchesAny` per row.
 
 The string is parsed **once**, when it or the tooltip setting changes. What a key answers - its name, its
 tooltip, its Ore Dictionary names - is worked out once per key and kept, and so is whether it matched. This

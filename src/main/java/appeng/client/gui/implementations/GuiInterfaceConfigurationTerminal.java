@@ -18,7 +18,6 @@
 
 package appeng.client.gui.implementations;
 
-
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
@@ -38,6 +37,9 @@ import javax.annotation.Nullable;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.Tooltips;
+import appeng.client.me.search.RepoSearch;
+import appeng.api.stacks.AEKey;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
@@ -69,7 +71,6 @@ import java.util.*;
 import static appeng.client.render.BlockPosHighlighter.hilightBlock;
 import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
-
 
 public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEIGhostIngredients {
 
@@ -103,12 +104,14 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private final Set<Object> matchedStacks = new HashSet<>();
     private final Set<ClientDCInternalInv> matchedInterfaces = new HashSet<>();
 
-    private final Map<String, Set<Object>> cachedSearches = new WeakHashMap<>();
 
     private boolean refreshList = false;
     private int rows = MIN_ROWS;
     private MEGuiTextField searchFieldInputs;
     private MEGuiTextField searchFieldNames;
+
+    /** The items box reads the terminals' grammar; the names box beside it is a plain substring. */
+    private final RepoSearch itemSearch = new RepoSearch();
     private GuiImgButton terminalStyleBox;
     private final PartInterfaceConfigurationTerminal partInterfaceTerminal;
     private final HashMap<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
@@ -161,7 +164,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         final MEGuiTextField field = new MEGuiTextField(this.fontRenderer, this.guiLeft + left,
                 this.guiTop + SEARCH_TOP, width, SEARCH_HEIGHT);
         field.setEnableBackgroundDrawing(false);
-        field.setMaxStringLength(25);
+        field.setMaxStringLength(100);
         field.setTextColor(MEGuiTextField.TEXT_COLOR);
         field.setVisible(true);
         field.setFocused(false);
@@ -264,7 +267,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         final int tooltipX = Mouse.getEventX() * this.width / this.mc.displayWidth - offsetX;
         if (this.searchFieldInputs.isMouseIn(mouseX, mouseY)) {
-            drawTooltip(tooltipX, mouseY - this.guiTop, ButtonToolTips.SearchFieldConfigured.getLocal());
+            drawTooltip(tooltipX, mouseY - this.guiTop,
+                    ButtonToolTips.SearchFieldConfigured.getLocal() + '\n' + Tooltips.searchSyntax());
         } else if (this.searchFieldNames.isMouseIn(mouseX, mouseY)) {
             drawTooltip(tooltipX, mouseY - this.guiTop, ButtonToolTips.SearchFieldNames.getLocal());
         }
@@ -507,8 +511,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         if (this.refreshList) {
             this.refreshList = false;
-            // invalid caches on refresh
-            this.cachedSearches.clear();
             this.refreshList();
         }
     }
@@ -524,49 +526,28 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.matchedStacks.clear();
         this.matchedInterfaces.clear();
 
-        final String itemQuery = this.searchFieldInputs.getText().toLowerCase();
+        final String itemQuery = this.searchFieldInputs.getText();
         final String nameQuery = this.searchFieldNames.getText().toLowerCase();
 
-        final Set<Object> cachedSearch = this.getCacheForSearchTerm(itemQuery + ' ' + nameQuery);
-        final boolean rebuild = cachedSearch.isEmpty();
+        this.itemSearch.setSearchString(itemQuery);
+        this.itemSearch.refresh();
 
         for (final ClientDCInternalInv entry : this.byId.values()) {
-            // ignore inventory if not doing a full rebuild and cache already marks it as miss.
-            if (!rebuild && !cachedSearch.contains(entry)) {
-                continue;
-            }
-
             if (!nameQuery.isEmpty() && !entry.getName().toLowerCase().contains(nameQuery)) {
-                cachedSearch.remove(entry);
                 continue;
             }
-
-            // Shortcut to skip any filter if search term is ""/empty
 
             boolean found = itemQuery.isEmpty();
 
-            // Search if the current inventory holds a pattern containing the search term.
-            if (!found) {
-                int slot = 0;
-                for (final ItemStack itemStack : entry.getInventory()) {
-                    if (slot > 8 + numUpgradesMap.get(entry) * 9) {
-                        break;
-                    }
-                    if (this.itemStackMatchesSearchTerm(itemStack, itemQuery)) {
-                        found = true;
-                        matchedStacks.add(itemStack);
-                    }
-                    slot++;
-                }
-            } else {
+            if (found) {
                 // Nothing was asked of the slots, so none of them are dimmed as a miss.
                 this.matchedInterfaces.add(entry);
+            } else {
+                found = this.matchConfigured(entry);
             }
+
             if (found) {
                 this.byName.put(entry.getName(), entry);
-                cachedSearch.add(entry);
-            } else {
-                cachedSearch.remove(entry);
             }
         }
 
@@ -591,52 +572,42 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.getScrollBar().setRange(0, this.lines.size() - 1, 1);
     }
 
-    private boolean itemStackMatchesSearchTerm(final ItemStack itemStack, final String searchTerm) {
-        if (itemStack.isEmpty()) {
+    /**
+     * Whether an interface's configured items answer the query, and which of them to mark. The query is
+     * asked of the whole set at once: {@code -iron} means none of them is iron, which no single slot
+     * can answer. What gets marked is what the query asked to find - a query that only says what to
+     * leave out marks nothing, since everything left would qualify.
+     */
+    private boolean matchConfigured(final ClientDCInternalInv entry) {
+        final List<ItemStack> configured = new ArrayList<>();
+        final List<AEKey> keys = new ArrayList<>();
+        final int last = 8 + this.numUpgradesMap.get(entry) * 9;
+
+        int slot = 0;
+        for (final ItemStack itemStack : entry.getInventory()) {
+            if (slot++ > last) {
+                break;
+            }
+            final GenericStack resolved = GenericStack.resolveItemStack(itemStack);
+            if (resolved != null) {
+                configured.add(itemStack);
+                keys.add(resolved.what());
+            }
+        }
+
+        if (!this.itemSearch.matchesAny(keys)) {
             return false;
         }
 
-        boolean foundMatchingItemStack = false;
-
-        final String displayName = Platform.getItemDisplayName(itemStack).toLowerCase();
-
-        for (String term : searchTerm.split(" ")) {
-            if (term.length() > 1 && (term.startsWith("-") || term.startsWith("!"))) {
-                term = term.substring(1);
-                if (displayName.contains(term)) {
-                    return false;
+        if (this.itemSearch.hasPositiveTerms()) {
+            for (int i = 0; i < keys.size(); i++) {
+                if (this.itemSearch.matches(keys.get(i))) {
+                    this.matchedStacks.add(configured.get(i));
                 }
-            } else if (displayName.contains(term)) {
-                foundMatchingItemStack = true;
-            } else {
-                return false;
             }
         }
-        return foundMatchingItemStack;
-    }
 
-    /**
-     * Tries to retrieve a cache for a with search term as keyword.
-     * <p>
-     * If this cache should be empty, it will populate it with an earlier cache if available or at least the cache for
-     * the empty string.
-     *
-     * @param searchTerm the corresponding search
-     * @return a Set matching a superset of the search term
-     */
-    private Set<Object> getCacheForSearchTerm(final String searchTerm) {
-        if (!this.cachedSearches.containsKey(searchTerm)) {
-            this.cachedSearches.put(searchTerm, new HashSet<>());
-        }
-
-        final Set<Object> cache = this.cachedSearches.get(searchTerm);
-
-        if (cache.isEmpty() && searchTerm.length() > 1) {
-            cache.addAll(this.getCacheForSearchTerm(searchTerm.substring(0, searchTerm.length() - 1)));
-            return cache;
-        }
-
-        return cache;
+        return true;
     }
 
     /**

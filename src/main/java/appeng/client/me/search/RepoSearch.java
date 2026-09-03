@@ -11,6 +11,7 @@
 package appeng.client.me.search;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +47,8 @@ public final class RepoSearch {
     private String compiledFrom = "";
     private boolean searchTooltips;
     private Predicate<AEKey> search = what -> true;
+    private Predicate<Collection<AEKey>> searchGroup = keys -> true;
+    private boolean positiveTerms;
 
     private final Object2BooleanMap<AEKey> matches = new Object2BooleanOpenHashMap<>();
     private final Map<AEKey, String> names = new HashMap<>();
@@ -77,7 +80,7 @@ public final class RepoSearch {
 
         this.searchTooltips = tooltipsNow;
         this.compiledFrom = this.searchString;
-        this.search = compile(this.searchString);
+        this.compile(this.searchString);
         this.matches.clear();
         return true;
     }
@@ -92,24 +95,64 @@ public final class RepoSearch {
         return result;
     }
 
-    private Predicate<AEKey> compile(final String query) {
+    /**
+     * Whether a set of keys answers the query - a pattern's ingredients, an interface's configured items.
+     * A positive term needs one key in the set to satisfy it; an excluded term needs none to. That is what
+     * {@code -iron} says about a whole pattern, and it cannot be said one key at a time: asked of a single
+     * ingredient it only means "this one is not iron", which every other ingredient answers yes to.
+     */
+    public boolean matchesAny(final Collection<AEKey> keys) {
+        return this.searchGroup.test(keys);
+    }
+
+    /**
+     * Whether the query names anything to find, rather than only what to leave out. A screen that marks
+     * what it found asks this first: {@code -iron} is answered by everything that is not iron, so
+     * marking each of those would light the whole screen and point at nothing.
+     */
+    public boolean hasPositiveTerms() {
+        return this.positiveTerms;
+    }
+
+    /** Both readings of the query, built from one pass over its terms. */
+    private void compile(final String query) {
         final List<List<Term>> groups = SearchTokenizer.tokenize(query);
-        final List<Predicate<AEKey>> alternatives = new ArrayList<>(groups.size());
+        this.positiveTerms = false;
+        final List<Predicate<AEKey>> keyGroups = new ArrayList<>(groups.size());
+        final List<Predicate<Collection<AEKey>>> setGroups = new ArrayList<>(groups.size());
 
         for (final List<Term> group : groups) {
-            final List<Predicate<AEKey>> terms = new ArrayList<>(group.size());
+            final List<Predicate<AEKey>> keyTerms = new ArrayList<>(group.size());
+            final List<Predicate<Collection<AEKey>>> setTerms = new ArrayList<>(group.size());
 
             for (final Term term : group) {
                 final Predicate<AEKey> predicate = compileTerm(term.text);
-                if (predicate != null) {
-                    terms.add(term.excluded ? predicate.negate() : predicate);
+                if (predicate == null) {
+                    continue;
                 }
+                this.positiveTerms |= !term.excluded;
+                keyTerms.add(term.excluded ? predicate.negate() : predicate);
+                final Predicate<Collection<AEKey>> any = anyOf(predicate);
+                setTerms.add(term.excluded ? any.negate() : any);
             }
 
-            alternatives.add(AndSearchPredicate.of(terms));
+            keyGroups.add(AndSearchPredicate.of(keyTerms));
+            setGroups.add(AndSearchPredicate.of(setTerms));
         }
 
-        return OrSearchPredicate.of(alternatives);
+        this.search = OrSearchPredicate.of(keyGroups);
+        this.searchGroup = OrSearchPredicate.of(setGroups);
+    }
+
+    private static Predicate<Collection<AEKey>> anyOf(final Predicate<AEKey> term) {
+        return keys -> {
+            for (final AEKey key : keys) {
+                if (term.test(key)) {
+                    return true;
+                }
+            }
+            return false;
+        };
     }
 
     /** Null for a term that says nothing yet, such as a lone prefix being typed. */

@@ -13,30 +13,28 @@ package appeng.client.me.search;
 import java.util.List;
 import java.util.function.Predicate;
 
-import appeng.api.stacks.AEKey;
+/** Every term in one group has to match - of a key, or of a whole set of them. */
+final class AndSearchPredicate<T> implements Predicate<T> {
 
-/** Every term in one group has to match. */
-final class AndSearchPredicate implements Predicate<AEKey> {
+    private final List<Predicate<T>> terms;
 
-    private final List<Predicate<AEKey>> terms;
-
-    private AndSearchPredicate(final List<Predicate<AEKey>> terms) {
+    private AndSearchPredicate(final List<Predicate<T>> terms) {
         this.terms = terms;
     }
 
-    static Predicate<AEKey> of(final List<Predicate<AEKey>> terms) {
+    static <T> Predicate<T> of(final List<Predicate<T>> terms) {
         if (terms.isEmpty()) {
             return what -> true;
         }
         if (terms.size() == 1) {
             return terms.get(0);
         }
-        return new AndSearchPredicate(terms);
+        return new AndSearchPredicate<>(terms);
     }
 
     @Override
-    public boolean test(final AEKey what) {
-        for (final Predicate<AEKey> term : this.terms) {
+    public boolean test(final T what) {
+        for (final Predicate<T> term : this.terms) {
             if (!term.test(what)) {
                 return false;
             }

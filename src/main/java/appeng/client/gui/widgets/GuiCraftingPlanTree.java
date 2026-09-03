@@ -20,6 +20,7 @@ package appeng.client.gui.widgets;
 
 
 import appeng.api.stacks.AEKey;
+import appeng.client.me.search.RepoSearch;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
@@ -51,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
-import java.util.Locale;
 
 
 /**
@@ -102,7 +102,9 @@ public class GuiCraftingPlanTree extends Gui {
     private int dragX, dragY;
 
     private Cell hovered;
-    private String search = "";
+    /** What was typed, and the same grammar the terminals read it with. */
+    private String searchText = "";
+    private final RepoSearch search = new RepoSearch();
     private final List<Cell> matches = new ArrayList<>();
     private int matchIndex = -1;
 
@@ -206,7 +208,7 @@ public class GuiCraftingPlanTree extends Gui {
         }
 
         this.layout();
-        this.updateSearch(this.search);
+        this.updateSearch(this.searchText);
     }
 
     private static boolean keepsMissing(final CraftingPlanSource source) {
@@ -715,20 +717,22 @@ public class GuiCraftingPlanTree extends Gui {
     // ------------------------------------------------------------------ search
 
     public void updateSearch(final String text) {
-        this.search = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        this.searchText = text == null ? "" : text;
+        this.search.setSearchString(this.searchText);
+        this.search.refresh();
         for (final Cell cell : this.matches) {
             cell.searchMatch = false;
         }
         this.matches.clear();
         this.matchIndex = -1;
 
-        if (this.search.isEmpty()) {
+        if (this.searchText.isEmpty()) {
             return;
         }
 
         for (final Cell cell : this.cells) {
             final AEKey what = cell.node != null ? cell.node.getWhat() : cell.source.getWhat();
-            cell.searchMatch = Platform.getItemDisplayName(what).toLowerCase(Locale.ROOT).contains(this.search);
+            cell.searchMatch = this.search.matches(what);
             if (cell.searchMatch) {
                 this.matches.add(cell);
             }
@@ -739,7 +743,7 @@ public class GuiCraftingPlanTree extends Gui {
 
     /** False only while a query is typed that no cell in the plan answers. */
     public boolean hasMatches() {
-        return this.search.isEmpty() || !this.matches.isEmpty();
+        return this.searchText.isEmpty() || !this.matches.isEmpty();
     }
 
     public void goToMatch(final boolean forward) {
