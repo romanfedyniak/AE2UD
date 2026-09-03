@@ -4,13 +4,15 @@ What a search field in this mod understands, and where each answer comes from. R
 `TERMINAL_SEARCH.md`, which is the name older changelog entries know it by, when the grammar stopped
 belonging to the terminal alone.
 
-Five fields read it:
+Seven fields read it:
 
 | Screen | Field | Asked of |
 | --- | --- | --- |
 | ME Terminal | the search box | one key per row |
 | Cell view | the search box | one key per row |
 | Crafting Plan tree | the search box | one key per cell |
+| Crafting Status, and a CPU's own screen | the search box | one key per row |
+| Crafting Plan | the search box | one key per row |
 | Interface Terminal | Recipe Inputs, Recipe Outputs | one pattern's ingredients, as a set |
 | Interface Configuration Terminal | Configured Items | one interface's configured items, as a set |
 
@@ -89,7 +91,7 @@ the whole name is one term. The two boxes that search interface *names* are deli
 
 ## Keeping what was typed
 
-`Settings.SEARCH_KEEP` says whether a box keeps its text when the screen closes, and answers for all five
+`Settings.SEARCH_KEEP` says whether a box keeps its text when the screen closes, and answers for all seven
 fields plus the two that search names. Each screen keeps its own text - the setting is shared, the text is
 not. It used to be half of `SEARCH_MODE`, which is why a config written before the split names a mode like
 `AUTOSEARCH_KEEP`; `AEClientConfig.migrateSearchKeep` rewrites those. See item 32 in `docs/port/STATUS.md`.

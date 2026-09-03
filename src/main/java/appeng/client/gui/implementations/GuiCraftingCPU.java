@@ -33,14 +33,18 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.api.util.AEColor;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.IKeyUnderMouse;
+import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.ISortSource;
+import appeng.client.gui.widgets.MEGuiTextField;
+import appeng.client.me.search.RepoSearch;
 import appeng.container.implementations.ContainerCraftingCPU;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
+import appeng.core.localization.Tooltips;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.util.Platform;
@@ -56,6 +60,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -63,10 +68,26 @@ import java.util.concurrent.TimeUnit;
 public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderMouse {
     private static final int GUI_HEIGHT = 184;
     private static final int GUI_WIDTH = 238;
+    private static final int TEXTURE_TOP_HEIGHT = 41;
 
     private static final int MIN_ROWS = 6;
     private static final int ROW_HEIGHT = 23;
-    private static final int FIXED_HEIGHT = 46;
+
+    /** The last list row, and then the window's foot, both taken from the bottom of the texture. */
+    private static final int LIST_TAIL_Y = 133;
+    private static final int LIST_TAIL_HEIGHT = 24;
+    /** Down to just past the step where the window's right edge comes in. */
+    private static final int FOOTER_TEXTURE_Y = 157;
+    private static final int FOOTER_HEAD = 10;
+    /** One plain row of the narrower lower part, repeated to whatever height the foot needs. */
+    private static final int FOOTER_BODY_ROW = 170;
+    private static final int FOOTER_TAIL = 8;
+    private static final int FOOTER_HEIGHT = 46;
+    /** Six pixels clear of the buttons, which sit twenty-five up from the bottom. */
+    private static final int FOOTER_TEXT_TOP = 39;
+
+    private static final int FIXED_HEIGHT = TEXTURE_TOP_HEIGHT + LIST_TAIL_HEIGHT + FOOTER_HEIGHT
+            - 2 * ROW_HEIGHT;
 
     private static final int TEXT_COLOR = 0x404040;
     private static final int BACKGROUND_ALPHA = 0x5A000000;
@@ -87,6 +108,12 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
     private static final int TITLE_TOP_OFFSET = 7;
     private static final int TITLE_LEFT_OFFSET = 8;
+
+    /** The right end of the header strip; the title has what is left of it. */
+    private static final int SEARCH_LEFT = 92;
+    private static final int SEARCH_TOP = 4;
+    private static final int SEARCH_WIDTH = 118;
+    private static final int SEARCH_HEIGHT = 12;
 
     private static final int ITEMSTACK_LEFT_OFFSET = 9;
     private static final int ITEMSTACK_TOP_OFFSET = 22;
@@ -113,6 +140,13 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private GuiImgButton selectionMode;
     protected int rows = MIN_ROWS;
     private int tooltip = -1;
+
+    private MEGuiTextField searchField;
+    protected GuiImgButton searchKeepBtn;
+    private final RepoSearch search = new RepoSearch();
+
+    /** Where the search survives closing the screen, while the keep setting says it should. */
+    private static String memoryText = "";
 
     public GuiCraftingCPU(final InventoryPlayer inventoryPlayer, final Object te) {
         this(new ContainerCraftingCPU(inventoryPlayer, te));
@@ -147,6 +181,10 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
             this.mc.displayGuiScreen(new GuiCraftPriority(this, this.mc.player.inventory,
                     AEApi.instance().definitions().blocks().craftingUnit().maybeStack(1).orElse(ItemStack.EMPTY),
                     this.craftingCpu));
+            return;
+        }
+
+        if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
             return;
         }
 
@@ -235,6 +273,43 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         }
 
         this.buttonList.add(this.terminalStyleBox);
+
+        this.searchKeepBtn = new GuiImgButton(this.terminalStyleBox.x,
+                (this.selectionMode == null ? this.toggleHideStored : this.selectionMode).y + 20,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        this.buttonList.add(this.searchKeepBtn);
+
+        this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + SEARCH_LEFT,
+                this.guiTop + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
+        this.searchField.setEnableBackgroundDrawing(false);
+        this.searchField.setMaxStringLength(100);
+        this.searchField.setTextColor(MEGuiTextField.TEXT_COLOR);
+        this.searchField.setVisible(true);
+
+        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+            this.searchField.setText(memoryText, true);
+        }
+
+        this.setScrollBar();
+    }
+
+    /**
+     * Elapsed, not remaining: how long this job has been running is a fact, while the estimate was a moving
+     * prediction derived from throughput so far.
+     * <p>
+     * On its own line above the buttons, centred across the window - the same place the Crafting Plan puts
+     * the bytes a plan will take.
+     */
+    private void drawElapsed() {
+        if (this.craftingCpu.elapsed <= 0 || this.visual.isEmpty()) {
+            return;
+        }
+
+        final long elapsedMilliseconds = TimeUnit.MILLISECONDS.convert(this.craftingCpu.elapsed, TimeUnit.NANOSECONDS);
+        final String text = DurationFormatUtils.formatDuration(elapsedMilliseconds, GuiText.ETAFormat.getLocal());
+
+        this.fontRenderer.drawString(text, (this.xSize - this.fontRenderer.getStringWidth(text)) / 2,
+                this.ySize - FOOTER_TEXT_TOP, TEXT_COLOR);
     }
 
     /**
@@ -245,9 +320,13 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         final boolean hideStored = AEClientConfig.instance().getConfigManager()
                 .getSetting(Settings.HIDE_STORED) == YesNo.YES;
 
+        this.search.setSearchString(this.searchField == null ? "" : this.searchField.getText());
+        this.search.refresh();
+
         this.displayed.clear();
         for (final AEKey what : this.visual) {
-            if (!hideStored || this.active.get(what) > 0 || this.pending.get(what) > 0) {
+            if ((!hideStored || this.active.get(what) > 0 || this.pending.get(what) > 0)
+                    && this.search.matches(what)) {
                 this.displayed.add(what);
             }
         }
@@ -308,16 +387,13 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         String title = this.getGuiDisplayName(GuiText.CraftingStatus.getLocal());
-
-        // Elapsed, not remaining: how long this job has been running is a fact, while the estimate was a
-        // moving prediction derived from throughput so far.
-        if (this.craftingCpu.elapsed > 0 && !this.visual.isEmpty()) {
-            final long elapsedMilliseconds = TimeUnit.MILLISECONDS.convert(this.craftingCpu.elapsed, TimeUnit.NANOSECONDS);
-            final String elapsedText = DurationFormatUtils.formatDuration(elapsedMilliseconds, GuiText.ETAFormat.getLocal());
-            title += " - " + elapsedText;
+        final int titleRoom = SEARCH_LEFT - TITLE_LEFT_OFFSET - 4;
+        while (title.length() > 2 && this.fontRenderer.getStringWidth(title) > titleRoom) {
+            title = title.substring(0, title.length() - 1);
         }
 
         this.fontRenderer.drawString(title, TITLE_LEFT_OFFSET, TITLE_TOP_OFFSET, TEXT_COLOR);
+        this.drawElapsed();
 
         int x = 0;
         int y = 0;
@@ -449,18 +525,45 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         if (this.tooltip >= 0 && !dspToolTip.isEmpty()) {
             this.drawTooltip(toolPosX, toolPosY + 10, dspToolTip);
         }
+
+        if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, Tooltips.searchSyntax());
+        }
     }
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.bindTexture("guis/craftingcpu.png");
-        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, 41);
-        int y = 41;
+        this.drawTexturedModalRect(offsetX, offsetY, 0, 0, this.xSize, TEXTURE_TOP_HEIGHT);
+        int y = TEXTURE_TOP_HEIGHT;
         for (int row = 1; row < this.rows - 1; row++) {
-            this.drawTexturedModalRect(offsetX, offsetY + y, 0, 41, this.xSize, ROW_HEIGHT);
+            this.drawTexturedModalRect(offsetX, offsetY + y, 0, TEXTURE_TOP_HEIGHT, this.xSize, ROW_HEIGHT);
             y += ROW_HEIGHT;
         }
-        this.drawTexturedModalRect(offsetX, offsetY + y, 0, GUI_HEIGHT - 51, this.xSize, 51);
+        this.drawTexturedModalRect(offsetX, offsetY + y, 0, LIST_TAIL_Y, this.xSize, LIST_TAIL_HEIGHT);
+        this.drawFooter(offsetX, offsetY + y + LIST_TAIL_HEIGHT);
+
+        if (this.searchField != null) {
+            drawWell(offsetX + SEARCH_LEFT, offsetY + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
+            this.searchField.setMatched(!this.displayed.isEmpty() || this.searchField.getText().isEmpty());
+            this.searchField.drawTextBox();
+        }
+    }
+
+    /**
+     * The window's foot, at whatever height it has been given: the step in its right edge, then one plain
+     * row repeated, then the bottom border. Taken in three pieces rather than one so the foot can be made
+     * taller than the texture draws it without either the step or the border being skipped.
+     */
+    private void drawFooter(final int x, final int y) {
+        this.drawTexturedModalRect(x, y, 0, FOOTER_TEXTURE_Y, this.xSize, FOOTER_HEAD);
+
+        for (int row = FOOTER_HEAD; row < FOOTER_HEIGHT - FOOTER_TAIL; row++) {
+            this.drawTexturedModalRect(x, y + row, 0, FOOTER_BODY_ROW, this.xSize, 1);
+        }
+
+        this.drawTexturedModalRect(x, y + FOOTER_HEIGHT - FOOTER_TAIL, 0, GUI_HEIGHT - FOOTER_TAIL,
+                this.xSize, FOOTER_TAIL);
     }
 
     /**
@@ -469,11 +572,61 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
      */
     @Override
     public List<Rectangle> getJEIExclusionArea() {
-        final List<Rectangle> areas = new ArrayList<>(3);
+        final List<Rectangle> areas = new ArrayList<>(4);
         addButtonArea(areas, this.terminalStyleBox);
         addButtonArea(areas, this.toggleHideStored);
         addButtonArea(areas, this.selectionMode);
+        addButtonArea(areas, this.searchKeepBtn);
         return areas;
+    }
+
+    @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchField == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new KeySearchTarget(this.searchField.getArea(), what -> {
+            this.searchField.setText(RepoSearch.termFor(what));
+            this.setScrollBar();
+        }));
+    }
+
+    @Override
+    protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        if (this.searchField != null) {
+            this.searchField.mouseClicked(xCoord, yCoord, btn);
+
+            if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
+                this.searchField.setText("", true);
+                this.setScrollBar();
+            }
+        }
+
+        super.mouseClicked(xCoord, yCoord, btn);
+    }
+
+    @Override
+    protected void keyTyped(final char character, final int key) throws IOException {
+        if (this.searchField != null && this.searchField.isFocused()
+                && this.searchField.textboxKeyTyped(character, key)) {
+            this.setScrollBar();
+            return;
+        }
+
+        super.keyTyped(character, key);
+    }
+
+    @Override
+    public boolean isTextFieldFocused() {
+        return this.searchField != null && this.searchField.isFocused();
+    }
+
+    @Override
+    public void onGuiClosed() {
+        memoryText = this.searchField != null && AEClientConfig.instance().keepsSearch()
+                ? this.searchField.getText() : "";
+        super.onGuiClosed();
     }
 
     public void postUpdate(final List<GridInventoryEntry> list, final byte ref) {

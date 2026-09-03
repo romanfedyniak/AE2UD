@@ -32,6 +32,7 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
+import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
@@ -39,10 +40,13 @@ import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiIconButton;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
+import appeng.client.gui.widgets.MEGuiTextField;
+import appeng.client.me.search.RepoSearch;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.core.AELog;
 import appeng.core.AEClientConfig;
 import appeng.core.localization.GuiText;
+import appeng.core.localization.Tooltips;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
@@ -62,6 +66,7 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +80,15 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private static final int PRIORITY_GAP = 4;
 
     private static final int MIN_ROWS = 5;
+
+    private static final int TITLE_LEFT = 8;
+    private static final int TITLE_TOP = 7;
+    /** The right end of the header strip; the title has what is left of it. */
+    private static final int SEARCH_LEFT = 92;
+    private static final int SEARCH_TOP = 4;
+    private static final int SEARCH_WIDTH = 118;
+    private static final int SEARCH_HEIGHT = 12;
+    private static final int FOOTER_BUTTON_TOP = 25;
     private static final int SWITCH_VIEW_ICON = 13 * 16 + 3;
     private static final int SAVE_IMAGE_ICON = 8 * 16 + 4;
     private static final float IMAGE_SCALE = 2.0f;
@@ -94,13 +108,22 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
      */
     private static final int TEXTURE_LAST_ROW_HEIGHT = 24;
     private static final int TEXTURE_FOOTER_Y = TEXTURE_BOTTOM_Y + TEXTURE_LAST_ROW_HEIGHT;
+    private static final int TEXTURE_HEIGHT = 206;
     /**
-     * Skipped from the top of the footer: the strip the "Crafting CPU:" button used to sit in, now that the
-     * CPU table on the left has taken its job, and below it the line that repeated the selected CPU's
-     * storage and co-processors - which that table already draws on the row the numbers belong to.
+     * The foot is taken in three pieces so that it can be shorter - or taller - than the texture draws it
+     * without losing either end. Between them sat the strip the "Crafting CPU:" button used to occupy, and
+     * the line repeating the selected CPU's storage and co-processors, both of which the CPU table on the
+     * left has taken over; those rows are what the repeated body row replaces.
+     * <p>
+     * The head has to reach past the step where the window's right edge comes in. Sampling the foot from
+     * below that step, which is how those rows used to be dropped, left the corner cut off.
      */
-    private static final int TEXTURE_FOOTER_TRIM = 40;
-    private static final int FOOTER_HEIGHT = 206 - TEXTURE_FOOTER_Y - TEXTURE_FOOTER_TRIM;
+    private static final int FOOTER_HEAD = 14;
+    private static final int FOOTER_BODY_ROW = 190;
+    private static final int FOOTER_TAIL = 8;
+    private static final int FOOTER_HEIGHT = 46;
+    /** Six pixels clear of the buttons, which sit twenty-five up from the bottom. */
+    private static final int FOOTER_TEXT_TOP = 39;
     private static final int FIXED_HEIGHT = TEXTURE_TOP_HEIGHT + TEXTURE_LAST_ROW_HEIGHT + FOOTER_HEIGHT
             - 2 * ROW_HEIGHT;
 
@@ -120,6 +143,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private static final int USED_PERCENT_100_COLOR = 0x660F0F;
 
     private final List<AEKey> visual = new ArrayList<>();
+    /**
+     * What the screen shows: {@link #visual} without the rows the search hides. The saved picture and the
+     * Start button still answer for the whole plan, which is why the two lists are kept apart.
+     */
+    private final List<AEKey> displayed = new ArrayList<>();
 
     private GuiBridge OriginalGui;
     private GuiButton cancel;
@@ -128,6 +156,12 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private GuiTabButton showTree;
     private GuiImgButton terminalStyleBox;
     private GuiIconButton saveImage;
+    private GuiImgButton searchKeepBtn;
+    private MEGuiTextField searchField;
+    private final RepoSearch search = new RepoSearch();
+
+    /** Where the search survives closing the screen, while the keep setting says it should. */
+    private static String memoryText = "";
     private final GuiCraftingCPUTable cpuTable;
     private final GuiCraftErrorPanel errorPanel;
     private int tooltip = -1;
@@ -203,6 +237,21 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
 
+        this.searchKeepBtn = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 48,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        this.buttonList.add(this.searchKeepBtn);
+
+        this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + SEARCH_LEFT,
+                this.guiTop + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
+        this.searchField.setEnableBackgroundDrawing(false);
+        this.searchField.setMaxStringLength(100);
+        this.searchField.setTextColor(MEGuiTextField.TEXT_COLOR);
+        this.searchField.setVisible(true);
+
+        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+            this.searchField.setText(memoryText, true);
+        }
+
         // Over the plan list, leaving the header and the row of buttons below it visible.
         this.errorPanel.initGui(6, 18, this.xSize - 12, this.ySize - FOOTER_HEIGHT - 15, this.buttonList);
     }
@@ -267,13 +316,20 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.cpuTable.drawFG(mouseX, mouseY);
 
         final long BytesUsed = this.ccc.getUsedBytes();
-        final String byteUsed = NumberFormat.getInstance().format(BytesUsed);
-        final String Add = BytesUsed > 0 ? (byteUsed + ' ' + GuiText.BytesUsed.getLocal()) : GuiText.CalculatingWait.getLocal();
         // The word stands in for the title rather than beside it: the two together run past the window,
         // and when a plan is incomplete that is the first thing to say about it. Only once there is a plan
         // to call incomplete, though - the field reads as a simulation until the server has said otherwise.
         final String plan = (BytesUsed > 0 && this.isSimulation() ? GuiText.Simulation : GuiText.CraftingPlan).getLocal();
-        this.fontRenderer.drawString(plan + " - " + Add, 8, 7, 4210752);
+        this.fontRenderer.drawString(plan, TITLE_LEFT, TITLE_TOP, 4210752);
+
+        // On the strip the footer leaves above its buttons, across the whole window: the count and the
+        // wait message are both wider than anything the header has room for beside a search box.
+        final String byteUsed = NumberFormat.getInstance().format(BytesUsed);
+        final String bytes = BytesUsed > 0
+                ? byteUsed + ' ' + GuiText.BytesUsed.getLocal()
+                : GuiText.CalculatingWait.getLocal();
+        this.fontRenderer.drawString(bytes, (this.xSize - this.fontRenderer.getStringWidth(bytes)) / 2,
+                this.ySize - FOOTER_TEXT_TOP, 4210752);
 
         // The panel stands in for the list, and is drawn in the background layer so its own buttons stay on
         // top of it. Nothing of the list is drawn underneath.
@@ -297,8 +353,8 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
         final int offY = 23;
 
-        for (int z = viewStart; z < Math.min(viewEnd, this.visual.size()); z++) {
-            final AEKey refKey = this.visual.get(z);
+        for (int z = viewStart; z < Math.min(viewEnd, this.displayed.size()); z++) {
+            final AEKey refKey = this.displayed.get(z);
             if (refKey == null) {
                 continue;
             }
@@ -333,6 +389,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         final String cpuTooltip = this.cpuTable.getTooltip(mouseX, mouseY);
         if (cpuTooltip != null) {
             this.drawTooltip(mouseX - offsetX, mouseY - offsetY, cpuTooltip);
+            return;
+        }
+
+        if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, Tooltips.searchSyntax());
         }
     }
 
@@ -350,10 +411,27 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         }
         this.drawTexturedModalRect(offsetX, offsetY + y, 0, TEXTURE_BOTTOM_Y,
                 this.xSize, TEXTURE_LAST_ROW_HEIGHT);
-        this.drawTexturedModalRect(offsetX, offsetY + y + TEXTURE_LAST_ROW_HEIGHT,
-                0, TEXTURE_FOOTER_Y + TEXTURE_FOOTER_TRIM, this.xSize, FOOTER_HEIGHT);
+        this.drawFooter(offsetX, offsetY + y + TEXTURE_LAST_ROW_HEIGHT);
 
         this.errorPanel.drawBG(offsetX, offsetY);
+
+        if (this.searchField != null) {
+            drawWell(offsetX + SEARCH_LEFT, offsetY + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
+            this.searchField.setMatched(!this.displayed.isEmpty() || this.searchField.getText().isEmpty());
+            this.searchField.drawTextBox();
+        }
+    }
+
+    /** See {@link #FOOTER_HEAD}: the step in the right edge, one plain row repeated, then the border. */
+    private void drawFooter(final int x, final int y) {
+        this.drawTexturedModalRect(x, y, 0, TEXTURE_FOOTER_Y, this.xSize, FOOTER_HEAD);
+
+        for (int row = FOOTER_HEAD; row < FOOTER_HEIGHT - FOOTER_TAIL; row++) {
+            this.drawTexturedModalRect(x, y + row, 0, FOOTER_BODY_ROW, this.xSize, 1);
+        }
+
+        this.drawTexturedModalRect(x, y + FOOTER_HEIGHT - FOOTER_TAIL, 0, TEXTURE_HEIGHT - FOOTER_TAIL,
+                this.xSize, FOOTER_TAIL);
     }
 
     @Override
@@ -362,12 +440,46 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         area.add(this.cpuTable.getExclusionArea());
         addButtonArea(area, this.terminalStyleBox);
         addButtonArea(area, this.saveImage);
+        addButtonArea(area, this.searchKeepBtn);
         addButtonArea(area, this.showTree);
         return area;
     }
 
     @Override
+    public List<KeySearchTarget> getKeySearchTargets() {
+        if (this.searchField == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(new KeySearchTarget(this.searchField.getArea(), what -> {
+            this.searchField.setText(RepoSearch.termFor(what), true);
+            this.setScrollBar();
+        }));
+    }
+
+    @Override
+    public boolean isTextFieldFocused() {
+        return this.searchField != null && this.searchField.isFocused();
+    }
+
+    @Override
+    public void onGuiClosed() {
+        memoryText = this.searchField != null && AEClientConfig.instance().keepsSearch()
+                ? this.searchField.getText() : "";
+        super.onGuiClosed();
+    }
+
+    @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        if (this.searchField != null) {
+            this.searchField.mouseClicked(xCoord, yCoord, btn);
+
+            if (btn == 1 && this.searchField.isMouseIn(xCoord, yCoord)) {
+                this.searchField.setText("", true);
+                this.setScrollBar();
+            }
+        }
+
         super.mouseClicked(xCoord, yCoord, btn);
 
         this.cpuTable.mouseClicked(xCoord, yCoord, btn);
@@ -390,8 +502,23 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         super.handleMouseInput();
     }
 
+    /** {@link #visual} without what the query leaves out. */
+    private void rebuildDisplayed() {
+        this.search.setSearchString(this.searchField == null ? "" : this.searchField.getText());
+        this.search.refresh();
+
+        this.displayed.clear();
+        for (final AEKey what : this.visual) {
+            if (this.search.matches(what)) {
+                this.displayed.add(what);
+            }
+        }
+    }
+
     private void setScrollBar() {
-        final int size = this.visual.size();
+        this.rebuildDisplayed();
+
+        final int size = this.displayed.size();
 
         this.getScrollBar().setTop(19).setLeft(218).setHeight(this.rows * ROW_HEIGHT - 1);
         this.getScrollBar().setRange(0, (size + 2) / 3 - this.rows, 1);
@@ -476,6 +603,12 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             return;
         }
 
+        if (this.searchField != null && this.searchField.isFocused()
+                && this.searchField.textboxKeyTyped(character, key)) {
+            this.setScrollBar();
+            return;
+        }
+
         if (!this.checkHotbarKeys(key)) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
                 this.actionPerformed(this.start);
@@ -487,6 +620,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
+
+        if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
+            return;
+        }
 
         if (this.cpuTable.actionPerformed(btn)) {
             return;
@@ -717,7 +854,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     @Override
     public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
         final int index = this.getListSlotUnderMouse(mouseX, mouseY, this.rows);
-        return index >= 0 && index < this.visual.size() ? this.visual.get(index) : null;
+        return index >= 0 && index < this.displayed.size() ? this.displayed.get(index) : null;
     }
 
     public List<AEKey> getVisual() {
