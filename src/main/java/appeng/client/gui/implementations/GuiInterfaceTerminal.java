@@ -131,7 +131,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         searchFieldOutputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
         searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
-        searchFieldNames.setFocused(true);
+        searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);
@@ -158,7 +158,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         searchFieldOutputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
         searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
-        searchFieldNames.setFocused(true);
+        searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);

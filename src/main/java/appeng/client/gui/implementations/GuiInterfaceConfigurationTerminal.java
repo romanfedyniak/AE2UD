@@ -164,6 +164,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 keep ? this.loadSearchItems() : "");
         this.searchFieldNames = this.createSearchField(NAMES_LEFT, NAMES_WIDTH,
                 keep ? this.loadSearchNames() : "");
+        this.searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
     }
 
     private MEGuiTextField createSearchField(final int left, final int width, final String text) {

@@ -108,6 +108,15 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     }
 
     /**
+     * Whether a screen's first search box is focused the moment it opens, so that typing goes into it
+     * without a click. The {@code AUTOSEARCH} half of {@link Settings#SEARCH_MODE} says so.
+     */
+    public boolean focusesSearchOnOpen() {
+        final Enum<?> mode = this.settings.getSetting(Settings.SEARCH_MODE);
+        return mode == SearchBoxMode.AUTOSEARCH || mode == SearchBoxMode.JEI_AUTOSEARCH;
+    }
+
+    /**
      * Whether the search box keeps its text used to be half of {@link Settings#SEARCH_MODE}, doubling that
      * setting's values into a {@code _KEEP} twin of each. A file written before the split says
      * {@code AUTOSEARCH_KEEP}, which no longer names a mode - left alone it would fall back to the default
