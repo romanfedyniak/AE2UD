@@ -437,6 +437,15 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.drawTexturedModalRect(offsetX, offsetY + 50 + this.rows * 18, 0, 158, this.xSize, 99);
 
         // draw the text boxes
+        // One list answers all three fields, so all three redden together - naming one of them as the
+        // culprit would be a guess.
+        final boolean matched = !this.lines.isEmpty()
+                || (this.searchFieldInputs.getText().isEmpty()
+                        && this.searchFieldOutputs.getText().isEmpty()
+                        && this.searchFieldNames.getText().isEmpty());
+        this.searchFieldInputs.setMatched(matched);
+        this.searchFieldOutputs.setMatched(matched);
+        this.searchFieldNames.setMatched(matched);
         this.searchFieldInputs.drawTextBox();
         this.searchFieldOutputs.drawTextBox();
         this.searchFieldNames.drawTextBox();

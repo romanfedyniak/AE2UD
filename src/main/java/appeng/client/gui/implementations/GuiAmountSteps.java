@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiNumberBox;
 import appeng.client.gui.widgets.GuiTabButton;
+import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.container.implementations.ContainerAmountSteps;
 import appeng.core.AmountSteps;
 import appeng.core.AmountSteps.Group;
@@ -65,8 +66,6 @@ public class GuiAmountSteps extends AEBaseGui {
 
     private static final int DEFAULTS_WIDTH = 66;
 
-    private static final int TEXT_COLOR = 0xFFFFFF;
-    private static final int REFUSED_COLOR = 0xFF5555;
     private static final int HEADING_COLOR = 4210752;
 
     private static final String ADD_LABEL = "+/-";
@@ -128,7 +127,7 @@ public class GuiAmountSteps extends AEBaseGui {
 
                 field.setEnableBackgroundDrawing(false);
                 field.setMaxStringLength(MAX_DIGITS);
-                field.setTextColor(TEXT_COLOR);
+                field.setTextColor(MEGuiTextField.TEXT_COLOR);
                 field.setVisible(true);
                 field.setText(this.typed[row][i]);
 
@@ -304,7 +303,8 @@ public class GuiAmountSteps extends AEBaseGui {
     private void validate() {
         for (int row = 0; row < this.fields.length; row++) {
             for (int i = 0; i < AmountSteps.COUNT; i++) {
-                this.fields[row][i].setTextColor(this.parse(row, i) > 0 ? TEXT_COLOR : REFUSED_COLOR);
+                this.fields[row][i].setTextColor(this.parse(row, i) > 0
+                        ? MEGuiTextField.TEXT_COLOR : MEGuiTextField.REFUSED_COLOR);
             }
         }
     }

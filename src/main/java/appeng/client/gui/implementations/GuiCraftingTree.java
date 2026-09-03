@@ -273,6 +273,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
             return;
         }
 
+        this.searchField.setMatched(this.tree.hasMatches());
         this.searchField.drawTextBox();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 

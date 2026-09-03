@@ -41,6 +41,10 @@ import java.awt.Rectangle;
 public class MEGuiTextField extends GuiTextField {
     private static final int PADDING = 2;
 
+    /** What a search field's text is normally, and what it turns when the query answers nothing. */
+    public static final int TEXT_COLOR = 0xFFFFFF;
+    public static final int REFUSED_COLOR = 0xFF5555;
+
     private final int _xPos;
     private final int _yPos;
     private final int _width;
@@ -131,6 +135,11 @@ public class MEGuiTextField extends GuiTextField {
     public void selectAll() {
         this.setCursorPosition(0);
         this.setSelectionPos(this.getMaxStringLength());
+    }
+
+    /** Marks the field red while what was typed leaves nothing on screen. */
+    public void setMatched(final boolean matched) {
+        this.setTextColor(matched ? TEXT_COLOR : REFUSED_COLOR);
     }
 
     public void setSelectionColor(int color) {

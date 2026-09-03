@@ -257,7 +257,8 @@ public class Repo {
 
             // A pinned row stays on screen whatever the search says, so it does not reach the view - but it
             // is still something the query found, and the field must not go red while one is showing.
-            this.anyMatches = matched || !this.view.isEmpty();
+            // An empty query refuses nothing: an empty network is not a query that failed.
+            this.anyMatches = matched || !this.view.isEmpty() || this.search.getSearchString().isEmpty();
 
             view.sort(c);
         }

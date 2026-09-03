@@ -266,6 +266,7 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         // drawRect leaves its colour set, and everything drawn after this is textured.
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
+        this.searchField.setMatched(this.repo.hasMatches());
         this.searchField.drawTextBox();
     }
 

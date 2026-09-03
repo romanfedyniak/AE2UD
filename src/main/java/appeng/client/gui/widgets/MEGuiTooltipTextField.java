@@ -188,6 +188,11 @@ public class MEGuiTooltipTextField implements ITooltip {
         field.setTextColor(color);
     }
 
+    /** Marks the field red while what was typed leaves nothing on screen. */
+    public void setMatched(final boolean matched) {
+        setTextColor(matched ? MEGuiTextField.TEXT_COLOR : MEGuiTextField.REFUSED_COLOR);
+    }
+
     public void setCursorPositionZero() {
         field.setCursorPositionZero();
     }

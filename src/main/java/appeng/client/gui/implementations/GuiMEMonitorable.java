@@ -885,7 +885,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (this.searchField != null) {
             // Red for a query nothing answers, the way HEI marks its own field: it separates "I typed it
             // wrong" from "the network really has none of that".
-            this.searchField.setTextColor(this.repo.hasMatches() ? 0xFFFFFF : 0xFF5555);
+            this.searchField.setMatched(this.repo.hasMatches());
             this.searchField.drawTextBox();
         }
     }

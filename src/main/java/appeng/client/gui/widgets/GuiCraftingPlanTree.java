@@ -737,6 +737,11 @@ public class GuiCraftingPlanTree extends Gui {
         this.goToMatch(true);
     }
 
+    /** False only while a query is typed that no cell in the plan answers. */
+    public boolean hasMatches() {
+        return this.search.isEmpty() || !this.matches.isEmpty();
+    }
+
     public void goToMatch(final boolean forward) {
         if (this.matches.isEmpty()) {
             return;

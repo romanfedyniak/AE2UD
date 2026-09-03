@@ -102,6 +102,9 @@ public class GuiCraftingCPUTable extends Gui {
     /** What the filters and the ordering leave of the container's list, rebuilt every frame. */
     private final List<CraftingCPUStatus> displayed = new ArrayList<>();
 
+    /** Whether the filters and the query left anything - the selected CPU is shown regardless. */
+    private boolean anyMatched = true;
+
     private MEGuiTooltipTextField searchField;
     private GuiImgButton activityFilter;
     private GuiImgButton modeFilter;
@@ -209,8 +212,11 @@ public class GuiCraftingCPUTable extends Gui {
         final int selected = this.host.getSelectedCpuSerial();
 
         this.displayed.clear();
+        this.anyMatched = search.isEmpty();
         for (final CraftingCPUStatus cpu : this.host.getCPUTable().getCPUs()) {
-            if (cpu.getSerial() == selected || matches(cpu, activity, mode, search)) {
+            final boolean matched = matches(cpu, activity, mode, search);
+            this.anyMatched |= matched;
+            if (cpu.getSerial() == selected || matched) {
                 this.displayed.add(cpu);
             }
         }
@@ -289,6 +295,7 @@ public class GuiCraftingCPUTable extends Gui {
         if (this.searchField != null) {
             // Only the fill, which is what darkens when the field takes the keyboard - its frame is in the
             // texture drawn above. drawRect leaves its colour behind for whatever is textured next.
+            this.searchField.setMatched(this.anyMatched);
             this.searchField.drawTextBox();
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
