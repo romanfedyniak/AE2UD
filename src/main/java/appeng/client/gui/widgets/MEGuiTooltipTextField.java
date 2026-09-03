@@ -3,6 +3,7 @@ package appeng.client.gui.widgets;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 
 /**
@@ -129,6 +130,9 @@ public class MEGuiTooltipTextField implements ITooltip {
                     this.y + this.h - 1,
                     isFocused() ? 0xFF606060 : 0xFFA8A8A8);
             field.drawTextBox();
+
+            // The frame is a drawRect, and it left its colour on whatever was drawn next.
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

@@ -13,6 +13,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- A sunken well or a text field left its last `drawRect` colour set, so anything textured the screen drew afterwards came out tinted by it - a list drawn beside a window, say, turning grey because the unfocused search box above it had painted its frame in grey. Three call sites reset the colour by hand and a fourth had already forgotten; the well helpers and both text field classes clean up after themselves now, so the next one cannot forget.
+
 - Right-clicking the Crafting Plan tree's search box did not clear it. Every other search box in the mod clears on a right click; that one was written without it.
 
 - A pattern in the Interface Terminal offered `Middle-Click: Modify Amount`, and middle-clicking it sent the server a request it has no answer for. A pattern has no amount to set; the slots on that screen only look like the ones on the Interface Configuration Terminal, which reach an interface's config inventory and where the click means what it says. Both the hint and the click are now asked of the screen rather than of the slot type the two share.

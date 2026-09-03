@@ -18,7 +18,6 @@ import java.util.List;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
@@ -285,9 +284,6 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
             GuiWirelessUpgradePlate.draw(this, offsetX + this.xSize - PLATE_OVERLAP, offsetY + GRID_TOP,
                     this.cards.size());
         }
-
-        // drawRect leaves its colour set, and everything drawn after this is textured.
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
         this.searchField.setMatched(this.repo.hasMatches());
         this.searchField.drawTextBox();

@@ -157,6 +157,9 @@ public class MEGuiTextField extends GuiTextField {
                         0xFFA8A8A8);
             }
             super.drawTextBox();
+
+            // As above: the frame is a drawRect, and it left its colour on whatever was drawn next.
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

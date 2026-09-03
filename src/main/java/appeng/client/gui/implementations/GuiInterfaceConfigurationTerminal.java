@@ -464,7 +464,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             // The items field wears the well drawn into the texture; the names field is new, so its own
             // is cut from the same shape the rest of the mod's wells are.
             drawWell(offsetX + NAMES_LEFT, offsetY + SEARCH_TOP, NAMES_WIDTH, SEARCH_HEIGHT);
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
             final boolean matched = !this.lines.isEmpty()
                     || (this.searchFieldInputs.getText().isEmpty()

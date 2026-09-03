@@ -1424,6 +1424,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x - 1, y - 1, x + 17, y + 17, SLOT_SHADOW_COLOR);
         drawRect(x, y, x + 17, y + 17, PANEL_LIGHT_COLOR);
         drawRect(x, y, x + 16, y + 16, SLOT_FILL_COLOR);
+        // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually
+        // textured. Cleaned up here rather than at each call site, one of which had already forgotten.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     /**
@@ -1434,6 +1437,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x, y, x + width, y + height, PANEL_SHADOW_COLOR);
         drawRect(x + 1, y + 1, x + width, y + height, PANEL_LIGHT_COLOR);
         drawRect(x + 1, y + 1, x + width - 1, y + height - 1, SLOT_FILL_COLOR);
+        // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually
+        // textured. Cleaned up here rather than at each call site, one of which had already forgotten.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     /**
@@ -1444,6 +1450,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x, y, x + width, y + height, SLOT_SHADOW_COLOR);
         drawRect(x + 1, y + 1, x + width, y + height, PANEL_LIGHT_COLOR);
         drawRect(x + 1, y + 1, x + width - 1, y + height - 1, SLOT_FILL_COLOR);
+        // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually
+        // textured. Cleaned up here rather than at each call site, one of which had already forgotten.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     protected boolean isPowered() {
