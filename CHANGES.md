@@ -13,6 +13,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- Right-clicking the Crafting Plan tree's search box did not clear it. Every other search box in the mod clears on a right click; that one was written without it.
+
 - A pattern in the Interface Terminal offered `Middle-Click: Modify Amount`, and middle-clicking it sent the server a request it has no answer for. A pattern has no amount to set; the slots on that screen only look like the ones on the Interface Configuration Terminal, which reach an interface's config inventory and where the click means what it says. Both the hint and the click are now asked of the screen rather than of the slot type the two share.
 
 - The Interface Configuration Terminal's buttons jumped for a frame whenever the search changed. Its row buttons were rebuilt while the foreground layer was drawn, which happens after the buttons have already been painted, so what was on screen always belonged to the list from before the last keystroke. They are settled before any layer is painted now, which is where the Interface Terminal beside it has always done it - and the row slots, rebuilt in the same place, no longer lag either.

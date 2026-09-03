@@ -414,6 +414,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         this.searchField.mouseClicked(xCoord - this.guiLeft, yCoord - this.guiTop, btn);
 
+        if (btn == 1 && this.searchField.isMouseIn(xCoord - this.guiLeft, yCoord - this.guiTop)) {
+            this.searchField.setText("");
+        }
+
         this.cpuTable.mouseClicked(xCoord, yCoord, btn);
         this.tree.mouseClicked(xCoord, yCoord);
     }
