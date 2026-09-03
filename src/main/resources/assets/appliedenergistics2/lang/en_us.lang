@@ -597,6 +597,7 @@ gui.tooltips.appliedenergistics2.ToggleShowOnlyInvalidInterfaceOffDesc=Showing a
 gui.tooltips.appliedenergistics2.ToggleShowOnlyInvalidInterfaceOnDesc=Showing only interfaces with invalid patterns
 gui.tooltips.appliedenergistics2.HighlightInterface=Highlight Interface
 gui.tooltips.appliedenergistics2.SearchFieldInputs=Recipe Inputs
+gui.tooltips.appliedenergistics2.SearchFieldConfigured=Configured Items
 gui.tooltips.appliedenergistics2.SearchFieldOutputs=Recipe Outputs
 gui.tooltips.appliedenergistics2.SearchFieldNames=Interface Names
 gui.tooltips.appliedenergistics2.PartialTransfer=Move stored items into the crafting grid

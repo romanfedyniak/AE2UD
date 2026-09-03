@@ -37,6 +37,7 @@ import net.minecraftforge.fluids.FluidUtil;
 import javax.annotation.Nullable;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
+import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
@@ -79,6 +80,19 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     // TODO: copied from GuiMEMonitorable. It looks not changed, maybe unneeded?
     private final int offsetX = 21;
 
+    /** The items field sits over the well drawn into the texture; the names field beside it in the clear. */
+    private static final int SEARCH_TOP = 17;
+    private static final int SEARCH_HEIGHT = 12;
+    private static final int ITEMS_LEFT = 32;
+    private static final int ITEMS_WIDTH = 65;
+    private static final int NAMES_LEFT = 111;
+    private static final int NAMES_WIDTH = 75;
+
+    /** The magnifier drawn beside a search box, and where the texture keeps the one it came with. */
+    private static final int ICON_SIZE = 10;
+    private static final int ICON_TOP = 18;
+    private static final int ICON_SOURCE_LEFT = 21;
+
     private final HashMap<Long, ClientDCInternalInv> byId = new HashMap<>();
     private final HashMultimap<String, ClientDCInternalInv> byName = HashMultimap.create();
     private final HashMap<ClientDCInternalInv, BlockPos> blockPosHashMap = new HashMap<>();
@@ -94,6 +108,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private boolean refreshList = false;
     private int rows = MIN_ROWS;
     private MEGuiTextField searchFieldInputs;
+    private MEGuiTextField searchFieldNames;
     private GuiImgButton terminalStyleBox;
     private final PartInterfaceConfigurationTerminal partInterfaceTerminal;
     private final HashMap<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
@@ -138,14 +153,20 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             }
         }
 
-        this.searchFieldInputs = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(32, this.offsetX), this.guiTop + 17, 65, 12);
-        this.searchFieldInputs.setEnableBackgroundDrawing(false);
-        this.searchFieldInputs.setMaxStringLength(25);
-        this.searchFieldInputs.setTextColor(0xFFFFFF);
-        this.searchFieldInputs.setVisible(true);
-        this.searchFieldInputs.setFocused(false);
+        this.searchFieldInputs = this.createSearchField(ITEMS_LEFT, ITEMS_WIDTH, this.loadSearchItems());
+        this.searchFieldNames = this.createSearchField(NAMES_LEFT, NAMES_WIDTH, this.loadSearchNames());
+    }
 
-        this.searchFieldInputs.setText(this.loadSearchText());
+    private MEGuiTextField createSearchField(final int left, final int width, final String text) {
+        final MEGuiTextField field = new MEGuiTextField(this.fontRenderer, this.guiLeft + left,
+                this.guiTop + SEARCH_TOP, width, SEARCH_HEIGHT);
+        field.setEnableBackgroundDrawing(false);
+        field.setMaxStringLength(25);
+        field.setTextColor(MEGuiTextField.TEXT_COLOR);
+        field.setVisible(true);
+        field.setFocused(false);
+        field.setText(text);
+        return field;
     }
 
     @Override
@@ -159,12 +180,16 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 this.terminalStyleBox.height + 2));
     }
 
-    protected String loadSearchText() {
-        return this.partInterfaceTerminal.in;
+    protected String loadSearchItems() {
+        return this.partInterfaceTerminal.searchItems;
     }
 
-    protected void saveSearchText(final String text) {
-        this.partInterfaceTerminal.saveSearchStrings(text);
+    protected String loadSearchNames() {
+        return this.partInterfaceTerminal.searchNames;
+    }
+
+    protected void saveSearchText(final String items, final String names) {
+        this.partInterfaceTerminal.saveSearchStrings(items, names);
     }
 
     /**
@@ -176,23 +201,17 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public void onGuiClosed() {
-        this.saveSearchText(this.searchFieldInputs.getText().toLowerCase());
+        this.saveSearchText(this.searchFieldInputs.getText().toLowerCase(),
+                this.searchFieldNames.getText().toLowerCase());
         super.onGuiClosed();
     }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
-        this.buttonList.clear();
-        this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
-        this.buttonList.add(this.terminalStyleBox);
-        this.addExtraButtons();
-
         this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.InterfaceConfigurationTerminal.getLocal()), 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), this.offsetX + 2, this.ySize - 96 + 3, 4210752);
 
         final int currentScroll = this.getScrollBar().getCurrentScroll();
-
-        this.inventorySlots.inventorySlots.removeIf(slot -> slot instanceof SlotDisconnected);
 
         int offset = 30;
         int linesDraw = 0;
@@ -201,14 +220,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             if (lineObj instanceof ClientDCInternalInv) {
                 final ClientDCInternalInv inv = (ClientDCInternalInv) lineObj;
 
-                GuiButton guiButton = new GuiImgButton(guiLeft + 4, guiTop + offset, Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
-                guiButtonHashMap.put(guiButton, inv);
-                this.buttonList.add(guiButton);
                 int extraLines = numUpgradesMap.get(inv);
 
                 for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
                     for (int z = 0; z < 9; z++) {
-                        this.inventorySlots.inventorySlots.add(new SlotDisconnected(inv, z + (row * 9), (z * 18 + 22), offset));
                         if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (row * 9)))) {
                             drawRect(z * 18 + 22, offset, z * 18 + 22 + 16, offset + 16, 0x8A00FF00);
                         } else if (!matchedInterfaces.contains(inv)) {
@@ -247,18 +262,27 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             }
         }
 
-        if (searchFieldInputs.isMouseIn(mouseX, mouseY)) {
-            drawTooltip(Mouse.getEventX() * this.width / this.mc.displayWidth - offsetX, mouseY - guiTop, "Inputs OR names");
+        final int tooltipX = Mouse.getEventX() * this.width / this.mc.displayWidth - offsetX;
+        if (this.searchFieldInputs.isMouseIn(mouseX, mouseY)) {
+            drawTooltip(tooltipX, mouseY - this.guiTop, ButtonToolTips.SearchFieldConfigured.getLocal());
+        } else if (this.searchFieldNames.isMouseIn(mouseX, mouseY)) {
+            drawTooltip(tooltipX, mouseY - this.guiTop, ButtonToolTips.SearchFieldNames.getLocal());
         }
     }
 
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
         this.searchFieldInputs.mouseClicked(xCoord, yCoord, btn);
+        this.searchFieldNames.mouseClicked(xCoord, yCoord, btn);
 
-        if (btn == 1 && this.searchFieldInputs.isMouseIn(xCoord, yCoord)) {
-            this.searchFieldInputs.setText("");
-            this.refreshList();
+        if (btn == 1) {
+            if (this.searchFieldInputs.isMouseIn(xCoord, yCoord)) {
+                this.searchFieldInputs.setText("");
+                this.refreshList();
+            } else if (this.searchFieldNames.isMouseIn(xCoord, yCoord)) {
+                this.searchFieldNames.setText("");
+                this.refreshList();
+            }
         }
 
         super.mouseClicked(xCoord, yCoord, btn);
@@ -270,10 +294,12 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            final String search = this.searchFieldInputs.getText();
+            final String items = this.searchFieldInputs.getText();
+            final String names = this.searchFieldNames.getText();
             AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
             this.initGui();
-            this.searchFieldInputs.setText(search);
+            this.searchFieldInputs.setText(items);
+            this.searchFieldNames.setText(names);
         } else if (guiButtonHashMap.containsKey(btn)) {
             BlockPos blockPos = blockPosHashMap.get(guiButtonHashMap.get(this.selectedButton));
             BlockPos blockPos2 = mc.player.getPosition();
@@ -315,6 +341,51 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         }
     }
 
+    /**
+     * The buttons and the slots the rows carry, settled before any layer is painted. They used to be
+     * rebuilt while the foreground was drawn, which is after the buttons have already been painted - so
+     * every list the search changed was a frame behind the rows underneath it, and the buttons jumped on
+     * each keystroke. The Interface Terminal beside this one has always done it here.
+     */
+    @Override
+    public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
+        this.buttonList.clear();
+        this.guiButtonHashMap.clear();
+        this.inventorySlots.inventorySlots.removeIf(slot -> slot instanceof SlotDisconnected);
+
+        this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
+        this.buttonList.add(this.terminalStyleBox);
+        this.addExtraButtons();
+
+        int offset = 30;
+        final int currentScroll = this.getScrollBar().getCurrentScroll();
+        int linesDraw = 0;
+        for (int x = 0; x < this.rows && linesDraw < this.rows && currentScroll + x < this.lines.size(); x++) {
+            final Object lineObj = this.lines.get(currentScroll + x);
+            if (lineObj instanceof ClientDCInternalInv inv) {
+                final GuiButton highlight = new GuiImgButton(this.guiLeft + 4, this.guiTop + offset,
+                        Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
+                this.guiButtonHashMap.put(highlight, inv);
+                this.buttonList.add(highlight);
+
+                final int extraLines = numUpgradesMap.get(inv);
+                for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
+                    for (int z = 0; z < 9; z++) {
+                        this.inventorySlots.inventorySlots.add(
+                                new SlotDisconnected(inv, z + (row * 9), z * 18 + 22, offset));
+                    }
+                    linesDraw++;
+                    offset += 18;
+                }
+            } else {
+                linesDraw++;
+                offset += 18;
+            }
+        }
+
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         this.bindTexture("guis/interfaceconfigurationterminal.png");
@@ -329,6 +400,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         }
         this.drawTexturedModalRect(offsetX, offsetY + 29 + this.rows * ROW_HEIGHT, 0, 137,
                 this.xSize, 98);
+
+        // The names box is new, so it borrows the magnifier the texture already draws beside the other.
+        this.drawTexturedModalRect(offsetX + NAMES_LEFT - ICON_SIZE - 1, offsetY + ICON_TOP,
+                ICON_SOURCE_LEFT, ICON_TOP, ICON_SIZE, ICON_SIZE);
 
         int offset = 29;
         final int ex = this.getScrollBar().getCurrentScroll();
@@ -353,23 +428,45 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         }
 
         if (this.searchFieldInputs != null) {
+            // The items field wears the well drawn into the texture; the names field is new, so its own
+            // is cut from the same shape the rest of the mod's wells are.
+            drawWell(offsetX + NAMES_LEFT, offsetY + SEARCH_TOP, NAMES_WIDTH, SEARCH_HEIGHT);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+            final boolean matched = !this.lines.isEmpty()
+                    || (this.searchFieldInputs.getText().isEmpty()
+                            && this.searchFieldNames.getText().isEmpty());
+            this.searchFieldInputs.setMatched(matched);
+            this.searchFieldNames.setMatched(matched);
             this.searchFieldInputs.drawTextBox();
+            this.searchFieldNames.drawTextBox();
         }
     }
 
     @Override
     public boolean isTextFieldFocused() {
-        return this.searchFieldInputs != null && this.searchFieldInputs.isFocused();
+        return this.searchFieldInputs != null
+                && (this.searchFieldInputs.isFocused() || this.searchFieldNames.isFocused());
     }
 
     @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
-            if (character == ' ' && this.searchFieldInputs.getText().isEmpty() && this.searchFieldInputs.isFocused()) {
+            if (character == ' '
+                    && ((this.searchFieldInputs.getText().isEmpty() && this.searchFieldInputs.isFocused())
+                            || (this.searchFieldNames.getText().isEmpty() && this.searchFieldNames.isFocused()))) {
                 return;
             }
 
-            if (this.searchFieldInputs.textboxKeyTyped(character, key)) {
+            if (key == Keyboard.KEY_TAB && this.isTextFieldFocused()) {
+                final boolean onItems = this.searchFieldInputs.isFocused();
+                this.searchFieldInputs.setFocused(!onItems);
+                this.searchFieldNames.setFocused(onItems);
+                return;
+            }
+
+            if (this.searchFieldInputs.textboxKeyTyped(character, key)
+                    || this.searchFieldNames.textboxKeyTyped(character, key)) {
                 this.refreshList();
             } else {
                 super.keyTyped(character, key);
@@ -427,9 +524,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.matchedStacks.clear();
         this.matchedInterfaces.clear();
 
-        final String searchFieldInputs = this.searchFieldInputs.getText().toLowerCase();
+        final String itemQuery = this.searchFieldInputs.getText().toLowerCase();
+        final String nameQuery = this.searchFieldNames.getText().toLowerCase();
 
-        final Set<Object> cachedSearch = this.getCacheForSearchTerm(searchFieldInputs);
+        final Set<Object> cachedSearch = this.getCacheForSearchTerm(itemQuery + ' ' + nameQuery);
         final boolean rebuild = cachedSearch.isEmpty();
 
         for (final ClientDCInternalInv entry : this.byId.values()) {
@@ -438,9 +536,14 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 continue;
             }
 
+            if (!nameQuery.isEmpty() && !entry.getName().toLowerCase().contains(nameQuery)) {
+                cachedSearch.remove(entry);
+                continue;
+            }
+
             // Shortcut to skip any filter if search term is ""/empty
 
-            boolean found = searchFieldInputs.isEmpty();
+            boolean found = itemQuery.isEmpty();
 
             // Search if the current inventory holds a pattern containing the search term.
             if (!found) {
@@ -449,17 +552,15 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                     if (slot > 8 + numUpgradesMap.get(entry) * 9) {
                         break;
                     }
-                    if (this.itemStackMatchesSearchTerm(itemStack, searchFieldInputs)) {
+                    if (this.itemStackMatchesSearchTerm(itemStack, itemQuery)) {
                         found = true;
                         matchedStacks.add(itemStack);
                     }
                     slot++;
                 }
-            }
-            // if found, filter skipped or machine name matching the search term, add it
-            if (searchFieldInputs.isEmpty() || entry.getName().toLowerCase().contains(searchFieldInputs)) {
+            } else {
+                // Nothing was asked of the slots, so none of them are dimmed as a miss.
                 this.matchedInterfaces.add(entry);
-                found = true;
             }
             if (found) {
                 this.byName.put(entry.getName(), entry);

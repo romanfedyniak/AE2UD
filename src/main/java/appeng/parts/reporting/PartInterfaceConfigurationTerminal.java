@@ -54,7 +54,9 @@ public class PartInterfaceConfigurationTerminal extends AbstractPartDisplay impl
         return this.getItemStack();
     }
 
-    public String in = "";
+    /** What the screen last had in each of its two search fields, kept while the chunk is loaded. */
+    public String searchItems = "";
+    public String searchNames = "";
 
     public PartInterfaceConfigurationTerminal(final ItemStack is) {
         super(is);
@@ -75,7 +77,8 @@ public class PartInterfaceConfigurationTerminal extends AbstractPartDisplay impl
         return this.selectModel(MODELS_OFF, MODELS_ON, MODELS_HAS_CHANNEL);
     }
 
-    public void saveSearchStrings(String in) {
-        this.in = in;
+    public void saveSearchStrings(final String items, final String names) {
+        this.searchItems = items;
+        this.searchNames = names;
     }
 }

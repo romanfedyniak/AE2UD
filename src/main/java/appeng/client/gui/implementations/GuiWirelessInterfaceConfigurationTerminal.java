@@ -37,7 +37,8 @@ public class GuiWirelessInterfaceConfigurationTerminal extends GuiInterfaceConfi
      * Where the search box is remembered between openings. The panel on a cable keeps it on itself; a terminal
      * in a pocket has nowhere of its own, and one player has one of these screens open at a time.
      */
-    private static String rememberedSearch = "";
+    private static String rememberedItems = "";
+    private static String rememberedNames = "";
 
     private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
 
@@ -51,13 +52,19 @@ public class GuiWirelessInterfaceConfigurationTerminal extends GuiInterfaceConfi
     }
 
     @Override
-    protected String loadSearchText() {
-        return rememberedSearch;
+    protected String loadSearchItems() {
+        return rememberedItems;
     }
 
     @Override
-    protected void saveSearchText(final String text) {
-        rememberedSearch = text;
+    protected String loadSearchNames() {
+        return rememberedNames;
+    }
+
+    @Override
+    protected void saveSearchText(final String items, final String names) {
+        rememberedItems = items;
+        rememberedNames = names;
     }
 
     @Override
