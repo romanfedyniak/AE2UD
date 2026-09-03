@@ -29,6 +29,7 @@ import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.ITooltip;
 import appeng.client.me.InternalSlotME;
 import appeng.client.me.SlotDisconnected;
+import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.client.me.SlotME;
 import appeng.client.render.StackSizeRenderer;
 import appeng.container.AEBaseContainer;
@@ -192,6 +193,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected boolean allowsTypedAmount(final Slot slot) {
         if (!slot.getHasStack()) {
             return false;
+        }
+
+        // A disconnected slot is a remote inventory, and which one depends on the screen: the Interface
+        // Configuration Terminal reaches an interface's config, where an amount means what it means on
+        // the interface's own screen, while the Interface Terminal reaches its patterns, which have no
+        // amount at all. The server only ever answers for the first of the two.
+        if (slot instanceof SlotDisconnected) {
+            return this.inventorySlots instanceof ContainerInterfaceConfigurationTerminal;
         }
 
         if (this.inventorySlots instanceof ContainerPatternEncoder) {
@@ -646,9 +655,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 return;
             }
 
-            // Same middle click as a filter slot on the interface's own screen. These slots are that very
-            // config inventory, reached remotely, so the amount means the same thing here.
-            if (mouseButton == 2 && slot.getHasStack()) {
+            // Same middle click as a filter slot on the interface's own screen, on the screen that reaches
+            // that very config inventory.
+            if (mouseButton == 2 && this.allowsTypedAmount(slot)) {
                 NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SET_AMOUNT,
                         slot.getSlotIndex(), ((SlotDisconnected) slot).getSlot().getId()));
                 return;
@@ -844,8 +853,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), Tooltips.nameOf(carried)));
             }
 
-            final boolean typed = slot instanceof SlotDisconnected ? slot.getHasStack() : this.allowsTypedAmount(slot);
-            if (typed) {
+            if (this.allowsTypedAmount(slot)) {
                 hints.add(line(ButtonToolTips.ModifyAmountAction, Tooltips.click(2)));
             }
         }
