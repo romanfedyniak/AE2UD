@@ -47,6 +47,9 @@ import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
 import appeng.helpers.InventoryAction;
 import appeng.util.Platform;
+import appeng.api.config.Settings;
+import appeng.client.gui.widgets.GuiImgButton;
+import appeng.core.AEClientConfig;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
@@ -188,6 +191,24 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      */
     protected boolean isSlotIgnored(final Slot slot) {
         return false;
+    }
+
+    /**
+     * The keep-search button every screen with a search box wears. One client setting answers for all of
+     * them, so the click is the same everywhere and lives here rather than five times over.
+     *
+     * @return whether the click was that button's.
+     */
+    protected boolean toggleSearchKeep(final GuiButton btn, @Nullable final GuiImgButton keep) {
+        if (keep == null || btn != keep) {
+            return false;
+        }
+
+        final Enum next = Platform.rotateEnum(keep.getCurrentValue(), Mouse.isButtonDown(1),
+                Settings.SEARCH_KEEP.getPossibleValues());
+        AEClientConfig.instance().getConfigManager().putSetting(Settings.SEARCH_KEEP, next);
+        keep.set(next);
+        return true;
     }
 
     protected boolean allowsTypedAmount(final Slot slot) {

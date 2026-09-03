@@ -52,13 +52,13 @@ public final class GuiSettingPanel {
         this.layout = layout;
     }
 
-    /** The eight search box modes: a row to a mode, the plain one left and the one that keeps the text beside it. */
+    /** The four search box modes, a row to a mode. */
     public static GuiSettingPanel searchModes() {
         return new GuiSettingPanel(Settings.SEARCH_MODE, new Enum[][] {
-                { SearchBoxMode.AUTOSEARCH, SearchBoxMode.AUTOSEARCH_KEEP },
-                { SearchBoxMode.MANUAL_SEARCH, SearchBoxMode.MANUAL_SEARCH_KEEP },
-                { SearchBoxMode.JEI_AUTOSEARCH, SearchBoxMode.JEI_AUTOSEARCH_KEEP },
-                { SearchBoxMode.JEI_MANUAL_SEARCH, SearchBoxMode.JEI_MANUAL_SEARCH_KEEP },
+                { SearchBoxMode.AUTOSEARCH },
+                { SearchBoxMode.MANUAL_SEARCH },
+                { SearchBoxMode.JEI_AUTOSEARCH },
+                { SearchBoxMode.JEI_MANUAL_SEARCH },
         });
     }
 

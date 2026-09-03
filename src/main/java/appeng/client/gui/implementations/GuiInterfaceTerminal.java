@@ -97,6 +97,11 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private final RepoSearch inputSearch = new RepoSearch();
     private final RepoSearch outputSearch = new RepoSearch();
 
+    private GuiImgButton searchKeepBtn;
+
+    /** Where the three searches survive closing the screen, while the keep setting says they should. */
+    private static String[] memoryText = { "", "", "" };
+
     private final GuiImgButton guiButtonHideFull;
     private final GuiImgButton guiButtonAssemblersOnly;
     private final GuiImgButton guiButtonBrokenRecipes;
@@ -131,6 +136,9 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonBrokenRecipes = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, null);
+        searchKeepBtn = new GuiImgButton(0, 0, Settings.SEARCH_KEEP,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        restoreSearch();
         guiTitle = GuiText.InterfaceTerminal;
     }
 
@@ -155,7 +163,29 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonBrokenRecipes = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, null);
+        searchKeepBtn = new GuiImgButton(0, 0, Settings.SEARCH_KEEP,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        restoreSearch();
         guiTitle = GuiText.WirelessTerminal;
+    }
+
+    /** The three searches, as they were left last time, when the setting says to bring them back. */
+    private void restoreSearch() {
+        if (!AEClientConfig.instance().keepsSearch()) {
+            return;
+        }
+        this.searchFieldInputs.setText(memoryText[0], true);
+        this.searchFieldOutputs.setText(memoryText[1], true);
+        this.searchFieldNames.setText(memoryText[2], true);
+    }
+
+    @Override
+    public void onGuiClosed() {
+        final boolean keep = AEClientConfig.instance().keepsSearch();
+        memoryText[0] = keep ? this.searchFieldInputs.getText() : "";
+        memoryText[1] = keep ? this.searchFieldOutputs.getText() : "";
+        memoryText[2] = keep ? this.searchFieldNames.getText() : "";
+        super.onGuiClosed();
     }
 
     private MEGuiTooltipTextField createTextField(final int width, final int height, final String tooltip) {
@@ -211,6 +241,8 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         guiButtonHideFull.y = guiButtonBrokenRecipes.y + 20;
         guiButtonAssemblersOnly.x = guiLeft - 18;
         guiButtonAssemblersOnly.y = guiButtonHideFull.y + 20;
+        searchKeepBtn.x = guiLeft - 18;
+        searchKeepBtn.y = guiButtonAssemblersOnly.y + 20;
 
         this.setScrollBar();
         this.repositionSlots();
@@ -232,6 +264,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         addButtonArea(area, this.guiButtonBrokenRecipes);
         addButtonArea(area, this.guiButtonHideFull);
         addButtonArea(area, this.guiButtonAssemblersOnly);
+        addButtonArea(area, this.searchKeepBtn);
         return area;
     }
 
@@ -305,6 +338,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         buttonList.add(guiButtonHideFull);
         buttonList.add(guiButtonBrokenRecipes);
         buttonList.add(terminalStyleBox);
+        buttonList.add(searchKeepBtn);
 
         this.addExtraButtons();
 
@@ -353,6 +387,10 @@ public class GuiInterfaceTerminal extends AEBaseGui {
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
+            return;
+        }
+
         if (guiButtonHashMap.containsKey(btn)) {
             BlockPos blockPos = blockPosHashMap.get(guiButtonHashMap.get(this.selectedButton));
             BlockPos blockPos2 = mc.player.getPosition();

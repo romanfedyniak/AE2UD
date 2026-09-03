@@ -82,6 +82,7 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         this.settings.registerSetting(Settings.TERMINAL_STYLE, TerminalStyle.SMALL);
         this.settings.registerSetting(Settings.HIDE_STORED, YesNo.NO);
         this.settings.registerSetting(Settings.SEARCH_MODE, SearchBoxMode.AUTOSEARCH);
+        this.settings.registerSetting(Settings.SEARCH_KEEP, YesNo.NO);
         this.settings.registerSetting(Settings.AMOUNT_ENTRY_UNITS, YesNo.NO);
         this.settings.registerSetting(Settings.CPU_FILTER_ACTIVITY, CpuActivityFilter.ALL);
         this.settings.registerSetting(Settings.CPU_FILTER_MODE, CpuModeFilter.ALL);
@@ -101,7 +102,34 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         return instance;
     }
 
+    /** Whether a search box keeps what was typed in it when its screen closes. Every screen with one. */
+    public boolean keepsSearch() {
+        return this.settings.getSetting(Settings.SEARCH_KEEP) == YesNo.YES;
+    }
+
+    /**
+     * Whether the search box keeps its text used to be half of {@link Settings#SEARCH_MODE}, doubling that
+     * setting's values into a {@code _KEEP} twin of each. A file written before the split says
+     * {@code AUTOSEARCH_KEEP}, which no longer names a mode - left alone it would fall back to the default
+     * and quietly turn the option off, so it is rewritten as the mode it meant plus the new setting.
+     */
+    private void migrateSearchKeep() {
+        final Property mode = this.get(CATEGORY, Settings.SEARCH_MODE.name(), SearchBoxMode.AUTOSEARCH.name(),
+                this.getListComment(SearchBoxMode.AUTOSEARCH));
+        final String stored = mode.getString();
+
+        if (!stored.endsWith("_KEEP")) {
+            return;
+        }
+
+        mode.set(stored.substring(0, stored.length() - "_KEEP".length()));
+        this.get(CATEGORY, Settings.SEARCH_KEEP.name(), YesNo.NO.name(), this.getListComment(YesNo.NO))
+                .set(YesNo.YES.name());
+    }
+
     private void readValues() {
+        this.migrateSearchKeep();
+
         this.enableEffects = this.get(CATEGORY, "enableEffects", true).getBoolean(true);
         this.useColoredCraftingStatus = this.get(CATEGORY, "useColoredCraftingStatus", true).getBoolean(true);
         this.disableColoredCableRecipesInJEI = this.get(CATEGORY, "disableColoredCableRecipesInJEI", true).getBoolean(true);

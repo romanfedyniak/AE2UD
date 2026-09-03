@@ -141,6 +141,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private GuiImgButton SortByBox;
     private GuiImgButton SortDirBox;
     private GuiImgButton searchBoxSettings;
+    private GuiImgButton searchKeepBtn;
     private GuiImgButton terminalStyleBox;
     private boolean isAutoFocus = false;
     private int currentMouseX = 0;
@@ -302,9 +303,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 final Enum cv = iBtn.getCurrentValue();
                 final Enum next = Platform.rotateEnum(cv, backwards, iBtn.getSetting().getPossibleValues());
 
-                if (btn == this.terminalStyleBox) {
-                    AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
-                } else if (btn == this.searchBoxSettings) {
+                if (btn == this.terminalStyleBox || btn == this.searchBoxSettings || btn == this.searchKeepBtn) {
                     AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
                 } else {
                     try {
@@ -420,6 +419,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         offset += 20;
 
+        this.buttonList.add(this.searchKeepBtn = new GuiImgButton(this.guiLeft - 18, offset,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP)));
+        offset += 20;
+
         if (this.supportsTerminalStyle()) {
             this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEClientConfig.instance()
                     .getConfigManager()
@@ -454,9 +457,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         final Enum searchModeSetting = AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_MODE);
 
-        this.isAutoFocus = SearchBoxMode.AUTOSEARCH == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting || SearchBoxMode.AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH_KEEP == searchModeSetting;
-        final boolean isKeepFilter = SearchBoxMode.AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_AUTOSEARCH_KEEP == searchModeSetting || SearchBoxMode.MANUAL_SEARCH_KEEP == searchModeSetting || SearchBoxMode.JEI_MANUAL_SEARCH_KEEP == searchModeSetting;
-        final boolean isJEIEnabled = SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting || SearchBoxMode.JEI_MANUAL_SEARCH == searchModeSetting;
+        this.isAutoFocus = SearchBoxMode.AUTOSEARCH == searchModeSetting
+                || SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting;
+        final boolean isKeepFilter = AEClientConfig.instance().keepsSearch();
+        final boolean isJEIEnabled = SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting
+                || SearchBoxMode.JEI_MANUAL_SEARCH == searchModeSetting;
 
         this.searchField.setFocused(this.isAutoFocus);
 
@@ -826,7 +831,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     public void onGuiClosed() {
         super.onGuiClosed();
-        memoryText = this.searchField.getText();
+        memoryText = AEClientConfig.instance().keepsSearch() ? this.searchField.getText() : "";
     }
 
     /**

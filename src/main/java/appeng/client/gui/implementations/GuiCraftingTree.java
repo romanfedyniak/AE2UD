@@ -101,6 +101,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private final GuiCraftingPlanTree tree;
 
     private MEGuiTextField searchField;
+    private GuiImgButton searchKeepBtn;
+
+    /** Where the search survives closing the screen, while the keep setting says it should. */
+    private static String memoryText = "";
     private GuiTabButton back;
     private GuiButton start;
     private GuiCraftPriorityButton priority;
@@ -148,6 +152,9 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         // what darkens when it takes the keyboard. Only the black inner box is left off.
         this.searchField.setEnableBackgroundDrawing(false);
         this.searchField.setMaxStringLength(100);
+        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+            this.searchField.setText(memoryText);
+        }
         // Held keys have to repeat in the search field, as they do on every other screen with one.
 
         this.back = new GuiTabButton(this.guiLeft + this.xSize - 25, this.guiTop - 4, SWITCH_VIEW_ICON,
@@ -186,6 +193,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
         this.buttonList.add(this.terminalStyleBox);
+
+        this.searchKeepBtn = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 48,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        this.buttonList.add(this.searchKeepBtn);
 
         this.tree.setBounds(BORDER + 2, HEADER_HEIGHT,
                 this.xSize - 2 * (BORDER + 2), this.ySize - HEADER_HEIGHT - FOOTER_HEIGHT);
@@ -316,6 +327,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     public void onGuiClosed() {
+        memoryText = AEClientConfig.instance().keepsSearch() ? this.searchField.getText() : "";
         super.onGuiClosed();
     }
 
@@ -328,6 +340,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         }
 
         if (this.errorPanel.actionPerformed(btn)) {
+            return;
+        }
+
+        if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
             return;
         }
 
@@ -430,6 +446,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         addButtonArea(area, this.terminalStyleBox);
         addButtonArea(area, this.back);
         addButtonArea(area, this.saveImage);
+        addButtonArea(area, this.searchKeepBtn);
         return area;
     }
 }

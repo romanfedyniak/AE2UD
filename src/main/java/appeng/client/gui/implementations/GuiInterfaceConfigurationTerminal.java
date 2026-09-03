@@ -113,6 +113,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     /** The items box reads the terminals' grammar; the names box beside it is a plain substring. */
     private final RepoSearch itemSearch = new RepoSearch();
     private GuiImgButton terminalStyleBox;
+    private GuiImgButton searchKeepBtn;
     private final PartInterfaceConfigurationTerminal partInterfaceTerminal;
     private final HashMap<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
     public Map<IGhostIngredientHandler.Target<?>, Object> mapTargetSlot = new HashMap<>();
@@ -149,6 +150,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
                 Settings.TERMINAL_STYLE, style);
+        this.searchKeepBtn = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.SEARCH_KEEP,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
 
         for (final Object obj : this.inventorySlots.inventorySlots) {
             if (obj instanceof appeng.container.slot.AppEngSlot slot) {
@@ -156,8 +159,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             }
         }
 
-        this.searchFieldInputs = this.createSearchField(ITEMS_LEFT, ITEMS_WIDTH, this.loadSearchItems());
-        this.searchFieldNames = this.createSearchField(NAMES_LEFT, NAMES_WIDTH, this.loadSearchNames());
+        final boolean keep = AEClientConfig.instance().keepsSearch();
+        this.searchFieldInputs = this.createSearchField(ITEMS_LEFT, ITEMS_WIDTH,
+                keep ? this.loadSearchItems() : "");
+        this.searchFieldNames = this.createSearchField(NAMES_LEFT, NAMES_WIDTH,
+                keep ? this.loadSearchNames() : "");
     }
 
     private MEGuiTextField createSearchField(final int left, final int width, final String text) {
@@ -178,9 +184,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             return Collections.emptyList();
         }
 
-        return Collections.singletonList(new Rectangle(this.terminalStyleBox.x - 1,
-                this.terminalStyleBox.y - 1, this.terminalStyleBox.width + 2,
-                this.terminalStyleBox.height + 2));
+        final List<Rectangle> area = new ArrayList<>(2);
+        addButtonArea(area, this.terminalStyleBox);
+        addButtonArea(area, this.searchKeepBtn);
+        return area;
     }
 
     protected String loadSearchItems() {
@@ -204,8 +211,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public void onGuiClosed() {
-        this.saveSearchText(this.searchFieldInputs.getText().toLowerCase(),
-                this.searchFieldNames.getText().toLowerCase());
+        final boolean keep = AEClientConfig.instance().keepsSearch();
+        this.saveSearchText(keep ? this.searchFieldInputs.getText() : "",
+                keep ? this.searchFieldNames.getText() : "");
         super.onGuiClosed();
     }
 
@@ -294,6 +302,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
+            return;
+        }
+
         if (btn == this.terminalStyleBox) {
             final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
@@ -359,6 +371,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
         this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
         this.buttonList.add(this.terminalStyleBox);
+        this.buttonList.add(this.searchKeepBtn);
         this.addExtraButtons();
 
         int offset = 30;

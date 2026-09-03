@@ -53,6 +53,9 @@ public enum Settings
 
 	SEARCH_MODE( EnumSet.allOf( SearchBoxMode.class ) ),
 
+	/** Whether a search box keeps what was typed in it when the screen closes. Every screen with one. */
+	SEARCH_KEEP( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
 	ACTIONS( EnumSet.allOf( ActionItems.class ) ),
 
 	IO_DIRECTION( EnumSet.of( RelativeDirection.LEFT, RelativeDirection.RIGHT ) ),

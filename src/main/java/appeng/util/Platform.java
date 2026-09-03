@@ -318,7 +318,7 @@ public class Platform {
             return true;
         }
 
-        final boolean isJEI = e == SearchBoxMode.JEI_AUTOSEARCH || e == SearchBoxMode.JEI_AUTOSEARCH_KEEP || e == SearchBoxMode.JEI_MANUAL_SEARCH || e == SearchBoxMode.JEI_MANUAL_SEARCH_KEEP;
+        final boolean isJEI = e == SearchBoxMode.JEI_AUTOSEARCH || e == SearchBoxMode.JEI_MANUAL_SEARCH;
         return isJEI && !Integrations.jei().isEnabled();
     }
 

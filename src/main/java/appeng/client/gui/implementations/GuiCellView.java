@@ -36,6 +36,9 @@ import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.api.config.Settings;
+import appeng.core.AEClientConfig;
+import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiWirelessUpgradePlate;
 import appeng.client.gui.widgets.ISortSource;
@@ -93,6 +96,10 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
 
     private MEGuiTextField searchField;
     private GuiTabButton modeButton;
+    private GuiImgButton searchKeepBtn;
+
+    /** Where the search survives closing the window, while the keep setting says it should. */
+    private static String memoryText = "";
     private boolean showingFilter;
 
     public GuiCellView(final InventoryPlayer inventoryPlayer, final StorageCell cell, final ItemStack stack,
@@ -135,6 +142,19 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         this.getScrollBar().setLeft(this.scrollLeft()).setTop(GRID_TOP).setHeight(ROWS * SLOT - 2);
 
         this.addModeButton();
+
+        // Beside the box rather than out on a strip: this window is drawn, not textured, and hanging a
+        // button off its edge would have to be reported to HEI and drawn over the screen underneath.
+        this.searchKeepBtn = new GuiImgButton(this.guiLeft + this.searchLeft() - 18,
+                this.guiTop + SEARCH_TOP - 2, Settings.SEARCH_KEEP,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        this.buttonList.add(this.searchKeepBtn);
+
+        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+            this.searchField.setText(memoryText);
+            this.repo.setSearchString(memoryText);
+        }
+
         this.fill();
     }
 
@@ -280,6 +300,10 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
 
     @Override
     protected void actionPerformed(final GuiButton button) {
+        if (this.toggleSearchKeep(button, this.searchKeepBtn)) {
+            return;
+        }
+
         if (button == this.modeButton) {
             this.showingFilter = !this.showingFilter;
             this.getScrollBar().setCurrentScroll(0);
@@ -340,6 +364,7 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
 
     @Override
     public void onGuiClosed() {
+        memoryText = AEClientConfig.instance().keepsSearch() ? this.searchField.getText() : "";
         super.onGuiClosed();
         this.inventorySlots.onContainerClosed(this.mc.player);
     }

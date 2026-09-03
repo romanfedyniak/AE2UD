@@ -2152,6 +2152,16 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     Asking the key rather than switching on `AEItemKey` at the search site is the point: an addon's own key
     type joins the channel by answering, the same reasoning as the strategy layer.
 
+32. **`SearchBoxMode` halved, and `Settings.SEARCH_KEEP` added** - the enum carried eight values that were
+    three independent bits: auto or manual focus, plain or HEI-mirrored, and whether the text survived
+    closing the screen. The third bit is a setting of its own now and the enum is four values, because
+    keeping the text was never a property of the terminal's search box - every screen in the mod with a
+    search box wants the same answer, and packing it into this enum would have meant either eight values
+    on screens that have no HEI mode at all or a second, differently-spelled toggle beside it. Upstream
+    has neither the `_KEEP` values nor the setting, so this moves away from upstream in name and towards
+    it in shape. A config written before the split names a mode that no longer exists; `AEClientConfig`
+    rewrites it into the mode plus the new setting rather than letting it fall back to the default.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

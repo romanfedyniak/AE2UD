@@ -24,7 +24,15 @@
 package appeng.api.config;
 
 
+/**
+ * How a terminal's search box behaves: whether it takes the keyboard on opening, and whether it mirrors
+ * the item list's own field.
+ * <p>
+ * Whether the text survives closing the screen used to be a second question folded in here, doubling the
+ * values; it is {@link Settings#SEARCH_KEEP} now, and answers for every search box in the mod rather than
+ * for this one.
+ */
 public enum SearchBoxMode
 {
-	AUTOSEARCH, AUTOSEARCH_KEEP, MANUAL_SEARCH, MANUAL_SEARCH_KEEP, JEI_AUTOSEARCH, JEI_AUTOSEARCH_KEEP, JEI_MANUAL_SEARCH, JEI_MANUAL_SEARCH_KEEP
+	AUTOSEARCH, MANUAL_SEARCH, JEI_AUTOSEARCH, JEI_MANUAL_SEARCH
 }

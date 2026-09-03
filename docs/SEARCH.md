@@ -76,6 +76,13 @@ silent fall back to a literal match when it did not compile. `/.../` is what is 
 It is ours alone - HEI does not understand slashes, so a regex query mirrored into HEI's field finds nothing
 there.
 
+## Keeping what was typed
+
+`Settings.SEARCH_KEEP` says whether a box keeps its text when the screen closes, and answers for all five
+fields plus the two that search names. Each screen keeps its own text - the setting is shared, the text is
+not. It used to be half of `SEARCH_MODE`, which is why a config written before the split names a mode like
+`AUTOSEARCH_KEEP`; `AEClientConfig.migrateSearchKeep` rewrites those. See item 32 in `docs/port/STATUS.md`.
+
 ## Asked of a set
 
 A pattern is not one key, and neither is an interface's shelf of configured items. `RepoSearch.matchesAny`
