@@ -89,6 +89,20 @@ the Crafting Plan's field is built in the window's coordinates while every other
 What goes in is `RepoSearch.termFor(key)`: the display name, stripped of formatting codes and quoted, so
 the whole name is one term. The two boxes that search interface *names* are deliberately not targets.
 
+## What the tooltip says
+
+`RepoSearch.syntaxTooltip(fieldName)` writes the whole grammar out, one line to a rule, and every field
+running the grammar uses it - the two that search interface names do not, having no grammar to explain.
+It collapses to the field's name plus *hold Shift* until Shift is held: eleven lines is a reference, not
+a hint, and a box is small.
+
+It sits here rather than in `Tooltips` for two reasons. A rule added to the parser and a line describing
+it are then one file apart. And `appeng.core.localization` is loaded on a dedicated server - items reach
+`Tooltips` - so it keeps no client classes, and reading the keyboard needs one.
+
+A field whose tooltip answers to Shift cannot hand it over as a string once, the way a tooltip that never
+changes can: `MEGuiTooltipTextField` takes a `Supplier<String>`, read on each frame the box is hovered.
+
 ## Keeping what was typed
 
 `Settings.SEARCH_KEEP` says whether a box keeps its text when the screen closes, and answers for all seven

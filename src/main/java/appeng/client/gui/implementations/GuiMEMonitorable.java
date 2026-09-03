@@ -57,7 +57,6 @@ import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.Tooltips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -530,7 +529,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         super.drawScreen(mouseX, mouseY, partialTicks);
 
         if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
-            this.drawTooltip(mouseX, mouseY, Tooltips.searchSyntax());
+            this.drawTooltip(mouseX, mouseY, RepoSearch.syntaxTooltip());
         }
     }
 

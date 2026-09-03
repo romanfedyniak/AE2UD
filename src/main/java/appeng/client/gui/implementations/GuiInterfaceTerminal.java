@@ -34,7 +34,6 @@ import appeng.container.slot.AppEngSlot;
 import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.Tooltips;
 import appeng.client.me.search.RepoSearch;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKey;
@@ -64,6 +63,7 @@ import java.awt.*;
 import java.io.IOException;
 import java.util.List;
 import java.util.*;
+import java.util.function.Supplier;
 
 import static appeng.client.render.BlockPosHighlighter.hilightBlock;
 import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
@@ -127,10 +127,10 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
         searchFieldInputs = createTextField(86, 12,
-                ButtonToolTips.SearchFieldInputs.getLocal() + '\n' + Tooltips.searchSyntax());
+                () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
         searchFieldOutputs = createTextField(86, 12,
-                ButtonToolTips.SearchFieldOutputs.getLocal() + '\n' + Tooltips.searchSyntax());
-        searchFieldNames = createTextField(71, 12, ButtonToolTips.SearchFieldNames.getLocal());
+                () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
+        searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldNames.setFocused(true);
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
@@ -154,10 +154,10 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
         searchFieldInputs = createTextField(86, 12,
-                ButtonToolTips.SearchFieldInputs.getLocal() + '\n' + Tooltips.searchSyntax());
+                () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
         searchFieldOutputs = createTextField(86, 12,
-                ButtonToolTips.SearchFieldOutputs.getLocal() + '\n' + Tooltips.searchSyntax());
-        searchFieldNames = createTextField(71, 12, ButtonToolTips.SearchFieldNames.getLocal());
+                () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
+        searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldNames.setFocused(true);
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
@@ -189,7 +189,8 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         super.onGuiClosed();
     }
 
-    private MEGuiTooltipTextField createTextField(final int width, final int height, final String tooltip) {
+    private MEGuiTooltipTextField createTextField(final int width, final int height,
+            final Supplier<String> tooltip) {
         MEGuiTooltipTextField textField = new MEGuiTooltipTextField(width, height, tooltip) {
             @Override
             public void onTextChange(String oldText) {

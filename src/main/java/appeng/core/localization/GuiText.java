@@ -319,7 +319,8 @@ public enum GuiText {
     SearchHintTooltip,
     SearchHintOreDict,
     SearchHintId,
-    SearchHintRegex;
+    SearchHintRegex,
+    SearchHintMore;
 
     private final String root;
 

@@ -44,7 +44,6 @@ import appeng.container.implementations.ContainerCraftingCPU;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.util.Platform;
@@ -527,7 +526,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         }
 
         if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
-            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, Tooltips.searchSyntax());
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, RepoSearch.syntaxTooltip());
         }
     }
 

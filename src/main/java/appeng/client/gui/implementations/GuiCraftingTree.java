@@ -41,7 +41,6 @@ import appeng.container.implementations.ContainerCraftingTree;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
@@ -315,7 +314,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         }
 
         if (this.searchField.isMouseIn(mouseX - offsetX, mouseY - offsetY)) {
-            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, Tooltips.searchSyntax());
+            this.drawTooltip(mouseX - offsetX, mouseY - offsetY, RepoSearch.syntaxTooltip());
         }
     }
 

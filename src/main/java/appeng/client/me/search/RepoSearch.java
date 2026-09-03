@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.text.TextFormatting;
 
 import appeng.api.config.Settings;
@@ -31,6 +32,7 @@ import appeng.api.config.YesNo;
 import appeng.api.stacks.AEKey;
 import appeng.client.me.search.SearchTokenizer.Term;
 import appeng.core.AEClientConfig;
+import appeng.core.localization.GuiText;
 import appeng.util.Platform;
 
 /**
@@ -96,6 +98,32 @@ public final class RepoSearch {
 
     public static String quote(final String name) {
         return '"' + name.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
+
+    /**
+     * What a field running this grammar understands, as a tooltip. Collapsed to two lines until Shift is
+     * held: eleven lines under every search box is more than a box is worth.
+     * <p>
+     * It lives beside the grammar rather than with the other tooltips so that a new rule and the line
+     * describing it are one file apart, and because {@code appeng.core.localization} is loaded on the
+     * server and stays free of client classes.
+     */
+    public static String syntaxTooltip() {
+        return syntaxTooltip(GuiText.SearchHintTitle.getLocal());
+    }
+
+    /** The same, under a field's own name instead of the generic title. */
+    public static String syntaxTooltip(final String fieldName) {
+        if (!GuiScreen.isShiftKeyDown()) {
+            return fieldName + "\n" + GuiText.SearchHintMore.getLocal();
+        }
+
+        return String.join("\n", fieldName, GuiText.SearchHintName.getLocal(),
+                GuiText.SearchHintTerms.getLocal(), GuiText.SearchHintOr.getLocal(),
+                GuiText.SearchHintPhrase.getLocal(), GuiText.SearchHintExclude.getLocal(),
+                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTooltip.getLocal(),
+                GuiText.SearchHintOreDict.getLocal(), GuiText.SearchHintId.getLocal(),
+                GuiText.SearchHintRegex.getLocal());
     }
 
     public boolean matches(final AEKey what) {

@@ -6,6 +6,8 @@ import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 
+import java.util.function.Supplier;
+
 /**
  * Different implementation of a text field that wraps instead of extends
  * MC's {@link GuiTextField}. This is necessary because of deobfuscated name
@@ -21,7 +23,7 @@ public class MEGuiTooltipTextField implements ITooltip {
     private static final int PADDING = 2;
     private static boolean previousKeyboardRepeatEnabled;
     private static MEGuiTooltipTextField previousKeyboardRepeatEnabledField;
-    private String tooltip;
+    private Supplier<String> tooltip;
     private int fontPad;
 
     public int x;
@@ -37,6 +39,14 @@ public class MEGuiTooltipTextField implements ITooltip {
      * @param tooltip tooltip message
      */
     public MEGuiTooltipTextField(final int width, final int height, final String tooltip) {
+        this(width, height, () -> tooltip);
+    }
+
+    /**
+     * A tooltip that is read again every frame it is shown, for a field whose tooltip answers to
+     * something the player is doing - holding Shift, say.
+     */
+    public MEGuiTooltipTextField(final int width, final int height, final Supplier<String> tooltip) {
         final FontRenderer fontRenderer = Minecraft.getMinecraft().fontRenderer;
         field = new GuiTextField(0, fontRenderer, 0, 0, 0, 0);
 
@@ -209,13 +219,17 @@ public class MEGuiTooltipTextField implements ITooltip {
         return field.getText();
     }
 
-    public void setMessage(String t) {
+    public void setMessage(final String t) {
+        setMessage(() -> t);
+    }
+
+    public void setMessage(final Supplier<String> t) {
         tooltip = t;
     }
 
     @Override
     public String getMessage() {
-        return tooltip;
+        return tooltip.get();
     }
 
     @Override

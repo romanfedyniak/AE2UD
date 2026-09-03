@@ -112,19 +112,6 @@ public final class Tooltips {
         return muted(new TextComponentString(name.getLocal()));
     }
 
-    /**
-     * What a terminal-style search field understands. Any field running the same search says the same
-     * thing, so it is written here rather than on the screen that happened to need it first.
-     */
-    public static String searchSyntax() {
-        return String.join("\n", GuiText.SearchHintTitle.getLocal(), GuiText.SearchHintName.getLocal(),
-                GuiText.SearchHintTerms.getLocal(), GuiText.SearchHintOr.getLocal(),
-                GuiText.SearchHintPhrase.getLocal(), GuiText.SearchHintExclude.getLocal(),
-                GuiText.SearchHintMod.getLocal(), GuiText.SearchHintTooltip.getLocal(),
-                GuiText.SearchHintOreDict.getLocal(), GuiText.SearchHintId.getLocal(),
-                GuiText.SearchHintRegex.getLocal());
-    }
-
     public static ITextComponent muted(final ITextComponent text) {
         return text.createCopy().setStyle(MUTED_TEXT);
     }

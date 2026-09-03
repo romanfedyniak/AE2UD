@@ -50,7 +50,6 @@ import appeng.client.me.Repo;
 import appeng.container.implementations.ContainerCellView;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import appeng.me.storage.BasicCellInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
@@ -259,7 +258,7 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         // terminal's is, a text field that is also a tooltip source crashing outside the development
         // environment.
         if (this.searchField != null && this.searchField.isMouseIn(mouseX, mouseY)) {
-            this.drawTooltip(mouseX, mouseY, Tooltips.searchSyntax());
+            this.drawTooltip(mouseX, mouseY, RepoSearch.syntaxTooltip());
         }
     }
 

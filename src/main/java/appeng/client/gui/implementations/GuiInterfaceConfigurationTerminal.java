@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.Tooltips;
 import appeng.client.me.search.RepoSearch;
 import appeng.api.stacks.AEKey;
 import appeng.core.localization.GuiText;
@@ -292,7 +291,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         final int tooltipX = Mouse.getEventX() * this.width / this.mc.displayWidth - offsetX;
         if (this.searchFieldInputs.isMouseIn(mouseX, mouseY)) {
             drawTooltip(tooltipX, mouseY - this.guiTop,
-                    ButtonToolTips.SearchFieldConfigured.getLocal() + '\n' + Tooltips.searchSyntax());
+                    RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldConfigured.getLocal()));
         } else if (this.searchFieldNames.isMouseIn(mouseX, mouseY)) {
             drawTooltip(tooltipX, mouseY - this.guiTop, ButtonToolTips.SearchFieldNames.getLocal());
         }
