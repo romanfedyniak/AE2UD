@@ -114,6 +114,12 @@ draw on the tab. Every machine with a screen of its own answers - so does a term
 terminal held in the hand - which is why the tab is there whether the amount was opened from a pattern
 terminal, a storage bus or an interface.
 
+**The tab is drawn either way.** A host that is not an `ISubMenuHost`, or that hands back no item to draw -
+an ME chest, or an addon's own terminal - used to leave the corner empty, and a screen with no visible way
+out reads as a dead end even though escape closes it. It now gets a plain arrow instead of the host's item,
+labelled simply "Back", and pressing it closes the screen: that is the honest answer when nothing will say
+where the player came from, and it is never the wrong screen to open.
+
 ## Changing them in game
 
 `GuiAmountSteps` is the screen behind the tab in the top right of the amount window, one modifier to a row:

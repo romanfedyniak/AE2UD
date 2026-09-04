@@ -320,6 +320,7 @@ public enum GuiText {
     SearchHintOreDict,
     SearchHintId,
     SearchHintRegex,
+    Back,
     SearchHintMore,
     JeiRetrieveHint,
     JeiCraftHint;

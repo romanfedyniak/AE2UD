@@ -86,6 +86,8 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
     /** The icon every screen that configures something wears, on the tab that opens the step settings. */
     private static final int STEP_SETTINGS_ICON = 2 + 4 * 16;
+    /** A plain arrow, for the way out of a screen whose host will not say where that is. */
+    private static final int BACK_ICON = 13 + 2 * 16;
 
     private static final int FIELD_X = 62;
     private static final int FIELD_Y = 57;
@@ -152,8 +154,15 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
             this.originalGui = ((ISubMenuHost) target).getGuiBridge();
         }
 
+        // Drawn whether or not there is a name for where it goes. A host that says nothing leaves a plain
+        // arrow that closes the screen, which is still the way out; a button that is simply absent leaves
+        // the screen looking like a dead end, and the control is one people hunt for.
         if (this.originalGui != null && !myIcon.isEmpty()) {
-            this.buttonList.add(this.originalGuiBtn = new GuiTabButton(this.guiLeft + 154, this.guiTop, myIcon, myIcon.getDisplayName(), this.itemRender));
+            this.buttonList.add(this.originalGuiBtn = new GuiTabButton(this.guiLeft + 154, this.guiTop, myIcon,
+                    myIcon.getDisplayName(), this.itemRender));
+        } else {
+            this.buttonList.add(this.originalGuiBtn = new GuiTabButton(this.guiLeft + 154, this.guiTop, BACK_ICON,
+                    GuiText.Back.getLocal(), this.itemRender));
         }
 
         this.amountToCraft = new GuiTextField(0, this.fontRenderer, this.guiLeft + FIELD_X, this.guiTop + FIELD_Y, FIELD_WIDTH, this.fontRenderer.FONT_HEIGHT);
@@ -270,7 +279,13 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         super.actionPerformed(btn);
 
         if (btn == this.originalGuiBtn) {
-            NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.originalGui));
+            if (this.originalGui != null) {
+                NetworkHandler.instance().sendToServer(new PacketSwitchGuis(this.originalGui));
+            } else {
+                this.mc.player.closeScreen();
+            }
+
+            return;
         }
 
         if (btn == this.unitToggle) {
