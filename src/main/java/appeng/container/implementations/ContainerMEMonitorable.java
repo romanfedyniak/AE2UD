@@ -197,6 +197,9 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         this.clientCM.registerSetting(Settings.SORT_BY, SortOrder.NAME);
         this.clientCM.registerSetting(Settings.VIEW_MODE, ViewItems.ALL);
         this.clientCM.registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING);
+        // Only a wireless terminal's own manager carries this, but the mirror below reads every setting the
+        // server has through the client's, and an unregistered one throws rather than being skipped.
+        this.clientCM.registerSetting(Settings.PICK_BLOCK, YesNo.YES);
 
         if (Platform.isServer()) {
             this.serverCM = monitorable.getConfigManager();

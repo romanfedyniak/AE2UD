@@ -2162,6 +2162,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     it in shape. A config written before the split names a mode that no longer exists; `AEClientConfig`
     rewrites it into the mode plus the new setting rather than letting it fall back to the default.
 
+33. **`Settings.PICK_BLOCK`** - additive. Whether a wireless terminal answers the vanilla pick block key
+    out of the network. It sits on the terminal item rather than in the client config because the server
+    decides the question and has the item in hand while it does; the same reason `SORT_BY` lives there and
+    `SEARCH_MODE` does not. Upstream has no such key at all.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

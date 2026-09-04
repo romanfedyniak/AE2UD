@@ -71,6 +71,9 @@ public enum AEFeature {
     COLOR_APPLICATOR("ColorApplicator", Constants.CATEGORY_TOOLS),
     METEORITE_COMPASS("MeteoriteCompass", Constants.CATEGORY_TOOLS),
 
+    NETWORK_PICK_BLOCK("NetworkPickBlock", Constants.CATEGORY_NETWORK_FEATURES,
+            "Lets the vanilla pick block key take what it needs out of the network a carried wireless terminal reaches, the way it takes it out of the player's own inventory. Each terminal still has its own switch for this; turning the feature off here removes it from the pack."),
+
     SECURITY("Security", Constants.CATEGORY_NETWORK_FEATURES),
     SPATIAL_IO("SpatialIO", Constants.CATEGORY_NETWORK_FEATURES),
     QUANTUM_NETWORK_BRIDGE("QuantumNetworkBridge", Constants.CATEGORY_NETWORK_FEATURES),

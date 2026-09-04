@@ -126,6 +126,12 @@ public enum Settings
 
 	INSCRIBER_INPUT_CAPACITY( EnumSet.allOf( InscriberInputCapacity.class ) ),
 
+	/**
+	 * Whether a wireless terminal answers the vanilla pick block key by handing over what the network has.
+	 * Lives on the terminal item, so the one in a belt can do it while a spare in a chest does not.
+	 */
+	PICK_BLOCK( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+
 	;
 
 	private final EnumSet<? extends Enum<?>> values;

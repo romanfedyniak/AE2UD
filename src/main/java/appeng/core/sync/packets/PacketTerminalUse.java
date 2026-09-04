@@ -5,8 +5,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import javax.annotation.Nullable;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
@@ -24,6 +22,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
+import appeng.helpers.WirelessTerminalAccess;
 import appeng.helpers.WirelessTerminalModes;
 import appeng.util.Platform;
 import baubles.api.BaublesApi;
@@ -36,22 +35,10 @@ import baubles.api.BaublesApi;
  */
 public class PacketTerminalUse extends AppEngPacket {
 
-    /**
-     * Why a terminal could not be opened, worst first. A player carrying more than one is told about the one
-     * that came closest to working - being out of power is worth saying, and a spare in a backpack that has
-     * never been linked is not.
-     */
-    private static final PlayerMessages[] COMPLAINTS = {
-            PlayerMessages.TerminalModeNotUnlocked,
-            PlayerMessages.DeviceNotLinked,
-            PlayerMessages.StationCanNotBeLocated,
-            PlayerMessages.DeviceNotPowered
-    };
-
     private final ResourceLocation mode;
 
-    @Nullable
-    private PlayerMessages complaint;
+    /** Why no terminal opened, ranked by {@link WirelessTerminalAccess.Complaints}. */
+    private WirelessTerminalAccess.Complaints complaints;
 
     public PacketTerminalUse(final ByteBuf stream) throws IOException {
         final DataInputStream dis = new DataInputStream(
@@ -80,7 +67,7 @@ public class PacketTerminalUse extends AppEngPacket {
             return;
         }
 
-        this.complaint = null;
+        this.complaints = new WirelessTerminalAccess.Complaints();
 
         // Every terminal the player has, not the first one found: one of them may be the only one that knows
         // this mode, or the only one still charged.
@@ -95,9 +82,7 @@ public class PacketTerminalUse extends AppEngPacket {
             return;
         }
 
-        if (this.complaint != null) {
-            player.sendMessage(this.complaint.get());
-        }
+        this.complaints.tell(player);
     }
 
     @Optional.Method(modid = "baubles")
@@ -122,7 +107,7 @@ public class PacketTerminalUse extends AppEngPacket {
         }
 
         if (!WirelessTerminalModes.isUnlocked(itemStack, this.mode)) {
-            this.complain(PlayerMessages.TerminalModeNotUnlocked);
+            this.complaints.add(PlayerMessages.TerminalModeNotUnlocked);
             return false;
         }
 
@@ -134,19 +119,19 @@ public class PacketTerminalUse extends AppEngPacket {
 
         final String unparsedKey = handler.getEncryptionKey(itemStack);
         if (unparsedKey.isEmpty()) {
-            this.complain(PlayerMessages.DeviceNotLinked);
+            this.complaints.add(PlayerMessages.DeviceNotLinked);
             return false;
         }
 
         final ILocatable securityStation = AEApi.instance().registries().locatable()
                 .getLocatableBy(Long.parseLong(unparsedKey));
         if (securityStation == null) {
-            this.complain(PlayerMessages.StationCanNotBeLocated);
+            this.complaints.add(PlayerMessages.StationCanNotBeLocated);
             return false;
         }
 
         if (!handler.hasPower(player, 0.5, itemStack)) {
-            this.complain(PlayerMessages.DeviceNotPowered);
+            this.complaints.add(PlayerMessages.DeviceNotPowered);
             return false;
         }
 
@@ -154,21 +139,5 @@ public class PacketTerminalUse extends AppEngPacket {
         WirelessTerminalModes.setModeId(itemStack, this.mode);
         Platform.openGUI(player, slotIdx, (GuiBridge) handler.getGuiHandler(itemStack), isBauble);
         return true;
-    }
-
-    private void complain(final PlayerMessages message) {
-        if (this.complaint == null || rank(message) > rank(this.complaint)) {
-            this.complaint = message;
-        }
-    }
-
-    private static int rank(final PlayerMessages message) {
-        for (int i = 0; i < COMPLAINTS.length; i++) {
-            if (COMPLAINTS[i] == message) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

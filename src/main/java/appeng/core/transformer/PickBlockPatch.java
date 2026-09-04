@@ -20,8 +20,11 @@ public class PickBlockPatch extends ClassVisitor {
         super(Opcodes.ASM5, cv);
     }
 
-    @SuppressWarnings("unused")
-    public static boolean testColorApplicatorPickBlock(RayTraceResult result, EntityPlayer player, World world) {
+    /**
+     * Whether a middle click is the color applicator taking a color, rather than a pick block. Asked without
+     * doing anything about it, because the click reaches more than one hook and only one of them may have it.
+     */
+    public static boolean isColorApplicatorPickBlock(RayTraceResult result, EntityPlayer player) {
         if (player == null || player.world == null || result == null || result.typeOfHit != RayTraceResult.Type.BLOCK) {
             return false;
         }
@@ -31,12 +34,18 @@ public class PickBlockPatch extends ClassVisitor {
             return false;
         }
 
-        TileEntity tile = player.world.getTileEntity(result.getBlockPos());
-        if (tile instanceof IColorableTile colorableTile) {
-            NetworkHandler.instance().sendToServer(new PacketColorApplicatorSelectColor(colorableTile.getColor()));
-            return true;
+        return player.world.getTileEntity(result.getBlockPos()) instanceof IColorableTile;
+    }
+
+    @SuppressWarnings("unused")
+    public static boolean testColorApplicatorPickBlock(RayTraceResult result, EntityPlayer player, World world) {
+        if (!isColorApplicatorPickBlock(result, player)) {
+            return false;
         }
-        return false;
+
+        TileEntity tile = player.world.getTileEntity(result.getBlockPos());
+        NetworkHandler.instance().sendToServer(new PacketColorApplicatorSelectColor(((IColorableTile) tile).getColor()));
+        return true;
     }
 
     @Override

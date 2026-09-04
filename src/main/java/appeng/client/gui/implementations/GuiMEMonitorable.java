@@ -144,6 +144,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private GuiImgButton SortDirBox;
     private GuiImgButton searchBoxSettings;
     private GuiImgButton searchKeepBtn;
+    private GuiImgButton pickBlockBtn;
     private GuiImgButton terminalStyleBox;
     private boolean isAutoFocus = false;
     private int currentMouseX = 0;
@@ -424,6 +425,14 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.buttonList.add(this.searchKeepBtn = new GuiImgButton(this.guiLeft - 18, offset,
                 Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP)));
         offset += 20;
+
+        // The terminal in hand is the one the pick block key asks, so the switch for it rides on that item
+        // rather than on the player - a working terminal on the belt can answer while a spare does not.
+        if (this.isWirelessTerminal()) {
+            this.buttonList.add(this.pickBlockBtn = new GuiImgButton(this.guiLeft - 18, offset,
+                    Settings.PICK_BLOCK, this.configSrc.getSetting(Settings.PICK_BLOCK)));
+            offset += 20;
+        }
 
         if (this.supportsTerminalStyle()) {
             this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEClientConfig.instance()
@@ -1026,6 +1035,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         if (this.ViewBox != null) {
             this.ViewBox.set(this.configSrc.getSetting(Settings.VIEW_MODE));
+        }
+
+        if (this.pickBlockBtn != null) {
+            this.pickBlockBtn.set(this.configSrc.getSetting(Settings.PICK_BLOCK));
         }
 
         this.repo.updateView();

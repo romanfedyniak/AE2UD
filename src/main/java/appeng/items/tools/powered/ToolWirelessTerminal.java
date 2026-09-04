@@ -186,6 +186,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
         out.registerSetting(Settings.SORT_BY, SortOrder.NAME);
         out.registerSetting(Settings.VIEW_MODE, ViewItems.ALL);
         out.registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING);
+        out.registerSetting(Settings.PICK_BLOCK, YesNo.YES);
 
         out.readFromNBT(Platform.openNbtData(target).copy());
         return out;

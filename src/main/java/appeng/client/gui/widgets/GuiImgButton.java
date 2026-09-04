@@ -93,6 +93,9 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(16 * 2 + 7, Settings.SEARCH_KEEP, YesNo.NO, ButtonToolTips.SearchKeep, ButtonToolTips.SearchKeepNo);
             this.registerApp(16 * 2 + 8, Settings.SEARCH_KEEP, YesNo.YES, ButtonToolTips.SearchKeep, ButtonToolTips.SearchKeepYes);
 
+            this.registerApp(16 * 2 + 9, Settings.PICK_BLOCK, YesNo.NO, ButtonToolTips.PickBlock, ButtonToolTips.PickBlockNo);
+            this.registerApp(16 * 2 + 10, Settings.PICK_BLOCK, YesNo.YES, ButtonToolTips.PickBlock, ButtonToolTips.PickBlockYes);
+
             this.registerApp(16 * 5 + 3, Settings.LEVEL_TYPE, LevelType.ENERGY_LEVEL, ButtonToolTips.LevelType, ButtonToolTips.LevelType_Energy);
             this.registerApp(16 * 4 + 3, Settings.LEVEL_TYPE, LevelType.ITEM_LEVEL, ButtonToolTips.LevelType, ButtonToolTips.LevelType_Item);
 

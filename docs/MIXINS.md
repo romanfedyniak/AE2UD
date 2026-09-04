@@ -2,13 +2,17 @@
 
 AE2UD loads its mixins through [MixinBooter](https://github.com/CleanroomMC/MixinBooter) 10.7, declared as
 a required dependency on the mod. A mixin is used only where no public API can express the integration; at
-the time of writing that is two cases:
+the time of writing that is three cases:
 
 - drawing the craftable "+" over HEI recipe ingredients, because `RecipesGui` keeps its recipe layouts
   private and an ingredient's screen position exists only as a rect relative to its layout;
 - drawing an encoded pattern as its output while shift is held, because the stack a screen or the world
   renders has to be swapped before a model is resolved from it, and neither `GuiContainer.drawSlot` nor
-  `RenderItem` offers a hook to do that.
+  `RenderItem` offers a hook to do that;
+- letting the pick block key reach the network once vanilla has failed to find the block in the player's
+  own inventory. Forge has no event for it - it replaced the body of `Minecraft.middleClickMouse` with a
+  call to `ForgeHooks.onPickBlock` - and both input events that carry the key are fired *before* that
+  call, so a listener on either would have to consume the click rather than follow it.
 
 ## Layout
 

@@ -103,6 +103,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CRAFT_PRIORITY(PacketCraftPriority.class),
 
+        PACKET_NETWORK_PICK_BLOCK(PacketNetworkPickBlock.class),
+
         ;
 
 

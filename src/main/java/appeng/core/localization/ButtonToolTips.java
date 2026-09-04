@@ -73,6 +73,9 @@ public enum ButtonToolTips {
     SearchKeep,
     SearchKeepYes,
     SearchKeepNo,
+    PickBlock,
+    PickBlockYes,
+    PickBlockNo,
 
     SearchMode,
     ItemName,
