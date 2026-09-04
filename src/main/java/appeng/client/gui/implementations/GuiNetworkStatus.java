@@ -91,8 +91,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
                     Settings.TERMINAL_STYLE.getPossibleValues());
             AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
-            this.buttonList.clear();
-            this.initGui();
+            this.refreshLayout();
         }
     }
 

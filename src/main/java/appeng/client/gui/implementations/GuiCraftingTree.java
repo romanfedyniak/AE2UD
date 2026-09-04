@@ -144,6 +144,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         // Placed in the window's own coordinates: the foreground layer this is drawn in is already
         // translated there, and so are the clicks handed to it.
+        final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer, SEARCH_X, SEARCH_Y, SEARCH_WIDTH, SEARCH_HEIGHT) {
             @Override
             public void onTextChange(final String oldText) {
@@ -154,7 +155,9 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         // what darkens when it takes the keyboard. Only the black inner box is left off.
         this.searchField.setEnableBackgroundDrawing(false);
         this.searchField.setMaxStringLength(100);
-        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+        if (previous != null) {
+            carryOver(previous, this.searchField);
+        } else if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
             this.searchField.setText(memoryText);
         }
         // Held keys have to repeat in the search field, as they do on every other screen with one.
@@ -354,8 +357,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
             AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
-            this.buttonList.clear();
-            this.initGui();
+            this.refreshLayout();
             return;
         }
 

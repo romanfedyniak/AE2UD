@@ -102,8 +102,7 @@ public class GuiKeyTypeSelection extends AEBaseGui {
 
         // The row list arrives a tick after the screen opens, and its length decides how tall the panel is.
         if (this.rebuildRows()) {
-            this.buttonList.clear();
-            this.initGui();
+            this.refreshLayout();
         }
     }
 

@@ -27,6 +27,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.ITooltip;
+import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.client.me.InternalSlotME;
 import appeng.client.me.SlotDisconnected;
 import appeng.container.implementations.ContainerInterfaceConfigurationTerminal;
@@ -114,6 +115,8 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private ItemStack dbl_whichItem = ItemStack.EMPTY;
     private Slot bl_clicked;
     private boolean haltDragging = false;
+    private boolean handlingMouse = false;
+    private boolean layoutDirty = false;
 
     public List<GuiCustomSlot> getGuiSlots() {
         return guiSlots;
@@ -510,6 +513,45 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         for (final GuiCustomSlot slot : this.guiSlots) {
             slot.drawBackground(ox, oy);
         }
+    }
+
+    /**
+     * Lays the screen out again - buttons, slots and everything else {@code initGui} builds - once the mouse
+     * event that asked for it is over.
+     * <p>
+     * Vanilla walks {@code buttonList} to its end without stopping after a button's action has run, so a list
+     * rebuilt from inside {@code actionPerformed} is walked on into: a button the new layout has just moved
+     * under the cursor is pressed by a click that was aimed at something else, which is what pressing the
+     * terminal style button used to do to the one below it. The list a click is dispatched over is therefore
+     * always the one that was on screen when the button went down. Outside a mouse event there is nothing to
+     * wait for and the work happens at once.
+     */
+    protected final void refreshLayout() {
+        this.layoutDirty = true;
+
+        if (!this.handlingMouse) {
+            this.applyPendingLayout();
+        }
+    }
+
+    private void applyPendingLayout() {
+        if (this.layoutDirty) {
+            this.layoutDirty = false;
+            this.buttonList.clear();
+            this.initGui();
+        }
+    }
+
+    /**
+     * Hands a rebuilt text field what the one it replaces was holding: the text, the caret, the selection and
+     * the keyboard. {@code initGui} is not only an opening - it runs again on a window resize and on every
+     * {@link #refreshLayout()} - so only a field's first build starts from what was kept or from a setting.
+     */
+    protected static void carryOver(final MEGuiTextField from, final MEGuiTextField to) {
+        to.setText(from.getText(), true);
+        to.setCursorPosition(from.getCursorPosition());
+        to.setSelectionPos(from.getSelectionEnd());
+        to.setFocused(from.isFocused());
     }
 
     @Override
@@ -1053,17 +1095,29 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
     public abstract void drawBG(int offsetX, int offsetY, int mouseX, int mouseY);
 
+    /**
+     * Every click, drag, release and wheel notch the screen sees passes through here, which makes it the one
+     * place that knows a mouse event is being dispatched - and the place a layout put off by
+     * {@link #refreshLayout()} is caught up, in the same frame the mouse was read.
+     */
     @Override
     public void handleMouseInput() throws IOException {
-        super.handleMouseInput();
+        this.handlingMouse = true;
 
-        final int i = Mouse.getEventDWheel();
-        if (i != 0 && isShiftKeyDown()) {
-            final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
-            final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
-            this.mouseWheelEvent(x, y, i / Math.abs(i));
-        } else if (i != 0 && this.getScrollBar() != null) {
-            this.getScrollBar().wheel(i);
+        try {
+            super.handleMouseInput();
+
+            final int i = Mouse.getEventDWheel();
+            if (i != 0 && isShiftKeyDown()) {
+                final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
+                final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
+                this.mouseWheelEvent(x, y, i / Math.abs(i));
+            } else if (i != 0 && this.getScrollBar() != null) {
+                this.getScrollBar().wheel(i);
+            }
+        } finally {
+            this.handlingMouse = false;
+            this.applyPendingLayout();
         }
     }
 

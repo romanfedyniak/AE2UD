@@ -444,16 +444,11 @@ public class GuiInterfaceTerminal extends AEBaseGui {
 
                 if (btn == this.terminalStyleBox) {
                     AEClientConfig.instance().getConfigManager().putSetting(iBtn.getSetting(), next);
-                    this.reinitalize();
+                    this.refreshLayout();
                 }
                 iBtn.set(next);
             }
         }
-    }
-
-    private void reinitalize() {
-        this.buttonList.clear();
-        this.initGui();
     }
 
     /**

@@ -287,7 +287,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (picked != null) {
             AEClientConfig.instance().getConfigManager().putSetting(this.searchModes.getSetting(), picked);
             this.searchBoxSettings.set(picked);
-            this.reinitalize();
+            this.refreshLayout();
             return;
         }
 
@@ -319,15 +319,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 iBtn.set(next);
 
                 if (next.getClass() == SearchBoxMode.class || next.getClass() == TerminalStyle.class) {
-                    this.reinitalize();
+                    this.refreshLayout();
                 }
             }
         }
-    }
-
-    private void reinitalize() {
-        this.buttonList.clear();
-        this.initGui();
     }
 
     @Override
@@ -453,6 +448,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.pinsButton.setRows(this.craftingPinRows, this.playerPinRows);
         }
 
+        final MEGuiTextField previousSearch = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + Math.max(80, this.offsetX), this.guiTop + 4, 90, 12);
         this.searchField.setEnableBackgroundDrawing(false);
         this.searchField.setMaxStringLength(100);
@@ -474,17 +470,21 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         final boolean isJEIEnabled = SearchBoxMode.JEI_AUTOSEARCH == searchModeSetting
                 || SearchBoxMode.JEI_MANUAL_SEARCH == searchModeSetting;
 
-        this.searchField.setFocused(this.isAutoFocus);
+        if (previousSearch != null) {
+            carryOver(previousSearch, this.searchField);
+        } else {
+            this.searchField.setFocused(this.isAutoFocus);
 
-        if (isJEIEnabled) {
-            memoryText = Integrations.jei().getSearchText();
-        }
+            if (isJEIEnabled) {
+                memoryText = Integrations.jei().getSearchText();
+            }
 
-        if (isKeepFilter && memoryText != null && !memoryText.isEmpty()) {
-            this.searchField.setText(memoryText);
-            this.searchField.selectAll();
-            this.repo.setSearchString(memoryText);
-            this.setScrollBar();
+            if (isKeepFilter && memoryText != null && !memoryText.isEmpty()) {
+                this.searchField.setText(memoryText);
+                this.searchField.selectAll();
+                this.repo.setSearchString(memoryText);
+                this.setScrollBar();
+            }
         }
 
         craftingGridOffsetX = Integer.MAX_VALUE;
@@ -579,7 +579,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         layoutChanged |= oldVisibleCraftingRows != newVisibleCraftingRows
                 || oldVisiblePlayerRows != newVisiblePlayerRows;
         if (layoutChanged && reinitializeLayout) {
-            this.reinitalize();
+            this.refreshLayout();
         } else if (reinitializeLayout) {
             this.repo.setPins(this.terminalPlayerPins, this.terminalCraftingPins,
                     this.visibleCraftingPinRows, this.visiblePlayerPinRows);
@@ -609,7 +609,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (send) {
             NetworkHandler.instance().sendToServer(PacketTerminalPins.setRows(craftingRows, playerRows));
         }
-        this.reinitalize();
+        this.refreshLayout();
     }
 
     @Override

@@ -133,6 +133,7 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
 
         super.initGui();
 
+        final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer,
                 this.guiLeft + this.searchLeft(), this.guiTop + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
         this.searchField.setEnableBackgroundDrawing(false);
@@ -151,7 +152,9 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
                 AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
         this.buttonList.add(this.searchKeepBtn);
 
-        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+        if (previous != null) {
+            carryOver(previous, this.searchField);
+        } else if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
             this.searchField.setText(memoryText);
             this.repo.setSearchString(memoryText);
         }

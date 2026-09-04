@@ -240,6 +240,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
                 Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
         this.buttonList.add(this.searchKeepBtn);
 
+        final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + SEARCH_LEFT,
                 this.guiTop + SEARCH_TOP, SEARCH_WIDTH, SEARCH_HEIGHT);
         this.searchField.setEnableBackgroundDrawing(false);
@@ -247,7 +248,9 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         this.searchField.setTextColor(MEGuiTextField.TEXT_COLOR);
         this.searchField.setVisible(true);
 
-        if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
+        if (previous != null) {
+            carryOver(previous, this.searchField);
+        } else if (AEClientConfig.instance().keepsSearch() && !memoryText.isEmpty()) {
             this.searchField.setText(memoryText, true);
         }
 
@@ -639,8 +642,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, backwards,
                     Settings.TERMINAL_STYLE.getPossibleValues());
             AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
-            this.buttonList.clear();
-            this.initGui();
+            this.refreshLayout();
             return;
         }
 

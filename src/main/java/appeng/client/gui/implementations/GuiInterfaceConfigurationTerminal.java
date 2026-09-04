@@ -160,11 +160,19 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         }
 
         final boolean keep = AEClientConfig.instance().keepsSearch();
+        final MEGuiTextField previousInputs = this.searchFieldInputs;
+        final MEGuiTextField previousNames = this.searchFieldNames;
         this.searchFieldInputs = this.createSearchField(ITEMS_LEFT, ITEMS_WIDTH,
                 keep ? this.loadSearchItems() : "");
         this.searchFieldNames = this.createSearchField(NAMES_LEFT, NAMES_WIDTH,
                 keep ? this.loadSearchNames() : "");
-        this.searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
+
+        if (previousInputs != null) {
+            carryOver(previousInputs, this.searchFieldInputs);
+            carryOver(previousNames, this.searchFieldNames);
+        } else {
+            this.searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
+        }
     }
 
     private MEGuiTextField createSearchField(final int left, final int width, final String text) {
@@ -326,12 +334,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
                     Settings.TERMINAL_STYLE.getPossibleValues());
-            final String items = this.searchFieldInputs.getText();
-            final String names = this.searchFieldNames.getText();
             AEClientConfig.instance().getConfigManager().putSetting(Settings.TERMINAL_STYLE, next);
-            this.initGui();
-            this.searchFieldInputs.setText(items);
-            this.searchFieldNames.setText(names);
+            this.refreshLayout();
         } else if (guiButtonHashMap.containsKey(btn)) {
             BlockPos blockPos = blockPosHashMap.get(guiButtonHashMap.get(this.selectedButton));
             BlockPos blockPos2 = mc.player.getPosition();
