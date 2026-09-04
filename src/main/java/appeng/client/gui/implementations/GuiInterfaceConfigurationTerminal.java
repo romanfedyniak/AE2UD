@@ -29,6 +29,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
@@ -97,6 +98,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private final HashMap<Long, ClientDCInternalInv> byId = new HashMap<>();
     private final HashMultimap<String, ClientDCInternalInv> byName = HashMultimap.create();
     private final HashMap<ClientDCInternalInv, BlockPos> blockPosHashMap = new HashMap<>();
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     private final HashMap<GuiButton, ClientDCInternalInv> guiButtonHashMap = new HashMap<>();
     private final Map<ClientDCInternalInv, Integer> numUpgradesMap = new HashMap<>();
     private final ArrayList<String> names = new ArrayList<>();
@@ -148,10 +150,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.getScrollBar().setHeight(this.rows * ROW_HEIGHT - 2);
         this.getScrollBar().setTop(31);
 
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
-                Settings.TERMINAL_STYLE, style);
-        this.searchKeepBtn = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.SEARCH_KEEP,
-                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
+        this.settings.attach(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
+        this.settings.take(this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style));
+        this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0, Settings.SEARCH_KEEP,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP)));
 
         for (final Object obj : this.inventorySlots.inventorySlots) {
             if (obj instanceof appeng.container.slot.AppEngSlot slot) {
@@ -211,6 +213,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         final List<Rectangle> area = new ArrayList<>(2);
         addButtonArea(area, this.terminalStyleBox);
         addButtonArea(area, this.searchKeepBtn);
+        this.settings.addExclusionAreas(area);
         return area;
     }
 
@@ -326,6 +329,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.settings.actionPerformed(btn)) {
+            return;
+        }
+
         if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
             return;
         }
@@ -390,8 +397,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.inventorySlots.inventorySlots.removeIf(slot -> slot instanceof SlotDisconnected);
 
         this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
-        this.buttonList.add(this.terminalStyleBox);
-        this.buttonList.add(this.searchKeepBtn);
+        this.settings.addTo(this.buttonList);
         this.addExtraButtons();
 
         int offset = 30;

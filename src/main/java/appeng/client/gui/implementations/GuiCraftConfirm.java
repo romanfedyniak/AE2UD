@@ -34,6 +34,7 @@ import appeng.client.gui.GuiImageExport;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
@@ -154,6 +155,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private GuiCraftPriorityButton priority;
     private GuiTabButton showTree;
     private GuiImgButton terminalStyleBox;
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     private GuiIconButton saveImage;
     private GuiImgButton searchKeepBtn;
     private MEGuiTextField searchField;
@@ -227,18 +229,19 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             this.buttonList.add(this.cancel);
         }
 
-        this.saveImage = new GuiIconButton(this.guiLeft + this.xSize, this.guiTop + 28, SAVE_IMAGE_ICON,
+        // On the far side from the CPU table, which now owns the space to the left of this screen, and
+        // opening away from the window for the same reason.
+        final int offset = this.settings.attach(this.buttonList, this.guiLeft + this.xSize + BUTTON_GAP,
+                this.guiTop + 8, false);
+
+        this.saveImage = new GuiIconButton(this.guiLeft + this.xSize + BUTTON_GAP, offset, SAVE_IMAGE_ICON,
                 GuiText.SaveAsImage.getLocal());
         this.buttonList.add(this.saveImage);
 
-        // On the far side from the CPU table, which now owns the space to the left of this screen.
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
-                Settings.TERMINAL_STYLE, style);
-        this.buttonList.add(this.terminalStyleBox);
-
-        this.searchKeepBtn = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 48,
-                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
-        this.buttonList.add(this.searchKeepBtn);
+        this.buttonList.add(this.settings.take(
+                this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style)));
+        this.buttonList.add(this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP))));
 
         final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + SEARCH_LEFT,
@@ -444,6 +447,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         addButtonArea(area, this.saveImage);
         addButtonArea(area, this.searchKeepBtn);
         addButtonArea(area, this.showTree);
+        this.settings.addExclusionAreas(area);
         return area;
     }
 
@@ -632,6 +636,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         }
 
         if (this.errorPanel.actionPerformed(btn)) {
+            return;
+        }
+
+        if (this.settings.actionPerformed(btn)) {
             return;
         }
 

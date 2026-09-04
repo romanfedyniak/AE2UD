@@ -2166,6 +2166,9 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     out of the network. It sits on the terminal item rather than in the client config because the server
     decides the question and has the item in hand while it does; the same reason `SORT_BY` lives there and
     `SEARCH_MODE` does not. Upstream has no such key at all.
+34. **`ActionItems.SETTINGS`** - additive. The button that opens a screen's drawer of settings, so that the
+    icon and its tooltip come from the same registry every other action button uses. Upstream draws its
+    settings buttons from its own client-side icon enum, which this version has no equivalent of.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

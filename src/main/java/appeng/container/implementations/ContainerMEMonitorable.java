@@ -114,7 +114,6 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private IConfigManagerHost gui;
     private IConfigManager serverCM;
     private IGridNode networkNode;
-    protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
 
     /**
      * Non-null only when {@code monitorable} is one of the standard network-backed terminal parts (plain ME
@@ -252,7 +251,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         if (monitorable instanceof IViewCellStorage) {
             for (int y = 0; y < 5; y++) {
                 this.cellView[y] = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.VIEW_CELL, ((IViewCellStorage) monitorable)
-                        .getViewCellStorage(), y, 206, y * 18 + 8 + jeiOffset, this.getInventoryPlayer());
+                        .getViewCellStorage(), y, 206, y * 18 + 8, this.getInventoryPlayer());
                 this.cellView[y].setAllowEdit(this.canAccessViewCells);
                 this.addSlotToContainer(this.cellView[y]);
             }

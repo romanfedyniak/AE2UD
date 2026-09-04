@@ -196,7 +196,8 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
 
         for (int upgradeSlot = 0; upgradeSlot < availableUpgrades(); upgradeSlot++) {
             final SlotRestrictedInput slot = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES,
-                    upgrades, upgradeSlot, 206, 135 + upgradeSlot * 18, this.getInventoryPlayer());
+                    upgrades, upgradeSlot, UPGRADE_PLATE_X + UPGRADE_SLOT_INSET,
+                    UPGRADE_PLATE_Y + UPGRADE_SLOT_INSET + upgradeSlot * 18, this.getInventoryPlayer());
             slot.setNotDraggable();
             this.upgradeSlots.add(this.addSlotToContainer(slot));
         }

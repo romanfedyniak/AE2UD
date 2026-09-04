@@ -113,11 +113,15 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private final int offsetX = 9;
 
     /** Where the wireless upgrade plate sits, and with it the slot eight pixels inside it. */
-    private static final int WIRELESS_PLATE_X = 198;
-    private static final int WIRELESS_PLATE_Y = 127;
+    // Under the view cell panel beside it, whose art ends at 103, with the same two pixels between them
+    // that a button leaves against a window. The plate used to hang 24 lower, which is where that panel
+    // ended while JEI pushed it down the window.
+    private static final int WIRELESS_PLATE_X = IWirelessTerminalContainer.UPGRADE_PLATE_X;
+    private static final int WIRELESS_PLATE_Y = IWirelessTerminalContainer.UPGRADE_PLATE_Y;
 
     private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
     private final GuiSettingPanel searchModes = GuiSettingPanel.searchModes();
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     private final int lowerTextureOffset = 0;
     private final IConfigManager configSrc;
     private final boolean viewCell;
@@ -161,8 +165,6 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private int terminalPinSnapshotVersion;
     private final AEKey[] terminalPlayerPins = new AEKey[IPlayerTerminalPins.MAX_PINS];
     private List<TerminalCraftingPin> terminalCraftingPins = new ArrayList<>();
-
-    protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
 
     public GuiMEMonitorable(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         this(inventoryPlayer, te, new ContainerMEMonitorable(inventoryPlayer, te));
@@ -250,8 +252,16 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     @Override
     protected void actionPerformed(final GuiButton btn) {
+        if (this.settings.actionPerformed(btn)) {
+            // The search mode panel hangs off a button that has just gone with the drawer.
+            this.searchModes.close();
+            this.modeSwitch.close();
+            return;
+        }
+
         if (this.modeSwitch.actionPerformed(btn)) {
             this.searchModes.close();
+            this.settings.close();
             return;
         }
 
@@ -388,7 +398,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         final int unusedSpace = this.height - this.ySize;
         this.guiTop = (int) Math.floor(unusedSpace / (unusedSpace < 0 ? 3.8f : 2.0f));
 
-        int offset = this.guiTop + 8 + jeiOffset;
+        // The drawer takes the top of the column, so what it opens grows down the window rather than off the
+        // bottom of a short screen. What goes in it is in GuiSettingsDrawer.
+        int offset = this.settings.attach(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
 
         {
             if (this.customSortOrder) {
@@ -408,44 +420,38 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 .getSetting(Settings.SORT_DIRECTION)));
         offset += 20;
 
-        this.buttonList.add(
-                this.searchBoxSettings = new GuiImgButton(this.guiLeft - 18, offset, Settings.SEARCH_MODE, AEClientConfig.instance()
+        if (this.supportsTerminalPins && (AEClientConfig.instance().showCraftingPins() || AEClientConfig.instance().showPlayerPins())) {
+            this.buttonList.add(this.pinsButton = new GuiPinsButton(this.guiLeft - 18, offset));
+            this.pinsButton.setRows(this.craftingPinRows, this.playerPinRows);
+            offset += 20;
+        }
+
+        this.buttonList.add(this.settings.take(
+                this.searchBoxSettings = new GuiImgButton(0, 0, Settings.SEARCH_MODE, AEClientConfig.instance()
                         .getConfigManager()
                         .getSetting(
-                                Settings.SEARCH_MODE)));
+                                Settings.SEARCH_MODE))));
         this.searchBoxSettings.setExtraTooltip(ButtonToolTips.SearchModePanel.getLocal());
 
-        offset += 20;
-
-        this.buttonList.add(this.searchKeepBtn = new GuiImgButton(this.guiLeft - 18, offset,
-                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP)));
-        offset += 20;
+        this.buttonList.add(this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP))));
 
         // The terminal in hand is the one the pick block key asks, so the switch for it rides on that item
         // rather than on the player - a working terminal on the belt can answer while a spare does not.
         if (this.isWirelessTerminal()) {
-            this.buttonList.add(this.pickBlockBtn = new GuiImgButton(this.guiLeft - 18, offset,
-                    Settings.PICK_BLOCK, this.configSrc.getSetting(Settings.PICK_BLOCK)));
-            offset += 20;
+            this.buttonList.add(this.settings.take(this.pickBlockBtn = new GuiImgButton(0, 0,
+                    Settings.PICK_BLOCK, this.configSrc.getSetting(Settings.PICK_BLOCK))));
         }
 
         if (this.supportsTerminalStyle()) {
-            this.buttonList.add(this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, offset, Settings.TERMINAL_STYLE, AEClientConfig.instance()
+            this.buttonList.add(this.settings.take(this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, AEClientConfig.instance()
                     .getConfigManager()
-                    .getSetting(Settings.TERMINAL_STYLE)));
-            offset += 20;
+                    .getSetting(Settings.TERMINAL_STYLE))));
         }
 
         if (this.supportsKeyTypeSelection) {
-            this.buttonList.add(this.keyTypesBtn = new GuiImgButton(this.guiLeft - 18, offset, Settings.ACTIONS,
-                    ActionItems.CONFIGURE_VISIBLE_TYPES));
-        }
-
-
-        if (this.supportsTerminalPins && (AEClientConfig.instance().showCraftingPins() || AEClientConfig.instance().showPlayerPins())) {
-            offset += this.supportsKeyTypeSelection ? 20 : 0;
-            this.buttonList.add(this.pinsButton = new GuiPinsButton(this.guiLeft - 18, offset));
-            this.pinsButton.setRows(this.craftingPinRows, this.playerPinRows);
+            this.buttonList.add(this.settings.take(this.keyTypesBtn = new GuiImgButton(0, 0, Settings.ACTIONS,
+                    ActionItems.CONFIGURE_VISIBLE_TYPES)));
         }
 
         final MEGuiTextField previousSearch = this.searchField;
@@ -616,9 +622,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> exclusionArea = new ArrayList<>();
 
-        // Measured rather than counted: counting the column assumed every button in it is visible, twenty
-        // pixels apart and starts where jeiOffset puts the first one, so any change to the layout would
-        // have had to be made here as well.
+        // Measured rather than counted: counting the column assumed every button in it is visible and twenty
+        // pixels below the last, so any change to the layout would have had to be made here as well.
         for (final GuiButton button : this.buttonList) {
             if (button.x < this.guiLeft) {
                 addButtonArea(exclusionArea, button);
@@ -628,7 +633,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         addButtonArea(exclusionArea, this.craftingStatusBtn);
 
         if (this.viewCell) {
-            Rectangle viewMode = new Rectangle(guiLeft + 205, guiTop + 4 + jeiOffset, 24, 19 * monitorableContainer.getViewCells().length);
+            Rectangle viewMode = new Rectangle(guiLeft + 205, guiTop + 4, 24, 19 * monitorableContainer.getViewCells().length);
             exclusionArea.add(viewMode);
         }
 
@@ -830,7 +835,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, x_width, 18);
 
         if (this.viewCell || (this instanceof GuiSecurityStation)) {
-            this.drawTexturedModalRect(offsetX + x_width, offsetY + jeiOffset, x_width, 0, 46, 128);
+            this.drawTexturedModalRect(offsetX + x_width, offsetY, x_width, 0, 46, 128);
         }
 
         for (int x = 0; x < this.rows; x++) {

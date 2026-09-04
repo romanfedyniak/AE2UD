@@ -112,18 +112,22 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
         return false;
     }
 
+    /** This screen stands its column on the right, where the CPU table does not reach. */
+    @Override
+    protected int columnLeft() {
+        return this.guiLeft + this.xSize + BUTTON_GAP;
+    }
+
+    @Override
+    protected boolean columnOpensLeft() {
+        return false;
+    }
+
     @Override
     public void initGui() {
         super.initGui();
 
         this.cpuTable.initGui(this.rows, this.buttonList);
-
-        this.terminalStyleBox.x = this.guiLeft + this.xSize;
-        this.terminalStyleBox.y = this.guiTop + 8;
-        this.toggleHideStored.x = this.terminalStyleBox.x;
-        this.toggleHideStored.y = this.terminalStyleBox.y + 20;
-        this.searchKeepBtn.x = this.terminalStyleBox.x;
-        this.searchKeepBtn.y = this.toggleHideStored.y + 20;
 
         if (!this.myIcon.isEmpty()) {
             this.buttonList.add(

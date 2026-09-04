@@ -30,7 +30,6 @@ import appeng.container.slot.SlotOutput;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.misc.TileSecurityStation;
-import appeng.util.Platform;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
 import net.minecraft.entity.player.EntityPlayer;
@@ -53,7 +52,6 @@ public class ContainerSecurityStation extends ContainerMEMonitorable implements 
     @GuiSync(0)
     public int permissionMode = 0;
 
-    protected int jeiOffset = Platform.isModLoaded("jei") ? 24 : 0;
 
     public ContainerSecurityStation(final InventoryPlayer ip, final ITerminalHost monitorable) {
         super(ip, monitorable, false);
@@ -64,8 +62,8 @@ public class ContainerSecurityStation extends ContainerMEMonitorable implements 
                 .getConfigSlot(), 0, 37, -33, ip));
 
         this.addSlotToContainer(
-                this.wirelessIn = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.ENCODABLE_ITEM, this.wirelessEncoder, 0, 212, 10 + jeiOffset, ip));
-        this.addSlotToContainer(this.wirelessOut = new SlotOutput(this.wirelessEncoder, 1, 212, 68 + jeiOffset, -1));
+                this.wirelessIn = new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.ENCODABLE_ITEM, this.wirelessEncoder, 0, 212, 10, ip));
+        this.addSlotToContainer(this.wirelessOut = new SlotOutput(this.wirelessEncoder, 1, 212, 68, -1));
 
         this.bindPlayerInventory(ip, 0, 0);
     }

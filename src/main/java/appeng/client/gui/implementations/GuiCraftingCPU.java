@@ -36,6 +36,7 @@ import appeng.client.gui.IKeyUnderMouse;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.client.gui.widgets.MEGuiTextField;
@@ -134,6 +135,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private GuiButton cancel;
     private GuiButton suspend;
     private GuiCraftPriorityButton priority;
+    protected final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     protected GuiImgButton terminalStyleBox;
     protected GuiImgButton toggleHideStored;
     private GuiImgButton selectionMode;
@@ -197,6 +199,10 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
             return;
         }
 
+        if (this.settings.actionPerformed(btn)) {
+            return;
+        }
+
         if (this.terminalStyleBox == btn) {
             final TerminalStyle current = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
             final TerminalStyle next = (TerminalStyle) Platform.rotateEnum(current, Mouse.isButtonDown(1),
@@ -240,6 +246,15 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         return true;
     }
 
+    /** Where this screen's column of buttons stands, and which way what opens off it should go. */
+    protected int columnLeft() {
+        return this.guiLeft - 18;
+    }
+
+    protected boolean columnOpensLeft() {
+        return true;
+    }
+
     @Override
     public void initGui() {
         final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
@@ -257,25 +272,25 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.priority = new GuiCraftPriorityButton(this.guiLeft + PRIORITY_LEFT_OFFSET,
                 this.guiTop + this.ySize - SUSPEND_TOP_OFFSET + 2);
         this.buttonList.add(this.priority);
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8,
-                Settings.TERMINAL_STYLE, style);
-        // Directly under the terminal-style button, on whichever side that screen puts it.
-        this.toggleHideStored = new GuiImgButton(this.terminalStyleBox.x, this.terminalStyleBox.y + 20,
-                Settings.HIDE_STORED, AEClientConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
+        // The column, on whichever side of the window this screen puts it.
+        final int column = this.columnLeft();
+        int offset = this.settings.attach(this.buttonList, column, this.guiTop + 8, this.columnOpensLeft());
+
+        this.toggleHideStored = new GuiImgButton(column, offset, Settings.HIDE_STORED,
+                AEClientConfig.instance().getConfigManager().getSetting(Settings.HIDE_STORED));
         this.buttonList.add(this.toggleHideStored);
+        offset += 20;
 
         if (this.canEditSelectionMode()) {
-            this.selectionMode = new GuiImgButton(this.terminalStyleBox.x, this.toggleHideStored.y + 20,
-                    Settings.CPU_SELECTION_MODE, this.craftingCpu.selectionMode);
+            this.selectionMode = new GuiImgButton(column, offset, Settings.CPU_SELECTION_MODE,
+                    this.craftingCpu.selectionMode);
             this.buttonList.add(this.selectionMode);
         }
 
-        this.buttonList.add(this.terminalStyleBox);
-
-        this.searchKeepBtn = new GuiImgButton(this.terminalStyleBox.x,
-                (this.selectionMode == null ? this.toggleHideStored : this.selectionMode).y + 20,
-                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
-        this.buttonList.add(this.searchKeepBtn);
+        this.buttonList.add(this.settings.take(
+                this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style)));
+        this.buttonList.add(this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP))));
 
         final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer, this.guiLeft + SEARCH_LEFT,
@@ -578,6 +593,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         addButtonArea(areas, this.toggleHideStored);
         addButtonArea(areas, this.selectionMode);
         addButtonArea(areas, this.searchKeepBtn);
+        this.settings.addExclusionAreas(areas);
         return areas;
     }
 

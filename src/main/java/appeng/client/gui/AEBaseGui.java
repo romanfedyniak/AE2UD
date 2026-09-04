@@ -102,6 +102,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private final Set<Slot> drag_click = new HashSet<>();
     protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
+    /**
+     * What a button standing outside a window leaves between itself and the window's edge. The columns down
+     * the left at {@code guiLeft - 18} are these same two pixels, counted from the far side of a 16 wide
+     * button.
+     */
+    protected static final int BUTTON_GAP = 2;
+
     /** The panel sheet, and the square of it each corner takes. */
     private static final int PANEL_TEXTURE = 64;
     private static final int PANEL_CORNER = 8;

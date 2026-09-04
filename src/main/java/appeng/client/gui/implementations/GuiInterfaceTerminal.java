@@ -25,6 +25,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.MEGuiTooltipTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
@@ -77,7 +78,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private static final String MOLECULAR_ASSEMBLER = "tile.appliedenergistics2.molecular_assembler";
 
     private final boolean jeiEnabled;
-    private final int jeiButtonPadding;
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
 
     private final HashMap<Long, ClientDCInternalInv> byId = new HashMap<>();
     private final HashMultimap<String, ClientDCInternalInv> byName = HashMultimap.create();
@@ -124,7 +125,6 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.xSize = 208;
         this.ySize = 255;
         this.jeiEnabled = Platform.isModLoaded("jei");
-        this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
         searchFieldInputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
@@ -151,7 +151,6 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         this.xSize = 208;
         this.ySize = 255;
         this.jeiEnabled = Platform.isModLoaded("jei");
-        this.jeiButtonPadding = jeiEnabled ? 22 : 0;
 
         searchFieldInputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
@@ -235,16 +234,16 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         searchFieldNames.x = guiLeft + 32 + 99;
         searchFieldNames.y = guiTop + 38;
 
-        terminalStyleBox.x = guiLeft - 18;
-        terminalStyleBox.y = guiTop + 8 + jeiButtonPadding;
+        int offset = this.settings.attach(this.buttonList, guiLeft - 18, guiTop + 8);
         guiButtonBrokenRecipes.x = guiLeft - 18;
-        guiButtonBrokenRecipes.y = terminalStyleBox.y + 20;
+        guiButtonBrokenRecipes.y = offset;
         guiButtonHideFull.x = guiLeft - 18;
-        guiButtonHideFull.y = guiButtonBrokenRecipes.y + 20;
+        guiButtonHideFull.y = offset + 20;
         guiButtonAssemblersOnly.x = guiLeft - 18;
-        guiButtonAssemblersOnly.y = guiButtonHideFull.y + 20;
-        searchKeepBtn.x = guiLeft - 18;
-        searchKeepBtn.y = guiButtonAssemblersOnly.y + 20;
+        guiButtonAssemblersOnly.y = offset + 40;
+
+        this.settings.take(terminalStyleBox);
+        this.settings.take(searchKeepBtn);
 
         this.setScrollBar();
         this.repositionSlots();
@@ -284,6 +283,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         addButtonArea(area, this.guiButtonHideFull);
         addButtonArea(area, this.guiButtonAssemblersOnly);
         addButtonArea(area, this.searchKeepBtn);
+        this.settings.addExclusionAreas(area);
         return area;
     }
 
@@ -356,8 +356,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         buttonList.add(guiButtonAssemblersOnly);
         buttonList.add(guiButtonHideFull);
         buttonList.add(guiButtonBrokenRecipes);
-        buttonList.add(terminalStyleBox);
-        buttonList.add(searchKeepBtn);
+        this.settings.addTo(buttonList);
 
         this.addExtraButtons();
 
@@ -427,6 +426,8 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 mc.player.sendStatusMessage(PlayerMessages.InterfaceHighlighted.get(blockPos.getX(), blockPos.getY(), blockPos.getZ()), false);
             }
             mc.player.closeScreen();
+        } else if (this.settings.actionPerformed(btn)) {
+            return;
         } else if (btn == guiButtonHideFull) {
             onlyShowWithSpace = !onlyShowWithSpace;
             this.refreshList();

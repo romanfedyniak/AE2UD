@@ -29,6 +29,7 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.client.me.Repo;
 import appeng.client.me.SlotME;
@@ -59,6 +60,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
     private final Repo repo;
     private int rows = MIN_ROWS;
     private final ContainerNetworkStatus cns;
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     private GuiImgButton units;
     private GuiImgButton terminalStyleBox;
     private int tooltip = -1;
@@ -81,6 +83,10 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
     protected void actionPerformed(final GuiButton btn) throws IOException {
         super.actionPerformed(btn);
 
+        if (this.settings.actionPerformed(btn)) {
+            return;
+        }
+
         final boolean backwards = Mouse.isButtonDown(1);
 
         if (btn == this.units) {
@@ -102,11 +108,12 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
 
-        this.units = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.POWER_UNITS, AEClientConfig.instance().selectedPowerUnit());
+        final int offset = this.settings.attach(this.buttonList, this.guiLeft - 18, this.guiTop + 8);
+
+        this.units = new GuiImgButton(this.guiLeft - 18, offset, Settings.POWER_UNITS, AEClientConfig.instance().selectedPowerUnit());
         this.buttonList.add(this.units);
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28,
-                Settings.TERMINAL_STYLE, style);
-        this.buttonList.add(this.terminalStyleBox);
+        this.buttonList.add(this.settings.take(
+                this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style)));
         this.setScrollBar();
     }
 
@@ -115,6 +122,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         final List<Rectangle> area = new ArrayList<>(2);
         addButtonArea(area, this.units);
         addButtonArea(area, this.terminalStyleBox);
+        this.settings.addExclusionAreas(area);
         return area;
     }
 

@@ -113,6 +113,7 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(69, Settings.SORT_BY, SortOrder.MOD, ButtonToolTips.SortBy, ButtonToolTips.Mod);
 
             this.registerApp(66, Settings.ACTIONS, ActionItems.WRENCH, ButtonToolTips.PartitionStorage, ButtonToolTips.PartitionStorageHint);
+            this.registerApp(16 * 3 + 8, Settings.ACTIONS, ActionItems.SETTINGS, ButtonToolTips.MoreSettings, ButtonToolTips.MoreSettingsHint);
             this.registerApp(3 + 8 * 16, Settings.ACTIONS, ActionItems.CONFIGURE_VISIBLE_TYPES,
                     ButtonToolTips.ConfigureVisibleTypes, ButtonToolTips.ConfigureVisibleTypesHint);
             this.registerApp(3 + 8 * 16, Settings.ACTIONS, ActionItems.CONFIGURE_IMPORTED_TYPES,

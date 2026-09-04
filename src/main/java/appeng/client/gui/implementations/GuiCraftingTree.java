@@ -33,6 +33,7 @@ import appeng.client.gui.widgets.GuiCraftErrorPanel;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiCraftPriorityButton;
 import appeng.client.gui.widgets.GuiIconButton;
+import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiCraftingPlanTree;
@@ -113,6 +114,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     private GuiButton cancel;
     private GuiButton missingOnly;
     private GuiImgButton terminalStyleBox;
+    private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
     private GuiIconButton saveImage;
 
     private boolean missingOnlyChosen;
@@ -187,7 +189,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
 
         // Under the terminal-style button, on the strip outside the window where this screen keeps its
         // own controls.
-        this.saveImage = new GuiIconButton(this.guiLeft + this.xSize, this.guiTop + 28, SAVE_IMAGE_ICON,
+        final int offset = this.settings.attach(this.buttonList, this.guiLeft + this.xSize + BUTTON_GAP,
+                this.guiTop + 8, false);
+
+        this.saveImage = new GuiIconButton(this.guiLeft + this.xSize + BUTTON_GAP, offset, SAVE_IMAGE_ICON,
                 GuiText.SaveAsImage.getLocal());
         this.buttonList.add(this.saveImage);
 
@@ -195,13 +200,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
                 GuiText.ShowMissingOnly.getLocal());
         this.buttonList.add(this.missingOnly);
 
-        this.terminalStyleBox = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 8,
-                Settings.TERMINAL_STYLE, style);
-        this.buttonList.add(this.terminalStyleBox);
-
-        this.searchKeepBtn = new GuiImgButton(this.guiLeft + this.xSize, this.guiTop + 48,
-                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
-        this.buttonList.add(this.searchKeepBtn);
+        this.buttonList.add(this.settings.take(
+                this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style)));
+        this.buttonList.add(this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0,
+                Settings.SEARCH_KEEP, AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP))));
 
         this.tree.setBounds(BORDER + 2, HEADER_HEIGHT,
                 this.xSize - 2 * (BORDER + 2), this.ySize - HEADER_HEIGHT - FOOTER_HEIGHT);
@@ -348,6 +350,10 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
             return;
         }
 
+        if (this.settings.actionPerformed(btn)) {
+            return;
+        }
+
         if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
             return;
         }
@@ -473,6 +479,7 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         addButtonArea(area, this.back);
         addButtonArea(area, this.saveImage);
         addButtonArea(area, this.searchKeepBtn);
+        this.settings.addExclusionAreas(area);
         return area;
     }
 }

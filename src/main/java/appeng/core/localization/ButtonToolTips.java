@@ -74,6 +74,7 @@ public enum ButtonToolTips {
     SearchKeepYes,
     SearchKeepNo,
     PickBlock,
+    MoreSettings,
     PickBlockYes,
     PickBlockNo,
 
@@ -81,6 +82,7 @@ public enum ButtonToolTips {
     ItemName,
     NumberOfItems,
     PartitionStorageHint,
+    MoreSettingsHint,
 
     ClearSettings,
     StoredItems,

@@ -23,5 +23,14 @@ public interface IWirelessTerminalContainer {
     /** The magnet card and two energy cards. */
     int UPGRADE_SLOTS = 3;
 
+    /**
+     * Where the plate holding those slots hangs beside the window, and how far inside it the first slot
+     * sits. Named here because the plate is drawn by the screen and the slots are placed by the container,
+     * and the two had drifted apart once already.
+     */
+    int UPGRADE_PLATE_X = 198;
+    int UPGRADE_PLATE_Y = 106;
+    int UPGRADE_SLOT_INSET = 8;
+
     ItemStack getTerminal();
 }

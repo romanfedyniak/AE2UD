@@ -48,5 +48,10 @@ public enum ActionItems
 	CONFIGURE_IMPORTED_TYPES,
 	CONFIGURE_STORED_TYPES,
 	CONFIGURE_PLACED_TYPES,
-	CONFIGURE_PICKED_UP_TYPES
+	CONFIGURE_PICKED_UP_TYPES,
+
+	/**
+	 * Opens the drawer holding the settings of a screen that are set once and left alone.
+	 */
+	SETTINGS
 }
