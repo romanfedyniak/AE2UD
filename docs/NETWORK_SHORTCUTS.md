@@ -4,13 +4,13 @@ A wireless terminal in a pocket is a network in a pocket, and a few things are w
 stopping to open its screen. This file covers those, the rules they share, and the decisions behind them
 that the code cannot state for itself.
 
-At the time of writing there is one: the vanilla pick block key.
+There are three: the vanilla pick block key, and two keys over an ingredient in JEI's list.
 
 ## The shared half
 
-Every one of these walks the player's main inventory and then their bauble slots, looking for the wireless
-terminal item, and asks each one it finds until one answers. `appeng.helpers.WirelessTerminalAccess` is that
-walk. It hands the caller a `WirelessTerminalGuiObject` — the same object a terminal screen is opened on, so
+With no terminal screen open, every one of these walks the player's main inventory and then their bauble
+slots, looking for the wireless terminal item, and asks each one it finds until one answers.
+`appeng.helpers.WirelessTerminalAccess` is that walk. It hands the caller a `WirelessTerminalGuiObject` — the same object a terminal screen is opened on, so
 the encryption key, the power draw and the range check are the ones the screen already uses and there is no
 second set of rules to keep in step.
 
@@ -29,12 +29,16 @@ charged and merely out of range outranks a spare in a backpack that was never li
 in `WirelessTerminalAccess.COMPLAINTS`, and `PacketTerminalUse` ranks the reasons a terminal would not open
 through the same list.
 
-Two silences matter more than the message:
+**No terminal at all is silent**, always. Otherwise every middle click by a player who has never crafted one
+would put a line in the chat.
 
-- **No terminal at all is silent.** Otherwise every middle click by a player who has never crafted one would
-  put a line in the chat.
-- **A terminal that worked and simply had nothing is silent.** Middle-clicking grass is not an error, and it
-  is the common case. Once any terminal is reached the complaints are dropped, whatever it then answered.
+**A terminal that worked and simply had nothing** is the case where the actions differ, and it is the caller
+that decides, by handing `run` a message or not:
+
+- **Pick block says nothing.** Middle-clicking grass is not an error, it is the common case, and the key
+  fires wherever the crosshair happens to be.
+- **Taking an ingredient says so.** That gesture named one thing on purpose; silence there reads as a broken
+  feature rather than an empty network. Being unable to hold the result is worth saying for the same reason.
 
 ### What is not checked
 
@@ -80,3 +84,80 @@ frame for no reason a player could see.
 
 Sneak asks for one, otherwise a full stack — a full stack is what the key hands over out of the player's own
 inventory, so it is what it should hand over out of the network.
+
+## Taking and ordering an ingredient in JEI
+
+`AEFeature.JeiRetrieve` and `AEFeature.JeiCraftRequest`, both on by default, and both dead weight without
+JEI — which is why the keys are not even registered when it is absent, rather than sitting in the controls
+screen doing nothing. `appeng.integration.modules.jei.JeiIngredientActions` is the client half, registered
+from `JEIModule.init()`, which only runs on a client with JEI present.
+
+- **Ctrl + middle click takes it.** A full stack, or one while shift is also held.
+- **Alt + middle click orders it**, opening the amount to craft.
+
+Both are ordinary `ActionKey` bindings and can be rebound to anything, keyboard included; the defaults match
+what a player arriving from either of the two 1.12 mods that already do this will have in their fingers.
+`ActionKey` grew a modifier and a "is this worth offering" question for them.
+
+**Which ingredient** is public API - `getIngredientUnderMouse()`, on the ingredient list and on the bookmark
+overlay alike - so nothing has to be prised out of JEI to know what the cursor is over. A bookmark answers
+with its own wrapper around the ingredient rather than the ingredient, since it carries an amount and the
+group it sits in; unwrap it or the shortcuts silently do nothing over the bookmark list, which is where they
+are arguably most wanted. A collapsed group is deliberately left unanswered: it is not one ingredient.
+
+**Getting the click, however, needs a mixin.** JEI takes `GuiScreenEvent.MouseInputEvent.Pre` at
+`EventPriority.HIGHEST` *and* with `receiveCanceled = true`, which means no listener can be ahead of it and
+cancelling the event does not stop it either. It is not idle with the click: a screen that registered a ghost
+ingredient handler - every terminal in this mod - starts a ghost drag on any button, and a screen without one
+starts a drag of JEI's own whenever control is held, which is what made the control chord appear to do
+nothing at first. `appeng.mixin.hei.MixinInputHandler` therefore takes the head of `InputHandler`'s own
+`handleMouseClick`, which is the one method every click in an open screen passes through, and answers true
+the way JEI's own handlers say a click was theirs. A binding moved onto the keyboard needs none of this: JEI
+reads the keyboard on `KeyboardInputEvent.Post`, so the ordinary listener is already ahead of it.
+
+**JEI's cheat mode is not involved** and could not have been: a server turns it off for anyone who is not in
+creative, which is precisely the player this is for.
+
+### Which network answers
+
+If a `ContainerMEMonitorable` is open — any ME terminal, wired or wireless — that terminal's network does
+the work, through the container's own power source, storage and action source. Otherwise the carried
+terminals are walked as above. The rules are the same either way; only where the network came from differs.
+
+### Retrieval
+
+Items only. A fluid has nowhere to go: there is no bucket to put it in, and the wrapper that lets a fluid sit
+in an item slot exists for pattern slots and must never reach a player's inventory.
+
+The amount asked for is capped by what the player's own inventory can actually take, counted before anything
+is extracted, so nothing is dropped at their feet. Anything that still fails to fit — the count is a guess
+about a live inventory — is put back into the network rather than spilled.
+
+### Ordering
+
+Any key type, fluids included: asking for a fluid to be made is an ordinary request, and
+`ContainerCraftAmount` has always taken a bare `AEKey`.
+
+The network is asked whether it can make the thing **before** any screen opens. Walking a player through the
+amount screen and the confirmation only to say "no pattern" is the common outcome of trying this on a JEI
+list, where most entries are things no network can make.
+
+Opening goes through the path `InventoryAction.AUTO_CRAFT` already uses, so the way back is whatever
+`ISubMenuHost` says it is — the terminal the job was ordered from. There is deliberately no attempt to
+remember and restore an unrelated screen the player happened to have open: the return tab would then look
+the same and lead somewhere different every time.
+
+### The hint in the tooltip
+
+Both keys are named in the tooltip of the ingredient they would act on, because a binding nothing mentions is
+one nobody finds. Only where it means something, though: the lines are drawn only when the player has a
+terminal on them or an ME terminal open, and the "take" line only over something that can actually be taken,
+so a fluid is offered the order and nothing else.
+
+This is a second mixin, `appeng.mixin.hei.MixinIngredientRenderer`, and the reason is the fluid.
+`ItemTooltipEvent` is fired by `ItemStack.getTooltip`, so a fluid in the list never reaches it — the lines
+went missing on exactly the ingredients the order shortcut is most interesting for. Forge's
+`RenderTooltipEvent` sees every ingredient but hands out its lines through `Collections.unmodifiableList`,
+deliberately. What is left is the one call that paints a list ingredient's tooltip, whatever type it is; and
+going through it rather than through a general tooltip event also means the lines cannot appear over the
+slots of the screen behind the list.

@@ -35,6 +35,11 @@ public class JEIModule implements IJEI {
     }
 
     @Override
+    public void init() {
+        JeiIngredientActions.register();
+    }
+
+    @Override
     public String getSearchText() {
         return this.jei.getSearchText();
     }

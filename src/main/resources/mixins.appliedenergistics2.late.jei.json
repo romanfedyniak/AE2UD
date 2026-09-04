@@ -8,6 +8,8 @@
   "mixins": [],
   "client": [
     "AccessorGuiIngredient",
+    "MixinIngredientRenderer",
+    "MixinInputHandler",
     "MixinRecipesGui"
   ],
   "server": []

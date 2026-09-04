@@ -51,6 +51,9 @@ public enum PlayerMessages {
     CraftingCPUCrossesChunks,
     CraftingCPUNoStorage,
     CraftingCPUNotSolid,
+    CannotBeCrafted,
+    NothingInNetwork,
+    NoRoomForItem,
     ;
 
     public ITextComponent get(Object... params) {

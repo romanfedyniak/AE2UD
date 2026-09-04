@@ -116,8 +116,12 @@ public class ClientHelper extends ServerHelper {
         AEKeyRendering.register(AEKeyTypes.fluids(), new FluidKeyRenderHandler());
 
         for (ActionKey key : ActionKey.values()) {
+            if (!key.isAvailable()) {
+                continue;
+            }
+
             final KeyBinding binding = new KeyBinding(key.getTranslationKey(), key.getConflictContext(),
-                    key.getDefaultKey(), KEY_CATEGORY);
+                    key.getDefaultModifier(), key.getDefaultKey(), KEY_CATEGORY);
             ClientRegistry.registerKeyBinding(binding);
             this.bindings.put(key, binding);
         }
@@ -463,12 +467,14 @@ public class ClientHelper extends ServerHelper {
 
     @Override
     public boolean isKeyPressed(ActionKey key) {
-        return this.bindings.get(key).isPressed();
+        final KeyBinding binding = this.bindings.get(key);
+        return binding != null && binding.isPressed();
     }
 
     @Override
     public boolean isActionKey(ActionKey key, int pressedKeyCode) {
-        return this.bindings.get(key).isActiveAndMatches(pressedKeyCode);
+        final KeyBinding binding = this.bindings.get(key);
+        return binding != null && binding.isActiveAndMatches(pressedKeyCode);
     }
 
     @Override

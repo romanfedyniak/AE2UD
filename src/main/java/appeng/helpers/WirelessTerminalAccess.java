@@ -12,6 +12,8 @@ package appeng.helpers;
 
 import java.util.function.Predicate;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
@@ -69,6 +71,10 @@ public final class WirelessTerminalAccess {
             this.reached = true;
         }
 
+        public boolean hasReached() {
+            return this.reached;
+        }
+
         public void add(final PlayerMessages message) {
             if (this.worst == null || rank(message) > rank(this.worst)) {
                 this.worst = message;
@@ -96,11 +102,18 @@ public final class WirelessTerminalAccess {
         }
     }
 
+    public static boolean run(final EntityPlayer player, final Predicate<ItemStack> usable, final Action action) {
+        return run(player, usable, action, null);
+    }
+
     /**
      * @param usable which of the player's terminals may answer at all - a per-terminal setting, say.
+     * @param emptyHanded what to say when a terminal was perfectly able and still did nothing, or nothing at
+     *                    all for an action where that is an ordinary outcome rather than a disappointment.
      * @return true if one of them did the work.
      */
-    public static boolean run(final EntityPlayer player, final Predicate<ItemStack> usable, final Action action) {
+    public static boolean run(final EntityPlayer player, final Predicate<ItemStack> usable, final Action action,
+            @Nullable final PlayerMessages emptyHanded) {
         final Complaints complaints = new Complaints();
 
         final NonNullList<ItemStack> mainInventory = player.inventory.mainInventory;
@@ -114,8 +127,41 @@ public final class WirelessTerminalAccess {
             return true;
         }
 
+        if (complaints.hasReached() && emptyHanded != null) {
+            player.sendMessage(emptyHanded.get());
+        }
+
         complaints.tell(player);
         return false;
+    }
+
+    /**
+     * Whether the player has a wireless terminal on them at all, without asking anything of it. The client
+     * uses this to decide whether a hint about these actions is worth drawing.
+     */
+    public static boolean carriesTerminal(final EntityPlayer player) {
+        for (final ItemStack stack : player.inventory.mainInventory) {
+            if (isTerminal(stack)) {
+                return true;
+            }
+        }
+
+        return Platform.isModLoaded("baubles") && carriesBauble(player);
+    }
+
+    @Optional.Method(modid = "baubles")
+    private static boolean carriesBauble(final EntityPlayer player) {
+        for (int i = 0; i < BaublesApi.getBaublesHandler(player).getSlots(); i++) {
+            if (isTerminal(BaublesApi.getBaublesHandler(player).getStackInSlot(i))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isTerminal(final ItemStack stack) {
+        return !stack.isEmpty() && AEApi.instance().definitions().items().wirelessTerminal().isSameAs(stack);
     }
 
     @Optional.Method(modid = "baubles")
@@ -134,8 +180,7 @@ public final class WirelessTerminalAccess {
     private static boolean tryOne(final ItemStack stack, final int slot, final boolean isBauble,
             final EntityPlayer player, final Predicate<ItemStack> usable, final Action action,
             final Complaints complaints) {
-        if (stack.isEmpty() || !AEApi.instance().definitions().items().wirelessTerminal().isSameAs(stack)
-                || !usable.test(stack)) {
+        if (!isTerminal(stack) || !usable.test(stack)) {
             return false;
         }
 

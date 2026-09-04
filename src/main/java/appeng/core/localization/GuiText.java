@@ -320,7 +320,9 @@ public enum GuiText {
     SearchHintOreDict,
     SearchHintId,
     SearchHintRegex,
-    SearchHintMore;
+    SearchHintMore,
+    JeiRetrieveHint,
+    JeiCraftHint;
 
     private final String root;
 
@@ -334,6 +336,11 @@ public enum GuiText {
 
     public String getLocal() {
         return I18n.translateToLocal(this.getUnlocalized());
+    }
+
+    /** The same, for a line that names something the caller knows - a key combination, say. */
+    public String getLocal(final Object... args) {
+        return I18n.translateToLocalFormatted(this.getUnlocalized(), args);
     }
 
     public ITextComponent getLocalizedWithArgs(Object... args) {

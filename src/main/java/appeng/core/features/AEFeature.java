@@ -74,6 +74,12 @@ public enum AEFeature {
     NETWORK_PICK_BLOCK("NetworkPickBlock", Constants.CATEGORY_NETWORK_FEATURES,
             "Lets the vanilla pick block key take what it needs out of the network a carried wireless terminal reaches, the way it takes it out of the player's own inventory. Each terminal still has its own switch for this; turning the feature off here removes it from the pack."),
 
+    JEI_RETRIEVE("JeiRetrieve", Constants.CATEGORY_NETWORK_FEATURES,
+            "Lets an ingredient in JEI's list or bookmarks be taken out of the network under the cursor, from a terminal that is open or from one the player is carrying. Needs JEI installed to do anything."),
+
+    JEI_CRAFT_REQUEST("JeiCraftRequest", Constants.CATEGORY_NETWORK_FEATURES,
+            "Lets an ingredient in JEI's list or bookmarks be ordered from the network under the cursor, opening the amount to craft. Needs JEI installed to do anything."),
+
     SECURITY("Security", Constants.CATEGORY_NETWORK_FEATURES),
     SPATIAL_IO("SpatialIO", Constants.CATEGORY_NETWORK_FEATURES),
     QUANTUM_NETWORK_BRIDGE("QuantumNetworkBridge", Constants.CATEGORY_NETWORK_FEATURES),

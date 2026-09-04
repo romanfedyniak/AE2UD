@@ -2,7 +2,7 @@
 
 AE2UD loads its mixins through [MixinBooter](https://github.com/CleanroomMC/MixinBooter) 10.7, declared as
 a required dependency on the mod. A mixin is used only where no public API can express the integration; at
-the time of writing that is three cases:
+the time of writing that is five cases:
 
 - drawing the craftable "+" over HEI recipe ingredients, because `RecipesGui` keeps its recipe layouts
   private and an ingredient's screen position exists only as a rect relative to its layout;
@@ -12,7 +12,16 @@ the time of writing that is three cases:
 - letting the pick block key reach the network once vanilla has failed to find the block in the player's
   own inventory. Forge has no event for it - it replaced the body of `Minecraft.middleClickMouse` with a
   call to `ForgeHooks.onPickBlock` - and both input events that carry the key are fired *before* that
-  call, so a listener on either would have to consume the click rather than follow it.
+  call, so a listener on either would have to consume the click rather than follow it;
+- giving the two network shortcuts a click before HEI decides what to do with it. HEI takes
+  `GuiScreenEvent.MouseInputEvent.Pre` at `EventPriority.HIGHEST` **and** with `receiveCanceled = true`, so
+  it acts on a click whatever a listener did with the event first - no priority is ahead of that. What it
+  does with the click is not nothing, either: a screen carrying a ghost ingredient handler, which every
+  terminal here does, starts a ghost drag on any button, and a screen without one starts a drag of HEI's own
+  whenever control is held;
+- naming those two shortcuts in the tooltip of the ingredient they act on. `ItemTooltipEvent` is fired by
+  `ItemStack.getTooltip`, so a fluid in HEI's list never reaches it, and Forge's `RenderTooltipEvent`, which
+  does see every ingredient, hands out its lines through `Collections.unmodifiableList` on purpose.
 
 ## Layout
 

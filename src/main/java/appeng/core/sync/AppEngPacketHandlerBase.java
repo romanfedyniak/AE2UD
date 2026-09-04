@@ -105,6 +105,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_NETWORK_PICK_BLOCK(PacketNetworkPickBlock.class),
 
+        PACKET_NETWORK_INGREDIENT(PacketNetworkIngredient.class),
+
         ;
 
 
