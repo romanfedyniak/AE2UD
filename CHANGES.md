@@ -238,6 +238,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - The sort direction button said the same thing whichever way the list was sorted: "Toggle sorting direction", in both states, on every terminal and on the crafting CPU list. It reads "Smallest first" or "Largest first" now, which is what upstream AE2 puts there and what a setting button is for - saying which state it is in, not what pressing it does.
 
+### Upgrade cards
+
+- **Every upgrade card is redrawn**, the two blank ones included. Sixteen cards had grown up over as many
+  releases, some inherited and some added here, and they no longer looked like one set.
+
 ### Wireless terminals
 
 - A wireless terminal has three upgrade slots instead of one, and takes two **Energy Cards** beside its magnet card. Each is worth another terminal's charge, so two of them carry three times what the terminal carried empty - a card is one dense energy cell either way, and a terminal starts out with far more than a portable cell does, which is why the same card is worth eight of a cell's. The plate holding the slots is drawn as tall as the terminal has slots, out of the one-slot texture it always used, on all four screens the terminal opens. Right-clicking to switch the magnet card on and off now answers by what is in the slot clicked rather than by which slot was built last, so it keeps working with cards beside it and does nothing to the cards that have no such switch.
