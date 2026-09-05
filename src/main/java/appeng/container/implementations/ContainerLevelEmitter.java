@@ -20,15 +20,21 @@ package appeng.container.implementations;
 
 
 import appeng.api.config.*;
+import appeng.api.stacks.GenericStack;
+import appeng.api.upgrades.CardTraits;
+import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotFakeTypeOnly;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.IAmountTarget;
+import appeng.helpers.InventoryAction;
 import appeng.helpers.LevelAmountTarget;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.parts.automation.PartLevelEmitter;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 
@@ -51,6 +57,8 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
     public static final int FILTER_Y = 20;
 
     private final PartLevelEmitter lvlEmitter;
+
+    private SlotFakeTypeOnly filter;
 
     @GuiSync(2)
     public LevelType lvType;
@@ -103,7 +111,41 @@ public class ContainerLevelEmitter extends ContainerUpgradeable {
         }
 
         final IItemHandler inv = this.getUpgradeable().getInventoryByName("config");
-        this.addSlotToContainer(new SlotFakeTypeOnly(inv, 0, FILTER_X, FILTER_Y));
+        this.filter = new SlotFakeTypeOnly(inv, 0, FILTER_X, FILTER_Y);
+        this.addSlotToContainer(this.filter);
+    }
+
+    /**
+     * The wheel over the filter steps the threshold, in the unit of whatever is being watched - the same
+     * gesture and the same step any other fake slot answers to, since the number drawn on this one is an
+     * amount of that filter as much as theirs are. Nothing is stepped where nothing is drawn: a crafting
+     * card leaves the threshold governing nothing, and watching energy leaves no unit to read it in.
+     */
+    @Override
+    protected boolean adjustAmountElsewhere(final Slot s, final InventoryAction action, final ItemStack hand) {
+        if (s != this.filter || this.getUpgradeable().isInstalled(CardTraits.CRAFTING)
+                || this.getUpgradeable().getConfigManager().getSetting(Settings.LEVEL_TYPE) == LevelType.ENERGY_LEVEL) {
+            return false;
+        }
+
+        // Holding something means the player is placing a different filter, not tuning this one.
+        if (!hand.isEmpty() && action != InventoryAction.HALVE && action != InventoryAction.DOUBLE) {
+            return false;
+        }
+
+        final GenericStack watched = GenericStack.resolveItemStack(s.getStack());
+        if (watched == null) {
+            return false;
+        }
+
+        final long adjusted = AEBaseContainer.adjustAmount(this.lvlEmitter.getReportingValue(),
+                watched.what().getAmountPerUnit(), action, 0);
+        if (adjusted < 0) {
+            return false;
+        }
+
+        this.lvlEmitter.setReportingValue(adjusted);
+        return true;
     }
 
     @Override

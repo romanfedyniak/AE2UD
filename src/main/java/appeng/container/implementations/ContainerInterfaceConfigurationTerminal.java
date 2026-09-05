@@ -209,7 +209,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
             final GenericStack wrapped = GenericStack.unwrapItemStack(inSlot);
             if (wrapped != null && !hasItemInHand) {
                 final long adjusted = AEBaseContainer.adjustAmount(wrapped.amount(),
-                        wrapped.what().getAmountPerUnit(), action);
+                        wrapped.what().getAmountPerUnit(), action, 1);
                 if (adjusted >= 0) {
                     final long max = ((AppEngInternalAEInventory) inv.getServer()).getMaxAmount(wrapped.what());
                     ItemHandlerUtil.setStackInSlot(theSlot, 0,

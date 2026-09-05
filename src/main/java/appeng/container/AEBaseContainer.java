@@ -591,6 +591,10 @@ public abstract class AEBaseContainer extends Container {
 
                 final ItemStack hand = player.inventory.getItemStack();
 
+                if (this.adjustAmountElsewhere(s, action, hand)) {
+                    return;
+                }
+
                 // A wrapped key carries its amount in NBT, not in the ItemStack's count - a placeholder is
                 // always exactly one item and cannot stack. Every amount-changing case below works on
                 // getCount(), so on a fluid they grew a number nothing reads while the configured amount
@@ -907,6 +911,17 @@ public abstract class AEBaseContainer extends Container {
     }
 
     /**
+     * A fake slot need not stand for anything in itself: a level emitter's filter names what the emitter
+     * watches, and the amount on it is a threshold kept on the emitter. A container that has such a slot
+     * steps that number here instead of letting the ordinary path step the slot's own.
+     *
+     * @return true if the action was consumed here; false where the slot is what it looks like.
+     */
+    protected boolean adjustAmountElsewhere(final Slot s, final InventoryAction action, final ItemStack hand) {
+        return false;
+    }
+
+    /**
      * Applies an amount-changing fake-slot action to a wrapped key, stepping by the key type's own unit - a
      * bucket per notch for fluids, since a millibucket per notch would mean a thousand notches to fill one.
      * Ctrl (halve/double) is what reaches the amounts in between, which is how the 40mB of a processing
@@ -922,7 +937,7 @@ public abstract class AEBaseContainer extends Container {
             return false;
         }
 
-        final long adjusted = adjustAmount(current.amount(), current.what().getAmountPerUnit(), action);
+        final long adjusted = adjustAmount(current.amount(), current.what().getAmountPerUnit(), action, 1);
         if (adjusted < 0) {
             return false;
         }
@@ -940,9 +955,13 @@ public abstract class AEBaseContainer extends Container {
      * working on {@code ItemStack} counts, and a wrapped key has no count to work on - it is always exactly
      * one item whatever amount it stands for.
      *
+     * @param floor the lowest amount to step down to. A fake slot stops at one, because zero would mean
+     *              clearing a filter the player never asked to clear; a threshold kept elsewhere has no
+     *              such reading and goes to zero, which for a level emitter is its usual setting.
      * @return the new amount, or -1 if this action does not change one.
      */
-    public static long adjustAmount(final long current, final int amountPerUnit, final InventoryAction action) {
+    public static long adjustAmount(final long current, final int amountPerUnit, final InventoryAction action,
+            final long floor) {
         final long unit = Math.max(1, amountPerUnit);
         long amount = current;
 
@@ -968,10 +987,9 @@ public abstract class AEBaseContainer extends Container {
                 return -1;
         }
 
-        // Never empties the slot, matching the item path: PICKUP_SINGLE on a count of one leaves the one.
-        // The floor is a single base unit rather than a whole unit, because a pattern may legitimately ask
-        // for less than a bucket.
-        return Math.max(1, amount);
+        // A single base unit rather than a whole unit, because a pattern may legitimately ask for less
+        // than a bucket.
+        return Math.max(floor, amount);
     }
 
     /**
