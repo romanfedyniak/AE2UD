@@ -116,6 +116,10 @@ public class TesrRenderHelper {
 
     public static void renderFluid2d(FluidStack fluidStack, float scale) {
         if (fluidStack != null) {
+            // This format carries no lightmap coordinate, so whatever the last draw left is what the quad
+            // is multiplied by - in a TESR that is usually dark enough to render the fluid black.
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.f, 240.0f);
+
             GlStateManager.pushMatrix();
             int color = fluidStack.getFluid().getColor(fluidStack);
             float r = (color >> 16 & 255) / 255.0f;
@@ -130,16 +134,18 @@ public class TesrRenderHelper {
             Tessellator tess = Tessellator.getInstance();
             BufferBuilder buf = tess.getBuffer();
 
-            float width = 0.4f;
-            float height = 0.4f;
+            // The same size and place the item renderer puts an item of this scale, which is where the
+            // figures below come from: they were written for the 0.8 the storage monitor asks for.
+            float width = scale * 0.5f;
+            float height = width;
             float alpha = 1.0f;
             float z = 0.0001f;
-            float x = -0.20f;
-            float y = -0.25f;
+            float x = -scale * 0.25f;
+            float y = -scale * 0.3125f;
 
             buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
-            double uMin = sprite.getInterpolatedU(16D - width * 16D), uMax = sprite.getInterpolatedU(width * 16D);
-            double vMin = sprite.getMinV(), vMax = sprite.getInterpolatedV(height * 16D);
+            double uMin = sprite.getMinU(), uMax = sprite.getMaxU();
+            double vMin = sprite.getMinV(), vMax = sprite.getMaxV();
             buf.pos(x, y, z).tex(uMin, vMin).color(r, g, b, alpha).endVertex();
             buf.pos(x, y + height, z).tex(uMin, vMax).color(r, g, b, alpha).endVertex();
             buf.pos(x + width, y + height, z).tex(uMax, vMax).color(r, g, b, alpha).endVertex();
@@ -168,7 +174,9 @@ public class TesrRenderHelper {
             // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
             TesrRenderHelper.renderItem2d(itemKey.toStack(), scale);
         } else if (what instanceof AEFluidKey fluidKey) {
-            TesrRenderHelper.renderFluid2d(fluidKey.toStack((int) Math.min(amount, Integer.MAX_VALUE)), scale);
+            // Identity only, like the item above: toStack(0) is null, and a monitor whose network has run
+            // out should still show what it is watching.
+            TesrRenderHelper.renderFluid2d(fluidKey.toStack(1), scale);
         } else {
             return;
         }

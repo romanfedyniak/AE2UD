@@ -110,6 +110,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         data.writeBoolean(this.isLocked);
         AEKey.writeOptionalKey(data, this.configuredKey);
+        data.writeLong(this.configuredAmount);
     }
 
     @Override
@@ -121,6 +122,9 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         this.isLocked = isLocked;
         this.configuredKey = AEKey.readOptionalKey(data);
+        // Not part of needRedraw: the amount is drawn by the dynamic renderer, and a monitor on a busy
+        // network would rebuild its chunk on every change.
+        this.configuredAmount = data.readLong();
 
         return needRedraw;
     }
