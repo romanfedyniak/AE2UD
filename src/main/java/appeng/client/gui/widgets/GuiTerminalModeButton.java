@@ -36,6 +36,7 @@ public class GuiTerminalModeButton extends GuiButton implements ITooltip {
     private final IWirelessTerminalMode mode;
     private final boolean unlocked;
     private final boolean current;
+    private boolean cycles;
 
     public GuiTerminalModeButton(final AEBaseGui parent, final IWirelessTerminalMode mode, final boolean unlocked,
             final boolean current) {
@@ -45,6 +46,14 @@ public class GuiTerminalModeButton extends GuiButton implements ITooltip {
         this.unlocked = unlocked;
         this.current = current;
         this.enabled = unlocked;
+    }
+
+    /**
+     * Whether an ordinary click on this button steps to another mode. False on a terminal that has only the
+     * one, where the click opens the list instead and the tooltip must not promise a step.
+     */
+    public void setCycles(final boolean cycles) {
+        this.cycles = cycles;
     }
 
     public IWirelessTerminalMode getMode() {
@@ -92,7 +101,12 @@ public class GuiTerminalModeButton extends GuiButton implements ITooltip {
         final String name = I18n.translateToLocal(this.mode.getUnlocalizedName());
 
         if (this.current) {
-            return name + '\n' + ButtonToolTips.TerminalModeSwitch.getLocal();
+            if (this.cycles) {
+                return name + '\n' + ButtonToolTips.TerminalModeSwitch.getLocal()
+                        + '\n' + ButtonToolTips.TerminalModeList.getLocal();
+            }
+
+            return name + '\n' + ButtonToolTips.TerminalModeList.getLocal();
         }
 
         if (this.unlocked) {

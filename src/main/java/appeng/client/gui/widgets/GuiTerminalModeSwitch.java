@@ -16,7 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import javax.annotation.Nullable;
+
+import org.lwjgl.input.Mouse;
+
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
@@ -36,6 +41,12 @@ import appeng.helpers.WirelessTerminalModes;
  * to seven buttons, and another five under them would run off the bottom of a small screen. Modes that have
  * not been unlocked are in the fan too, greyed - otherwise a fresh terminal shows one button and nothing on
  * the screen says that modes exist at all.</p>
+ *
+ * <p>An ordinary click steps to the next mode and a right click to the one before, which is what a player
+ * wants nine times out of ten; the fan is behind a shift click, and behind an ordinary one on a terminal with
+ * nothing to step to, so a fresh terminal still says that modes exist. While the fan is open its own button
+ * only shuts it, the way every other panel here behaves - the mode must not jump under a player who opened
+ * the fan and changed their mind.</p>
  */
 public final class GuiTerminalModeSwitch {
 
@@ -129,6 +140,7 @@ public final class GuiTerminalModeSwitch {
         top += STEP;
 
         this.toggle = new GuiTerminalModeButton(this.parent, active, true, true);
+        this.toggle.setCycles(this.cycleOrder().size() > 1);
         this.toggle.x = left;
         this.toggle.y = top;
 
@@ -155,7 +167,18 @@ public final class GuiTerminalModeSwitch {
      */
     public boolean actionPerformed(final GuiButton button) {
         if (button == this.toggle) {
-            this.setOpen(!this.open);
+            if (this.open || GuiScreen.isShiftKeyDown()) {
+                this.setOpen(!this.open);
+                return true;
+            }
+
+            final ResourceLocation next = this.neighbour(Mouse.isButtonDown(1));
+            if (next == null) {
+                this.setOpen(true);
+            } else {
+                this.switchTo(next);
+            }
+
             return true;
         }
 
@@ -163,8 +186,47 @@ public final class GuiTerminalModeSwitch {
             return false;
         }
 
-        final ResourceLocation mode = ((GuiTerminalModeButton) button).getMode().getId();
+        this.switchTo(((GuiTerminalModeButton) button).getMode().getId());
+        return true;
+    }
 
+    /**
+     * The modes this terminal can be stepped through, in the order the fan lists them. A locked mode is not
+     * among them: the server turns a switch to one down, so stepping onto it would be a click that does
+     * nothing but complain.
+     */
+    private List<ResourceLocation> cycleOrder() {
+        final List<ResourceLocation> order = new ArrayList<>();
+
+        for (final IWirelessTerminalMode mode : AEApi.instance().registries().wirelessTerminalModes().getModes()) {
+            if (WirelessTerminalModes.isUnlocked(this.terminal, mode.getId())) {
+                order.add(mode.getId());
+            }
+        }
+
+        return order;
+    }
+
+    /**
+     * @return the mode one step from the current one, wrapping round, or null when there is nowhere to step.
+     */
+    @Nullable
+    private ResourceLocation neighbour(final boolean backwards) {
+        final List<ResourceLocation> order = this.cycleOrder();
+        if (order.size() < 2) {
+            return null;
+        }
+
+        final IWirelessTerminalMode active = WirelessTerminalModes.getActiveMode(this.terminal);
+        final int at = active == null ? -1 : order.indexOf(active.getId());
+        if (at < 0) {
+            return order.get(0);
+        }
+
+        return order.get((at + (backwards ? order.size() - 1 : 1)) % order.size());
+    }
+
+    private void switchTo(final ResourceLocation mode) {
         // Written here as well as on the server, because the screen this opens is built from the client's own
         // copy of the item, and the server's answer to that copy is a tick behind the screen it asks for.
         if (!this.terminal.isEmpty()) {
@@ -178,7 +240,6 @@ public final class GuiTerminalModeSwitch {
         }
 
         this.setOpen(false);
-        return true;
     }
 
     /** Shut, so that another panel opening over the same strip of screen does not collide with this one. */
