@@ -77,7 +77,6 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     private static final int MAGIC_HEIGHT_NUMBER = 52 + 99;
     private static final String MOLECULAR_ASSEMBLER = "tile.appliedenergistics2.molecular_assembler";
 
-    private final boolean jeiEnabled;
     private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
 
     private final HashMap<Long, ClientDCInternalInv> byId = new HashMap<>();
@@ -124,7 +123,6 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.setScrollBar(scrollbar);
         this.xSize = 208;
         this.ySize = 255;
-        this.jeiEnabled = Platform.isModLoaded("jei");
 
         searchFieldInputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
@@ -150,7 +148,6 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.setScrollBar(scrollbar);
         this.xSize = 208;
         this.ySize = 255;
-        this.jeiEnabled = Platform.isModLoaded("jei");
 
         searchFieldInputs = createTextField(86, 12,
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldInputs.getLocal()));
@@ -209,8 +206,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     }
 
     private int calculateRowsCount() {
-        final int jeiPadding = jeiEnabled ? 22 + 18 : 0;
-        final int extraSpace = this.height - MAGIC_HEIGHT_NUMBER - jeiPadding;
+        final int extraSpace = this.height - MAGIC_HEIGHT_NUMBER;
         final int availableRows = extraSpace / 18;
         final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
 
