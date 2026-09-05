@@ -34,6 +34,8 @@ import java.io.IOException;
 
 public class GuiQuartzKnife extends AEBaseGui {
 
+    private static final int WELL_PADDING = 2;
+
     private GuiTextField name;
 
     public GuiQuartzKnife(final InventoryPlayer inventoryPlayer, final QuartzKnifeObj te) {
@@ -72,17 +74,40 @@ public class GuiQuartzKnife extends AEBaseGui {
     }
 
     @Override
+    protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        if (this.isMouseInName(xCoord, yCoord)) {
+            if (btn == 1) {
+                this.name.setText("");
+                this.sendName();
+            }
+            this.name.mouseClicked(xCoord, yCoord, btn);
+        }
+
+        super.mouseClicked(xCoord, yCoord, btn);
+    }
+
+    /** The field is only as tall as a line of text; the well drawn under it is what the player aims at. */
+    private boolean isMouseInName(final int xCoord, final int yCoord) {
+        return xCoord >= this.name.x - WELL_PADDING && xCoord < this.name.x + this.name.width + WELL_PADDING
+                && yCoord >= this.name.y - WELL_PADDING && yCoord < this.name.y + this.name.height + WELL_PADDING;
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (this.name.textboxKeyTyped(character, key)) {
-            try {
-                final String Out = this.name.getText();
-                ((ContainerQuartzKnife) this.inventorySlots).setName(Out);
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("QuartzKnife.Name", Out));
-            } catch (final IOException e) {
-                AELog.debug(e);
-            }
+            this.sendName();
         } else {
             super.keyTyped(character, key);
+        }
+    }
+
+    private void sendName() {
+        try {
+            final String out = this.name.getText();
+            ((ContainerQuartzKnife) this.inventorySlots).setName(out);
+            NetworkHandler.instance().sendToServer(new PacketValueConfig("QuartzKnife.Name", out));
+        } catch (final IOException e) {
+            AELog.debug(e);
         }
     }
 }
