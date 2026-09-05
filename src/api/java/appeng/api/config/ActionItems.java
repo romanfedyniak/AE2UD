@@ -28,6 +28,7 @@ public enum ActionItems
 {
 	WRENCH,
 	CLOSE,
+	RESET_IDENTITY,
 	STASH,
 	ENCODE,
 	SUBSTITUTION,

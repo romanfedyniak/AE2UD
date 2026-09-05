@@ -1673,13 +1673,25 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return this.named(this.identifyNeighbour());
     }
 
-    /** A name the player gave wins over the machine's own; the picture stays the machine's either way. */
+    /** Whatever the player set wins over the machine's own; the rest of the identity stays the machine's. */
     private MachineIdentity named(final MachineIdentity identity) {
         final ICustomNameObject host = (ICustomNameObject) this.iHost;
+        final ItemStack icon = this.iHost instanceof ICustomIconObject
+                ? ((ICustomIconObject) this.iHost).getCustomIcon()
+                : ItemStack.EMPTY;
 
-        return host.hasCustomInventoryName()
-                ? new MachineIdentity(host.getCustomInventoryName(), identity.getIcon())
-                : identity;
+        if (!host.hasCustomInventoryName() && icon.isEmpty()) {
+            return identity;
+        }
+
+        return new MachineIdentity(
+                host.hasCustomInventoryName() ? host.getCustomInventoryName() : identity.getName(),
+                icon.isEmpty() ? identity.getIcon() : icon);
+    }
+
+    /** The picture the interface works out for itself, before anything the player set. */
+    public ItemStack getDetectedIcon() {
+        return this.identifyNeighbour().getIcon();
     }
 
     /** The first machine standing beside this interface that is worth naming it after. */

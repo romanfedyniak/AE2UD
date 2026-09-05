@@ -374,7 +374,8 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
     public NBTTagCompound downloadSettings(final SettingsFrom from) {
         final NBTTagCompound output = new NBTTagCompound();
 
-        if (this.hasCustomInventoryName()) {
+        // Only onto the item: a memory card carries how a machine works, and it never applied a name anyway.
+        if (from == SettingsFrom.DISMANTLE_ITEM && this.hasCustomInventoryName()) {
             final NBTTagCompound dsp = new NBTTagCompound();
             dsp.setString("Name", this.getCustomInventoryName());
             output.setTag("display", dsp);
@@ -461,5 +462,6 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
 
     public void setName(final String name) {
         this.customName = name;
+        this.saveChanges();
     }
 }

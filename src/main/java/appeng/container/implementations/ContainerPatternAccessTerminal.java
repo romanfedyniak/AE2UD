@@ -22,6 +22,7 @@ package appeng.container.implementations;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.IPatternContainer;
+import appeng.api.networking.crafting.MachineIdentity;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.util.DimensionalCoord;
 import appeng.client.me.SlotDisconnected;
@@ -118,8 +119,10 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
 
         for (final IPatternContainer container : this.patternContainers()) {
             final InvTracker t = this.diList.get(container);
+            final MachineIdentity identity = container.getTerminalIdentity();
 
-            if (t == null || !t.unlocalizedName.equals(container.getTerminalIdentity().getName())
+            if (t == null || !t.unlocalizedName.equals(identity.getName())
+                    || !ItemStack.areItemStacksEqual(t.icon, identity.getIcon())
                     || t.fake != container.isFakeCrafting()) {
                 missing = true;
             }
@@ -397,10 +400,12 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
         private final ItemStack icon;
 
         public InvTracker(final IPatternContainer container) {
+            final MachineIdentity identity = container.getTerminalIdentity();
+
             this.server = container.getTerminalPatternInventory();
             this.client = new AppEngInternalInventory(null, this.server.getSlots());
-            this.unlocalizedName = container.getTerminalIdentity().getName();
-            this.icon = container.getTerminalIdentity().getIcon();
+            this.unlocalizedName = identity.getName();
+            this.icon = identity.getIcon();
             this.sortBy = container.getTerminalSortOrder();
             this.usableSlots = container.getUsablePatternSlots();
             this.fake = container.isFakeCrafting();

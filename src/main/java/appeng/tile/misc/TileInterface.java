@@ -41,6 +41,7 @@ import appeng.api.util.DimensionalCoord;
 import appeng.api.util.IConfigManager;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.DualityInterface;
+import appeng.helpers.ICustomIconObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
 import appeng.tile.grid.AENetworkInvTile;
@@ -71,12 +72,16 @@ import java.util.EnumSet;
 import java.util.List;
 
 
-public class TileInterface extends AENetworkInvTile implements IGridTickable, IInventoryDestination, IInterfaceHost, IPriorityHost {
+public class TileInterface extends AENetworkInvTile implements IGridTickable, IInventoryDestination, IInterfaceHost, IPriorityHost, ICustomIconObject {
+
+    private static final String ICON_TAG = "customIcon";
 
     private final DualityInterface duality = new DualityInterface(this.getProxy(), this);
 
     // Indicates that this interface has no specific direction set
     private boolean omniDirectional = true;
+
+    private ItemStack customIcon = ItemStack.EMPTY;
 
     @MENetworkEventSubscribe
     public void stateChange(final MENetworkChannelsChanged c) {
@@ -153,6 +158,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
         super.writeToNBT(data);
         data.setBoolean("omniDirectional", this.omniDirectional);
         this.duality.writeToNBT(data);
+        this.writeIcon(data);
         return data;
     }
 
@@ -162,6 +168,7 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
         this.omniDirectional = data.getBoolean("omniDirectional");
 
         this.duality.readFromNBT(data);
+        this.customIcon = readIcon(data);
     }
 
     @Override
@@ -350,6 +357,11 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
             MemoryCardSettings.exportPatterns(this.getInventoryByName("patterns"), output);
         }
 
+        // Kept off the memory card, which is for how a machine works rather than for which one it is.
+        if (from == SettingsFrom.DISMANTLE_ITEM && output != null) {
+            this.writeIcon(output);
+        }
+
         return output;
     }
 
@@ -361,5 +373,35 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
             MemoryCardSettings.importPatterns(this.getInventoryByName("patterns"),
                     this.duality.getUsablePatternSlots(), compound, player);
         }
+
+        if (from == SettingsFrom.DISMANTLE_ITEM) {
+            this.customIcon = readIcon(compound);
+        }
+    }
+
+    @Override
+    public ItemStack getCustomIcon() {
+        return this.customIcon;
+    }
+
+    @Override
+    public void setCustomIcon(final ItemStack icon) {
+        this.customIcon = icon.isEmpty() ? ItemStack.EMPTY : icon.copy();
+        this.saveChanges();
+    }
+
+    @Override
+    public ItemStack getDefaultIcon() {
+        return this.duality.getDetectedIcon();
+    }
+
+    private void writeIcon(final NBTTagCompound data) {
+        if (!this.customIcon.isEmpty()) {
+            data.setTag(ICON_TAG, this.customIcon.writeToNBT(new NBTTagCompound()));
+        }
+    }
+
+    private static ItemStack readIcon(final NBTTagCompound data) {
+        return data.hasKey(ICON_TAG) ? new ItemStack(data.getCompoundTag(ICON_TAG)) : ItemStack.EMPTY;
     }
 }

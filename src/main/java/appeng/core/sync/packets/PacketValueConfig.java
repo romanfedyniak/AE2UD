@@ -128,6 +128,8 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("QuartzKnife.ReName") && c instanceof ContainerRenamer) {
             final ContainerRenamer qk = (ContainerRenamer) c;
             qk.setNewName(this.Value);
+        } else if (this.Name.equals("Renamer.Reset") && c instanceof ContainerRenamer) {
+            ((ContainerRenamer) c).reset();
         } else if (this.Name.equals("TileSecurityStation.ToggleOption") && c instanceof ContainerSecurityStation) {
             final ContainerSecurityStation sc = (ContainerSecurityStation) c;
             sc.toggleSetting(this.Value, player);

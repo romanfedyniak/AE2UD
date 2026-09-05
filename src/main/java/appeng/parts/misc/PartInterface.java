@@ -40,6 +40,7 @@ import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.DualityInterface;
+import appeng.helpers.ICustomIconObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.Reflected;
@@ -72,7 +73,9 @@ import java.util.EnumSet;
 import java.util.List;
 
 
-public class PartInterface extends PartBasicState implements IGridTickable, IInventoryDestination, IInterfaceHost, IAEAppEngInventory, IPriorityHost {
+public class PartInterface extends PartBasicState implements IGridTickable, IInventoryDestination, IInterfaceHost, IAEAppEngInventory, IPriorityHost, ICustomIconObject {
+
+    private static final String ICON_TAG = "customIcon";
 
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/interface_base");
 
@@ -194,6 +197,37 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
     @Override
     public DualityInterface getInterfaceDuality() {
         return this.duality;
+    }
+
+    // In the part's own stack, where its name already lives, so both ride the item out of the world and back.
+
+    @Override
+    public ItemStack getCustomIcon() {
+        final NBTTagCompound tag = this.getItemStack().getTagCompound();
+        return tag != null && tag.hasKey(ICON_TAG) ? new ItemStack(tag.getCompoundTag(ICON_TAG)) : ItemStack.EMPTY;
+    }
+
+    @Override
+    public void setCustomIcon(final ItemStack icon) {
+        final ItemStack self = this.getItemStack();
+
+        if (icon.isEmpty()) {
+            if (self.hasTagCompound()) {
+                self.getTagCompound().removeTag(ICON_TAG);
+            }
+        } else {
+            if (!self.hasTagCompound()) {
+                self.setTagCompound(new NBTTagCompound());
+            }
+            self.getTagCompound().setTag(ICON_TAG, icon.writeToNBT(new NBTTagCompound()));
+        }
+
+        this.saveChanges();
+    }
+
+    @Override
+    public ItemStack getDefaultIcon() {
+        return this.duality.getDetectedIcon();
     }
 
     @Override

@@ -62,6 +62,8 @@ import org.lwjgl.input.Mouse;
 
 import java.awt.*;
 import java.io.IOException;
+import javax.annotation.Nonnull;
+
 import java.util.List;
 import java.util.*;
 import java.util.function.Supplier;
@@ -80,12 +82,12 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     private final GuiSettingsDrawer settings = new GuiSettingsDrawer();
 
     private final HashMap<Long, ClientDCInternalInv> byId = new HashMap<>();
-    private final HashMultimap<String, ClientDCInternalInv> byName = HashMultimap.create();
+    private final HashMultimap<Group, ClientDCInternalInv> byName = HashMultimap.create();
     private final HashMap<ClientDCInternalInv, BlockPos> blockPosHashMap = new HashMap<>();
     private final HashMap<GuiButton, ClientDCInternalInv> guiButtonHashMap = new HashMap<>();
     private final Map<ClientDCInternalInv, Integer> extraLinesMap = new HashMap<>();
     private final Set<ClientDCInternalInv> fakeCrafting = new HashSet<>();
-    private final ArrayList<String> names = new ArrayList<>();
+    private final ArrayList<Group> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
     private final Set<Object> matchedStacks = new HashSet<>();
     private final Map<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
@@ -311,16 +313,10 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                     linesDraw++;
                     offset += 18;
                 }
-            } else if (lineObj instanceof String name) {
-                final int rows = this.byName.get(name).size();
-                final ItemStack icon = this.byName.get(name).stream()
-                        .map(ClientDCInternalInv::getIcon)
-                        .filter(stack -> !stack.isEmpty())
-                        .findFirst()
-                        .orElse(ItemStack.EMPTY);
-                if (rows > 1) {
-                    name = name + " (" + rows + ')';
-                }
+            } else if (lineObj instanceof Group group) {
+                final int rows = this.byName.get(group).size();
+                final ItemStack icon = group.icon;
+                String name = rows > 1 ? group.name + " (" + rows + ')' : group.name;
 
                 final int nameX = OFFSET_X + 3 + (icon.isEmpty() ? 0 : 18);
 
@@ -377,7 +373,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                     offset += 18;
                 }
 
-            } else if (lineObj instanceof String) {
+            } else if (lineObj instanceof Group) {
                 linesDraw++;
                 offset += 18;
             }
@@ -680,7 +676,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             }
 
             // Successful search
-            this.byName.put(entry.getName(), entry);
+            this.byName.put(new Group(entry.getName(), entry.getIcon()), entry);
         }
 
         this.names.clear();
@@ -690,7 +686,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.lines.clear();
         this.lines.ensureCapacity(this.names.size() + this.byId.size());
 
-        for (final String n : this.names) {
+        for (final Group n : this.names) {
             this.lines.add(n);
             final ArrayList<ClientDCInternalInv> clientInventories = new ArrayList<>(this.byName.get(n));
             Collections.sort(clientInventories);
@@ -760,5 +756,36 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         }
 
         return o;
+    }
+
+    /**
+     * The heading one row of containers share. The picture counts as much as the name: a player who gave two
+     * interfaces different icons did it to tell them apart, and one heading would put them back together.
+     */
+    private static final class Group implements Comparable<Group> {
+
+        private final String name;
+        private final ItemStack icon;
+
+        private Group(final String name, final ItemStack icon) {
+            this.name = name;
+            this.icon = icon;
+        }
+
+        @Override
+        public int compareTo(@Nonnull final Group o) {
+            return this.name.compareTo(o.name);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            return o instanceof Group other && this.name.equals(other.name)
+                    && ItemStack.areItemStacksEqual(this.icon, other.icon);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.name.hashCode() * 31 + (this.icon.isEmpty() ? 0 : this.icon.getItem().hashCode());
+        }
     }
 }

@@ -172,7 +172,12 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
 
     @Override
     public void setCustomName(String name) {
-        this.getItemStack().setStackDisplayName(name);
+        if (name == null || name.isEmpty()) {
+            this.getItemStack().clearCustomName();
+        } else {
+            this.getItemStack().setStackDisplayName(name);
+        }
+        this.saveChanges();
     }
 
     public void addEntityCrashInfo(final CrashReportCategory crashreportcategory) {

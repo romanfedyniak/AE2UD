@@ -85,6 +85,8 @@ public enum ButtonToolTips {
     MoreSettingsHint,
 
     ClearSettings,
+    ResetIdentity,
+    ResetIdentityDesc,
     StoredItems,
     StoredCraftable,
     Craftable,

@@ -2194,6 +2194,9 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     be worth without one particular card, which is the question to ask *before* letting that card go. The ME
     Interface uses it to refuse a pattern expansion card while patterns still stand in the rows it pays for;
     it used to hand the card over and spill them on the floor.
+40. **`ActionItems.RESET_IDENTITY`** - additive. The quartz cutting knife screen's button for clearing a
+    machine's name and icon together. It shares icon cell 6 with `CLOSE` and `STASH`, which already share
+    it, and carries its own tooltip. Upstream has no such button.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
