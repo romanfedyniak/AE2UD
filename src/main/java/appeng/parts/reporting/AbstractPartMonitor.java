@@ -19,6 +19,7 @@
 package appeng.parts.reporting;
 
 
+import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
@@ -26,7 +27,6 @@ import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.storage.IStackWatcher;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPartModel;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -44,9 +44,6 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -145,19 +142,20 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
         if (!this.isLocked) {
             final ItemStack eq = player.getHeldItem(hand);
-            FluidStack fluidInTank = null;
 
-            if (eq.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
-                IFluidHandlerItem fluidHandlerItem = (eq.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null));
-                fluidInTank = fluidHandlerItem.drain(Integer.MAX_VALUE, false);
-            }
-
-            if (fluidInTank != null && fluidInTank.amount > 0) {
-                this.configuredKey = AEFluidKey.of(fluidInTank);
-            } else if (!eq.isEmpty()) {
-                this.configuredKey = AEItemKey.of(eq);
-            } else {
+            if (eq.isEmpty()) {
                 this.configuredKey = null;
+            } else if (AEItemKey.matches(this.configuredKey, eq)) {
+                // The container is already on the monitor, so this click asks for what is inside it instead.
+                // Whether anything is depends on the registered strategies, so a key type an addon brings
+                // works here with no code of its own.
+                final GenericStack contained = ContainerItemStrategies.getContainedStack(eq);
+
+                if (contained != null) {
+                    this.configuredKey = contained.what();
+                }
+            } else {
+                this.configuredKey = AEItemKey.of(eq);
             }
 
             this.configureWatchers();
