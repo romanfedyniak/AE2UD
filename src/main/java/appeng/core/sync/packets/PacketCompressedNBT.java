@@ -21,6 +21,7 @@ package appeng.core.sync.packets;
 
 import appeng.client.gui.implementations.GuiInterfaceConfigurationTerminal;
 import appeng.client.gui.implementations.GuiPatternAccessTerminal;
+import appeng.client.gui.implementations.GuiPatternUpload;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import io.netty.buffer.ByteBuf;
@@ -97,6 +98,8 @@ public class PacketCompressedNBT extends AppEngPacket {
 
         if (gs instanceof GuiPatternAccessTerminal) {
             ((GuiPatternAccessTerminal) gs).postUpdate(this.in);
+        } else if (gs instanceof GuiPatternUpload) {
+            ((GuiPatternUpload) gs).postUpdate(this.in);
         } else if (gs instanceof GuiInterfaceConfigurationTerminal) {
             ((GuiInterfaceConfigurationTerminal) gs).postUpdate(this.in);
         }

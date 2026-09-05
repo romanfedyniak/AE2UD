@@ -47,6 +47,7 @@ import appeng.api.util.KeyTypeSelectionHost;
 import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.interfaces.IWirelessTerminalContainer;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.GuiBridge;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.implementations.QuantumCluster;
@@ -66,7 +67,8 @@ import net.minecraftforge.items.IItemHandler;
 
 
 public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, IInventorySlotAware, IViewCellStorage,
-        IAEAppEngInventory, IUpgradeableCellHost, KeyTypeSelectionHost, ISubMenuHost, ITerminalPinHost {
+        IAEAppEngInventory, IUpgradeableCellHost, KeyTypeSelectionHost, ISubMenuHost, ITerminalPinHost,
+        IPatternUploadHost {
 
     private final ItemStack effectiveItem;
     private final IWirelessTermHandler wth;
@@ -354,6 +356,35 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             return viewCell;
         }
         return null;
+    }
+
+    /**
+     * The pattern slots of a wireless pattern terminal live in its container rather than on this object, but
+     * that container writes them into the item on every change - so the item is where to read them from once
+     * the screen has moved on to another container.
+     */
+    @Override
+    public ItemStack getEncodedPattern() {
+        return this.patternSlots().getStackInSlot(1);
+    }
+
+    @Override
+    public void setEncodedPattern(final ItemStack encoded) {
+        final NBTTagCompound modeTag = WirelessTerminalModes.getModeData(this.getItemStack(),
+                WirelessTerminalMode.Ids.PATTERN);
+
+        final AppEngInternalInventory slots = this.patternSlots();
+        slots.setStackInSlot(1, encoded);
+        slots.writeToNBT(modeTag, "patterns");
+
+        WirelessTerminalModes.setModeData(this.getItemStack(), WirelessTerminalMode.Ids.PATTERN, modeTag);
+    }
+
+    private AppEngInternalInventory patternSlots() {
+        final AppEngInternalInventory slots = new AppEngInternalInventory(null, 2);
+        slots.readFromNBT(WirelessTerminalModes.getModeData(this.getItemStack(), WirelessTerminalMode.Ids.PATTERN),
+                "patterns");
+        return slots;
     }
 
     @Override

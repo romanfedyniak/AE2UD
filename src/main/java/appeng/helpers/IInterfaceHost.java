@@ -91,6 +91,11 @@ public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICr
     }
 
     @Override
+    default MachineIdentity getTerminalIdentity(final ItemStack pattern, final ICraftingPatternDetails details) {
+        return getInterfaceDuality().identifyFor(details);
+    }
+
+    @Override
     default DimensionalCoord getTerminalLocation() {
         return getInterfaceDuality().getLocation();
     }

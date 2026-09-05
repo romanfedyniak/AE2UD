@@ -78,7 +78,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     protected IItemHandler processing;
     protected SlotPatternTerm craftSlot;
     protected SlotRestrictedInput patternSlotIN;
-    protected SlotRestrictedInput patternSlotOUT;
+    public SlotRestrictedInput patternSlotOUT;
     protected IRecipe currentRecipe;
 
     protected SlotFakeCraftingMatrix[] craftingSlots;

@@ -95,3 +95,57 @@ slot never lights up.
 A processing pattern is handed to machines as an `InventoryCrafting` four wide and eight tall
 (`PatternHelper.newGrid`). Width stays at four so a machine that reads the layout by width sees what it
 always did; the second page stacks underneath the first.
+
+
+## Sending a pattern into the network
+
+The button beside the encoded pattern slot files that pattern in something that holds patterns, instead of
+the player carrying it there. `appeng.helpers.PatternUpload` is the whole policy; the packet and the two
+screens only ask it things.
+
+**A crafting pattern is filed without asking.** In this version the molecular assembler is an
+`ICraftingMachine`, not a crafting provider - its one pattern slot locks it to a recipe and does not make
+that recipe craftable. The only route from a network to an assembler is an ME Interface standing next to it,
+which is `DualityInterface.canAcceptPattern`: for a craftable pattern it wants a neighbour whose
+`acceptsPlans()` is true, and, when the network would fabricate containers for that pattern, one whose
+`acceptsFabricatedContainers()` is true as well. Those are the same questions `pushPattern` asks a face when
+the time comes, asked of every face at once and in advance.
+
+Of the containers that pass, `PatternContainers.best` takes the one with the most free usable slots, and
+breaks a tie by distance to the player. Never the first one out of the grid: `IGrid.getMachines` hands them
+back in the order they joined, which changes across a world reload and means nothing to a player.
+
+**A processing pattern always opens the list.** Any interface will run one, so there is nothing to work out;
+which machine it was written for is only in the player's head. Shift-clicking opens the list for a crafting
+pattern too, and so does a crafting pattern with nowhere to go - the list is where the player finds out
+*why*, rather than a chat line saying nothing worked.
+
+**A P2P interface tunnel is looked through, both times.** `acceptsPlans()` answers for the tunnel alone -
+it is the question a push asks a moment before it tries, and a tunnel with nothing but furnaces behind it
+still says yes, after which the push fails and nothing is lost. Filing a pattern against that answer is not
+harmless: the pattern sits there being offered to the network and never runs. So `acceptingFace` asks the
+tunnel `hasPlanTakingOutput()` as well, which walks its outputs, and through further tunnels.
+
+**A row is named after the machine that would run this pattern**, not after whichever neighbour comes
+first. An interface that works on every side has a choice of names, and `DualityInterface.identifyFor` picks
+the accepting face, so a list of targets says what it is offering rather than what happens to be beside it.
+Where that face is a tunnel the name comes from `getRemoteMachineIdentity()`, exactly as the plain naming
+does - otherwise three tunnels leading to three different assembler banks all read "P2P Tunnel". An
+interface the player has named keeps its own name.
+
+**A row that `canAccept` refuses is dimmed and cannot be clicked**, and the same question is asked again on
+the server when a row is clicked, because the list is a moment old by then. Filing a crafting pattern into an
+interface with no assembler beside it does not fail loudly - it fails hours later, at a crafting terminal,
+as a recipe the network says it cannot make - so it is not something to leave to the player's judgement.
+Those rows stay on the list rather than disappearing from it, so the screen can say why.
+
+The one thing enforced beyond that is a duplicate within a single container, since the second copy only eats
+a slot. The same pattern in a second container is left alone: that is how crafting is spread over two sets of
+machines.
+
+**Where the pattern is read from.** `IPatternUploadHost` exists because the list is a container of its own,
+so by the time it is open the terminal's container is closed. A terminal part answers out of its own
+inventory; a wireless terminal keeps its pattern slots in the container, which writes them into the item on
+every change, so the host reads them back out of the item's per-mode NBT.
+
+The feature switch is `PatternUpload`, under `Features.CraftingFeatures`.

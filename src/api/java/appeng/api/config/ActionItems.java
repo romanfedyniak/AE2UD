@@ -53,5 +53,11 @@ public enum ActionItems
 	/**
 	 * Opens the drawer holding the settings of a screen that are set once and left alone.
 	 */
-	SETTINGS
+	SETTINGS,
+
+	/**
+	 * Sends the pattern a terminal has just encoded to something in the network that holds patterns, rather
+	 * than making the player carry it there. Upstream has no such button.
+	 */
+	UPLOAD
 }

@@ -44,10 +44,13 @@ import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.helpers.PatternHelper;
+import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.core.features.AEFeature;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
+import appeng.core.sync.packets.PacketPatternUpload;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEFluidKey;
@@ -116,6 +119,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private GenericStack[] fabricatedSlots;
     private int fabricatedFrom;
     private GuiImgButton encodeBtn;
+    private GuiImgButton uploadBtn;
     private GuiImgButton clearBtn;
     private GuiImgButton x2Btn;
     private GuiImgButton x3Btn;
@@ -195,6 +199,10 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
             if (this.divThreeBtn == btn) {
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DivideByThree", "1"));
+            }
+
+            if (this.uploadBtn == btn) {
+                NetworkHandler.instance().sendToServer(PacketPatternUpload.button(isShiftKeyDown()));
             }
 
             if (this.plusOneBtn == btn) {
@@ -280,6 +288,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.encodeBtn = new GuiImgButton(this.guiLeft + 147, this.guiTop + this.ySize - 142, Settings.ACTIONS, ActionItems.ENCODE);
         this.buttonList.add(this.encodeBtn);
 
+        // Beside encode, and half its size: the window's art ends at 176 and a full one there would hang
+        // over the edge. The two are the pair of things done with a finished pattern.
+        if (AEConfig.instance().isFeatureEnabled(AEFeature.PATTERN_UPLOAD)) {
+            this.uploadBtn = new GuiImgButton(this.guiLeft + 164, this.guiTop + this.ySize - 138, Settings.ACTIONS, ActionItems.UPLOAD);
+            this.uploadBtn.setHalfSize(true);
+            this.buttonList.add(this.uploadBtn);
+        }
+
         this.invertBtn = new GuiImgButton(this.guiLeft + BUTTONS_LEFT, this.guiTop + this.ySize - 165, Settings.ACTIONS, PatternSlotConfig.C_32_8);
         this.invertBtn.setHalfSize(true);
         this.buttonList.add(this.invertBtn);
@@ -334,6 +350,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     /** Which half of the button cluster belongs to the mode on screen. */
     private void handleButtonVisibility() {
+        if (this.uploadBtn != null) {
+            // Left on screen with nothing to send, so that a terminal says the button is there before there
+            // is ever a pattern in the slot for it to act on.
+            this.uploadBtn.enabled = this.container.patternSlotOUT.getHasStack();
+        }
+
         if (this.container.isCraftingMode()) {
             this.tabCraftButton.visible = true;
             this.tabProcessButton.visible = false;

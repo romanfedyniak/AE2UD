@@ -243,6 +243,10 @@ public enum GuiText {
     CraftErrorReplan,
 
     PatternAccessTerminal,
+    SendPatternTo,
+    PatternTargetUnsuitable,
+    PatternTargetFull,
+    PatternTargetFreeSlots,
     InterfaceConfigurationTerminal,
     NoCraftingCPUs,
     Clean,

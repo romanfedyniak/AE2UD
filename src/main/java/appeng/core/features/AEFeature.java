@@ -161,6 +161,8 @@ public enum AEFeature {
     IN_WORLD_FLUIX("InWorldFluix", Constants.CATEGORY_CRAFTING),
     IN_WORLD_PURIFICATION("InWorldPurification", Constants.CATEGORY_CRAFTING),
     PATTERN_ACCESS_TERMINAL("PatternAccessTerminal", Constants.CATEGORY_CRAFTING),
+    PATTERN_UPLOAD("PatternUpload", Constants.CATEGORY_CRAFTING_FEATURES,
+            "The pattern terminal's button for sending an encoded pattern straight to something in the network that holds patterns."),
     INTERFACE_CONFIGURATION_TERMINAL("InterfaceConfigurationTerminal", Constants.CATEGORY_CRAFTING),
     ENABLE_DISASSEMBLY_CRAFTING("EnableDisassemblyCrafting", Constants.CATEGORY_CRAFTING),
 

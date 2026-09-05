@@ -54,6 +54,13 @@ public enum PlayerMessages {
     CannotBeCrafted,
     NothingInNetwork,
     NoRoomForItem,
+
+    // Why a pattern could not be sent anywhere
+    PatternUploadNoPattern,
+    PatternUploadNoTarget,
+    PatternUploadNoRoom,
+    PatternUploadDuplicate,
+    PatternUploadUnsuitable,
     ;
 
     public ITextComponent get(Object... params) {

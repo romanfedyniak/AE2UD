@@ -5,6 +5,7 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IPartModel;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.PatternHelper;
+import appeng.helpers.IPatternUploadHost;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
 import net.minecraft.entity.player.EntityPlayer;
@@ -15,7 +16,7 @@ import net.minecraftforge.items.IItemHandler;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-public abstract class AbstractPartEncoder extends AbstractPartTerminal {
+public abstract class AbstractPartEncoder extends AbstractPartTerminal implements IPatternUploadHost {
 
     protected AppEngInternalInventory crafting;
     protected AppEngInternalInventory processing;
@@ -141,6 +142,16 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal {
     public void setInverted(final boolean inverted) {
         this.inverted = inverted;
         PatternHelper.clearUnreachable(this.processing, this.output, inverted);
+    }
+
+    @Override
+    public ItemStack getEncodedPattern() {
+        return this.pattern.getStackInSlot(1);
+    }
+
+    @Override
+    public void setEncodedPattern(final ItemStack encoded) {
+        this.pattern.setStackInSlot(1, encoded);
     }
 
     @Override

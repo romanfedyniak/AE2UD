@@ -20,7 +20,6 @@ package appeng.container.implementations;
 
 
 import appeng.api.networking.IGrid;
-import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.IPatternContainer;
 import appeng.api.networking.security.IActionHost;
@@ -32,6 +31,7 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompressedNBT;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.PatternContainers;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.parts.reporting.PartPatternAccessTerminal;
@@ -55,7 +55,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -302,36 +302,18 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
      * up the moment it implements {@link IPatternContainer}.
      */
     private List<IPatternContainer> patternContainers() {
-        final List<IPatternContainer> containers = new ArrayList<>();
         final IActionHost host = this.getActionHost();
 
-        if (this.grid == null || host == null) {
-            return containers;
+        if (host == null) {
+            return Collections.emptyList();
         }
 
         final IGridNode node = host.getActionableNode();
         if (node == null || !node.isActive()) {
-            return containers;
+            return Collections.emptyList();
         }
 
-        for (final Class<? extends IGridHost> machineClass : this.grid.getMachinesClasses()) {
-            if (!IPatternContainer.class.isAssignableFrom(machineClass)) {
-                continue;
-            }
-
-            for (final IGridNode gn : this.grid.getMachines(machineClass)) {
-                if (!gn.isActive()) {
-                    continue;
-                }
-
-                final IPatternContainer container = (IPatternContainer) gn.getMachine();
-                if (container.isVisibleInTerminal()) {
-                    containers.add(container);
-                }
-            }
-        }
-
-        return containers;
+        return PatternContainers.visible(this.grid);
     }
 
     private boolean isDifferent(final ItemStack a, final ItemStack b) {

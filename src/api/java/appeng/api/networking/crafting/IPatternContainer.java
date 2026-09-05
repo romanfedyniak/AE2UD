@@ -96,6 +96,19 @@ public interface IPatternContainer {
     MachineIdentity getTerminalIdentity();
 
     /**
+     * What to call this while one particular pattern is being filed into it.
+     * <p>
+     * A container that stands beside several machines has a choice of names, and the useful one is the
+     * machine that would run this pattern rather than whichever neighbour happens to come first. Defaults to
+     * the plain identity, which is right for anything with only one thing to be named after.
+     */
+    @Nonnull
+    default MachineIdentity getTerminalIdentity(@Nonnull final ItemStack pattern,
+            @Nullable final ICraftingPatternDetails details) {
+        return this.getTerminalIdentity();
+    }
+
+    /**
      * Where this stands, so a terminal can point the player at it. Null when it is nowhere in particular.
      */
     @Nullable

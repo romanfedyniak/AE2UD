@@ -107,6 +107,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_NETWORK_INGREDIENT(PacketNetworkIngredient.class),
 
+        PACKET_PATTERN_UPLOAD(PacketPatternUpload.class),
+
         ;
 
 

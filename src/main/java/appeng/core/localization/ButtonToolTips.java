@@ -120,6 +120,7 @@ public enum ButtonToolTips {
     CpuSortByStorage,
     CpuSortByCoprocessors,
     CpuSearch,
+    PatternTargetSearch,
 
     LockCraftingMode,
     LockCraftingModeNone,
@@ -255,6 +256,10 @@ public enum ButtonToolTips {
 
     // The wireless terminal's mode switch
     TerminalModeSwitch,
+
+    // The pattern terminal's upload button
+    PatternUpload,
+    PatternUploadHint,
     TerminalModeList,
     SearchModePanel,
     TerminalModeLocked,

@@ -2184,7 +2184,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     and answers out of its duality, so the terminal stopped naming `TileInterface` and `PartInterface` and
     walks `IGrid.getMachinesClasses()` instead. Upstream's `PatternContainer` is larger; the methods here
     that do an upstream job carry upstream's name, and `getTerminalIdentity` is named for what it returns
-    because upstream's `getTerminalGroup` answers with a grouping this version has no notion of.
+    because upstream's `getTerminalGroup` answers with a grouping this version has no notion of. It has an
+    overload taking the pattern being filed, defaulting to the plain one: a container beside several machines
+    has a choice of names, and the useful one is the machine that would run *this* pattern.
+38. **`ActionItems.UPLOAD`** - additive. The pattern terminal's button for sending an encoded pattern into
+    the network, so its icon and tooltip come from the same registry as every other action button. Upstream
+    has no such button.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

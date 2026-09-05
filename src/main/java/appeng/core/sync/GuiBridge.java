@@ -46,6 +46,7 @@ import appeng.container.ContainerOpenContext;
 import appeng.container.implementations.*;
 import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IInterfaceHost;
+import appeng.helpers.IPatternUploadHost;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.contents.QuartzKnifeObj;
@@ -141,6 +142,7 @@ public enum GuiBridge implements IGuiHandler {
     // The container applies BUILD only to machine configuration. A terminal uses the same screen for a
     // display-only filter and is already protected by the permission of the screen it was opened from.
     GUI_KEY_TYPES(ContainerKeyTypeSelection.class, KeyTypeSelectionHost.class, GuiHostType.ITEM_OR_WORLD, null),
+    GUI_PATTERN_UPLOAD(ContainerPatternUpload.class, IPatternUploadHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.BUILD),
 
     GUI_SECURITY(ContainerSecurityStation.class, TileSecurityStation.class, GuiHostType.WORLD, SecurityPermissions.SECURITY),
 

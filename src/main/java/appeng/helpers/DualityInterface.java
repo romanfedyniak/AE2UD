@@ -1061,22 +1061,67 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     /**
      * Whether this interface would work the pattern if it were put here, room aside. A processing pattern
      * goes to whatever stands beside it, so any interface will do; a crafting one has to reach a machine
-     * that takes plans, which is the only route there is from a network to our own molecular assembler. A
-     * pattern the network fabricates containers for is narrower still - only a machine that says it destroys
-     * them, or the craft mints a bucket out of water every time.
-     *
-     * <p>The same three questions {@link #pushPattern} asks of a face when the time comes, asked of every
-     * face at once and before the pattern is filed anywhere.</p>
+     * that takes plans, which is the only route there is from a network to our own molecular assembler.
      */
     public boolean canAcceptPattern(@Nullable final ICraftingPatternDetails details) {
         if (details == null) {
             return false;
         }
 
-        if (!details.isCraftable()) {
-            return true;
+        return !details.isCraftable() || this.acceptingFace(details) != null;
+    }
+
+    /**
+     * What to call this interface while a particular pattern is being filed into it.
+     *
+     * <p>An interface that works on every side is named after whichever neighbour comes first, which for a
+     * crafting pattern is misleading: it can be listed as the furnace on its north face while the reason it
+     * takes the pattern at all is the assembler on its west one. Here it is named after the machine that
+     * would run this pattern, so a list of targets says what it is offering.</p>
+     */
+    public MachineIdentity identifyFor(@Nullable final ICraftingPatternDetails details) {
+        if (details == null || !details.isCraftable()) {
+            return this.getMachineIdentity();
         }
 
+        final EnumFacing face = this.acceptingFace(details);
+        if (face == null) {
+            return this.getMachineIdentity();
+        }
+
+        return this.named(this.identifyAt(face));
+    }
+
+    /** What stands on one particular side, by the same rules the plain naming uses. */
+    private MachineIdentity identifyAt(final EnumFacing face) {
+        final TileEntity tile = this.iHost.getTileEntity();
+        final World w = tile.getWorld();
+
+        // A tunnel is no machine of its own - it answers for the ones its outputs stand beside, the same way
+        // the plain naming does. Without this a row would read "P2P Tunnel" three times over.
+        final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(face)),
+                face.getOpposite());
+        if (cm instanceof PartP2PInterface) {
+            final MachineIdentity remote = ((PartP2PInterface) cm).getRemoteMachineIdentity();
+            if (remote != MachineIdentity.NOTHING) {
+                return remote;
+            }
+        }
+
+        final MachineIdentity identity = identifyMachine(w, tile.getPos(), face);
+        return identity == MachineIdentity.NOTHING ? this.identifyNeighbour() : identity;
+    }
+
+    /**
+     * The first side of this interface with a machine that would take the plan, or null if there is none.
+     *
+     * <p>The same three questions {@link #pushPattern} asks of a face when the time comes, asked of every
+     * face at once and before the pattern is filed anywhere: a machine that takes plans, and, for a pattern
+     * the network fabricates containers for, one that says it destroys them - otherwise the craft mints a
+     * bucket out of water every time.</p>
+     */
+    @Nullable
+    private EnumFacing acceptingFace(final ICraftingPatternDetails details) {
         final TileEntity tile = this.iHost.getTileEntity();
         final World w = tile.getWorld();
         final boolean fabricated = details.canSubstituteFluids();
@@ -1084,12 +1129,20 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         for (final EnumFacing s : this.iHost.getTargets()) {
             final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(s)), s.getOpposite());
 
-            if (cm != null && cm.acceptsPlans() && (!fabricated || cm.acceptsFabricatedContainers())) {
-                return true;
+            if (cm == null || !cm.acceptsPlans() || (fabricated && !cm.acceptsFabricatedContainers())) {
+                continue;
             }
+
+            // A tunnel takes a plan on behalf of whatever stands behind its outputs, and says so without
+            // looking. Filing a pattern against that answer puts it in front of a row of furnaces.
+            if (cm instanceof PartP2PInterface && !((PartP2PInterface) cm).hasPlanTakingOutput()) {
+                continue;
+            }
+
+            return s;
         }
 
-        return false;
+        return null;
     }
 
     @Override
@@ -1601,12 +1654,25 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * item, which used to be worked out here and then thrown away.
      */
     public MachineIdentity getMachineIdentity() {
+        return this.named(this.identifyNeighbour());
+    }
+
+    /**
+     * A name the player gave this interface wins over the machine's own, but the picture does not go with it.
+     * A hand-written name says what the interface is for; the icon says what it feeds, and a list wants both.
+     */
+    private MachineIdentity named(final MachineIdentity identity) {
+        final ICustomNameObject host = (ICustomNameObject) this.iHost;
+
+        return host.hasCustomInventoryName()
+                ? new MachineIdentity(host.getCustomInventoryName(), identity.getIcon())
+                : identity;
+    }
+
+    /** The first machine standing beside this interface that is worth naming it after. */
+    private MachineIdentity identifyNeighbour() {
         final TileEntity hostTile = this.iHost.getTileEntity();
         final World hostWorld = hostTile.getWorld();
-
-        if (((ICustomNameObject) this.iHost).hasCustomInventoryName()) {
-            return new MachineIdentity(((ICustomNameObject) this.iHost).getCustomInventoryName(), ItemStack.EMPTY);
-        }
 
         for (final EnumFacing direction : this.iHost.getTargets()) {
             final TileEntity directedTile = hostWorld.getTileEntity(hostTile.getPos().offset(direction));

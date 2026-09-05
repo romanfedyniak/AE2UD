@@ -198,6 +198,14 @@ public abstract class AEBaseContainer extends Container {
         this.setValidContainer(this.isValidContainer() && this.hasAccess(security, requirePower));
     }
 
+    /**
+     * Whether the player may do something on this container that needs a permission, power aside. For an
+     * action asked for by a packet rather than by a slot, which cannot reach the check below.
+     */
+    public boolean isPermitted(final SecurityPermissions perm) {
+        return this.hasAccess(perm, false);
+    }
+
     protected boolean hasAccess(final SecurityPermissions perm, final boolean requirePower) {
         final IActionHost host = this.getActionHost();
 

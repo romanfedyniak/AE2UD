@@ -105,6 +105,37 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     }
 
     /**
+     * Whether anything a plan pushed in here could actually reach would take one.
+     *
+     * <p>{@link #acceptsPlans} answers for the tunnel alone, because that is the question a push asks a
+     * moment before it tries: a tunnel with nothing but furnaces behind it still says yes, and the push then
+     * fails harmlessly. Deciding where to *file* a pattern is not harmless - the pattern would sit there
+     * being offered to the network and never run - so that decision looks all the way through.</p>
+     */
+    public boolean hasPlanTakingOutput() {
+        if (this.isOutput() || this.visiting) {
+            return false;
+        }
+
+        this.visiting = true;
+        try {
+            for (final PartP2PInterface output : this.getOutputList()) {
+                final ICraftingMachine machine = output.getFacingMachine();
+
+                if (machine instanceof PartP2PInterface
+                        ? ((PartP2PInterface) machine).hasPlanTakingOutput()
+                        : machine != null && machine.acceptsPlans()) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            this.visiting = false;
+        }
+    }
+
+    /**
      * Only if every machine that could be reached destroys such a container. The answer covers the whole
      * tunnel while the pattern lands in just one machine, so one output that would hand the container back
      * is enough to refuse - it would mint a bucket out of a fluid on every craft.
