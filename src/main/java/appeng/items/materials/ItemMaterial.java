@@ -152,10 +152,7 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
 
     @Override
     protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
-        final List<MaterialType> types = Arrays.asList(MaterialType.values());
-        Collections.sort(types, (o1, o2) -> o1.name().compareTo(o2.name()));
-
-        for (final MaterialType mat : types) {
+        for (final MaterialType mat : MaterialType.values()) {
             if (mat.getDamageValue() >= 0 && mat.isRegistered() && mat.getItemInstance() == this) {
                 itemStacks.add(new ItemStack(this, 1, mat.getDamageValue()));
             }

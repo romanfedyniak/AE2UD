@@ -626,6 +626,30 @@ final class Registration {
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell64k(), 1);
         support(upgrades, CardTraits.VOID, items.cell64k(), 1);
 
+        support(upgrades, CardTraits.FUZZY, items.cell256k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell256k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell256k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell256k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell256k(), 1);
+
+        support(upgrades, CardTraits.FUZZY, items.cell1024k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell1024k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell1024k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell1024k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell1024k(), 1);
+
+        support(upgrades, CardTraits.FUZZY, items.cell4096k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell4096k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell4096k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell4096k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell4096k(), 1);
+
+        support(upgrades, CardTraits.FUZZY, items.cell16384k(), 1);
+        support(upgrades, CardTraits.INVERTER, items.cell16384k(), 1);
+        support(upgrades, CardTraits.STICKY, items.cell16384k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell16384k(), 1);
+        support(upgrades, CardTraits.VOID, items.cell16384k(), 1);
+
         support(upgrades, CardTraits.FUZZY, items.portableCell(), 1);
         support(upgrades, CardTraits.INVERTER, items.portableCell(), 1);
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.portableCell(), 1);
@@ -664,6 +688,26 @@ final class Registration {
         support(upgrades, CardTraits.STICKY, items.fluidCell64k(), 1);
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell64k(), 1);
         support(upgrades, CardTraits.VOID, items.fluidCell64k(), 1);
+
+        support(upgrades, CardTraits.INVERTER, items.fluidCell256k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell256k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell256k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell256k(), 1);
+
+        support(upgrades, CardTraits.INVERTER, items.fluidCell1024k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell1024k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell1024k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell1024k(), 1);
+
+        support(upgrades, CardTraits.INVERTER, items.fluidCell4096k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell4096k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell4096k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell4096k(), 1);
+
+        support(upgrades, CardTraits.INVERTER, items.fluidCell16384k(), 1);
+        support(upgrades, CardTraits.STICKY, items.fluidCell16384k(), 1);
+        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.fluidCell16384k(), 1);
+        support(upgrades, CardTraits.VOID, items.fluidCell16384k(), 1);
 
         // Storage Bus
         support(upgrades, CardTraits.FUZZY, parts.storageBus(), 1);

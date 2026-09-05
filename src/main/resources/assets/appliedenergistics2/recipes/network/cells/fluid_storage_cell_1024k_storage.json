@@ -1,0 +1,35 @@
+{
+    "conditions": [
+        {
+            "type": "forge:and",
+            "values": [
+                {
+                    "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:fluid_storage_cell_1024k"
+                },
+                {
+                    "type": "appliedenergistics2:material_exists",
+                    "material": "material.fluid_cell_housing"
+                },
+                {
+                    "type": "appliedenergistics2:material_exists",
+                    "material": "material.cell1024k_part"
+                }
+            ]
+        }
+    ],
+    "result": {
+        "item": "appliedenergistics2:fluid_storage_cell_1024k"
+    },
+    "type": "forge:ore_shapeless",
+    "ingredients": [
+        {
+            "type": "appliedenergistics2:part",
+            "part": "material.fluid_cell_housing"
+        },
+        {
+            "type": "appliedenergistics2:part",
+            "part": "material.cell1024k_part"
+        }
+    ]
+}

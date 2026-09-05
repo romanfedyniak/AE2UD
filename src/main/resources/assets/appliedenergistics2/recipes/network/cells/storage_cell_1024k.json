@@ -1,0 +1,47 @@
+{
+    "conditions": [
+        {
+            "type": "forge:and",
+            "values": [
+                {
+                    "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:storage_cell_1024k"
+                },
+                {
+                    "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:quartz_glass"
+                },
+                {
+                    "type": "appliedenergistics2:material_exists",
+                    "material": "material.cell1024k_part"
+                }
+            ]
+        }
+    ],
+    "result": {
+        "item": "appliedenergistics2:storage_cell_1024k"
+    },
+    "type": "forge:ore_shaped",
+    "pattern": [
+        "aba",
+        "bcb",
+        "ddd"
+    ],
+    "key": {
+        "a": {
+            "item": "appliedenergistics2:quartz_glass"
+        },
+        "b": {
+            "type": "forge:ore_dict",
+            "ore": "dustRedstone"
+        },
+        "c": {
+            "type": "appliedenergistics2:part",
+            "part": "material.cell1024k_part"
+        },
+        "d": {
+            "type": "forge:ore_dict",
+            "ore": "ingotIron"
+        }
+    }
+}

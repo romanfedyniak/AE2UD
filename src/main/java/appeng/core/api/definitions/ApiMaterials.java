@@ -79,6 +79,10 @@ public final class ApiMaterials implements IMaterials {
     private final IItemDefinition cell4kPart;
     private final IItemDefinition cell16kPart;
     private final IItemDefinition cell64kPart;
+    private final IItemDefinition cell256kPart;
+    private final IItemDefinition cell1024kPart;
+    private final IItemDefinition cell4096kPart;
+    private final IItemDefinition cell16384kPart;
     private final IItemDefinition emptyStorageCell;
 
     private final IItemDefinition cardRedstone;
@@ -199,6 +203,10 @@ public final class ApiMaterials implements IMaterials {
         this.cell4kPart = new DamagedItemDefinition("material.cell.storage.4k", materials.createMaterial(MaterialType.CELL4K_PART));
         this.cell16kPart = new DamagedItemDefinition("material.cell.storage.16k", materials.createMaterial(MaterialType.CELL16K_PART));
         this.cell64kPart = new DamagedItemDefinition("material.cell.storage.64k", materials.createMaterial(MaterialType.CELL64K_PART));
+        this.cell256kPart = new DamagedItemDefinition("material.cell.storage.256k", materials.createMaterial(MaterialType.CELL256K_PART));
+        this.cell1024kPart = new DamagedItemDefinition("material.cell.storage.1024k", materials.createMaterial(MaterialType.CELL1024K_PART));
+        this.cell4096kPart = new DamagedItemDefinition("material.cell.storage.4096k", materials.createMaterial(MaterialType.CELL4096K_PART));
+        this.cell16384kPart = new DamagedItemDefinition("material.cell.storage.16384k", materials.createMaterial(MaterialType.CELL16384K_PART));
         this.emptyStorageCell = new DamagedItemDefinition("material.cell.storage.empty", materials.createMaterial(MaterialType.EMPTY_STORAGE_CELL));
 
         this.cardRedstone = new DamagedItemDefinition("material.card.redstone", materials.createMaterial(MaterialType.CARD_REDSTONE));
@@ -378,6 +386,26 @@ public final class ApiMaterials implements IMaterials {
     @Override
     public IItemDefinition cell64kPart() {
         return this.cell64kPart;
+    }
+
+    @Override
+    public IItemDefinition cell256kPart() {
+        return this.cell256kPart;
+    }
+
+    @Override
+    public IItemDefinition cell1024kPart() {
+        return this.cell1024kPart;
+    }
+
+    @Override
+    public IItemDefinition cell4096kPart() {
+        return this.cell4096kPart;
+    }
+
+    @Override
+    public IItemDefinition cell16384kPart() {
+        return this.cell16384kPart;
     }
 
     @Override

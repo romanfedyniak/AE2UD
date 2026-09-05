@@ -50,7 +50,7 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
         final IItems items = definitions.items();
         final IMaterials mats = definitions.materials();
 
-        this.cellMappings = new HashMap<>(8);
+        this.cellMappings = new HashMap<>(16);
         this.nonCellMappings = new HashMap<>(5);
 
         this.cellMappings.put(items.cell1k(), mats.cell1kPart());
@@ -61,6 +61,14 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
         this.cellMappings.put(items.fluidCell4k(), mats.cell4kPart());
         this.cellMappings.put(items.fluidCell16k(), mats.cell16kPart());
         this.cellMappings.put(items.fluidCell64k(), mats.cell64kPart());
+        this.cellMappings.put(items.cell256k(), mats.cell256kPart());
+        this.cellMappings.put(items.cell1024k(), mats.cell1024kPart());
+        this.cellMappings.put(items.cell4096k(), mats.cell4096kPart());
+        this.cellMappings.put(items.cell16384k(), mats.cell16384kPart());
+        this.cellMappings.put(items.fluidCell256k(), mats.cell256kPart());
+        this.cellMappings.put(items.fluidCell1024k(), mats.cell1024kPart());
+        this.cellMappings.put(items.fluidCell4096k(), mats.cell4096kPart());
+        this.cellMappings.put(items.fluidCell16384k(), mats.cell16384kPart());
 
         this.nonCellMappings.put(items.encodedPattern(), mats.blankPattern());
         this.nonCellMappings.put(blocks.craftingStorage1k(), mats.cell1kPart());

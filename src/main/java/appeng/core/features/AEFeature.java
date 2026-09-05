@@ -107,6 +107,7 @@ public enum AEFeature {
     PORTABLE_CELL("PortableCell", Constants.CATEGORY_PORTABLE_CELL),
 
     STORAGE_CELLS("StorageCells", Constants.CATEGORY_STORAGE),
+    HIGH_CAPACITY_STORAGE("HighCapacityStorage", Constants.CATEGORY_STORAGE, "The storage tiers above 64k - cells, their components, and the matching crafting storage blocks. They share one switch because they share one component."),
     ME_CHEST("MEChest", Constants.CATEGORY_STORAGE),
     ME_DRIVE("MEDrive", Constants.CATEGORY_STORAGE),
     IO_PORT("IOPort", Constants.CATEGORY_STORAGE),

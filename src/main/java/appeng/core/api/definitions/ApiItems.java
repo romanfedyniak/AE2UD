@@ -98,6 +98,15 @@ public final class ApiItems implements IItems {
     private final IItemDefinition fluidCell16k;
     private final IItemDefinition fluidCell64k;
 
+    private final IItemDefinition cell256k;
+    private final IItemDefinition cell1024k;
+    private final IItemDefinition cell4096k;
+    private final IItemDefinition cell16384k;
+    private final IItemDefinition fluidCell256k;
+    private final IItemDefinition fluidCell1024k;
+    private final IItemDefinition fluidCell4096k;
+    private final IItemDefinition fluidCell16384k;
+
     private final IItemDefinition spatialCell2;
     private final IItemDefinition spatialCell16;
     private final IItemDefinition spatialCell128;
@@ -210,16 +219,27 @@ public final class ApiItems implements IItems {
                 .build();
         this.viewCell = registry.item("view_cell", ItemViewCell::new).features(AEFeature.VIEW_CELL).build();
 
+        // Registration order is the order JEI lists them in, so every item cell comes before any fluid one.
         FeatureFactory storageCells = registry.features(AEFeature.STORAGE_CELLS);
+        FeatureFactory highCapacityCells = registry.features(AEFeature.HIGH_CAPACITY_STORAGE);
+
         this.cell1k = storageCells.item("storage_cell_1k", () -> new BasicItemStorageCell(MaterialType.CELL1K_PART, 1)).build();
         this.cell4k = storageCells.item("storage_cell_4k", () -> new BasicItemStorageCell(MaterialType.CELL4K_PART, 4)).build();
         this.cell16k = storageCells.item("storage_cell_16k", () -> new BasicItemStorageCell(MaterialType.CELL16K_PART, 16)).build();
         this.cell64k = storageCells.item("storage_cell_64k", () -> new BasicItemStorageCell(MaterialType.CELL64K_PART, 64)).build();
+        this.cell256k = highCapacityCells.item("storage_cell_256k", () -> new BasicItemStorageCell(MaterialType.CELL256K_PART, 256)).build();
+        this.cell1024k = highCapacityCells.item("storage_cell_1024k", () -> new BasicItemStorageCell(MaterialType.CELL1024K_PART, 1024)).build();
+        this.cell4096k = highCapacityCells.item("storage_cell_4096k", () -> new BasicItemStorageCell(MaterialType.CELL4096K_PART, 4096)).build();
+        this.cell16384k = highCapacityCells.item("storage_cell_16384k", () -> new BasicItemStorageCell(MaterialType.CELL16384K_PART, 16384)).build();
 
         this.fluidCell1k = storageCells.item("fluid_storage_cell_1k", () -> new BasicFluidStorageCell(MaterialType.CELL1K_PART, 1)).build();
         this.fluidCell4k = storageCells.item("fluid_storage_cell_4k", () -> new BasicFluidStorageCell(MaterialType.CELL4K_PART, 4)).build();
         this.fluidCell16k = storageCells.item("fluid_storage_cell_16k", () -> new BasicFluidStorageCell(MaterialType.CELL16K_PART, 16)).build();
         this.fluidCell64k = storageCells.item("fluid_storage_cell_64k", () -> new BasicFluidStorageCell(MaterialType.CELL64K_PART, 64)).build();
+        this.fluidCell256k = highCapacityCells.item("fluid_storage_cell_256k", () -> new BasicFluidStorageCell(MaterialType.CELL256K_PART, 256)).build();
+        this.fluidCell1024k = highCapacityCells.item("fluid_storage_cell_1024k", () -> new BasicFluidStorageCell(MaterialType.CELL1024K_PART, 1024)).build();
+        this.fluidCell4096k = highCapacityCells.item("fluid_storage_cell_4096k", () -> new BasicFluidStorageCell(MaterialType.CELL4096K_PART, 4096)).build();
+        this.fluidCell16384k = highCapacityCells.item("fluid_storage_cell_16384k", () -> new BasicFluidStorageCell(MaterialType.CELL16384K_PART, 16384)).build();
 
         FeatureFactory spatialCells = registry.features(AEFeature.SPATIAL_IO);
         this.spatialCell2 = spatialCells.item("spatial_storage_cell_2_cubed", () -> new ItemSpatialStorageCell(2)).build();
@@ -444,6 +464,46 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition fluidCell64k() {
         return this.fluidCell64k;
+    }
+
+    @Override
+    public IItemDefinition cell256k() {
+        return this.cell256k;
+    }
+
+    @Override
+    public IItemDefinition cell1024k() {
+        return this.cell1024k;
+    }
+
+    @Override
+    public IItemDefinition cell4096k() {
+        return this.cell4096k;
+    }
+
+    @Override
+    public IItemDefinition cell16384k() {
+        return this.cell16384k;
+    }
+
+    @Override
+    public IItemDefinition fluidCell256k() {
+        return this.fluidCell256k;
+    }
+
+    @Override
+    public IItemDefinition fluidCell1024k() {
+        return this.fluidCell1024k;
+    }
+
+    @Override
+    public IItemDefinition fluidCell4096k() {
+        return this.fluidCell4096k;
+    }
+
+    @Override
+    public IItemDefinition fluidCell16384k() {
+        return this.fluidCell16384k;
     }
 
     @Override

@@ -1,0 +1,47 @@
+{
+    "conditions": [
+        {
+            "type": "forge:and",
+            "values": [
+                {
+                    "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:fluid_storage_cell_4096k"
+                },
+                {
+                    "type": "minecraft:item_exists",
+                    "item": "appliedenergistics2:quartz_glass"
+                },
+                {
+                    "type": "appliedenergistics2:material_exists",
+                    "material": "material.cell4096k_part"
+                }
+            ]
+        }
+    ],
+    "result": {
+        "item": "appliedenergistics2:fluid_storage_cell_4096k"
+    },
+    "type": "forge:ore_shaped",
+    "pattern": [
+        "aba",
+        "bcb",
+        "ddd"
+    ],
+    "key": {
+        "a": {
+            "item": "appliedenergistics2:quartz_glass"
+        },
+        "b": {
+            "type": "forge:ore_dict",
+            "ore": "gemLapis"
+        },
+        "c": {
+            "type": "appliedenergistics2:part",
+            "part": "material.cell4096k_part"
+        },
+        "d": {
+            "type": "forge:ore_dict",
+            "ore": "ingotIron"
+        }
+    }
+}

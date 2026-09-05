@@ -2198,6 +2198,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     machine's name and icon together. It shares icon cell 6 with `CLOSE` and `STASH`, which already share
     it, and carries its own tooltip. Upstream has no such button.
 
+41. **The storage tiers above 64k** - additive. `IItems` gained `cell256k`…`cell16384k` and their fluid
+    counterparts, and `IMaterials` gained `cell256kPart`…`cell16384kPart`, all shaped exactly like the four
+    tiers below them. Nothing existing changed. The tiers and their byte and drain figures come from
+    GTNewHorizons' Applied Energistics 2 Unofficial; upstream has no tier above 64k.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

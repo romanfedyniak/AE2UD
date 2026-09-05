@@ -61,6 +61,22 @@ public final class BasicFluidStorageCell extends AbstractStorageCell {
                 this.idleDrain = 2.0;
                 this.perType = 512;
                 break;
+            case CELL256K_PART:
+                this.idleDrain = 2.5;
+                this.perType = 2048;
+                break;
+            case CELL1024K_PART:
+                this.idleDrain = 3.0;
+                this.perType = 8192;
+                break;
+            case CELL4096K_PART:
+                this.idleDrain = 3.5;
+                this.perType = 32768;
+                break;
+            case CELL16384K_PART:
+                this.idleDrain = 4.0;
+                this.perType = 131072;
+                break;
             default:
                 this.idleDrain = 0.0;
                 this.perType = 8;
