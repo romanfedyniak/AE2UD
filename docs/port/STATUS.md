@@ -2199,9 +2199,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     it, and carries its own tooltip. Upstream has no such button.
 
 41. **The storage tiers above 64k** - additive. `IItems` gained `cell256k`…`cell16384k` and their fluid
-    counterparts, and `IMaterials` gained `cell256kPart`…`cell16384kPart`, all shaped exactly like the four
-    tiers below them. Nothing existing changed. The tiers and their byte and drain figures come from
-    GTNewHorizons' Applied Energistics 2 Unofficial; upstream has no tier above 64k.
+    counterparts, `IMaterials` gained `cell256kPart`…`cell16384kPart`, and `IBlocks` gained
+    `craftingStorage256k`…`craftingStorage16384k`, all shaped exactly like the four tiers below them.
+    Nothing existing changed. The tiers and their byte and drain figures come from GTNewHorizons' Applied
+    Energistics 2 Unofficial; upstream has no tier above 64k.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

@@ -50,6 +50,10 @@ class CraftingCubeModel implements IModel {
     private final static ResourceLocation STORAGE_4K_LIGHT = texture("storage_4k_light");
     private final static ResourceLocation STORAGE_16K_LIGHT = texture("storage_16k_light");
     private final static ResourceLocation STORAGE_64K_LIGHT = texture("storage_64k_light");
+    private final static ResourceLocation STORAGE_256K_LIGHT = texture("storage_256k_light");
+    private final static ResourceLocation STORAGE_1024K_LIGHT = texture("storage_1024k_light");
+    private final static ResourceLocation STORAGE_4096K_LIGHT = texture("storage_4096k_light");
+    private final static ResourceLocation STORAGE_16384K_LIGHT = texture("storage_16384k_light");
     private final static ResourceLocation MONITOR_BASE = texture("monitor_base");
     private final static ResourceLocation MONITOR_LIGHT_DARK = texture("monitor_light_dark");
     private final static ResourceLocation MONITOR_LIGHT_MEDIUM = texture("monitor_light_medium");
@@ -69,7 +73,7 @@ class CraftingCubeModel implements IModel {
     @Override
     public Collection<ResourceLocation> getTextures() {
         return ImmutableList.of(RING_CORNER, RING_SIDE_HOR, RING_SIDE_VER, UNIT_BASE, LIGHT_BASE, ACCELERATOR_LIGHT, STORAGE_1K_LIGHT, STORAGE_4K_LIGHT,
-                STORAGE_16K_LIGHT, STORAGE_64K_LIGHT, MONITOR_BASE, MONITOR_LIGHT_DARK, MONITOR_LIGHT_MEDIUM, MONITOR_LIGHT_BRIGHT);
+                STORAGE_16K_LIGHT, STORAGE_64K_LIGHT, STORAGE_256K_LIGHT, STORAGE_1024K_LIGHT, STORAGE_4096K_LIGHT, STORAGE_16384K_LIGHT, MONITOR_BASE, MONITOR_LIGHT_DARK, MONITOR_LIGHT_MEDIUM, MONITOR_LIGHT_BRIGHT);
     }
 
     @Override
@@ -87,6 +91,10 @@ class CraftingCubeModel implements IModel {
             case STORAGE_4K:
             case STORAGE_16K:
             case STORAGE_64K:
+            case STORAGE_256K:
+            case STORAGE_1024K:
+            case STORAGE_4096K:
+            case STORAGE_16384K:
                 return new LightBakedModel(format, ringCorner, ringSideHor, ringSideVer, bakedTextureGetter
                         .apply(LIGHT_BASE), getLightTexture(bakedTextureGetter, this.type));
             case MONITOR:
@@ -110,6 +118,14 @@ class CraftingCubeModel implements IModel {
                 return textureGetter.apply(STORAGE_16K_LIGHT);
             case STORAGE_64K:
                 return textureGetter.apply(STORAGE_64K_LIGHT);
+            case STORAGE_256K:
+                return textureGetter.apply(STORAGE_256K_LIGHT);
+            case STORAGE_1024K:
+                return textureGetter.apply(STORAGE_1024K_LIGHT);
+            case STORAGE_4096K:
+                return textureGetter.apply(STORAGE_4096K_LIGHT);
+            case STORAGE_16384K:
+                return textureGetter.apply(STORAGE_16384K_LIGHT);
             default:
                 throw new IllegalArgumentException("Crafting unit type " + type + " does not use a light texture.");
         }

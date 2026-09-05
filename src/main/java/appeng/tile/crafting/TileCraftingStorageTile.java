@@ -50,6 +50,18 @@ public class TileCraftingStorageTile extends TileCraftingTile {
             case 64:
                 is = blocks.craftingStorage64k().maybeStack(1);
                 break;
+            case 256:
+                is = blocks.craftingStorage256k().maybeStack(1);
+                break;
+            case 1024:
+                is = blocks.craftingStorage1024k().maybeStack(1);
+                break;
+            case 4096:
+                is = blocks.craftingStorage4096k().maybeStack(1);
+                break;
+            case 16384:
+                is = blocks.craftingStorage16384k().maybeStack(1);
+                break;
             default:
                 is = Optional.empty();
                 break;
@@ -85,6 +97,14 @@ public class TileCraftingStorageTile extends TileCraftingTile {
                 return 16 * 1024;
             case STORAGE_64K:
                 return 64 * 1024;
+            case STORAGE_256K:
+                return 256 * 1024;
+            case STORAGE_1024K:
+                return 1024 * 1024;
+            case STORAGE_4096K:
+                return 4096 * 1024;
+            case STORAGE_16384K:
+                return 16384 * 1024;
         }
     }
 }
