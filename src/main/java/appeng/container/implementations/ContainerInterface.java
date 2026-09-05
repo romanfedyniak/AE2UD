@@ -28,7 +28,9 @@ import appeng.container.slot.*;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
 import appeng.util.Platform;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraftforge.items.IItemHandler;
 
 
 public class ContainerInterface extends ContainerUpgradeable implements IOptionalSlotHost {
@@ -81,6 +83,35 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
         this.setupUpgrades();
     }
 
+    /** As everywhere else, except that a pattern expansion card will not come out from under its patterns. */
+    @Override
+    protected void setupUpgrades() {
+        final IItemHandler upgrades = this.getUpgradeable().getInventoryByName("upgrades");
+
+        for (int i = 0; i < this.availableUpgrades(); i++) {
+            this.addSlotToContainer(new PatternAwareUpgradeSlot(upgrades, i).setNotDraggable());
+        }
+    }
+
+    /** Named rather than anonymous so the screen can tell these four slots from every other one. */
+    public class PatternAwareUpgradeSlot extends SlotRestrictedInput {
+
+        public PatternAwareUpgradeSlot(final IItemHandler upgrades, final int index) {
+            super(PlacableItemType.UPGRADES, upgrades, index, 187, 8 + 18 * index,
+                    ContainerInterface.this.getInventoryPlayer());
+        }
+
+        @Override
+        public boolean canTakeStack(final EntityPlayer player) {
+            return super.canTakeStack(player)
+                    && ContainerInterface.this.myDuality.canRemoveUpgrade(this.getSlotIndex());
+        }
+    }
+
+    public DualityInterface getDuality() {
+        return this.myDuality;
+    }
+
     @Override
     public int availableUpgrades() {
         return 4;
@@ -109,8 +140,8 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
     @Override
     public void onUpdate(final String field, final Object oldValue, final Object newValue) {
         super.onUpdate(field, oldValue, newValue);
-        if (Platform.isClient() && field.equals("patternExpansions"))
-            this.myDuality.dropExcessPatterns();
+
+        // No dropExcessPatterns here: it spawns items, and on a client those do not exist.
     }
 
     @Override

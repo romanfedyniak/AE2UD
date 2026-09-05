@@ -29,20 +29,15 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.util.DimensionalCoord;
 
 /**
- * Finding the things in a network that hold patterns, and deciding which of them a pattern should go to.
- *
- * <p>Everything here works from {@link IPatternContainer} alone. Nothing names a class, so a machine an
- * addon adds is found by the Pattern Access Terminal and by the pattern terminal's upload button both, on
- * the strength of implementing that one interface.</p>
+ * Finding the things in a network that hold patterns, and choosing between them. Works from
+ * {@link IPatternContainer} alone, so a machine an addon adds is found without naming its class.
  */
 public final class PatternContainers {
 
     private PatternContainers() {
     }
 
-    /**
-     * Everything in the network that holds patterns and is willing to be listed, in no particular order.
-     */
+    /** In no particular order. */
     public static List<IPatternContainer> visible(@Nullable final IGrid grid) {
         final List<IPatternContainer> containers = new ArrayList<>();
 
@@ -70,10 +65,7 @@ public final class PatternContainers {
         return containers;
     }
 
-    /**
-     * Slots that are both empty and paid for. A container may keep room it cannot use yet, and a pattern put
-     * there is not somewhere it can stay - see {@link IPatternContainer#getUsablePatternSlots}.
-     */
+    /** Empty and paid for. A pattern put past that line is not somewhere it can stay. */
     public static int freeSlots(final IPatternContainer container) {
         final IItemHandler patterns = container.getTerminalPatternInventory();
         final int usable = usableSlots(container);
@@ -88,11 +80,7 @@ public final class PatternContainers {
         return free;
     }
 
-    /**
-     * Puts a pattern in the first free usable slot.
-     *
-     * @return false if there was none, in which case nothing was moved.
-     */
+    /** @return false if there was no free usable slot, in which case nothing was moved. */
     public static boolean insert(final IPatternContainer container, final ItemStack pattern) {
         final IItemHandler patterns = container.getTerminalPatternInventory();
         final int usable = usableSlots(container);
@@ -107,17 +95,12 @@ public final class PatternContainers {
         return false;
     }
 
-    /**
-     * How many slots a container really offers: what it says it has paid for, and never more than it has.
-     */
+    /** What it says it has paid for, and never more than it has. */
     public static int usableSlots(final IPatternContainer container) {
         return Math.min(container.getUsablePatternSlots(), container.getTerminalPatternInventory().getSlots());
     }
 
-    /**
-     * Whether this container would take this pattern right now: it would run it, it has not got it already,
-     * and it has room.
-     */
+    /** It would run the pattern, it has not got it already, and it has room. */
     public static boolean accepts(final IPatternContainer container, final ItemStack pattern,
             @Nullable final ICraftingPatternDetails details) {
         final AEItemKey key = AEItemKey.of(pattern);
@@ -129,13 +112,8 @@ public final class PatternContainers {
     }
 
     /**
-     * Where an upload with nobody watching sends a pattern: of the containers that would take it, the one
-     * with the most room, and of those the nearest to the player.
-     *
-     * <p>Most room rather than first found, because the order machines come out of a grid is the order they
-     * were added to it and means nothing to a player - and because spreading patterns over the groups of
-     * assemblers is what a player would do by hand anyway. Distance only breaks a tie, so the answer does not
-     * change as the player walks about.</p>
+     * Most room, then nearest. Never first-found: a grid hands machines back in the order they joined it,
+     * which changes across a reload.
      *
      * @return null when nothing in the network would take it.
      */
@@ -149,10 +127,7 @@ public final class PatternContainers {
                 .orElse(null);
     }
 
-    /**
-     * How far a container is from the player, squared, or the largest distance there is when it is nowhere or
-     * in another world - so that a container which cannot be walked to loses every tie.
-     */
+    /** Squared, and infinite for another world, so an unreachable container loses every tie. */
     private static double distanceTo(final IPatternContainer container, final EntityPlayer player) {
         final DimensionalCoord where = container.getTerminalLocation();
 

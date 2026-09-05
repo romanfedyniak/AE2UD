@@ -33,15 +33,10 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.packets.PacketSwitchGuis;
 
 /**
- * Sending an encoded pattern from a pattern terminal to something in the network that holds patterns.
- *
- * <p>A crafting pattern goes on its own: only an interface standing next to a machine that takes plans will
- * run one, which is a narrow enough answer that picking it by hand is busywork. A processing pattern goes
- * wherever the player says, because any interface will run it and only the player knows which machine it was
- * written for. Holding shift asks either way.</p>
- *
- * <p>The rules about where a pattern may go are not here - they are {@link IPatternContainer#canAccept}, on
- * the container itself, which is the only thing that knows what stands beside it.</p>
+ * Sending an encoded pattern from a pattern terminal into the network. A crafting pattern goes on its own,
+ * since only an interface beside a plan-taking machine will run one; a processing pattern is the player's
+ * choice, since any interface will. Shift asks either way. What may go where is
+ * {@link IPatternContainer#canAccept}, not here.
  */
 public final class PatternUpload {
 
@@ -51,9 +46,7 @@ public final class PatternUpload {
     private PatternUpload() {
     }
 
-    /**
-     * What an encoded pattern says it does, or null when it is not one, or is one nothing can decode.
-     */
+    /** Null when the stack is not an encoded pattern, or is one nothing can decode. */
     @Nullable
     public static ICraftingPatternDetails detailsOf(final ItemStack pattern, final World world) {
         if (pattern.isEmpty() || !(pattern.getItem() instanceof ICraftingPatternItem)) {
@@ -64,8 +57,8 @@ public final class PatternUpload {
     }
 
     /**
-     * The terminal's own button. Files the pattern where it belongs when there is only one sensible answer,
-     * and otherwise opens the screen that asks.
+     * The terminal's button: files the pattern when there is one sensible answer, otherwise opens the screen
+     * that asks.
      *
      * @param pick true when the player asked to choose rather than have it decided.
      */
@@ -96,10 +89,7 @@ public final class PatternUpload {
         PacketSwitchGuis.reopen(player, from, GuiBridge.GUI_PATTERN_UPLOAD);
     }
 
-    /**
-     * A row of that screen was clicked. On success the player is sent back to the terminal they came from;
-     * a refusal leaves the screen up, so the reason can be read against the list it is about.
-     */
+    /** A row was clicked. Success goes back to the terminal; a refusal leaves the list up to read against. */
     public static void runTo(final EntityPlayerMP player, final AEBaseContainer from, final IPatternUploadHost host,
             @Nullable final IPatternContainer target) {
         if (target == null) {
@@ -131,16 +121,13 @@ public final class PatternUpload {
             return false;
         }
 
-        // Asked again here and not only when the list was drawn. The screen dims a row it would refuse, but
-        // the list is a moment old by the time it is clicked, and a pattern filed where nothing will run it
-        // is worse than a click that does nothing.
+        // Asked again because the list the player clicked is half a second old.
         if (!target.canAccept(pattern, details)) {
             player.sendMessage(PlayerMessages.PatternUploadUnsuitable.get());
             return false;
         }
 
-        // Refused here rather than across the whole network: a second copy of one pattern in one container
-        // only eats a slot, while a copy in another container is how crafting is run on two sets of machines.
+        // Per container, not per network: a copy elsewhere is how crafting runs on two sets of machines.
         if (target.containsPattern(key)) {
             player.sendMessage(PlayerMessages.PatternUploadDuplicate.get());
             return false;
@@ -160,12 +147,8 @@ public final class PatternUpload {
     }
 
     /**
-     * The click a button makes, to the one player who asked for it.
-     *
-     * <p>A pattern leaving is otherwise silent by design - there is no chat line for it, since encoding a
-     * dozen patterns would fill the log - and a slot quietly emptying is not much to go on. The world's own
-     * {@code playSound} would do the opposite of what is wanted here: on a server it plays to everyone but
-     * the player named, on the assumption that they have already heard it locally.</p>
+     * The click a button makes, to the one player who asked for it. Not {@code World.playSound}: on a server
+     * that plays to everyone *but* the player named, assuming they have already heard it locally.
      */
     private static void click(final EntityPlayerMP player) {
         player.connection.sendPacket(new SPacketSoundEffect(SoundEvents.UI_BUTTON_CLICK, SoundCategory.MASTER,

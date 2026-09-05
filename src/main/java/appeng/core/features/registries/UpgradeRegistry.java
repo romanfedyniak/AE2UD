@@ -145,9 +145,19 @@ public final class UpgradeRegistry implements IUpgradeRegistry {
     @Override
     public synchronized int getInstalledPoints(final IItemHandler installed,
             final ItemStack upgradableObject, final CardTrait trait) {
+        return this.getInstalledPoints(installed, upgradableObject, trait, -1);
+    }
+
+    @Override
+    public synchronized int getInstalledPoints(final IItemHandler installed,
+            final ItemStack upgradableObject, final CardTrait trait, final int ignoredSlot) {
         int points = 0;
 
         for (int slot = 0; installed != null && slot < installed.getSlots(); slot++) {
+            if (slot == ignoredSlot) {
+                continue;
+            }
+
             final ItemStack card = installed.getStackInSlot(slot);
             if (card.isEmpty() || !this.isTraitSupported(card, trait, upgradableObject)) {
                 continue;

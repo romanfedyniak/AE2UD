@@ -36,13 +36,8 @@ import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.helpers.IPatternUploadHost;
 
 /**
- * Where a pattern goes. One row per thing in the network that holds patterns, drawn from a list the server
- * pushes and refreshes while the screen is open.
- *
- * <p>Rows that would run this pattern are listed first and drawn plainly. The rest are still listed, dimmed,
- * and cannot be clicked - a pattern filed where nothing will run it is a fault that shows up hours later, at
- * the crafting terminal, as a recipe the network says it cannot make. They stay on the list rather than
- * vanishing from it so the screen can say why, which is what its tooltip is for.</p>
+ * Where a pattern goes. One row per pattern holder in the network. Rows that would run this pattern come
+ * first; the rest are dimmed and unclickable, but stay listed so the tooltip can say why.
  *
  * @see ContainerPatternUpload
  */
@@ -142,10 +137,7 @@ public class GuiPatternUpload extends AEBaseGui {
         this.drawTooltip(mouseX, mouseY, lines);
     }
 
-    /**
-     * The server sends the whole list whenever anything on it changes, so the screen never merges - it
-     * replaces what it has and filters again.
-     */
+    /** The server sends the whole list, so this replaces rather than merges. */
     public void postUpdate(final NBTTagCompound data) {
         this.rows.clear();
 
@@ -199,8 +191,7 @@ public class GuiPatternUpload extends AEBaseGui {
     }
 
     private void drawRow(final Row row, final int top, final int mouseX, final int mouseY) {
-        // Each row is a plate of its own: a raised edge along the top and left, a shadow along the bottom
-        // and right. Without it eight names sit on one flat sheet and read as a single block of text.
+        // A plate of its own, or eight names on one flat sheet read as a single block of text.
         drawRect(ROW_LEFT, top, ROW_LEFT + ROW_WIDTH, top + 1, PANEL_LIGHT_COLOR);
         drawRect(ROW_LEFT, top, ROW_LEFT + 1, top + PLATE_HEIGHT, PANEL_LIGHT_COLOR);
         drawRect(ROW_LEFT, top + PLATE_HEIGHT - 1, ROW_LEFT + ROW_WIDTH, top + PLATE_HEIGHT, PANEL_SHADOW_COLOR);
@@ -213,14 +204,12 @@ public class GuiPatternUpload extends AEBaseGui {
         }
 
         if (!row.icon.isEmpty()) {
-            // The plate above was painted with drawRect, which leaves its colour set on whatever is textured
-            // next - and the next thing is an item model, which would come out tinted grey.
+            // The plate was drawRect, which leaves its colour set: the item would come out grey.
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             this.drawItem(ROW_LEFT + 2, top + 1, row.icon);
         }
 
-        // Nothing stands beside this one worth drawing, so the name takes the space rather than leaving a
-        // hole where a picture would have been.
+        // No picture, so the name takes the space rather than leaving a hole.
         final int nameLeft = row.icon.isEmpty() ? ROW_LEFT + 4 : ROW_LEFT + 22;
 
         final int color = row.usable() ? TEXT_COLOR : DIM_TEXT_COLOR;
@@ -291,7 +280,7 @@ public class GuiPatternUpload extends AEBaseGui {
         private final boolean fits;
         private final ItemStack icon;
 
-        /** Whether this row is worth a click: it would run the pattern, and it has somewhere to put it. */
+        /** It would run the pattern, and it has somewhere to put it. */
         private boolean usable() {
             return this.fits && this.free > 0;
         }
@@ -306,10 +295,7 @@ public class GuiPatternUpload extends AEBaseGui {
             this.icon = icon;
         }
 
-        /**
-         * A machine names itself with a translation key most of the time, and with a finished name when it
-         * insists on formatting its own - the same two cases the Pattern Access Terminal handles.
-         */
+        /** A translation key most of the time, a finished name when a mod formats its own. */
         private String name() {
             final String withSuffix = I18n.format(this.unlocalizedName + ".name");
             return withSuffix.equals(this.unlocalizedName + ".name") ? I18n.format(this.unlocalizedName)

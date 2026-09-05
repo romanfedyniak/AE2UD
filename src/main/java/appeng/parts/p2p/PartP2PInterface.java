@@ -105,12 +105,8 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     }
 
     /**
-     * Whether anything a plan pushed in here could actually reach would take one.
-     *
-     * <p>{@link #acceptsPlans} answers for the tunnel alone, because that is the question a push asks a
-     * moment before it tries: a tunnel with nothing but furnaces behind it still says yes, and the push then
-     * fails harmlessly. Deciding where to *file* a pattern is not harmless - the pattern would sit there
-     * being offered to the network and never run - so that decision looks all the way through.</p>
+     * Whether anything behind the outputs would take a plan. {@link #acceptsPlans} answers for the tunnel
+     * alone, which is enough for a push that can fail harmlessly but not for deciding where a pattern lives.
      */
     public boolean hasPlanTakingOutput() {
         if (this.isOutput() || this.visiting) {

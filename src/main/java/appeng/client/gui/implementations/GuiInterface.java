@@ -30,6 +30,8 @@ import appeng.client.gui.widgets.GuiImgLabel;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiToggleButton;
 import appeng.container.implementations.ContainerInterface;
+import appeng.container.slot.AppEngSlot;
+import appeng.container.slot.OptionalSlotRestrictedInput;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -37,7 +39,10 @@ import appeng.core.sync.packets.PacketConfigButton;
 import appeng.core.sync.packets.PacketSwitchGuis;
 import appeng.helpers.IInterfaceHost;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Slot;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
@@ -51,6 +56,13 @@ public class GuiInterface extends GuiUpgradeable {
     private GuiImgButton BlockMode;
     private GuiToggleButton interfaceMode;
     private GuiImgLabel lockReason;
+
+    private static final int STRANDED_COLOR = 0x80FF0000;
+    private static final long STRANDED_SHOWN_FOR = 1500;
+
+    /** The first slot a card the player just tried to pull would have stranded, and until when. */
+    private int strandedFrom = -1;
+    private long strandedUntil;
 
     public GuiInterface(final InventoryPlayer inventoryPlayer, final IInterfaceHost te) {
         super(new ContainerInterface(inventoryPlayer, te));
@@ -120,6 +132,43 @@ public class GuiInterface extends GuiUpgradeable {
         this.fontRenderer.drawString(GuiText.StoredItems.getLocal(), 8, 6 + 60 + 7, 4210752);
         this.fontRenderer.drawString(GuiText.Patterns.getLocal(), 8, 6 + 73 + 7, 4210752);
 
+        this.drawStranded();
+    }
+
+    /** The patterns keeping a card in place. A refused click says nothing on its own. */
+    private void drawStranded() {
+        if (this.strandedFrom < 0 || System.currentTimeMillis() > this.strandedUntil) {
+            return;
+        }
+
+        for (final Slot slot : this.inventorySlots.inventorySlots) {
+            if (slot instanceof OptionalSlotRestrictedInput && slot.getSlotIndex() >= this.strandedFrom
+                    && slot.getHasStack()) {
+                final AppEngSlot ae = (AppEngSlot) slot;
+                drawRect(ae.xPos, ae.yPos, ae.xPos + 16, ae.yPos + 16, STRANDED_COLOR);
+            }
+        }
+
+        // drawRect leaves its colour set on whatever is textured next.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    @Override
+    protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton,
+            final ClickType clickType) {
+        // Asked before the click is handled, because a refused one is handled by doing nothing.
+        if (slot instanceof ContainerInterface.PatternAwareUpgradeSlot && slot.getHasStack()
+                && !slot.canTakeStack(this.mc.player)) {
+            final int stranded = ((ContainerInterface) this.cvb).getDuality()
+                    .firstStrandedPattern(slot.getSlotIndex());
+
+            if (stranded >= 0) {
+                this.strandedFrom = stranded;
+                this.strandedUntil = System.currentTimeMillis() + STRANDED_SHOWN_FOR;
+            }
+        }
+
+        super.handleMouseClick(slot, slotIdx, mouseButton, clickType);
     }
 
     @Override

@@ -87,6 +87,11 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
         return registry().getInstalledPoints(this, this.getUpgradableItem(), trait);
     }
 
+    /** What this would be worth in that trait if the card in one slot were taken out. */
+    public int getInstalledPointsWithout(final CardTrait trait, final int slot) {
+        return registry().getInstalledPoints(this, this.getUpgradableItem(), trait, slot);
+    }
+
     @Override
     public boolean canInstall(final ItemStack upgradeCard) {
         return registry().canInstall(upgradeCard, this.getUpgradableItem(), this);

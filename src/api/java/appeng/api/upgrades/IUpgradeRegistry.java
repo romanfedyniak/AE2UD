@@ -98,6 +98,17 @@ public interface IUpgradeRegistry {
     int getInstalledPoints(IItemHandler installed, ItemStack upgradableObject, CardTrait trait);
 
     /**
+     * The same count taken as though one slot were empty.
+     * <p>
+     * For asking what a host would be worth without a card before letting that card go: a host whose card
+     * pays for room it is using cannot simply hand it back, and it has to know that before the card leaves,
+     * not after.
+     *
+     * @param ignoredSlot the slot to count as empty, or -1 to count them all
+     */
+    int getInstalledPoints(IItemHandler installed, ItemStack upgradableObject, CardTrait trait, int ignoredSlot);
+
+    /**
      * Whether one more of this card would do the host any good: it is not already at its own count, and at
      * least one trait it brings here still has room. A card the host takes for no trait at all - one named
      * by {@link #add} alone - is judged on the count only.

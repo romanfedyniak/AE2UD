@@ -612,6 +612,32 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return 9 * (1 + this.getInstalledPoints(CardTraits.PATTERN_EXPANSION));
     }
 
+    /** How many pattern slots would be left if the card in that upgrade slot were taken out. */
+    public int getUsablePatternSlotsWithout(final int upgradeSlot) {
+        return 9 * (1 + this.upgrades.getInstalledPointsWithout(CardTraits.PATTERN_EXPANSION, upgradeSlot));
+    }
+
+    /**
+     * Only when nothing stands in the rows that card pays for. This used to hand the card over and spill
+     * those patterns on the floor.
+     */
+    public boolean canRemoveUpgrade(final int upgradeSlot) {
+        return this.firstStrandedPattern(upgradeSlot) < 0;
+    }
+
+    /** @return the first pattern taking that card would strand, or -1. */
+    public int firstStrandedPattern(final int upgradeSlot) {
+        final int remaining = this.getUsablePatternSlotsWithout(upgradeSlot);
+
+        for (int slot = remaining; slot < this.patterns.getSlots(); slot++) {
+            if (!this.patterns.getStackInSlot(slot).isEmpty()) {
+                return slot;
+            }
+        }
+
+        return -1;
+    }
+
     public void dropExcessPatterns() {
         IItemHandler patterns = getPatterns();
 
@@ -1059,9 +1085,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     /**
-     * Whether this interface would work the pattern if it were put here, room aside. A processing pattern
-     * goes to whatever stands beside it, so any interface will do; a crafting one has to reach a machine
-     * that takes plans, which is the only route there is from a network to our own molecular assembler.
+     * Room aside. Any interface runs a processing pattern; a crafting one needs a machine that takes plans,
+     * which is the only route from a network to our own molecular assembler.
      */
     public boolean canAcceptPattern(@Nullable final ICraftingPatternDetails details) {
         if (details == null) {
@@ -1072,12 +1097,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     /**
-     * What to call this interface while a particular pattern is being filed into it.
-     *
-     * <p>An interface that works on every side is named after whichever neighbour comes first, which for a
-     * crafting pattern is misleading: it can be listed as the furnace on its north face while the reason it
-     * takes the pattern at all is the assembler on its west one. Here it is named after the machine that
-     * would run this pattern, so a list of targets says what it is offering.</p>
+     * Named after the machine that would run this pattern, not after whichever neighbour comes first - an
+     * interface working on all six sides is otherwise listed as the furnace while the assembler is the reason
+     * it takes the pattern at all.
      */
     public MachineIdentity identifyFor(@Nullable final ICraftingPatternDetails details) {
         if (details == null || !details.isCraftable()) {
@@ -1097,8 +1119,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final TileEntity tile = this.iHost.getTileEntity();
         final World w = tile.getWorld();
 
-        // A tunnel is no machine of its own - it answers for the ones its outputs stand beside, the same way
-        // the plain naming does. Without this a row would read "P2P Tunnel" three times over.
+        // A tunnel answers for the machines behind it, or three of them all read "P2P Tunnel".
         final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(face)),
                 face.getOpposite());
         if (cm instanceof PartP2PInterface) {
@@ -1113,12 +1134,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     /**
-     * The first side of this interface with a machine that would take the plan, or null if there is none.
-     *
-     * <p>The same three questions {@link #pushPattern} asks of a face when the time comes, asked of every
-     * face at once and before the pattern is filed anywhere: a machine that takes plans, and, for a pattern
-     * the network fabricates containers for, one that says it destroys them - otherwise the craft mints a
-     * bucket out of water every time.</p>
+     * The first side with a machine that would take the plan, or null. The same questions
+     * {@link #pushPattern} asks of a face when the time comes, asked of every face in advance.
      */
     @Nullable
     private EnumFacing acceptingFace(final ICraftingPatternDetails details) {
@@ -1133,8 +1150,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 continue;
             }
 
-            // A tunnel takes a plan on behalf of whatever stands behind its outputs, and says so without
-            // looking. Filing a pattern against that answer puts it in front of a row of furnaces.
+            // A tunnel says yes on behalf of its outputs without looking at them.
             if (cm instanceof PartP2PInterface && !((PartP2PInterface) cm).hasPlanTakingOutput()) {
                 continue;
             }
@@ -1657,10 +1673,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return this.named(this.identifyNeighbour());
     }
 
-    /**
-     * A name the player gave this interface wins over the machine's own, but the picture does not go with it.
-     * A hand-written name says what the interface is for; the icon says what it feeds, and a list wants both.
-     */
+    /** A name the player gave wins over the machine's own; the picture stays the machine's either way. */
     private MachineIdentity named(final MachineIdentity identity) {
         final ICustomNameObject host = (ICustomNameObject) this.iHost;
 

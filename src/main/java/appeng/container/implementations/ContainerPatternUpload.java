@@ -41,11 +41,8 @@ import appeng.helpers.PatternUpload;
 import appeng.util.Platform;
 
 /**
- * Backs the screen that asks where an encoded pattern should go.
- *
- * <p>It has no slots of its own: the pattern stays in the terminal until it is somewhere else, and the rows
- * are drawn from a list the server pushes. That list is rebuilt twice a second and sent only when something
- * a player can see about it has changed, so a container filling up while the screen is open shows.</p>
+ * Backs the screen that asks where an encoded pattern should go. No slots of its own: the pattern stays in
+ * the terminal, and the rows come from a list the server pushes when it changes.
  *
  * @see appeng.client.gui.implementations.GuiPatternUpload
  */
@@ -55,7 +52,7 @@ public class ContainerPatternUpload extends AEBaseContainer {
 
     private final IPatternUploadHost host;
 
-    /** Ids are kept per container object, so a rebuilt list does not move a row out from under a click. */
+    /** Per container object, so a rebuilt list does not move a row out from under a click. */
     private final Map<IPatternContainer, Long> ids = new HashMap<>();
     private final Map<Long, IPatternContainer> byId = new HashMap<>();
     private long nextId = 0;
@@ -90,9 +87,7 @@ public class ContainerPatternUpload extends AEBaseContainer {
             return;
         }
 
-        // Asking every container whether it would run this pattern means walking the six faces of every
-        // interface in the network, which is more than a chooser needs to do sixty times a second. Twice a
-        // second is faster than anyone can build the assembler that would change an answer.
+        // Rebuilding walks six faces of every interface in the network. Twice a second is plenty.
         if (this.untilRebuild-- > 0) {
             return;
         }
@@ -112,8 +107,7 @@ public class ContainerPatternUpload extends AEBaseContainer {
                     .append(row.slots).append(row.fits).append(';');
         }
 
-        // Held onto only while they are still in the network, or a broken interface would be kept alive by
-        // the screen that once listed it.
+        // Or a broken interface stays alive as long as the screen that listed it.
         this.ids.keySet().retainAll(containers);
 
         if (signature.toString().equals(this.sent)) {

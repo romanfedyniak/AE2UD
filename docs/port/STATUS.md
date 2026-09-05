@@ -2190,6 +2190,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
 38. **`ActionItems.UPLOAD`** - additive. The pattern terminal's button for sending an encoded pattern into
     the network, so its icon and tooltip come from the same registry as every other action button. Upstream
     has no such button.
+39. **`IUpgradeRegistry.getInstalledPoints` gained an `ignoredSlot` overload** - additive. What a host would
+    be worth without one particular card, which is the question to ask *before* letting that card go. The ME
+    Interface uses it to refuse a pattern expansion card while patterns still stand in the rows it pays for;
+    it used to hand the card over and spill them on the floor.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
