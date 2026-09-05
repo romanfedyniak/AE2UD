@@ -278,7 +278,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         } else if (te.isStatus()) {
             this.status.add((TileCraftingMonitorTile) te);
         } else if (te.isAccelerator()) {
-            this.accelerator++;
+            this.accelerator += te.getAcceleratorFactor();
         }
     }
 

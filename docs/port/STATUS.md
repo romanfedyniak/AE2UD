@@ -2204,6 +2204,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     Nothing existing changed. The tiers and their byte and drain figures come from GTNewHorizons' Applied
     Energistics 2 Unofficial; upstream has no tier above 64k.
 
+42. **`IBlocks.craftingAccelerator4x`…`craftingAccelerator256x`** - additive. Co-processing units worth 4, 16,
+    64 and 256 parallel operations each, from the same fork. Upstream's co-processor is worth one, and still
+    is; nothing existing changed.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

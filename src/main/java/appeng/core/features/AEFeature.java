@@ -173,6 +173,7 @@ public enum AEFeature {
     MOLECULAR_ASSEMBLER("MolecularAssembler", Constants.CATEGORY_CRAFTING_FEATURES),
     PATTERNS("Patterns", Constants.CATEGORY_CRAFTING_FEATURES),
     CRAFTING_CPU("CraftingCPU", Constants.CATEGORY_CRAFTING_FEATURES),
+    HIGH_CAPACITY_CO_PROCESSORS("HighCapacityCoProcessors", Constants.CATEGORY_CRAFTING_FEATURES, "The co-processing units worth more than one parallel operation each."),
     CRAFTING_TOASTS("CraftingToasts", Constants.CATEGORY_CRAFTING_FEATURES),
     AUTOCRAFT_ITEM_CRAFTED_EVENT("AutocraftItemCraftedEvent", Constants.CATEGORY_CRAFTING_FEATURES,
             "Fires the item-crafted event for the player who requested a finished autocraft job, so achievement and quest mods that gate on it react to autocrafting the same way as hand-crafting."),

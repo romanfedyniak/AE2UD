@@ -144,6 +144,10 @@ public final class ApiBlocks implements IBlocks {
     private final ITileDefinition energyCellCreative;
     private final ITileDefinition craftingUnit;
     private final ITileDefinition craftingAccelerator;
+    private final ITileDefinition craftingAccelerator4x;
+    private final ITileDefinition craftingAccelerator16x;
+    private final ITileDefinition craftingAccelerator64x;
+    private final ITileDefinition craftingAccelerator256x;
     private final ITileDefinition craftingStorage1k;
     private final ITileDefinition craftingStorage4k;
     private final ITileDefinition craftingStorage16k;
@@ -398,6 +402,27 @@ public final class ApiBlocks implements IBlocks {
                 .build();
         this.craftingAccelerator = crafting.block("crafting_accelerator", () -> new BlockCraftingUnit(CraftingUnitType.ACCELERATOR))
                 .rendering(new CraftingCubeRendering("crafting_accelerator", CraftingUnitType.ACCELERATOR))
+                .tileEntity(new TileEntityDefinition(TileCraftingTile.class, "crafting_unit"))
+                .useCustomItemModel()
+                .build();
+        FeatureFactory highCapacityCoProcessors = registry.features(AEFeature.HIGH_CAPACITY_CO_PROCESSORS);
+        this.craftingAccelerator4x = highCapacityCoProcessors.block("crafting_accelerator_4x", () -> new BlockCraftingUnit(CraftingUnitType.ACCELERATOR_4X))
+                .rendering(new CraftingCubeRendering("crafting_accelerator_4x", CraftingUnitType.ACCELERATOR_4X))
+                .tileEntity(new TileEntityDefinition(TileCraftingTile.class, "crafting_unit"))
+                .useCustomItemModel()
+                .build();
+        this.craftingAccelerator16x = highCapacityCoProcessors.block("crafting_accelerator_16x", () -> new BlockCraftingUnit(CraftingUnitType.ACCELERATOR_16X))
+                .rendering(new CraftingCubeRendering("crafting_accelerator_16x", CraftingUnitType.ACCELERATOR_16X))
+                .tileEntity(new TileEntityDefinition(TileCraftingTile.class, "crafting_unit"))
+                .useCustomItemModel()
+                .build();
+        this.craftingAccelerator64x = highCapacityCoProcessors.block("crafting_accelerator_64x", () -> new BlockCraftingUnit(CraftingUnitType.ACCELERATOR_64X))
+                .rendering(new CraftingCubeRendering("crafting_accelerator_64x", CraftingUnitType.ACCELERATOR_64X))
+                .tileEntity(new TileEntityDefinition(TileCraftingTile.class, "crafting_unit"))
+                .useCustomItemModel()
+                .build();
+        this.craftingAccelerator256x = highCapacityCoProcessors.block("crafting_accelerator_256x", () -> new BlockCraftingUnit(CraftingUnitType.ACCELERATOR_256X))
+                .rendering(new CraftingCubeRendering("crafting_accelerator_256x", CraftingUnitType.ACCELERATOR_256X))
                 .tileEntity(new TileEntityDefinition(TileCraftingTile.class, "crafting_unit"))
                 .useCustomItemModel()
                 .build();
@@ -900,6 +925,26 @@ public final class ApiBlocks implements IBlocks {
     @Override
     public ITileDefinition craftingAccelerator() {
         return this.craftingAccelerator;
+    }
+
+    @Override
+    public ITileDefinition craftingAccelerator4x() {
+        return this.craftingAccelerator4x;
+    }
+
+    @Override
+    public ITileDefinition craftingAccelerator16x() {
+        return this.craftingAccelerator16x;
+    }
+
+    @Override
+    public ITileDefinition craftingAccelerator64x() {
+        return this.craftingAccelerator64x;
+    }
+
+    @Override
+    public ITileDefinition craftingAccelerator256x() {
+        return this.craftingAccelerator256x;
     }
 
     @Override

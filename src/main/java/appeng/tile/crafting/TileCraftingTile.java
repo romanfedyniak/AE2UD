@@ -22,6 +22,7 @@ package appeng.tile.crafting;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.CpuSelectionMode;
+import appeng.api.definitions.IBlocks;
 import appeng.api.implementations.IPowerChannelState;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridHost;
@@ -82,10 +83,30 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     protected ItemStack getItemFromTile(final Object obj) {
         Optional<ItemStack> is = Optional.empty();
 
-        if (((TileCraftingTile) obj).isAccelerator()) {
-            is = AEApi.instance().definitions().blocks().craftingAccelerator().maybeStack(1);
-        } else {
-            is = AEApi.instance().definitions().blocks().craftingUnit().maybeStack(1);
+        final IBlocks blocks = AEApi.instance().definitions().blocks();
+
+        switch (((TileCraftingTile) obj).getAcceleratorFactor()) {
+            case 0:
+                is = blocks.craftingUnit().maybeStack(1);
+                break;
+            case 1:
+                is = blocks.craftingAccelerator().maybeStack(1);
+                break;
+            case 4:
+                is = blocks.craftingAccelerator4x().maybeStack(1);
+                break;
+            case 16:
+                is = blocks.craftingAccelerator16x().maybeStack(1);
+                break;
+            case 64:
+                is = blocks.craftingAccelerator64x().maybeStack(1);
+                break;
+            case 256:
+                is = blocks.craftingAccelerator256x().maybeStack(1);
+                break;
+            default:
+                is = blocks.craftingUnit().maybeStack(1);
+                break;
         }
 
         return is.orElseGet(() -> super.getItemFromTile(obj));
@@ -106,12 +127,31 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     }
 
     public boolean isAccelerator() {
+        return this.getAcceleratorFactor() > 0;
+    }
+
+    /** How many parallel operations the block is worth, zero if it is not a co-processor at all. */
+    public int getAcceleratorFactor() {
         if (this.world == null) {
-            return false;
+            return 0;
         }
 
         final BlockCraftingUnit unit = (BlockCraftingUnit) this.world.getBlockState(this.pos).getBlock();
-        return unit.type == CraftingUnitType.ACCELERATOR;
+
+        switch (unit.type) {
+            case ACCELERATOR:
+                return 1;
+            case ACCELERATOR_4X:
+                return 4;
+            case ACCELERATOR_16X:
+                return 16;
+            case ACCELERATOR_64X:
+                return 64;
+            case ACCELERATOR_256X:
+                return 256;
+            default:
+                return 0;
+        }
     }
 
     @Override
