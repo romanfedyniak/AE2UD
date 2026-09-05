@@ -240,8 +240,8 @@ final class Registration {
                 parts.craftingTerminal(), GuiText.WirelessModeCrafting, GuiBridge.GUI_WIRELESS_CRAFTING_TERMINAL);
         this.registerTerminalMode(registry, AEFeature.WIRELESS_PATTERN_TERMINAL, WirelessTerminalMode.Ids.PATTERN,
                 parts.patternTerminal(), GuiText.WirelessModePattern, GuiBridge.GUI_WIRELESS_PATTERN_TERMINAL);
-        this.registerTerminalMode(registry, AEFeature.WIRELESS_INTERFACE_TERMINAL, WirelessTerminalMode.Ids.INTERFACE,
-                parts.interfaceTerminal(), GuiText.WirelessModeInterface, GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL);
+        this.registerTerminalMode(registry, AEFeature.WIRELESS_PATTERN_ACCESS_TERMINAL, WirelessTerminalMode.Ids.PATTERN_ACCESS,
+                parts.patternAccessTerminal(), GuiText.WirelessModePatternAccess, GuiBridge.GUI_WIRELESS_PATTERN_ACCESS_TERMINAL);
 
         // No switch of its own: this one never existed as a wireless item, so there is no setting that used to
         // turn it off and none is invented here.

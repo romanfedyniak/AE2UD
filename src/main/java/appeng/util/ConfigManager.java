@@ -37,6 +37,16 @@ public final class ConfigManager implements IConfigManager {
     private final IConfigManagerHost target;
     private final Map<Settings, Enum<?>> oldSettings = new EnumMap<>(Settings.class);
 
+    /**
+     * What a setting used to be called, for the ones this fork has renamed. A setting is written down by the
+     * name of its constant, so renaming one would otherwise quietly reset it everywhere it was ever set.
+     */
+    private static final Map<Settings, String> FORMER_NAMES = new EnumMap<>(Settings.class);
+
+    static {
+        FORMER_NAMES.put(Settings.PATTERN_ACCESS_TERMINAL, "INTERFACE_TERMINAL");
+    }
+
     public ConfigManager(final IConfigManagerHost tile) {
         this.target = tile;
     }
@@ -76,6 +86,20 @@ public final class ConfigManager implements IConfigManager {
     }
 
     /**
+     * @return the name this setting is written down under here, which is its former one on anything saved
+     *         before it was renamed, or null when it is not written down at all.
+     */
+    @Nullable
+    private static String writtenName(final Settings setting, final NBTTagCompound tagCompound) {
+        if (tagCompound.hasKey(setting.name())) {
+            return setting.name();
+        }
+
+        final String former = FORMER_NAMES.get(setting);
+        return former != null && tagCompound.hasKey(former) ? former : null;
+    }
+
+    /**
      * save all settings using config manager.
      *
      * @param tagCompound to be written to compound
@@ -96,8 +120,10 @@ public final class ConfigManager implements IConfigManager {
     public void readFromNBT(final NBTTagCompound tagCompound) {
         for (final Map.Entry<Settings, Enum<?>> entry : this.settings.entrySet()) {
             try {
-                if (tagCompound.hasKey(entry.getKey().name())) {
-                    String value = tagCompound.getString(entry.getKey().name());
+                final String key = writtenName(entry.getKey(), tagCompound);
+
+                if (key != null) {
+                    String value = tagCompound.getString(key);
 
                     // Provides an upgrade path for the rename of this value in the API between rv1 and rv2
                     if (value.equals("EXTACTABLE_ONLY")) {

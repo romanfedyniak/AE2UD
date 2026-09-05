@@ -18,11 +18,11 @@ public class ToolWirelessInterfaceTerminal extends ToolWirelessTerminal {
 
     @Override
     public ResourceLocation getLegacyMode() {
-        return WirelessTerminalMode.Ids.INTERFACE;
+        return WirelessTerminalMode.Ids.PATTERN_ACCESS;
     }
 
     @Override
     public IGuiHandler getGuiHandler(ItemStack is) {
-        return GuiBridge.GUI_WIRELESS_INTERFACE_TERMINAL;
+        return GuiBridge.GUI_WIRELESS_PATTERN_ACCESS_TERMINAL;
     }
 }

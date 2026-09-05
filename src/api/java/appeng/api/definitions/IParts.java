@@ -99,7 +99,7 @@ public interface IParts {
 
     IItemDefinition darkMonitor();
 
-    IItemDefinition interfaceTerminal();
+    IItemDefinition patternAccessTerminal();
 
     IItemDefinition patternTerminal();
 

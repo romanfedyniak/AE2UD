@@ -13,7 +13,7 @@ import appeng.client.gui.widgets.GuiWirelessUpgradePlate;
 import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.helpers.WirelessTerminalGuiObject;
 
-public class GuiWirelessInterfaceTerminal extends GuiInterfaceTerminal {
+public class GuiWirelessPatternAccessTerminal extends GuiPatternAccessTerminal {
 
     /**
      * Three pixels clear of the window. The lower part of this window is narrower than the rest - its texture
@@ -23,7 +23,7 @@ public class GuiWirelessInterfaceTerminal extends GuiInterfaceTerminal {
 
     private final GuiTerminalModeSwitch modeSwitch = new GuiTerminalModeSwitch(this);
 
-    public GuiWirelessInterfaceTerminal(InventoryPlayer inventoryPlayer, final WirelessTerminalGuiObject te) {
+    public GuiWirelessPatternAccessTerminal(InventoryPlayer inventoryPlayer, final WirelessTerminalGuiObject te) {
         super(inventoryPlayer, te);
     }
 

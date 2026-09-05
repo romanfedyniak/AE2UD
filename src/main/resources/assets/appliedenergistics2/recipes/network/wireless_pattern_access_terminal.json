@@ -17,7 +17,7 @@
                 },
                 {
                     "type": "appliedenergistics2:part_exists",
-                    "part": "part.interface_terminal"
+                    "part": "part.pattern_access_terminal"
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
@@ -39,7 +39,7 @@
     "key": {
         "b": {
             "type": "appliedenergistics2:part",
-            "part": "part.interface_terminal"
+            "part": "part.pattern_access_terminal"
         },
         "c": {
             "item": "appliedenergistics2:dense_energy_cell"

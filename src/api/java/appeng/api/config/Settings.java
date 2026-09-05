@@ -80,7 +80,7 @@ public enum Settings
 
 	COPY_MODE( EnumSet.allOf( CopyMode.class ) ),
 
-	INTERFACE_TERMINAL( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+	PATTERN_ACCESS_TERMINAL( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 
 	CRAFT_VIA_REDSTONE( EnumSet.of( YesNo.YES, YesNo.NO ) ),
 

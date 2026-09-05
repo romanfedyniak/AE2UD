@@ -66,7 +66,7 @@ public enum AEFeature {
     WIRELESS_ACCESS_TERMINAL("WirelessAccessTerminal", Constants.CATEGORY_TOOLS),
     WIRELESS_CRAFTING_TERMINAL("WirelessCraftingTerminal", Constants.CATEGORY_TOOLS),
     WIRELESS_PATTERN_TERMINAL("WirelessPatternTerminal", Constants.CATEGORY_TOOLS),
-    WIRELESS_INTERFACE_TERMINAL("WirelessInterfaceTerminal", Constants.CATEGORY_TOOLS),
+    WIRELESS_PATTERN_ACCESS_TERMINAL("WirelessPatternAccessTerminal", Constants.CATEGORY_TOOLS),
 
     COLOR_APPLICATOR("ColorApplicator", Constants.CATEGORY_TOOLS),
     METEORITE_COMPASS("MeteoriteCompass", Constants.CATEGORY_TOOLS),
@@ -160,7 +160,8 @@ public enum AEFeature {
     IN_WORLD_SINGULARITY("InWorldSingularity", Constants.CATEGORY_CRAFTING),
     IN_WORLD_FLUIX("InWorldFluix", Constants.CATEGORY_CRAFTING),
     IN_WORLD_PURIFICATION("InWorldPurification", Constants.CATEGORY_CRAFTING),
-    INTERFACE_TERMINAL("InterfaceTerminal", Constants.CATEGORY_CRAFTING),
+    PATTERN_ACCESS_TERMINAL("PatternAccessTerminal", Constants.CATEGORY_CRAFTING),
+    INTERFACE_CONFIGURATION_TERMINAL("InterfaceConfigurationTerminal", Constants.CATEGORY_CRAFTING),
     ENABLE_DISASSEMBLY_CRAFTING("EnableDisassemblyCrafting", Constants.CATEGORY_CRAFTING),
 
     ALPHA_PASS("AlphaPass", Constants.CATEGORY_RENDERING),

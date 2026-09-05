@@ -19,27 +19,23 @@
 package appeng.container.implementations;
 
 
-import appeng.api.config.Settings;
-import appeng.api.upgrades.CardTraits;
-import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.IPatternContainer;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.util.DimensionalCoord;
 import appeng.client.me.SlotDisconnected;
 import appeng.container.AEBaseContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompressedNBT;
 import appeng.core.sync.packets.PacketInventoryAction;
-import appeng.helpers.DualityInterface;
-import appeng.helpers.IInterfaceHost;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.items.misc.ItemEncodedPattern;
-import appeng.parts.misc.PartInterface;
-import appeng.parts.reporting.PartInterfaceTerminal;
+import appeng.parts.reporting.PartPatternAccessTerminal;
 import appeng.tile.inventory.AppEngInternalInventory;
-import appeng.tile.misc.TileInterface;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
@@ -59,26 +55,28 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 
-public class ContainerInterfaceTerminal extends AEBaseContainer {
+public class ContainerPatternAccessTerminal extends AEBaseContainer {
 
     /**
      * this stuff is all server side..
      */
 
     private static long autoBase = Long.MIN_VALUE;
-    private final Map<IInterfaceHost, InvTracker> diList = new HashMap<>();
+    private final Map<IPatternContainer, InvTracker> diList = new HashMap<>();
     private final Map<Long, InvTracker> byId = new HashMap<>();
     private IGrid grid;
     private NBTTagCompound data = new NBTTagCompound();
 
-    public ContainerInterfaceTerminal(final InventoryPlayer ip, final PartInterfaceTerminal anchor) {
+    public ContainerPatternAccessTerminal(final InventoryPlayer ip, final PartPatternAccessTerminal anchor) {
         super(ip, anchor);
 
         if (Platform.isServer()) {
@@ -88,7 +86,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         this.bindPlayerInventory(ip, 0, 0);
     }
 
-    public ContainerInterfaceTerminal(final InventoryPlayer ip, final WirelessTerminalGuiObject guiObject, boolean bindInventory) {
+    public ContainerPatternAccessTerminal(final InventoryPlayer ip, final WirelessTerminalGuiObject guiObject, boolean bindInventory) {
         super(ip, guiObject);
 
         if (Platform.isServer()) {
@@ -118,60 +116,21 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         int total = 0;
         boolean missing = false;
 
-        final IActionHost host = this.getActionHost();
-        if (host != null) {
-            final IGridNode agn = host.getActionableNode();
-            if (agn != null && agn.isActive()) {
-                for (final IGridNode gn : this.grid.getMachines(TileInterface.class)) {
-                    if (gn.isActive()) {
-                        final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.NO) {
-                            continue;
-                        }
+        for (final IPatternContainer container : this.patternContainers()) {
+            final InvTracker t = this.diList.get(container);
 
-                        final InvTracker t = this.diList.get(ih);
-
-                        if (t == null) {
-                            missing = true;
-                        } else {
-                            final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName()) || t.fake != dual.isFakeCrafting()) {
-                                missing = true;
-                            }
-                        }
-
-                        total++;
-                    }
-                }
-
-                for (final IGridNode gn : this.grid.getMachines(PartInterface.class)) {
-                    if (gn.isActive()) {
-                        final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.NO) {
-                            continue;
-                        }
-
-                        final InvTracker t = this.diList.get(ih);
-
-                        if (t == null) {
-                            missing = true;
-                        } else {
-                            final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName()) || t.fake != dual.isFakeCrafting()) {
-                                missing = true;
-                            }
-                        }
-
-                        total++;
-                    }
-                }
+            if (t == null || !t.unlocalizedName.equals(container.getTerminalIdentity().getName())
+                    || t.fake != container.isFakeCrafting()) {
+                missing = true;
             }
+
+            total++;
         }
 
         if (total != this.diList.size() || missing) {
             this.regenList(this.data);
         } else {
-            for (final Entry<IInterfaceHost, InvTracker> en : this.diList.entrySet()) {
+            for (final Entry<IPatternContainer, InvTracker> en : this.diList.entrySet()) {
                 final InvTracker inv = en.getValue();
                 for (int x = 0; x < inv.server.getSlots(); x++) {
                     if (this.isDifferent(inv.server.getStackInSlot(x), inv.client.getStackInSlot(x))) {
@@ -210,7 +169,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
                 var itemStack = playerSlot.getStack();
                 if (!itemStack.isEmpty()) {
                     var handler = new WrapperFilteredItemHandler(
-                            new WrapperRangeItemHandler(inv.server, 0, 9 * (inv.numUpgrades + 1)), new PatternSlotFilter());
+                            new WrapperRangeItemHandler(inv.server, 0, inv.usableSlots), new PatternSlotFilter());
                     playerSlot.putStack(ItemHandlerHelper.insertItem(handler, itemStack, false));
                     detectAndSendChanges();
                 }
@@ -324,35 +283,55 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         this.byId.clear();
         this.diList.clear();
 
-        final IActionHost host = this.getActionHost();
-        if (host != null) {
-            final IGridNode agn = host.getActionableNode();
-            if (agn != null && agn.isActive()) {
-                for (final IGridNode gn : this.grid.getMachines(TileInterface.class)) {
-                    final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                    final DualityInterface dual = ih.getInterfaceDuality();
-                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES) {
-                        this.diList.put(ih, new InvTracker(dual, dual.getPatterns(), dual.getTermName()));
-                    }
-                }
-
-                for (final IGridNode gn : this.grid.getMachines(PartInterface.class)) {
-                    final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                    final DualityInterface dual = ih.getInterfaceDuality();
-                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES) {
-                        this.diList.put(ih, new InvTracker(dual, dual.getPatterns(), dual.getTermName()));
-                    }
-                }
-            }
+        for (final IPatternContainer container : this.patternContainers()) {
+            this.diList.put(container, new InvTracker(container));
         }
 
         data.setBoolean("clear", true);
 
-        for (final Entry<IInterfaceHost, InvTracker> en : this.diList.entrySet()) {
+        for (final Entry<IPatternContainer, InvTracker> en : this.diList.entrySet()) {
             final InvTracker inv = en.getValue();
             this.byId.put(inv.which, inv);
             this.addItems(data, inv, 0, inv.server.getSlots());
         }
+    }
+
+    /**
+     * Everything in the network that holds patterns and is willing to be listed, found through the contract
+     * rather than by naming the two classes this terminal used to know about. A machine from an addon shows
+     * up the moment it implements {@link IPatternContainer}.
+     */
+    private List<IPatternContainer> patternContainers() {
+        final List<IPatternContainer> containers = new ArrayList<>();
+        final IActionHost host = this.getActionHost();
+
+        if (this.grid == null || host == null) {
+            return containers;
+        }
+
+        final IGridNode node = host.getActionableNode();
+        if (node == null || !node.isActive()) {
+            return containers;
+        }
+
+        for (final Class<? extends IGridHost> machineClass : this.grid.getMachinesClasses()) {
+            if (!IPatternContainer.class.isAssignableFrom(machineClass)) {
+                continue;
+            }
+
+            for (final IGridNode gn : this.grid.getMachines(machineClass)) {
+                if (!gn.isActive()) {
+                    continue;
+                }
+
+                final IPatternContainer container = (IPatternContainer) gn.getMachine();
+                if (container.isVisibleInTerminal()) {
+                    containers.add(container);
+                }
+            }
+        }
+
+        return containers;
     }
 
     private boolean isDifferent(final ItemStack a, final ItemStack b) {
@@ -376,7 +355,7 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
             tag.setString("un", inv.unlocalizedName);
             tag.setTag("pos", NBTUtil.createPosTag(inv.pos));
             tag.setInteger("dim", inv.dim);
-            tag.setInteger("numUpgrades", inv.numUpgrades);
+            tag.setInteger("extraLines", inv.extraLines());
             tag.setBoolean("fake", inv.fake);
             if (!inv.icon.isEmpty()) {
                 tag.setTag("icon", inv.icon.writeToNBT(new NBTTagCompound()));
@@ -431,20 +410,27 @@ public class ContainerInterfaceTerminal extends AEBaseContainer {
         private final IItemHandler server;
         private final BlockPos pos;
         private final int dim;
-        private final int numUpgrades;
+        private final int usableSlots;
         private final boolean fake;
         private final ItemStack icon;
 
-        public InvTracker(final DualityInterface dual, final IItemHandler patterns, final String unlocalizedName) {
-            this.server = patterns;
+        public InvTracker(final IPatternContainer container) {
+            this.server = container.getTerminalPatternInventory();
             this.client = new AppEngInternalInventory(null, this.server.getSlots());
-            this.unlocalizedName = unlocalizedName;
-            this.sortBy = dual.getSortValue();
-            this.pos = dual.getLocation().getPos();
-            this.dim = dual.getLocation().getWorld().provider.getDimension();
-            this.numUpgrades = dual.getInstalledPoints(CardTraits.PATTERN_EXPANSION);
-            this.fake = dual.isFakeCrafting();
-            this.icon = dual.getMachineIdentity().getIcon();
+            this.unlocalizedName = container.getTerminalIdentity().getName();
+            this.icon = container.getTerminalIdentity().getIcon();
+            this.sortBy = container.getTerminalSortOrder();
+            this.usableSlots = container.getUsablePatternSlots();
+            this.fake = container.isFakeCrafting();
+
+            final DimensionalCoord where = container.getTerminalLocation();
+            this.pos = where == null ? BlockPos.ORIGIN : where.getPos();
+            this.dim = where == null ? 0 : where.getWorld().provider.getDimension();
+        }
+
+        /** Rows past the first, which is what the screen lays a container out by. */
+        private int extraLines() {
+            return Math.max(0, (this.usableSlots + 8) / 9 - 1);
         }
     }
 

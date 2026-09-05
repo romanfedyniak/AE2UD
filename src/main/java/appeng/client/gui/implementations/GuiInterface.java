@@ -74,7 +74,7 @@ public class GuiInterface extends GuiUpgradeable {
         this.UnlockMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 26, Settings.UNLOCK, LockCraftingMode.NONE);
         this.buttonList.add(this.UnlockMode);
 
-        this.interfaceMode = new GuiToggleButton(this.guiLeft - 18, this.guiTop + 44, 84, 85, GuiText.InterfaceTerminal.getLocal(), GuiText.InterfaceTerminalHint.getLocal());
+        this.interfaceMode = new GuiToggleButton(this.guiLeft - 18, this.guiTop + 44, 84, 85, GuiText.PatternAccessTerminal.getLocal(), GuiText.PatternAccessTerminalHint.getLocal());
         this.buttonList.add(this.interfaceMode);
 
         // Last in the column, and only while the card that lets an interface order a craft is in.
@@ -111,7 +111,7 @@ public class GuiInterface extends GuiUpgradeable {
         }
 
         if (this.interfaceMode != null) {
-            this.interfaceMode.setState(((ContainerInterface) this.cvb).getInterfaceTerminalMode() == YesNo.YES);
+            this.interfaceMode.setState(((ContainerInterface) this.cvb).getPatternAccessMode() == YesNo.YES);
         }
 
         this.fontRenderer.drawString(this.getGuiDisplayName(GuiText.Interface.getLocal()), 8, 6, 4210752);
@@ -161,7 +161,7 @@ public class GuiInterface extends GuiUpgradeable {
         }
 
         if (btn == this.interfaceMode) {
-            NetworkHandler.instance().sendToServer(new PacketConfigButton(Settings.INTERFACE_TERMINAL, backwards));
+            NetworkHandler.instance().sendToServer(new PacketConfigButton(Settings.PATTERN_ACCESS_TERMINAL, backwards));
         }
 
         if (btn == this.BlockMode) {

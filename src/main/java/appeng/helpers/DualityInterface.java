@@ -171,7 +171,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
         this.upgrades = new StackUpgradeInventory(this.gridProxy.getMachineRepresentation(), this, 4);
         this.cm.registerSetting(Settings.BLOCK, YesNo.NO);
-        this.cm.registerSetting(Settings.INTERFACE_TERMINAL, YesNo.YES);
+        this.cm.registerSetting(Settings.PATTERN_ACCESS_TERMINAL, YesNo.YES);
         this.cm.registerSetting(Settings.UNLOCK, LockCraftingMode.NONE);
 
         this.iHost = ih;
@@ -1056,6 +1056,40 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     @Override
     public boolean isFakeCrafting() {
         return this.isInstalled(CardTraits.FAKE_CRAFTING);
+    }
+
+    /**
+     * Whether this interface would work the pattern if it were put here, room aside. A processing pattern
+     * goes to whatever stands beside it, so any interface will do; a crafting one has to reach a machine
+     * that takes plans, which is the only route there is from a network to our own molecular assembler. A
+     * pattern the network fabricates containers for is narrower still - only a machine that says it destroys
+     * them, or the craft mints a bucket out of water every time.
+     *
+     * <p>The same three questions {@link #pushPattern} asks of a face when the time comes, asked of every
+     * face at once and before the pattern is filed anywhere.</p>
+     */
+    public boolean canAcceptPattern(@Nullable final ICraftingPatternDetails details) {
+        if (details == null) {
+            return false;
+        }
+
+        if (!details.isCraftable()) {
+            return true;
+        }
+
+        final TileEntity tile = this.iHost.getTileEntity();
+        final World w = tile.getWorld();
+        final boolean fabricated = details.canSubstituteFluids();
+
+        for (final EnumFacing s : this.iHost.getTargets()) {
+            final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(s)), s.getOpposite());
+
+            if (cm != null && cm.acceptsPlans() && (!fabricated || cm.acceptsFabricatedContainers())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override

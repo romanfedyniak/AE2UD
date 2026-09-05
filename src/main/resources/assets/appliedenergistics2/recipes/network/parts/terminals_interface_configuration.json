@@ -7,7 +7,7 @@
     ],
     "result": {
         "type": "appliedenergistics2:part",
-        "part": "part.interface_terminal"
+        "part": "part.pattern_access_terminal"
     },
     "type": "appliedenergistics2:part_shapeless",
     "ingredients": [

@@ -19,17 +19,26 @@
 package appeng.helpers;
 
 
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.implementations.IUpgradeableHost;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.crafting.IPatternContainer;
+import appeng.api.networking.crafting.MachineIdentity;
 import appeng.api.stacks.GenericStack;
+import appeng.api.util.DimensionalCoord;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.EnumSet;
 
 
-public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICraftingRequester, ICraftPriorityTarget {
+public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICraftingRequester,
+        ICraftPriorityTarget, IPatternContainer {
 
     DualityInterface getInterfaceDuality();
 
@@ -52,5 +61,47 @@ public interface IInterfaceHost extends ICraftingProvider, IUpgradeableHost, ICr
     @Override
     default void setCraftPriority(final int priority) {
         getInterfaceDuality().setCraftPriority(priority);
+    }
+
+    // An interface is a pattern container, and answers for one out of its duality like everything else here.
+
+    @Override
+    default boolean isVisibleInTerminal() {
+        return getInterfaceDuality().getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL) == YesNo.YES;
+    }
+
+    @Override
+    default IItemHandler getTerminalPatternInventory() {
+        return getInterfaceDuality().getPatterns();
+    }
+
+    @Override
+    default int getUsablePatternSlots() {
+        return getInterfaceDuality().getUsablePatternSlots();
+    }
+
+    @Override
+    default boolean canAccept(final ItemStack pattern, final ICraftingPatternDetails details) {
+        return getInterfaceDuality().canAcceptPattern(details);
+    }
+
+    @Override
+    default MachineIdentity getTerminalIdentity() {
+        return getInterfaceDuality().getMachineIdentity();
+    }
+
+    @Override
+    default DimensionalCoord getTerminalLocation() {
+        return getInterfaceDuality().getLocation();
+    }
+
+    @Override
+    default long getTerminalSortOrder() {
+        return getInterfaceDuality().getSortValue();
+    }
+
+    @Override
+    default boolean isFakeCrafting() {
+        return getInterfaceDuality().isFakeCrafting();
     }
 }

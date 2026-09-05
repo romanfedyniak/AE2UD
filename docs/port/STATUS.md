@@ -2169,6 +2169,22 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
 34. **`ActionItems.SETTINGS`** - additive. The button that opens a screen's drawer of settings, so that the
     icon and its tooltip come from the same registry every other action button uses. Upstream draws its
     settings buttons from its own client-side icon enum, which this version has no equivalent of.
+35. **`Settings.INTERFACE_TERMINAL` renamed to `Settings.PATTERN_ACCESS_TERMINAL`** - breaking. The
+    Interface Terminal is the Pattern Access Terminal now, as it is upstream, where the same setting is
+    `PATTERN_ACCESS_TERMINAL` as well. A setting is written into NBT by the name of its constant, so
+    `ConfigManager` carries the former name and reads it when the new one is absent; every interface that
+    had been hidden from the terminal stays hidden.
+36. **`IParts.interfaceTerminal()` renamed to `IParts.patternAccessTerminal()`** - breaking, and the part's
+    `PartType` constant is renamed with it. That constant name is public in a second way: a recipe json
+    names a part as `part.` plus the constant lowercased, resolved through `PartType.valueOf`, so the
+    shipped recipes name `part.pattern_access_terminal` now. The part's damage value is untouched, which is
+    what a saved world actually stores, so nothing placed or held is lost.
+37. **`IPatternContainer`** - additive, in `appeng.api.networking.crafting`. What the Pattern Access
+    Terminal lists, and what anything filing a pattern into a network looks for. `IInterfaceHost` extends it
+    and answers out of its duality, so the terminal stopped naming `TileInterface` and `PartInterface` and
+    walks `IGrid.getMachinesClasses()` instead. Upstream's `PatternContainer` is larger; the methods here
+    that do an upstream job carry upstream's name, and `getTerminalIdentity` is named for what it returns
+    because upstream's `getTerminalGroup` answers with a grouping this version has no notion of.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

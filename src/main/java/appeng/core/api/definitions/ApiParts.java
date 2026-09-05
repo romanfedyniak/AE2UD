@@ -72,7 +72,7 @@ public final class ApiParts implements IParts {
     private final IItemDefinition monitor;
     private final IItemDefinition semiDarkMonitor;
     private final IItemDefinition darkMonitor;
-    private final IItemDefinition interfaceTerminal;
+    private final IItemDefinition patternAccessTerminal;
     private final IItemDefinition patternTerminal;
     private final IItemDefinition interfaceConfigurationTerminal;
     private final IItemDefinition craftingTerminal;
@@ -124,7 +124,7 @@ public final class ApiParts implements IParts {
         this.monitor = new DamagedItemDefinition("part.monitor", itemPart.createPart(PartType.MONITOR));
         this.semiDarkMonitor = new DamagedItemDefinition("part.monitor.semi_dark", itemPart.createPart(PartType.SEMI_DARK_MONITOR));
         this.darkMonitor = new DamagedItemDefinition("part.monitor.dark", itemPart.createPart(PartType.DARK_MONITOR));
-        this.interfaceTerminal = new DamagedItemDefinition("part.terminal.interface", itemPart.createPart(PartType.INTERFACE_TERMINAL));
+        this.patternAccessTerminal = new DamagedItemDefinition("part.terminal.pattern_access", itemPart.createPart(PartType.PATTERN_ACCESS_TERMINAL));
         this.patternTerminal = new DamagedItemDefinition("part.terminal.pattern", itemPart.createPart(PartType.PATTERN_TERMINAL));
         this.interfaceConfigurationTerminal = new DamagedItemDefinition("part.terminal.interface_configuration_terminal", itemPart.createPart(PartType.INTERFACE_CONFIGURATION_TERMINAL));
         this.craftingTerminal = new DamagedItemDefinition("part.terminal.crafting", itemPart.createPart(PartType.CRAFTING_TERMINAL));
@@ -322,8 +322,8 @@ public final class ApiParts implements IParts {
     }
 
     @Override
-    public IItemDefinition interfaceTerminal() {
-        return this.interfaceTerminal;
+    public IItemDefinition patternAccessTerminal() {
+        return this.patternAccessTerminal;
     }
 
     @Override

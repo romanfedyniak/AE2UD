@@ -29,8 +29,8 @@ import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.MEGuiTooltipTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
-import appeng.container.implementations.ContainerInterfaceTerminal;
-import appeng.container.implementations.ContainerWirelessInterfaceTerminal;
+import appeng.container.implementations.ContainerPatternAccessTerminal;
+import appeng.container.implementations.ContainerWirelessPatternAccessTerminal;
 import appeng.container.slot.AppEngSlot;
 import appeng.core.AEClientConfig;
 import appeng.core.AppEng;
@@ -43,7 +43,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.PatternHelper;
 import appeng.helpers.WirelessTerminalGuiObject;
-import appeng.parts.reporting.PartInterfaceTerminal;
+import appeng.parts.reporting.PartPatternAccessTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
 import com.google.common.collect.HashMultimap;
@@ -70,7 +70,7 @@ import static appeng.client.render.BlockPosHighlighter.hilightBlock;
 import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
-public class GuiInterfaceTerminal extends AEBaseGui {
+public class GuiPatternAccessTerminal extends AEBaseGui {
 
     protected static final int OFFSET_X = 21;
     protected final GuiText guiTitle;
@@ -84,7 +84,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private final HashMultimap<String, ClientDCInternalInv> byName = HashMultimap.create();
     private final HashMap<ClientDCInternalInv, BlockPos> blockPosHashMap = new HashMap<>();
     private final HashMap<GuiButton, ClientDCInternalInv> guiButtonHashMap = new HashMap<>();
-    private final Map<ClientDCInternalInv, Integer> numUpgradesMap = new HashMap<>();
+    private final Map<ClientDCInternalInv, Integer> extraLinesMap = new HashMap<>();
     private final Set<ClientDCInternalInv> fakeCrafting = new HashSet<>();
     private final ArrayList<String> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
@@ -117,8 +117,8 @@ public class GuiInterfaceTerminal extends AEBaseGui {
     private boolean onlyBrokenRecipes = false;
     private int rows = 6;
 
-    public GuiInterfaceTerminal(final InventoryPlayer inventoryPlayer, final PartInterfaceTerminal te) {
-        super(new ContainerInterfaceTerminal(inventoryPlayer, te));
+    public GuiPatternAccessTerminal(final InventoryPlayer inventoryPlayer, final PartPatternAccessTerminal te) {
+        super(new ContainerPatternAccessTerminal(inventoryPlayer, te));
 
         final GuiScrollbar scrollbar = new GuiScrollbar();
         this.setScrollBar(scrollbar);
@@ -140,11 +140,11 @@ public class GuiInterfaceTerminal extends AEBaseGui {
         searchKeepBtn = new GuiImgButton(0, 0, Settings.SEARCH_KEEP,
                 AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP));
         restoreSearch();
-        guiTitle = GuiText.InterfaceTerminal;
+        guiTitle = GuiText.PatternAccessTerminal;
     }
 
-    public GuiInterfaceTerminal(final InventoryPlayer inventoryPlayer, final WirelessTerminalGuiObject guiObject) {
-        super(new ContainerWirelessInterfaceTerminal(inventoryPlayer, guiObject));
+    public GuiPatternAccessTerminal(final InventoryPlayer inventoryPlayer, final WirelessTerminalGuiObject guiObject) {
+        super(new ContainerWirelessPatternAccessTerminal(inventoryPlayer, guiObject));
 
         final GuiScrollbar scrollbar = new GuiScrollbar();
         this.setScrollBar(scrollbar);
@@ -300,7 +300,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
             final Object lineObj = this.lines.get(currentScroll + x);
             if (lineObj instanceof ClientDCInternalInv inv) {
 
-                final int extraLines = numUpgradesMap.get(inv);
+                final int extraLines = extraLinesMap.get(inv);
                 final boolean fake = this.fakeCrafting.contains(inv);
                 for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
                     // The card sits in the interface, not in any one pattern, so the whole row carries it.
@@ -372,7 +372,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 guiButtonHashMap.put(guiButton, inv);
                 this.buttonList.add(guiButton);
 
-                final int extraLines = numUpgradesMap.get(inv);
+                final int extraLines = extraLinesMap.get(inv);
                 for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
                     for (int z = 0; z < 9; z++) {
                         this.inventorySlots.inventorySlots.add(new SlotDisconnected(inv, z + (row * 9), z * 18 + 22, 1+ offset));
@@ -480,7 +480,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                 GlStateManager.color(1, 1, 1, 1);
 
                 final int width = 9 * 18;
-                final int extraLines = numUpgradesMap.get(lineObj);
+                final int extraLines = extraLinesMap.get(lineObj);
 
                 // draw the slot backgrounds
                 for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
@@ -577,7 +577,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
                             : ItemStack.EMPTY);
                     blockPosHashMap.put(current, NBTUtil.getPosFromTag(invData.getCompoundTag("pos")));
                     dimHashMap.put(current, invData.getInteger("dim"));
-                    numUpgradesMap.put(current, invData.getInteger("numUpgrades"));
+                    extraLinesMap.put(current, invData.getInteger("extraLines"));
                     if (invData.getBoolean("fake")) {
                         fakeCrafting.add(current);
                     } else {
@@ -631,7 +631,7 @@ public class GuiInterfaceTerminal extends AEBaseGui {
             if (!found || onlyShowWithSpace || onlyBrokenRecipes) {
                 int slot = 0;
                 for (final ItemStack itemStack : entry.getInventory()) {
-                    if (slot > 8 + numUpgradesMap.get(entry) * 9) {
+                    if (slot > 8 + extraLinesMap.get(entry) * 9) {
                         break;
                     }
 

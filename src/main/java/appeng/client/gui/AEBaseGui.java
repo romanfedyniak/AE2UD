@@ -261,7 +261,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
         // A disconnected slot is a remote inventory, and which one depends on the screen: the Interface
         // Configuration Terminal reaches an interface's config, where an amount means what it means on
-        // the interface's own screen, while the Interface Terminal reaches its patterns, which have no
+        // the interface's own screen, while the Pattern Access Terminal reaches its patterns, which have no
         // amount at all. The server only ever answers for the first of the two.
         if (slot instanceof SlotDisconnected) {
             return this.inventorySlots instanceof ContainerInterfaceConfigurationTerminal;

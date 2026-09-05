@@ -80,7 +80,7 @@ public class WirelessTerminalMode implements IWirelessTerminalMode {
         public static final ResourceLocation TERMINAL = of("terminal");
         public static final ResourceLocation CRAFTING = of("crafting_terminal");
         public static final ResourceLocation PATTERN = of("pattern_terminal");
-        public static final ResourceLocation INTERFACE = of("interface_terminal");
+        public static final ResourceLocation PATTERN_ACCESS = of("pattern_access_terminal");
         public static final ResourceLocation INTERFACE_CONFIGURATION = of("interface_configuration_terminal");
 
         private Ids() {

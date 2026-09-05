@@ -243,9 +243,9 @@ public enum PartType {
     // P2PTunnelOpenComputers( 468, EnumSet.of( AEFeature.P2PTunnel, AEFeature.P2PTunnelOpenComputers ), EnumSet.of(
     // IntegrationType.OpenComputers ), PartP2POpenComputers.class, GuiText.OCTunnel ),
 
-    INTERFACE_TERMINAL(480, "interface_terminal", EnumSet.of(AEFeature.INTERFACE_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceTerminal.class),
+    PATTERN_ACCESS_TERMINAL(480, "pattern_access_terminal", EnumSet.of(AEFeature.PATTERN_ACCESS_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartPatternAccessTerminal.class),
 
-    INTERFACE_CONFIGURATION_TERMINAL(521, "interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceConfigurationTerminal.class);
+    INTERFACE_CONFIGURATION_TERMINAL(521, "interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_CONFIGURATION_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceConfigurationTerminal.class);
 
     private final int baseDamage;
     private final Set<AEFeature> features;

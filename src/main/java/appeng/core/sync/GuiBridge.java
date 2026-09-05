@@ -102,7 +102,7 @@ public enum GuiBridge implements IGuiHandler {
     GUI_WIRELESS_TERM(ContainerWirelessTerm.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_CRAFTING_TERMINAL(ContainerWirelessCraftingTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_PATTERN_TERMINAL(ContainerWirelessPatternTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
-    GUI_WIRELESS_INTERFACE_TERMINAL(ContainerWirelessInterfaceTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
+    GUI_WIRELESS_PATTERN_ACCESS_TERMINAL(ContainerWirelessPatternAccessTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
     GUI_WIRELESS_INTERFACE_CONFIGURATION_TERMINAL(ContainerWirelessInterfaceConfigurationTerminal.class, WirelessTerminalGuiObject.class, GuiHostType.ITEM, null),
 
     GUI_NETWORK_STATUS(ContainerNetworkStatus.class, INetworkTool.class, GuiHostType.ITEM, null),
@@ -170,7 +170,7 @@ public enum GuiBridge implements IGuiHandler {
     // to that screen checks it again.
     GUI_SET_AMOUNT(ContainerSetAmount.class, Object.class, GuiHostType.ITEM_OR_WORLD, null),
 
-    GUI_INTERFACE_TERMINAL(ContainerInterfaceTerminal.class, PartInterfaceTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+    GUI_PATTERN_ACCESS_TERMINAL(ContainerPatternAccessTerminal.class, PartPatternAccessTerminal.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
     GUI_CRAFTING_STATUS(ContainerCraftingStatus.class, ITerminalHost.class, GuiHostType.ITEM_OR_WORLD, SecurityPermissions.CRAFT),
 

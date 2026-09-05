@@ -11,7 +11,9 @@
 package appeng.helpers;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -25,6 +27,8 @@ import net.minecraftforge.common.util.Constants;
 import appeng.api.AEApi;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.api.features.IWirelessTerminalModeRegistry;
+import appeng.core.AppEng;
+import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.util.Platform;
 
 /**
@@ -40,6 +44,17 @@ public final class WirelessTerminalModes {
     private static final String UNLOCKED = "modes";
     private static final String PER_MODE = "modeData";
 
+    /**
+     * Modes this fork has renamed. A terminal remembers its modes by name, so without this a rename would
+     * take away a mode the player paid for, along with whatever that mode had stored on it.
+     */
+    private static final Map<String, ResourceLocation> RENAMED = new HashMap<>();
+
+    static {
+        RENAMED.put(new ResourceLocation(AppEng.MOD_ID, "interface_terminal").toString(),
+                WirelessTerminalMode.Ids.PATTERN_ACCESS);
+    }
+
     private WirelessTerminalModes() {
     }
 
@@ -51,7 +66,7 @@ public final class WirelessTerminalModes {
         }
 
         final String id = tag.getString(CURRENT);
-        return id.isEmpty() ? null : new ResourceLocation(id);
+        return id.isEmpty() ? null : current(id);
     }
 
     public static void setModeId(final ItemStack terminal, final ResourceLocation id) {
@@ -69,7 +84,7 @@ public final class WirelessTerminalModes {
         if (tag != null && tag.hasKey(UNLOCKED, Constants.NBT.TAG_LIST)) {
             final NBTTagList list = tag.getTagList(UNLOCKED, Constants.NBT.TAG_STRING);
             for (int i = 0; i < list.tagCount(); i++) {
-                final ResourceLocation id = new ResourceLocation(list.getStringTagAt(i));
+                final ResourceLocation id = current(list.getStringTagAt(i));
                 if (!unlocked.contains(id)) {
                     unlocked.add(id);
                 }
@@ -184,7 +199,25 @@ public final class WirelessTerminalModes {
             return new NBTTagCompound();
         }
 
-        return tag.getCompoundTag(PER_MODE).getCompoundTag(id.toString());
+        final NBTTagCompound perMode = tag.getCompoundTag(PER_MODE);
+        if (perMode.hasKey(id.toString())) {
+            return perMode.getCompoundTag(id.toString());
+        }
+
+        // Written before the rename, this mode's grid is still filed under the name it had then.
+        for (final Map.Entry<String, ResourceLocation> renamed : RENAMED.entrySet()) {
+            if (renamed.getValue().equals(id) && perMode.hasKey(renamed.getKey())) {
+                return perMode.getCompoundTag(renamed.getKey());
+            }
+        }
+
+        return new NBTTagCompound();
+    }
+
+    /** The name a mode goes by now, given whatever name a terminal has written down for it. */
+    private static ResourceLocation current(final String written) {
+        final ResourceLocation renamed = RENAMED.get(written);
+        return renamed == null ? new ResourceLocation(written) : renamed;
     }
 
     public static void setModeData(final ItemStack terminal, final ResourceLocation id,

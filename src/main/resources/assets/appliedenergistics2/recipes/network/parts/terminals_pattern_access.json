@@ -5,7 +5,7 @@
             "values": [
                 {
                     "type": "appliedenergistics2:part_exists",
-                    "part": "part.interface_terminal"
+                    "part": "part.pattern_access_terminal"
                 },
                 {
                     "type": "appliedenergistics2:material_exists",
@@ -16,7 +16,7 @@
     ],
     "result": {
         "type": "appliedenergistics2:part",
-        "part": "part.interface_terminal"
+        "part": "part.pattern_access_terminal"
     },
     "type": "appliedenergistics2:part_shapeless",
     "ingredients": [

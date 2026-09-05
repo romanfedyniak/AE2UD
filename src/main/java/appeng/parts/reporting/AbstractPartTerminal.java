@@ -61,7 +61,7 @@ import java.util.List;
  * Anything resembling an network terminal with view cells can reuse this.
  * <p>
  * Note this applies only to terminals like the ME Terminal. It does not apply for more specialized terminals like the
- * Interface Terminal.
+ * Pattern Access Terminal.
  *
  * @author AlgorithmX2
  * @author yueh

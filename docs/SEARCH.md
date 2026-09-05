@@ -13,7 +13,7 @@ Seven fields read it:
 | Crafting Plan tree | the search box | one key per cell |
 | Crafting Status, and a CPU's own screen | the search box | one key per row |
 | Crafting Plan | the search box | one key per row |
-| Interface Terminal | Recipe Inputs, Recipe Outputs | one pattern's ingredients, as a set |
+| Pattern Access Terminal | Recipe Inputs, Recipe Outputs | one pattern's ingredients, as a set |
 | Interface Configuration Terminal | Configured Items | one interface's configured items, as a set |
 
 The two boxes that name interfaces - the Interface Terminal's third field and the Configuration

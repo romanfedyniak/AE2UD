@@ -32,18 +32,18 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 
 
-public class PartInterfaceTerminal extends AbstractPartDisplay {
+public class PartPatternAccessTerminal extends AbstractPartDisplay {
 
     @PartModels
-    public static final ResourceLocation MODEL_OFF = new ResourceLocation(AppEng.MOD_ID, "part/interface_terminal_off");
+    public static final ResourceLocation MODEL_OFF = new ResourceLocation(AppEng.MOD_ID, "part/pattern_access_terminal_off");
     @PartModels
-    public static final ResourceLocation MODEL_ON = new ResourceLocation(AppEng.MOD_ID, "part/interface_terminal_on");
+    public static final ResourceLocation MODEL_ON = new ResourceLocation(AppEng.MOD_ID, "part/pattern_access_terminal_on");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
 
-    public PartInterfaceTerminal(final ItemStack is) {
+    public PartPatternAccessTerminal(final ItemStack is) {
         super(is);
     }
 
@@ -51,7 +51,7 @@ public class PartInterfaceTerminal extends AbstractPartDisplay {
     public boolean onPartActivate(final EntityPlayer player, final EnumHand hand, final Vec3d pos) {
         if (!super.onPartActivate(player, hand, pos)) {
             if (Platform.isServer()) {
-                Platform.openGUI(player, this.getHost().getTile(), this.getSide(), GuiBridge.GUI_INTERFACE_TERMINAL);
+                Platform.openGUI(player, this.getHost().getTile(), this.getSide(), GuiBridge.GUI_PATTERN_ACCESS_TERMINAL);
             }
         }
         return true;

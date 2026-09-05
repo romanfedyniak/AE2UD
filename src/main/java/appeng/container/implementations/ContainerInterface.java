@@ -117,7 +117,7 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
     protected void loadSettingsFromHost(final IConfigManager cm) {
         this.setBlockingMode((YesNo) cm.getSetting(Settings.BLOCK));
         this.setUnlockMode((LockCraftingMode) cm.getSetting(Settings.UNLOCK));
-        this.setInterfaceTerminalMode((YesNo) cm.getSetting(Settings.INTERFACE_TERMINAL));
+        this.setPatternAccessMode((YesNo) cm.getSetting(Settings.PATTERN_ACCESS_TERMINAL));
     }
 
     public LockCraftingMode getUnlockMode() {return this.lMode;}
@@ -132,11 +132,11 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
         this.bMode = bMode;
     }
 
-    public YesNo getInterfaceTerminalMode() {
+    public YesNo getPatternAccessMode() {
         return this.iTermMode;
     }
 
-    private void setInterfaceTerminalMode(final YesNo iTermMode) {
+    private void setPatternAccessMode(final YesNo iTermMode) {
         this.iTermMode = iTermMode;
     }
 

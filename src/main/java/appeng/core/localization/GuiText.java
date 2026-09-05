@@ -68,7 +68,7 @@ public enum GuiText {
     WirelessModeTerminal,
     WirelessModeCrafting,
     WirelessModePattern,
-    WirelessModeInterface,
+    WirelessModePatternAccess,
     WirelessModeInterfaceConfig,
     UnknownWirelessMode,
 
@@ -242,13 +242,13 @@ public enum GuiText {
     CraftErrorRetry,
     CraftErrorReplan,
 
-    InterfaceTerminal,
+    PatternAccessTerminal,
     InterfaceConfigurationTerminal,
     NoCraftingCPUs,
     Clean,
     InvalidPattern,
 
-    InterfaceTerminalHint,
+    PatternAccessTerminalHint,
     Range,
     TransparentFacades,
     TransparentFacadesHint,

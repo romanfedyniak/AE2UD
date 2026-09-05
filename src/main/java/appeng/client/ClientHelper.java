@@ -148,7 +148,7 @@ public class ClientHelper extends ServerHelper {
         if (WirelessTerminalMode.Ids.PATTERN.equals(mode)) {
             return Keyboard.KEY_R;
         }
-        if (WirelessTerminalMode.Ids.INTERFACE.equals(mode)) {
+        if (WirelessTerminalMode.Ids.PATTERN_ACCESS.equals(mode)) {
             return Keyboard.KEY_I;
         }
         return Keyboard.KEY_NONE;

@@ -122,7 +122,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
                 for (final IGridNode gn : this.grid.getMachines(TileInterface.class)) {
                     if (gn.isActive()) {
                         final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.NO) {
+                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL) == YesNo.NO) {
                             continue;
                         }
 
@@ -144,7 +144,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
                 for (final IGridNode gn : this.grid.getMachines(PartInterface.class)) {
                     if (gn.isActive()) {
                         final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
-                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.NO) {
+                        if (ih.getInterfaceDuality().getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL) == YesNo.NO) {
                             continue;
                         }
 
@@ -329,7 +329,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
                 for (final IGridNode gn : this.grid.getMachines(TileInterface.class)) {
                     final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
                     final DualityInterface dual = ih.getInterfaceDuality();
-                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES) {
+                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL) == YesNo.YES) {
                         this.diList.put(ih, new ConfigTracker(dual, dual.getConfig(), dual.getTermName()));
                     }
                 }
@@ -337,7 +337,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
                 for (final IGridNode gn : this.grid.getMachines(PartInterface.class)) {
                     final IInterfaceHost ih = (IInterfaceHost) gn.getMachine();
                     final DualityInterface dual = ih.getInterfaceDuality();
-                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.INTERFACE_TERMINAL) == YesNo.YES) {
+                    if (gn.isActive() && dual.getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL) == YesNo.YES) {
                         this.diList.put(ih, new ConfigTracker(dual, dual.getConfig(), dual.getTermName()));
                     }
                 }

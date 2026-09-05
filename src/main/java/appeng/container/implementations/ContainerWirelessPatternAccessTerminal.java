@@ -16,13 +16,13 @@ import appeng.container.slot.SlotRestrictedInput;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.util.Platform;
 
-public class ContainerWirelessInterfaceTerminal extends ContainerInterfaceTerminal
+public class ContainerWirelessPatternAccessTerminal extends ContainerPatternAccessTerminal
         implements IInventorySlotAware, IUpgradeableCellContainer, IWirelessTerminalContainer {
 
     private final WirelessTerminalSupport support;
     protected final List<Slot> upgradeSlots = new ArrayList<>();
 
-    public ContainerWirelessInterfaceTerminal(InventoryPlayer ip, WirelessTerminalGuiObject guiObject) {
+    public ContainerWirelessPatternAccessTerminal(InventoryPlayer ip, WirelessTerminalGuiObject guiObject) {
         super(ip, guiObject, false);
 
         this.support = new WirelessTerminalSupport(this, guiObject, UPGRADE_SLOTS);

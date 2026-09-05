@@ -186,6 +186,13 @@ public final class AEConfig extends Configuration {
 
 
         this.addCustomCategoryComment("features", "Warning: Disabling a feature may disable other features depending on it.");
+
+        // The Interface Terminal became the Pattern Access Terminal, and its one switch was split in two -
+        // it had been turning off the Interface Configuration Terminal beside it as well.
+        this.inheritFormerFeatureKey("InterfaceTerminal", AEFeature.PATTERN_ACCESS_TERMINAL,
+                AEFeature.INTERFACE_CONFIGURATION_TERMINAL);
+        this.inheritFormerFeatureKey("WirelessInterfaceTerminal", AEFeature.WIRELESS_PATTERN_ACCESS_TERMINAL);
+
         for (final AEFeature feature : AEFeature.values()) {
             if (feature.isVisible()) {
                 final Property option = this.get("Features." + feature.category(), feature.key(), feature.isEnabled(), feature.comment());
@@ -329,6 +336,28 @@ public final class AEConfig extends Configuration {
 
     public static AEConfig instance() {
         return instance;
+    }
+
+    /**
+     * Hands renamed features whatever a pack had set under the old name, then takes that name out so the
+     * file does not carry two names for one switch. Features already written under their new name are left
+     * alone: an explicit setting outranks an inherited one.
+     */
+    private void inheritFormerFeatureKey(final String formerKey, final AEFeature... features) {
+        final String category = "Features." + features[0].category();
+        if (!this.hasKey(category, formerKey)) {
+            return;
+        }
+
+        final boolean former = this.get(category, formerKey, features[0].isEnabled()).getBoolean();
+
+        for (final AEFeature feature : features) {
+            if (!this.hasKey(category, feature.key())) {
+                this.get(category, feature.key(), former);
+            }
+        }
+
+        this.getCategory(category).remove(formerKey);
     }
 
     public boolean isFeatureEnabled(final AEFeature f) {
