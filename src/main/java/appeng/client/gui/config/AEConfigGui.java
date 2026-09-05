@@ -41,10 +41,6 @@ public class AEConfigGui extends GuiConfig {
         final List<IConfigElement> list = new ArrayList<>();
 
         for (final String cat : AEConfig.instance().getCategoryNames()) {
-            if (cat.equals("versionchecker")) {
-                continue;
-            }
-
             if (cat.equals("settings")) {
                 continue;
             }
