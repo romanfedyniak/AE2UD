@@ -92,22 +92,44 @@ public class TesrRenderHelper {
     }
 
     /**
+     * How deep a flat item model is left, in blocks. Its layers stand thousandths of a texel apart - the fluid
+     * in a Forge bucket, the cover over it - and squashing that gap away makes them fight for the pixel.
+     */
+    private static final float LAYERED_DEPTH = 0.05f;
+
+    /**
+     * What to take off z to centre a flat item on the panel: the distance the GUI item renderer pushes a model
+     * away, which is 100 plus the 50 it raises zLevel by. The model's own 7.5 to 8.5 and the half unit
+     * {@code RenderItem.renderItem} takes off after scaling cancel to half a unit either side of that.
+     * <p>
+     * Centred rather than in front on purpose: {@link #rotateToFace} mirrors z on a wall but not on a floor, so
+     * which way "out" runs depends on the face, and a straddling model shows its near half either way.
+     */
+    private static final float GUI_Z_OFFSET = 150.0f;
+
+    /**
+     * A model that is drawn as a block is turned to face the player and is sixteen units deep, so it has to be
+     * squashed to nearly nothing to read as a picture. Its own faces are real geometry and do not fight.
+     */
+    private static final float BLOCK_DEPTH = 0.0001f;
+
+    /**
      * Render an item in 2D.
      */
     public static void renderItem2d(ItemStack itemStack, float scale) {
         if (!itemStack.isEmpty()) {
             OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.f, 240.0f);
 
+            RenderItem renderItem = Minecraft.getMinecraft().getRenderItem();
+            final boolean layered = !renderItem.getItemModelWithOverrides(itemStack, null, null).isGui3d();
+
             GlStateManager.pushMatrix();
 
-            // The Z-scaling by 0.0001 causes the model to be visually "flattened"
-            // This cannot replace a proper projection, but it's cheap and gives the desired
-            // effect at least from head-on
-            GlStateManager.scale(scale / 32.0f, scale / 32.0f, 0.0001f);
-            // Position the item icon at the top middle of the panel
-            GlStateManager.translate(-8, -11, 0);
+            GlStateManager.scale(scale / 32.0f, scale / 32.0f, layered ? LAYERED_DEPTH : BLOCK_DEPTH);
+            // Position the item icon at the top middle of the panel. A flat model is also carried back the
+            // distance the GUI renderer pushes it, so the depth left to it is spent on the model itself.
+            GlStateManager.translate(-8, -11, layered ? -GUI_Z_OFFSET : 0);
 
-            RenderItem renderItem = Minecraft.getMinecraft().getRenderItem();
             renderItem.renderItemAndEffectIntoGUI(itemStack, 0, 0);
 
             GlStateManager.popMatrix();
