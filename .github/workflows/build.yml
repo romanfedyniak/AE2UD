@@ -6,21 +6,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the mod version comes from `git describe`, which needs the tags
       - name: Set up OpenJDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: '21' # the Gradle process only; the mod still compiles to Java 8 bytecode
           distribution: 'temurin' # not 'adopt', which has no build past Java 16
+      # `wrapper` is in the cache on purpose: without it every cold runner fetches the Gradle
+      # distribution itself, and a reset connection there fails the build before a line is compiled.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          add-job-summary: never
+          gradle-home-cache-includes: |
+            caches
+            jdks
+            notifications
+            wrapper
       # No `updateBuildScript` step here: it overwrites build.gradle with the upstream template, whose
       # pinned plugin versions this fork has had to move off. gradle.properties keeps
       # autoUpdateBuildScript=false for the same reason - updating the buildscript is a deliberate act.
       - name: Build with Gradle
         run: ./gradlew build
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AE2UD
           path: build/libs/*.jar # Make sure this path matches the location of your build artifacts

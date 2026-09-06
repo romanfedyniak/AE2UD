@@ -1,11 +1,12 @@
-# Updates the Gradle Cache when relevant files change
+# Warms the Gradle cache when the build itself changes, so the next ordinary build starts from a
+# populated one rather than downloading everything again.
 name: Update Gradle Cache
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - master
+      - main
     paths:
       - "gradle**" # covers gradle folder, gradle.properties, gradlew
       - "build.gradle*"
@@ -18,22 +19,25 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '21' # the Gradle process only; the mod still compiles to Java 8 bytecode
 
-      - name: Update Cache
-        uses: gradle/gradle-build-action@v2
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
         with:
-          arguments: 'test --build-cache --no-daemon' # disable daemon since only one gradle operation will happen
-          generate-job-summary: false
+          add-job-summary: never
           gradle-home-cache-includes: |
             caches
             jdks
             notifications
             wrapper
           cache-write-only: true
+
+      # No daemon: this job runs one Gradle command and then the runner is thrown away.
+      - name: Update Cache
+        run: ./gradlew test --build-cache --no-daemon
