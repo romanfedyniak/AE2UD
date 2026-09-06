@@ -1,7 +1,6 @@
 # Loot tables
 
-AE2UD fills two kinds of container from loot tables. One of them is a real table you can override; the
-other is added programmatically and cannot be.
+AE2UD fills two kinds of container from loot tables, and both are real tables you can override.
 
 ## The meteorite chest
 
@@ -83,6 +82,18 @@ holding anything back.
 
 ## Mineshaft chests
 
-Two pools, `AE2 Crystals` and `AE2 DUSTS`, are appended to
-`minecraft:chests/abandoned_mineshaft` in code, so **they cannot be overridden by JSON**. Turn them off
-entirely with the `ChestLoot` feature in the config, or retune them with something like LootTweaker.
+Table: `appliedenergistics2:inject/mineshaft`, shipped at
+`assets/appliedenergistics2/loot_tables/inject/mineshaft.json`.
+
+One pool is added to `minecraft:chests/abandoned_mineshaft` holding nothing but a reference to this
+table, so everything that decides what actually comes out is in the JSON and a resource pack may replace
+it. As shipped, half of mineshaft chests hold one lot of AE2 material: certus quartz crystal (weight 10,
+one to four) or certus quartz dust (weight 6, one to three). Both entries carry a `feature_enabled`
+condition, so turning certus or dusts off in the config takes them out of the table rather than leaving
+an item nothing can make.
+
+It is registered only when both `ChestLoot` and `Certus` are enabled; turning `ChestLoot` off removes the
+pool from the vanilla table entirely.
+
+In 1.12 a chest rolls its loot the first time it is opened, not when it is generated. A change here
+therefore reaches chests in worlds that already exist, as long as nobody has opened them yet.

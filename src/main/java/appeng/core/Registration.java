@@ -341,7 +341,18 @@ final class Registration {
 
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
 
-        if (AEConfig.instance().isFeatureEnabled(AEFeature.CHEST_LOOT)) {
+        // The conditions and functions AE2's own loot tables are written with. Registered whatever else is
+        // switched on: one nothing uses costs nothing, while registering one twice throws.
+        LootConditionManager.registerCondition(new CheckTally.Serializer());
+        LootConditionManager.registerCondition(new FeatureEnabled.Serializer());
+        LootFunctionManager.registerFunction(new Tally.Serializer());
+        LootFunctionManager.registerFunction(new ToRandomOre.Serializer());
+
+        // Certus in mineshaft chests. Gated on certus itself: without it the table has nothing to give.
+        if (AEConfig.instance().isFeatureEnabled(AEFeature.CHEST_LOOT)
+                && AEConfig.instance().isFeatureEnabled(AEFeature.CERTUS)) {
+            LootTableList.register(new ResourceLocation(AppEng.MOD_ID, ChestLoot.MINESHAFT_INJECT_TABLE));
+
             MinecraftForge.EVENT_BUS.register(new ChestLoot());
         }
 
@@ -350,11 +361,6 @@ final class Registration {
         if (AEConfig.instance().isFeatureEnabled(AEFeature.METEORITE_WORLD_GEN)
                 && AEConfig.instance().isFeatureEnabled(AEFeature.SKY_STONE)) {
             LootTableList.register(new ResourceLocation(AppEng.MOD_ID, MeteorConstants.METEOR_LOOT_TABLE));
-
-            LootConditionManager.registerCondition(new CheckTally.Serializer());
-            LootConditionManager.registerCondition(new FeatureEnabled.Serializer());
-            LootFunctionManager.registerFunction(new Tally.Serializer());
-            LootFunctionManager.registerFunction(new ToRandomOre.Serializer());
         }
 
         final IGridCacheRegistry gcr = registries.gridCache();

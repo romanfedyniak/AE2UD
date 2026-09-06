@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,18 +20,18 @@
 package appeng.loot;
 
 
-import appeng.api.AEApi;
-import appeng.api.definitions.IMaterials;
 import appeng.core.AppEng;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
-import net.minecraft.world.storage.loot.*;
+import net.minecraft.world.storage.loot.LootEntry;
+import net.minecraft.world.storage.loot.LootEntryTable;
+import net.minecraft.world.storage.loot.LootPool;
+import net.minecraft.world.storage.loot.LootTable;
+import net.minecraft.world.storage.loot.LootTableList;
+import net.minecraft.world.storage.loot.RandomValueRange;
 import net.minecraft.world.storage.loot.conditions.LootCondition;
-import net.minecraft.world.storage.loot.conditions.RandomChance;
-import net.minecraft.world.storage.loot.functions.LootFunction;
-import net.minecraft.world.storage.loot.functions.SetMetadata;
 import net.minecraftforge.event.LootTableLoadEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
@@ -41,6 +42,9 @@ import static appeng.worldgen.meteorite.MeteorConstants.METEOR_LOOT_TABLE;
 
 
 public class ChestLoot {
+
+    /** Rolled into the vanilla mineshaft table, and overridable because it is a table of its own. */
+    public static final String MINESHAFT_INJECT_TABLE = "inject/mineshaft";
 
     /**
      * What goes in the chest at the centre of a meteorite. Rolled through a context that counts what it
@@ -54,32 +58,25 @@ public class ChestLoot {
                 new TallyingLootContext.Builder((WorldServer) world).build());
     }
 
+    /**
+     * Adds one pool to the mineshaft table, holding nothing but a reference to AE2's own table.
+     * <p>
+     * The alternative is building the pools here out of {@code LootPool} and {@code LootEntryItem}, which is
+     * how this worked for a decade - and which no resource pack could touch, so a pack that wanted less
+     * certus in its chests had to turn the whole thing off or reach for another mod. Everything that decides
+     * what actually comes out now lives in the JSON.
+     */
     @SubscribeEvent
-    public void loadLootTable(LootTableLoadEvent event) {
-        if (event.getName() == LootTableList.CHESTS_ABANDONED_MINESHAFT) {
-            // TODO 1.9.4 aftermath - All these loot quality, pools and stuff. Figure it out and balance it.
-            final IMaterials materials = AEApi.instance().definitions().materials();
-            materials.certusQuartzCrystal().maybeStack(1).ifPresent(is ->
-            {
-                event.getTable()
-                        .addPool(new LootPool(new LootEntry[]{
-                                new LootEntryItem(is.getItem(), 2, 3, new LootFunction[]{
-                                        new SetMetadata(null, new RandomValueRange(is.getItemDamage()))}, new LootCondition[]{
-                                        new RandomChance(1)}, "AE2 Crystal_" + is.getItemDamage())
-                        }, new LootCondition[0], new RandomValueRange(1, 4), new RandomValueRange(0, 2), "AE2 Crystals"));
-            });
-
-            materials.certusQuartzDust().maybeStack(1).ifPresent(is ->
-            {
-                event.getTable()
-                        .addPool(new LootPool(new LootEntryItem[]{
-                                new LootEntryItem(is.getItem(), 2, 3, new LootFunction[]{
-                                        new SetMetadata(null, new RandomValueRange(is.getItemDamage()))}, new LootCondition[]{
-                                        new RandomChance(1)}, "AE2 Dust_" + is.getItemDamage())
-                        }, new LootCondition[0], new RandomValueRange(1, 4), new RandomValueRange(0, 2), "AE2 DUSTS"));
-            });
-
+    public void loadLootTable(final LootTableLoadEvent event) {
+        if (event.getName() != LootTableList.CHESTS_ABANDONED_MINESHAFT) {
+            return;
         }
-    }
 
+        final LootEntry entry = new LootEntryTable(
+                new ResourceLocation(AppEng.MOD_ID, MINESHAFT_INJECT_TABLE),
+                1, 0, new LootCondition[0], "AE2 Mineshaft Loot");
+
+        event.getTable().addPool(new LootPool(new LootEntry[] { entry }, new LootCondition[0],
+                new RandomValueRange(1), new RandomValueRange(0), "AE2 Mineshaft"));
+    }
 }
