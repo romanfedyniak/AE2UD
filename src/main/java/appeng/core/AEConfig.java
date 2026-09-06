@@ -152,7 +152,10 @@ public final class AEConfig extends Configuration {
                 "The side of the square each meteorite is placed in, in blocks - so it sets how many there are."
                         + " Two in neighbouring squares can end up as close as a fifth of it, so it is not a"
                         + " guaranteed distance.").getInt(this.minMeteoriteDistance);
-        this.meteoriteClusterChance = this.get("worldGen", "meteoriteClusterChance", this.meteoriteClusterChance).getDouble(this.meteoriteClusterChance);
+        this.meteoriteClusterChance = this.get("worldGen", "meteoriteClusterChance", this.meteoriteClusterChance,
+                "The chance a meteorite has another one beside it, rolled again for each up to three."
+                        + " A cluster lands closer together than the distance above, which is the point of it.")
+                .getDouble(this.meteoriteClusterChance);
         this.meteoriteMaximumSpawnHeight = this.get("worldGen", "meteoriteMaximumSpawnHeight", this.meteoriteMaximumSpawnHeight).getInt(this.meteoriteMaximumSpawnHeight);
         this.meteoriteDimensionWhitelist = this.get("worldGen", "meteoriteDimensionWhitelist", this.meteoriteDimensionWhitelist).getIntList();
         this.meteoriteGeneratorPriority = this.get("worldGen", "meteoriteGeneratorPriority",

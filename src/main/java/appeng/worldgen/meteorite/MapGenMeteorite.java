@@ -46,6 +46,13 @@ public class MapGenMeteorite extends MapGenStructure {
 
     public static final String ID = "ae2_meteorite";
 
+    /** How far a meteorite of a cluster lands from the one before it. */
+    private static final int CLUSTER_MIN_DISTANCE = 10;
+    private static final int CLUSTER_MAX_DISTANCE = 30;
+
+    /** A run of them has to stop somewhere, however lucky the rolls. */
+    private static final int MAX_CLUSTERED = 3;
+
     @Override
     @NotNull
     public String getStructureName() {
@@ -159,7 +166,58 @@ public class MapGenMeteorite extends MapGenStructure {
                     rng.nextFloat() > .9f,
                     CraterLakeState.UNSET,
                     FalloutMode.fromBiome(spawnBiome)));
+
+            this.addCluster(worldIn, rng, centerPos);
             this.updateBoundingBox();
+        }
+
+        /**
+         * A cell may hold a huddle of meteorites rather than one. They are components of the same
+         * structure, so the game builds them together and nothing here has to keep its own record; and
+         * they are drawn from the cell's own generator after the first meteorite is settled, so adding
+         * this moves none of the meteorites that were there before it.
+         * <p>
+         * A cluster is deliberately closer than {@code minMeteoriteDistance}: that is what it is.
+         */
+        private void addCluster(final World worldIn, final Random rng, final BlockPos firstPos) {
+            final double clusterChance = AEConfig.instance().getMeteoriteClusterChance();
+            BlockPos previous = firstPos;
+
+            for (int i = 0; i < MAX_CLUSTERED && rng.nextDouble() < clusterChance; i++) {
+                previous = nearby(previous, rng);
+
+                long clusterSeed = rng.nextLong();
+                while (clusterSeed == 0) {
+                    clusterSeed = rng.nextLong();
+                }
+
+                // Its own seed, so a companion is as varied as a meteorite that landed alone.
+                final Random companion = new Random(clusterSeed);
+                final float radius = companion.nextFloat()
+                        * (MeteorConstants.MAX_METEOR_RADIUS - MeteorConstants.MIN_METEOR_RADIUS)
+                        + MeteorConstants.MIN_METEOR_RADIUS;
+                final Biome biome = worldIn.getBiomeProvider().getBiome(previous);
+
+                this.components.add(new MeteoriteStructurePiece(
+                        clusterSeed,
+                        previous,
+                        radius,
+                        determineCraterType(biome, companion),
+                        companion.nextFloat() > .9f,
+                        CraterLakeState.UNSET,
+                        FalloutMode.fromBiome(biome)));
+            }
+        }
+
+        private static BlockPos nearby(final BlockPos from, final Random rng) {
+            final double angle = rng.nextDouble() * Math.PI * 2;
+            final int distance = CLUSTER_MIN_DISTANCE
+                    + rng.nextInt(CLUSTER_MAX_DISTANCE - CLUSTER_MIN_DISTANCE + 1);
+
+            return new BlockPos(
+                    from.getX() + (int) Math.round(Math.cos(angle) * distance),
+                    MeteorConstants.UNSET_HEIGHT,
+                    from.getZ() + (int) Math.round(Math.sin(angle) * distance));
         }
 
         /** For a meteorite converted out of an older save. */
