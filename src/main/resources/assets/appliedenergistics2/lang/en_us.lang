@@ -106,6 +106,8 @@ chat.appliedenergistics2.PatternUploadNoTarget=Nothing in this network holds pat
 chat.appliedenergistics2.PatternUploadNoRoom=No free pattern slot there.
 chat.appliedenergistics2.PatternUploadDuplicate=That pattern is already in there.
 chat.appliedenergistics2.PatternUploadUnsuitable=Nothing there will run a pattern like this one.
+chat.appliedenergistics2.CompassTestSuccess=Compass region says %s, and a meteorite is at %s, %s, %s.
+chat.appliedenergistics2.CompassTestFailure=Compass region says %s, but there is no meteorite here.
 chat.appliedenergistics2.TerminalModeNotUnlocked=Your wireless terminal does not have that mode yet.
 chat.appliedenergistics2.DeviceNotLinked=Device is not linked.
 chat.appliedenergistics2.StationCanNotBeLocated=Station can not be located.
@@ -879,6 +881,7 @@ commands.ae2.permissions=You do not have adequate permissions to run this comman
 commands.ae2.ChunkLogger=Toggles Chunk Loading and unloading to the server log. ( OP )
 commands.ae2.ChunkLoggerOn=Chunk Logging is now on
 commands.ae2.ChunkLoggerOff=Chunk Logging is now off
+commands.ae2.Compass=Reports whether the compass believes there is a meteorite in this chunk, and whether there really is. ( OP )
 commands.ae2.Supporters=Displays a list of AE2 Supporters
 
 // Achievements

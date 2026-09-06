@@ -39,8 +39,5 @@ public interface IWorldData {
     IWorldPlayerData playerData();
 
     @Nonnull
-    IWorldCompassData compassData();
-
-    @Nonnull
     IWorldSpawnData spawnData();
 }

@@ -27,6 +27,7 @@ import appeng.block.storage.BlockSkyChest;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.worlddata.WorldData;
+import appeng.services.compass.ServerCompassService;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.worldgen.meteorite.*;
@@ -41,6 +42,8 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.ArrayList;
@@ -197,6 +200,12 @@ public final class MeteoritePlacer {
                             block.getDefaultState().withProperty(BlockSkyChest.NATURAL, true)));
 
             final TileEntity te = w.getTileEntity(x, y, z);
+
+            // The one chunk that gained a compass target. Nothing scans a chunk of its own accord now.
+            if (te != null && w.getWorld() instanceof WorldServer) {
+                ServerCompassService.updateArea((WorldServer) w.getWorld(), new ChunkPos(x >> 4, z >> 4));
+            }
+
             final InventoryAdaptor ap = InventoryAdaptor.getAdaptor(te, EnumFacing.UP);
             if (ap != null) {
                 int primary = Math.max(1, (int) (Math.random() * 4));

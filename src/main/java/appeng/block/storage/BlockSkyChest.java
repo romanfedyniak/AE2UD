@@ -19,12 +19,15 @@
 package appeng.block.storage;
 
 
+import appeng.api.AEApi;
 import appeng.api.util.AEPartLocation;
 import appeng.block.AEBaseTileBlock;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.ICustomCollision;
+import appeng.services.compass.ServerCompassService;
 import appeng.tile.storage.TileSkyChest;
 import appeng.util.Platform;
+import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.properties.PropertyBool;
@@ -38,10 +41,12 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 
 public class BlockSkyChest extends AEBaseTileBlock implements ICustomCollision {
@@ -95,6 +100,23 @@ public class BlockSkyChest extends AEBaseTileBlock implements ICustomCollision {
         }
 
         return true;
+    }
+
+    @Override
+    public void breakBlock(final World world, final BlockPos pos, final IBlockState state) {
+        super.breakBlock(world, pos, state);
+
+        // The compass is told rather than made to look: nothing scans a chunk on its own any more.
+        if (Platform.isServer() && isNaturalChest(state)) {
+            ServerCompassService.notifyBlockChange((WorldServer) world, pos);
+        }
+    }
+
+    private static boolean isNaturalChest(final IBlockState state) {
+        final Optional<Block> maybeBlock = AEApi.instance().definitions().blocks().skyStoneChest().maybeBlock();
+
+        return maybeBlock.isPresent() && state.getBlock() == maybeBlock.get()
+                && state.getPropertyKeys().contains(NATURAL) && state.getValue(NATURAL);
     }
 
     @Override

@@ -21,7 +21,6 @@ package appeng.client.render.model;
 
 import appeng.block.misc.BlockSkyCompass;
 import appeng.hooks.CompassManager;
-import appeng.hooks.CompassResult;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -34,6 +33,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
 import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
 import net.minecraftforge.common.property.IExtendedBlockState;
@@ -51,6 +51,9 @@ import java.util.List;
  * around the Y-axis to get the compass to point in the right direction.
  */
 public class SkyCompassBakedModel implements IBakedModel {
+
+    /** Within this many blocks the needle has nowhere left to point, so it spins instead. */
+    private static final int MIN_DIST_SQ = 2;
 
     private final IBakedModel base;
 
@@ -164,27 +167,21 @@ public class SkyCompassBakedModel implements IBakedModel {
 
         // Only query for a meteor position if we know our own position
         if (pos != null) {
-            CompassResult cr = CompassManager.INSTANCE.getCompassDirection(0, pos.getX(), pos.getY(), pos.getZ());
+            final BlockPos closest = CompassManager.INSTANCE.getClosestMeteorite(new ChunkPos(pos), prefetch);
 
-            // Prefetch meteor positions from the server for adjacent blocks so they are available more quickly when
-            // we're moving
-            if (prefetch) {
-                for (int i = 0; i < 3; i++) {
-                    for (int j = 0; j < 3; j++) {
-                        CompassManager.INSTANCE.getCompassDirection(0, pos.getX() + i - 1, pos.getY(), pos.getZ() + j - 1);
-                    }
-                }
-            }
+            if (closest != null) {
+                final int dx = pos.getX() - closest.getX();
+                final int dz = pos.getZ() - closest.getZ();
 
-            if (cr.isValidResult()) {
-                if (cr.isSpin()) {
-                    long timeMillis = System.currentTimeMillis();
-                    // .5 seconds per full rotation
-                    timeMillis %= 500;
-                    return timeMillis / 500.f * (float) Math.PI * 2;
-                } else {
-                    return (float) cr.getRad();
+                // Standing on it, the needle has nothing left to point at, so let it spin instead.
+                if (dx * dx + dz * dz > MIN_DIST_SQ) {
+                    return (float) rad(pos.getX(), pos.getZ(), closest.getX(), closest.getZ());
                 }
+
+                long timeMillis = System.currentTimeMillis();
+                // .5 seconds per full rotation
+                timeMillis %= 500;
+                return timeMillis / 500.f * (float) Math.PI * 2;
             }
         }
 
@@ -192,5 +189,12 @@ public class SkyCompassBakedModel implements IBakedModel {
         // 3 seconds per full rotation
         timeMillis %= 3000;
         return timeMillis / 3000.f * (float) Math.PI * 2;
+    }
+
+    private static double rad(final int ax, final int az, final int bx, final int bz) {
+        final int up = bz - az;
+        final int side = bx - ax;
+
+        return Math.atan2(-up, side) - Math.PI / 2.0;
     }
 }

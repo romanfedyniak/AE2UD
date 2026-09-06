@@ -19,12 +19,15 @@
 package appeng.server;
 
 
+import appeng.services.compass.TestCompassCommand;
 import appeng.server.subcommands.ChunkLogger;
 import appeng.server.subcommands.Supporters;
 
 
 public enum Commands {
-    Chunklogger(4, new ChunkLogger()), Supporters(0, new Supporters());
+    Chunklogger(4, new ChunkLogger()),
+    Compass(4, new TestCompassCommand()),
+    Supporters(0, new Supporters());
 
     public final int level;
     public final ISubCommand command;

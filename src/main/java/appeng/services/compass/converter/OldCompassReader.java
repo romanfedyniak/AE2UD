@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,39 +17,23 @@
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
 
-package appeng.core.worlddata;
+package appeng.services.compass.converter;
 
 
-import appeng.services.CompassService;
-import com.google.common.base.Preconditions;
+import appeng.core.worlddata.converter.OldDataReader;
 
 import javax.annotation.Nonnull;
 import java.io.File;
 
 
-/**
- * @author thatsIch
- * @version rv3 - 30.05.2015
- * @since rv3 30.05.2015
- */
-final class CompassData implements IWorldCompassData, IOnWorldStoppable {
-    @Nonnull
-    private final CompassService service;
+public final class OldCompassReader extends OldDataReader<OldCompassRegion> {
 
-    public CompassData(@Nonnull final File compassDirectory, @Nonnull final CompassService service) {
-        Preconditions.checkNotNull(compassDirectory);
-        Preconditions.checkNotNull(service);
-
-        this.service = service;
+    public OldCompassReader(final int dimId, @Nonnull final File worldCompassFolder) {
+        super(dimId, worldCompassFolder);
     }
 
     @Override
-    public CompassService service() {
-        return this.service;
-    }
-
-    @Override
-    public void onWorldStop() {
-        this.service.kill();
+    public OldCompassRegion mapNameToRegion(final String name) {
+        return new OldCompassRegion(this.folder, name);
     }
 }

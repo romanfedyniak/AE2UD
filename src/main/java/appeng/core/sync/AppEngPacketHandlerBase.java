@@ -109,6 +109,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_PATTERN_UPLOAD(PacketPatternUpload.class),
 
+        PACKET_CLEAR_COMPASS_CACHE(PacketClearCompassCache.class),
+
         ;
 
 

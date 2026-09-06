@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,86 +22,138 @@ package appeng.hooks;
 
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCompassRequest;
+import com.github.bsideup.jabel.Desugar;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 
-import java.util.HashMap;
-import java.util.Iterator;
+import javax.annotation.Nullable;
 
 
+/**
+ * What the client last heard about where the nearest meteorite is, kept per chunk.
+ * <p>
+ * A compass has to point somewhere every frame, but the answer lives on the server; so an answer is asked for
+ * once and then reused, and while waiting for the first one the compass borrows the nearest answer it already
+ * has rather than spinning.
+ */
 public class CompassManager {
 
     public static final CompassManager INSTANCE = new CompassManager();
-    private final HashMap<CompassRequest, CompassResult> requests = new HashMap<>();
 
-    public void postResult(final long attunement, final int x, final int y, final int z, final CompassResult result) {
-        final CompassRequest r = new CompassRequest(attunement, x, y, z);
-        this.requests.put(r, result);
+    private static final int REFRESH_CACHE_AFTER = 30000;
+    private static final int EXPIRE_CACHE_AFTER = 60000;
+
+    private final Long2ObjectOpenHashMap<CachedResult> requests = new Long2ObjectOpenHashMap<>();
+
+    public void postResult(final ChunkPos requestedPos, @Nullable final BlockPos closestMeteorite) {
+        this.requests.put(ChunkPos.asLong(requestedPos.x, requestedPos.z),
+                new CachedResult(closestMeteorite, System.currentTimeMillis()));
     }
 
-    public CompassResult getCompassDirection(final long attunement, final int x, final int y, final int z) {
+    public void invalidate(final ChunkPos key) {
+        this.requests.remove(ChunkPos.asLong(key.x, key.z));
+    }
+
+    /** Something the server knows has changed; every answer here may name it. */
+    public void invalidateAll() {
+        this.requests.clear();
+    }
+
+    @Nullable
+    public BlockPos getClosestMeteorite(final BlockPos pos, final boolean prefetch) {
+        return this.getClosestMeteorite(new ChunkPos(pos), prefetch);
+    }
+
+    @Nullable
+    public BlockPos getClosestMeteorite(final ChunkPos chunkPos, final boolean prefetch) {
         final long now = System.currentTimeMillis();
 
-        final Iterator<CompassResult> i = this.requests.values().iterator();
-        while (i.hasNext()) {
-            final CompassResult res = i.next();
-            final long diff = now - res.getTime();
-            if (diff > 20000) {
-                i.remove();
+        this.expire(now);
+
+        final long requestKey = ChunkPos.asLong(chunkPos.x, chunkPos.z);
+        final CachedResult cached = this.requests.get(requestKey);
+
+        BlockPos result = null;
+        boolean request = true;
+
+        if (cached != null) {
+            result = cached.closestMeteoritePos();
+            request = now - cached.received() > REFRESH_CACHE_AFTER;
+        }
+
+        if (result == null) {
+            result = this.findClosestKnownResult(chunkPos);
+        }
+
+        if (request) {
+            this.requests.put(requestKey, new CachedResult(result, now));
+            NetworkHandler.instance().sendToServer(new PacketCompassRequest(chunkPos));
+        }
+
+        // Ask about the chunks around this one too, so moving does not wait for a round trip each time.
+        if (prefetch) {
+            for (int i = -1; i <= 1; i++) {
+                for (int j = -1; j <= 1; j++) {
+                    if (i != 0 || j != 0) {
+                        this.getClosestMeteorite(new ChunkPos(chunkPos.x + i, chunkPos.z + j), false);
+                    }
+                }
             }
         }
 
-        final CompassRequest r = new CompassRequest(attunement, x, y, z);
-        CompassResult res = this.requests.get(r);
-
-        if (res == null) {
-            res = new CompassResult(false, true, 0);
-            this.requests.put(r, res);
-            this.requestUpdate(r);
-        } else if (now - res.getTime() > 1000 * 3) {
-            if (!res.isRequested()) {
-                res.setRequested(true);
-                this.requestUpdate(r);
-            }
-        }
-
-        return res;
+        return result;
     }
 
-    private void requestUpdate(final CompassRequest r) {
-        NetworkHandler.instance().sendToServer(new PacketCompassRequest(r.attunement, r.cx, r.cz, r.cdy));
+    private void expire(final long now) {
+        final ObjectIterator<Long2ObjectMap.Entry<CachedResult>> it = this.entries();
+
+        while (it.hasNext()) {
+            if (now - it.next().getValue().received() > EXPIRE_CACHE_AFTER) {
+                it.remove();
+            }
+        }
     }
 
-    private static class CompassRequest {
+    /** The fast iterator hands back the same entry each time, which is all these two loops ever need. */
+    private ObjectIterator<Long2ObjectMap.Entry<CachedResult>> entries() {
+        return this.requests.long2ObjectEntrySet().fastIterator();
+    }
 
-        private final int hash;
-        private final long attunement;
-        private final int cx;
-        private final int cdy;
-        private final int cz;
+    /** Somewhere roughly right beats spinning while the real answer is on its way. */
+    @Nullable
+    private BlockPos findClosestKnownResult(final ChunkPos chunkPos) {
+        final ObjectIterator<Long2ObjectMap.Entry<CachedResult>> it = this.entries();
+        long closestDistance = Long.MAX_VALUE;
+        BlockPos result = null;
 
-        public CompassRequest(final long attunement, final int x, final int y, final int z) {
-            this.attunement = attunement;
-            this.cx = x >> 4;
-            this.cdy = y >> 5;
-            this.cz = z >> 4;
-            this.hash = ((Integer) this.cx).hashCode() ^ ((Integer) this.cdy).hashCode() ^ ((Integer) this.cz).hashCode() ^ ((Long) attunement)
-                    .hashCode();
-        }
+        while (it.hasNext()) {
+            final Long2ObjectMap.Entry<CachedResult> entry = it.next();
+            final BlockPos closestPos = entry.getValue().closestMeteoritePos();
 
-        @Override
-        public int hashCode() {
-            return this.hash;
-        }
+            if (closestPos != null) {
+                final long distance = distanceSquared(chunkPos, entry.getLongKey());
 
-        @Override
-        public boolean equals(final Object obj) {
-            if (obj == null) {
-                return false;
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    result = closestPos;
+                }
             }
-            if (this.getClass() != obj.getClass()) {
-                return false;
-            }
-            final CompassRequest other = (CompassRequest) obj;
-            return this.attunement == other.attunement && this.cx == other.cx && this.cdy == other.cdy && this.cz == other.cz;
         }
+
+        return result;
+    }
+
+    private static long distanceSquared(final ChunkPos pos, final long packed) {
+        final long dx = (int) (packed & 0xFFFFFFFFL) - pos.x;
+        final long dz = (int) (packed >>> 32 & 0xFFFFFFFFL) - pos.z;
+
+        return dx * dx + dz * dz;
+    }
+
+    @Desugar
+    private record CachedResult(@Nullable BlockPos closestMeteoritePos, long received) {
     }
 }

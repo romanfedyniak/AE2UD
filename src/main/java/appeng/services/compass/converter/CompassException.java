@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,17 +17,14 @@
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
 
-package appeng.core.worlddata;
+package appeng.services.compass.converter;
 
 
-import appeng.services.CompassService;
+public class CompassException extends RuntimeException {
 
+    private static final long serialVersionUID = 8825268683203860877L;
 
-/**
- * @author thatsIch
- * @version rv3 - 30.05.2015
- * @since rv3 30.05.2015
- */
-public interface IWorldCompassData {
-    CompassService service();
+    public CompassException(final Throwable t) {
+        super(t);
+    }
 }

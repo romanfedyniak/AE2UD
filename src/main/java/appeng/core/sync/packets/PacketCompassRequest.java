@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,59 +20,50 @@
 package appeng.core.sync.packets;
 
 
-import appeng.api.util.DimensionalCoord;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.core.sync.network.NetworkHandler;
-import appeng.core.worlddata.WorldData;
-import appeng.services.compass.ICompassCallback;
+import appeng.services.compass.ServerCompassService;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.WorldServer;
+
+import java.util.Optional;
 
 
-public class PacketCompassRequest extends AppEngPacket implements ICompassCallback {
+public class PacketCompassRequest extends AppEngPacket {
 
-    final long attunement;
-    final int cx;
-    final int cz;
-    final int cdy;
-
-    private EntityPlayer talkBackTo;
+    private final ChunkPos pos;
 
     // automatic.
     public PacketCompassRequest(final ByteBuf stream) {
-        this.attunement = stream.readLong();
-        this.cx = stream.readInt();
-        this.cz = stream.readInt();
-        this.cdy = stream.readInt();
+        this.pos = new ChunkPos(stream.readInt(), stream.readInt());
     }
 
     // api
-    public PacketCompassRequest(final long attunement, final int cx, final int cz, final int cdy) {
+    public PacketCompassRequest(final ChunkPos pos) {
+        this.pos = pos;
 
         final ByteBuf data = Unpooled.buffer();
 
         data.writeInt(this.getPacketID());
-        data.writeLong(this.attunement = attunement);
-        data.writeInt(this.cx = cx);
-        data.writeInt(this.cz = cz);
-        data.writeInt(this.cdy = cdy);
+        data.writeInt(pos.x);
+        data.writeInt(pos.z);
 
         this.configureWrite(data);
     }
 
     @Override
-    public void calculatedDirection(final boolean hasResult, final boolean spin, final double radians, final double dist) {
-        NetworkHandler.instance().sendTo(new PacketCompassResponse(this, hasResult, spin, radians), (EntityPlayerMP) this.talkBackTo);
-    }
-
-    @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        this.talkBackTo = player;
+        final Optional<BlockPos> result = ServerCompassService.getClosestMeteorite((WorldServer) player.world,
+                this.pos);
 
-        final DimensionalCoord loc = new DimensionalCoord(player.world, this.cx << 4, this.cdy << 5, this.cz << 4);
-        WorldData.instance().compassData().service().getCompassDirection(loc, 174, this);
+        NetworkHandler.instance().sendTo(
+                new PacketCompassResponse(this.pos, result.isPresent(), result.orElse(BlockPos.ORIGIN)),
+                (EntityPlayerMP) player);
     }
 }

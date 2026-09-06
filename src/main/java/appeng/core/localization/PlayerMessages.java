@@ -61,6 +61,10 @@ public enum PlayerMessages {
     PatternUploadNoRoom,
     PatternUploadDuplicate,
     PatternUploadUnsuitable,
+
+    // What /ae2 compass answers
+    CompassTestSuccess,
+    CompassTestFailure,
     ;
 
     public ITextComponent get(Object... params) {
