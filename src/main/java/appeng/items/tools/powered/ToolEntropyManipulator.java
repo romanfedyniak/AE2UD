@@ -46,6 +46,7 @@ import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,6 +80,22 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
         this.heatUp.put(new InWorldToolOperationIngredient(Blocks.WATER, true), new InWorldToolOperationResult());
         this.heatUp.put(new InWorldToolOperationIngredient(Blocks.SNOW, true),
                 new InWorldToolOperationResult(Blocks.FLOWING_WATER.getStateFromMeta(7)));
+    }
+
+    /**
+     * What this tool turns blocks into, for a screen that lists it rather than a player finding out by
+     * clicking. The key is the block state the table is written against; whether that entry matches one
+     * state or the whole block is not something a list needs to say.
+     */
+    public Map<IBlockState, InWorldToolOperationResult> getOperations(final boolean heat) {
+        final Map<InWorldToolOperationIngredient, InWorldToolOperationResult> table = heat ? this.heatUp : this.coolDown;
+        final Map<IBlockState, InWorldToolOperationResult> out = new LinkedHashMap<>(table.size());
+
+        for (final Map.Entry<InWorldToolOperationIngredient, InWorldToolOperationResult> entry : table.entrySet()) {
+            out.put(entry.getKey().state, entry.getValue());
+        }
+
+        return out;
     }
 
     private static class InWorldToolOperationIngredient {

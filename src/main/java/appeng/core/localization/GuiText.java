@@ -162,13 +162,7 @@ public enum GuiText {
     SCSInvalid,
     InWorldCrafting,
 
-    inWorldFluix,
-    inWorldPurificationCertus,
-    inWorldPurificationNether,
 
-    inWorldPurificationFluix,
-    inWorldSingularity,
-    ChargedQuartz,
 
     NoSecondOutput,
     OfSecondOutput,
@@ -262,6 +256,13 @@ public enum GuiText {
     FacadeCrafting,
     inWorldCraftingPresses,
     ChargedQuartzFind,
+    JeiCharging,
+    JeiInLiquid,
+    JeiOnExplosion,
+    JeiGrowth,
+    JeiAttune,
+    JeiHeat,
+    JeiCool,
 
     Included,
     Excluded,

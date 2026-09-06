@@ -29,6 +29,7 @@ import appeng.api.config.SortDir;
 import appeng.api.config.TerminalStyle;
 import appeng.api.config.YesNo;
 import appeng.api.util.IConfigManager;
+import appeng.integration.modules.jei.JeiCategory;
 import appeng.api.util.IConfigurableObject;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
@@ -40,7 +41,9 @@ import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.io.File;
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Map;
 
 
 /**
@@ -55,6 +58,8 @@ import java.util.EnumSet;
 public final class AEClientConfig extends Configuration implements IConfigurableObject, IConfigManagerHost {
 
     private static final String CATEGORY = "Client";
+    /** Which recipe categories the mod offers JEI. Display only - nothing here changes a recipe. */
+    private static final String CATEGORY_JEI = "JEI";
 
     private static AEClientConfig instance;
 
@@ -68,6 +73,7 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     private boolean turnToHighlightedBlock = true;
     private boolean showCraftingPins = true;
     private boolean showPlayerPins = true;
+    private final Map<JeiCategory, Boolean> shownCategories = new EnumMap<>(JeiCategory.class);
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
 
     /** False until the file has been read once, so reading it does not write it back a line at a time. */
@@ -151,6 +157,11 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         this.showPlayerPins = this.get(CATEGORY, "showPlayerPins", true,
                 "Whether terminals show persistent player pins.").getBoolean(true);
 
+        for (final JeiCategory category : JeiCategory.values()) {
+            this.shownCategories.put(category,
+                    this.get(CATEGORY_JEI, category.key(), true, category.comment()).getBoolean(true));
+        }
+
         try {
             this.selectedPowerUnit = PowerUnits.valueOf(this.get(CATEGORY, "PowerUnit", this.selectedPowerUnit.name(),
                     this.getListComment(this.selectedPowerUnit)).getString());
@@ -173,6 +184,11 @@ public final class AEClientConfig extends Configuration implements IConfigurable
 
             this.settings.putSetting(e, value);
         }
+    }
+
+    /** Whether this recipe category is offered to JEI at all. A category switched off is never registered. */
+    public boolean shows(final JeiCategory category) {
+        return this.shownCategories.getOrDefault(category, true);
     }
 
     private String getListComment(final Enum value) {
