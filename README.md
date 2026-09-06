@@ -1,6 +1,6 @@
 # Applied Energistics 2 Unofficial Deconstructed
 
-[![Downloads](https://cf.way2muchnoise.eu/ae2ud.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2ud) [![MCVersion](https://cf.way2muchnoise.eu/versions/ae2ud.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2ud) [![GitHub issues](https://img.shields.io/github/issues/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/pulls)
+[![Downloads](https://cf.way2muchnoise.eu/ae2ud.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2ud) [![MCVersion](https://cf.way2muchnoise.eu/versions/ae2ud.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2ud) [![Modrinth](https://img.shields.io/modrinth/dt/IPMPkJXG?logo=modrinth&logoColor=white&label=Downloads&color=00AF5C)](https://modrinth.com/mod/ae2ud) [![GitHub issues](https://img.shields.io/github/issues/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/issues) [![GitHub pull requests](https://img.shields.io/github/issues-pr/romanfedyniak/AE2UD.svg)](https://github.com/romanfedyniak/AE2UD/pulls)
 
 ---
 
