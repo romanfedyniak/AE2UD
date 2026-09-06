@@ -16,7 +16,8 @@ Selected fixes, features, implementation ideas, and reference code have also bee
 
 See [CHANGES.md](https://github.com/romanfedyniak/AE2UD/blob/main/CHANGES.md) for the current feature and fix list.
 Addon authors can find the new extension points in the [upgrade-card API](docs/UPGRADE_API.md) and
-[terminal pin API](docs/TERMINAL_PIN_API.md) guides. Contributors touching the mod integrations should
+[terminal pin API](docs/TERMINAL_PIN_API.md) guides. Pack authors retuning what a meteorite holds want
+the [loot table notes](docs/LOOT_TABLES.md). Contributors touching the mod integrations should
 read the [mixin notes](docs/MIXINS.md).
 
 ## Requirements

@@ -21,6 +21,11 @@ package appeng.loot;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.IMaterials;
+import appeng.core.AppEng;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraft.world.storage.loot.*;
 import net.minecraft.world.storage.loot.conditions.LootCondition;
 import net.minecraft.world.storage.loot.conditions.RandomChance;
@@ -29,8 +34,25 @@ import net.minecraft.world.storage.loot.functions.SetMetadata;
 import net.minecraftforge.event.LootTableLoadEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.util.List;
+import java.util.Random;
+
+import static appeng.worldgen.meteorite.MeteorConstants.METEOR_LOOT_TABLE;
+
 
 public class ChestLoot {
+
+    /**
+     * What goes in the chest at the centre of a meteorite. Rolled through a context that counts what it
+     * has already handed out, so the table can say that a press turns up at most once per chest.
+     */
+    public static List<ItemStack> generateMeteorLoot(final World world, final Random rand) {
+        final LootTable table = world.getLootTableManager()
+                .getLootTableFromLocation(new ResourceLocation(AppEng.MOD_ID, METEOR_LOOT_TABLE));
+
+        return table.generateLootForPools(rand,
+                new TallyingLootContext.Builder((WorldServer) world).build());
+    }
 
     @SubscribeEvent
     public void loadLootTable(LootTableLoadEvent event) {

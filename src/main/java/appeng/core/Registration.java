@@ -76,7 +76,11 @@ import appeng.hooks.WrenchClickHook;
 import appeng.items.materials.ItemMaterial;
 import appeng.items.parts.ItemFacade;
 import appeng.items.parts.ItemPart;
+import appeng.loot.CheckTally;
 import appeng.loot.ChestLoot;
+import appeng.loot.FeatureEnabled;
+import appeng.loot.Tally;
+import appeng.loot.ToRandomOre;
 import appeng.me.cache.*;
 import appeng.recipes.AEItemResolver;
 import appeng.recipes.AERecipeLoader;
@@ -89,6 +93,7 @@ import appeng.spatial.StorageWorldProvider;
 import appeng.tile.AEBaseTile;
 import appeng.util.Platform;
 import appeng.worldgen.MeteoriteWorldGen;
+import appeng.worldgen.meteorite.MeteorConstants;
 import appeng.worldgen.meteorite.heightmap.HeightMapAccessors;
 import appeng.worldgen.QuartzWorldGen;
 import com.google.common.base.Preconditions;
@@ -104,6 +109,9 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.storage.loot.LootTableList;
+import net.minecraft.world.storage.loot.conditions.LootConditionManager;
+import net.minecraft.world.storage.loot.functions.LootFunctionManager;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.World;
@@ -335,6 +343,18 @@ final class Registration {
 
         if (AEConfig.instance().isFeatureEnabled(AEFeature.CHEST_LOOT)) {
             MinecraftForge.EVENT_BUS.register(new ChestLoot());
+        }
+
+        // The meteorite chest. Sky stone is checked as well as the generation: a table naming a block
+        // that does not exist would fail to load, and a meteorite without sky stone is nothing anyway.
+        if (AEConfig.instance().isFeatureEnabled(AEFeature.METEORITE_WORLD_GEN)
+                && AEConfig.instance().isFeatureEnabled(AEFeature.SKY_STONE)) {
+            LootTableList.register(new ResourceLocation(AppEng.MOD_ID, MeteorConstants.METEOR_LOOT_TABLE));
+
+            LootConditionManager.registerCondition(new CheckTally.Serializer());
+            LootConditionManager.registerCondition(new FeatureEnabled.Serializer());
+            LootFunctionManager.registerFunction(new Tally.Serializer());
+            LootFunctionManager.registerFunction(new ToRandomOre.Serializer());
         }
 
         final IGridCacheRegistry gcr = registries.gridCache();

@@ -25,6 +25,9 @@ public final class MeteorConstants {
     /** A meteorite whose height the terrain has not been asked about yet. */
     public static final int UNSET_HEIGHT = Integer.MIN_VALUE;
 
+    /** What fills the chest, in {@code assets/appliedenergistics2/loot_tables}. */
+    public static final String METEOR_LOOT_TABLE = "meteor_loot";
+
     public static final int MIN_METEOR_RADIUS = 2;
     public static final int MAX_METEOR_RADIUS = 8;
 

@@ -22,11 +22,11 @@ package appeng.worldgen.meteorite;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.IBlockDefinition;
-import appeng.api.definitions.IMaterials;
 import appeng.block.storage.BlockSkyChest;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.features.AEFeature;
+import appeng.loot.ChestLoot;
 import appeng.services.compass.ServerCompassService;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
@@ -45,7 +45,6 @@ import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -56,12 +55,9 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.structure.StructureBoundingBox;
-import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -84,13 +80,6 @@ public final class MeteoritePlacer {
     /** Two streams off one seed, so what is in the chest does not shift when the shape changes. */
     private static final long SEED_OFFSET_GEN = 1;
     private static final long SEED_OFFSET_LOOT = 2;
-
-    private static final int SKYSTONE_SPAWN_LIMIT = 12;
-    private static final int MAX_PRESSES = 3;
-
-    private static final String[] NUGGET_ORES = {
-            "nuggetIron", "nuggetCopper", "nuggetTin", "nuggetSilver",
-            "nuggetLead", "nuggetPlatinum", "nuggetNickel", "nuggetAluminium", "nuggetElectrum" };
 
     private final IBlockDefinition skyStoneDefinition;
     private final MeteoriteBlockPutter putter;
@@ -290,60 +279,10 @@ public final class MeteoritePlacer {
         final InventoryAdaptor ap = InventoryAdaptor.getAdaptor(te, EnumFacing.UP);
 
         if (ap != null) {
-            this.addPresses(ap);
-            this.addJunk(ap);
-        }
-    }
-
-    /** One to three of the four presses, never the same one twice in a chest. */
-    private void addPresses(final InventoryAdaptor ap) {
-        final IMaterials materials = AEApi.instance().definitions().materials();
-        final List<ItemStack> presses = new ArrayList<>(4);
-
-        materials.calcProcessorPress().maybeStack(1).ifPresent(presses::add);
-        materials.engProcessorPress().maybeStack(1).ifPresent(presses::add);
-        materials.logicProcessorPress().maybeStack(1).ifPresent(presses::add);
-        materials.siliconPress().maybeStack(1).ifPresent(presses::add);
-
-        Collections.shuffle(presses, this.randomForLoot);
-
-        final int count = Math.min(presses.size(), 1 + this.randomForLoot.nextInt(MAX_PRESSES));
-        for (int i = 0; i < count; i++) {
-            ap.addItems(presses.get(i));
-        }
-    }
-
-    private void addJunk(final InventoryAdaptor ap) {
-        final int rolls = 1 + this.randomForLoot.nextInt(2);
-
-        for (int i = 0; i < rolls; i++) {
-            switch (this.randomForLoot.nextInt(3)) {
-                case 0:
-                    this.skyStoneDefinition.maybeStack(1 + this.randomForLoot.nextInt(SKYSTONE_SPAWN_LIMIT))
-                            .ifPresent(ap::addItems);
-                    break;
-                case 1:
-                    final ItemStack nugget = this.randomNugget();
-                    if (!nugget.isEmpty()) {
-                        ap.addItems(nugget);
-                    }
-                    break;
-                default:
+            for (final ItemStack stack : ChestLoot.generateMeteorLoot(this.world, this.randomForLoot)) {
+                ap.addItems(stack);
             }
         }
-    }
-
-    private ItemStack randomNugget() {
-        final List<ItemStack> possibles = new ArrayList<>();
-
-        for (final String ore : NUGGET_ORES) {
-            possibles.addAll(OreDictionary.getOres(ore));
-        }
-        possibles.add(new ItemStack(Items.GOLD_NUGGET));
-
-        final ItemStack nugget = possibles.get(this.randomForLoot.nextInt(possibles.size())).copy();
-        nugget.setCount(1 + this.randomForLoot.nextInt(SKYSTONE_SPAWN_LIMIT));
-        return nugget;
     }
 
     /**
