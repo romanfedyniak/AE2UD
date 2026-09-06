@@ -65,6 +65,11 @@ public enum PlayerMessages {
     // What /ae2 compass answers
     CompassTestSuccess,
     CompassTestFailure,
+
+    // What /ae2 meteorites answers
+    MeteoritesDisabled,
+    MeteoritesFound,
+    MeteoriteAt,
     ;
 
     public ITextComponent get(Object... params) {

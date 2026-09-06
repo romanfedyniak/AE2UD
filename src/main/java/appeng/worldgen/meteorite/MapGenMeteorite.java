@@ -70,19 +70,50 @@ public class MapGenMeteorite extends MapGenStructure {
     @Override
     protected boolean canSpawnStructureAtCoords(final int chunkX, final int chunkZ) {
         final int gridCellSize = gridCellSize();
-        final int gridCellMargin = gridCellMargin(gridCellSize);
-        final int gridX = Math.floorDiv(chunkX << 4, gridCellSize);
-        final int gridZ = Math.floorDiv(chunkZ << 4, gridCellSize);
+        final BlockPos pos = drawPosition(this.rand, this.world.getSeed(),
+                Math.floorDiv(chunkX << 4, gridCellSize), Math.floorDiv(chunkZ << 4, gridCellSize));
+
+        return (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ;
+    }
+
+    /**
+     * Where the meteorite of one cell lands, leaving the generator seeded on that cell - which is what
+     * {@link #getStructureStart} then draws the meteorite's own seed from.
+     */
+    private static BlockPos drawPosition(final Random rand, final long worldSeed, final int gridX,
+            final int gridZ) {
+        final int size = gridCellSize();
+        final int margin = gridCellMargin(size);
 
         // The cell's own seed, mixed the way the chunk seed FML hands out is mixed.
-        Platform.seedFromGrid(this.rand, this.world.getSeed(), gridX, gridZ, 0);
+        Platform.seedFromGrid(rand, worldSeed, gridX, gridZ, 0);
 
-        final int meteorX = gridX * gridCellSize + this.rand.nextInt(gridCellSize - 2 * gridCellMargin)
-                + gridCellMargin;
-        final int meteorZ = gridZ * gridCellSize + this.rand.nextInt(gridCellSize - 2 * gridCellMargin)
-                + gridCellMargin;
+        return new BlockPos(
+                gridX * size + rand.nextInt(size - 2 * margin) + margin,
+                MeteorConstants.UNSET_HEIGHT,
+                gridZ * size + rand.nextInt(size - 2 * margin) + margin);
+    }
 
-        return (meteorX >> 4) == chunkX && (meteorZ >> 4) == chunkZ;
+    /** Where the meteorite of one cell lands, asked from outside the generator. */
+    public static BlockPos meteoriteIn(final long worldSeed, final int gridX, final int gridZ) {
+        return drawPosition(new Random(), worldSeed, gridX, gridZ);
+    }
+
+    /** The seed the cell holding this position would have given its meteorite. */
+    public static long seedFor(final long worldSeed, final BlockPos pos) {
+        final int size = gridCellSize();
+        final Random rand = new Random();
+
+        // The cell of the chunk this position is in, which is how canSpawnStructureAtCoords asks.
+        drawPosition(rand, worldSeed, Math.floorDiv((pos.getX() >> 4) << 4, size),
+                Math.floorDiv((pos.getZ() >> 4) << 4, size));
+
+        long meteorSeed = rand.nextLong();
+        while (meteorSeed == 0) {
+            meteorSeed = rand.nextLong();
+        }
+
+        return meteorSeed;
     }
 
     public static int gridCellSize() {
@@ -90,7 +121,7 @@ public class MapGenMeteorite extends MapGenStructure {
     }
 
     /** How far from the edge of its cell a meteorite must stay, so two in neighbouring cells never touch. */
-    public static int gridCellMargin(final int gridCellSize) {
+    private static int gridCellMargin(final int gridCellSize) {
         return Math.max(1, gridCellSize / 10);
     }
 

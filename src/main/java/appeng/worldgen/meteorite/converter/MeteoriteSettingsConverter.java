@@ -11,7 +11,6 @@
 package appeng.worldgen.meteorite.converter;
 
 
-import appeng.util.Platform;
 import appeng.worldgen.meteorite.MapGenMeteorite;
 import appeng.worldgen.meteorite.fallout.FalloutMode;
 import appeng.worldgen.meteorite.settings.CraterLakeState;
@@ -22,8 +21,6 @@ import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-
-import java.util.Random;
 
 
 /**
@@ -71,26 +68,8 @@ public class MeteoriteSettingsConverter {
         return FalloutMode.DEFAULT;
     }
 
-    /**
-     * The old meteorite had no seed of its own, so it is given the one its cell would have produced - the
-     * same draw {@link MapGenMeteorite#getStructureStart} makes, after the two the position took.
-     */
+    /** The old meteorite had no seed of its own, so it is given the one its cell would have produced. */
     public static long generateSeed(final BlockPos pos, final World world) {
-        final int gridCellSize = MapGenMeteorite.gridCellSize();
-        final int gridCellMargin = MapGenMeteorite.gridCellMargin(gridCellSize);
-        final int gridX = Math.floorDiv((pos.getX() >> 4) << 4, gridCellSize);
-        final int gridZ = Math.floorDiv((pos.getZ() >> 4) << 4, gridCellSize);
-
-        final Random rand = new Random();
-        Platform.seedFromGrid(rand, world.getSeed(), gridX, gridZ, 0);
-        rand.nextInt(gridCellSize - 2 * gridCellMargin);
-        rand.nextInt(gridCellSize - 2 * gridCellMargin);
-
-        long meteorSeed = rand.nextLong();
-        while (meteorSeed == 0) {
-            meteorSeed = rand.nextLong();
-        }
-
-        return meteorSeed;
+        return MapGenMeteorite.seedFor(world.getSeed(), pos);
     }
 }

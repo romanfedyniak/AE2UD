@@ -15,7 +15,8 @@ resource pack or another mod may replace it outright. Two pools are in the file 
 * `junk` — one to three lots of sky stone or of a nugget, two thirds of the time.
 
 The table is rolled once per meteorite, with the meteorite's own seed, so the same world seed always
-gives the same chest.
+gives the same chest. `/ae2 meteorites` lists where they are without generating anything, which is a
+quicker way to check a change than exploring for one.
 
 It is registered only when both `MeteoriteWorldGen` and `SkyStone` are enabled. With either switched off
 the table is never loaded, because it names blocks that would not exist.

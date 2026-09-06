@@ -108,6 +108,9 @@ chat.appliedenergistics2.PatternUploadDuplicate=That pattern is already in there
 chat.appliedenergistics2.PatternUploadUnsuitable=Nothing there will run a pattern like this one.
 chat.appliedenergistics2.CompassTestSuccess=Compass region says %s, and a meteorite is at %s, %s, %s.
 chat.appliedenergistics2.CompassTestFailure=Compass region says %s, but there is no meteorite here.
+chat.appliedenergistics2.MeteoritesDisabled=Meteorite generation is switched off in this dimension.
+chat.appliedenergistics2.MeteoritesFound=%s meteorites are predicted within %s blocks:
+chat.appliedenergistics2.MeteoriteAt=  x=%s, z=%s - %s blocks away
 chat.appliedenergistics2.TerminalModeNotUnlocked=Your wireless terminal does not have that mode yet.
 chat.appliedenergistics2.DeviceNotLinked=Device is not linked.
 chat.appliedenergistics2.StationCanNotBeLocated=Station can not be located.
@@ -884,6 +887,7 @@ commands.ae2.ChunkLogger=Toggles Chunk Loading and unloading to the server log. 
 commands.ae2.ChunkLoggerOn=Chunk Logging is now on
 commands.ae2.ChunkLoggerOff=Chunk Logging is now off
 commands.ae2.Compass=Reports whether the compass believes there is a meteorite in this chunk, and whether there really is. ( OP )
+commands.ae2.Meteorites=Lists where the meteorites around you are, worked out from the world seed without generating anything. Takes an optional range in blocks. ( OP )
 commands.ae2.Supporters=Displays a list of AE2 Supporters
 
 // Achievements
