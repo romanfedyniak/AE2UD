@@ -175,6 +175,21 @@ public class Platform {
      * @param isRate if true it adds a /t to the formatted string
      * @return formatted long value
      */
+    /**
+     * Seeds a generator from a square of the world rather than from one chunk, mixed the way the chunk
+     * seed FML hands a world generator is mixed. Every chunk of a square gets the same stream, which is
+     * what lets a chunk work out what its square holds without asking any of its neighbours.
+     */
+    public static void seedFromGrid(final Random rng, final long worldSeed, final long x, final long z,
+            final int offset) {
+        rng.setSeed(worldSeed);
+
+        final long xSeed = rng.nextLong() >> 2 + 1L;
+        final long zSeed = rng.nextLong() >> 2 + 1L;
+
+        rng.setSeed(((xSeed * x + zSeed * z) ^ worldSeed) + offset);
+    }
+
     public static String formatPowerLong(final long n, final boolean isRate) {
         double p = ((double) n) / 100;
 

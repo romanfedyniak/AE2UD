@@ -89,6 +89,7 @@ import appeng.spatial.StorageWorldProvider;
 import appeng.tile.AEBaseTile;
 import appeng.util.Platform;
 import appeng.worldgen.MeteoriteWorldGen;
+import appeng.worldgen.meteorite.heightmap.HeightMapAccessors;
 import appeng.worldgen.QuartzWorldGen;
 import com.google.common.base.Preconditions;
 import net.minecraft.advancements.CriteriaTriggers;
@@ -142,6 +143,9 @@ final class Registration {
     DimensionType storageDimensionType;
     int storageDimensionID;
     Biome storageBiome;
+
+    /** Kept so the placer can reach the areas whose drops it is throwing away. */
+    MeteoriteWorldGen meteoriteGen;
     AdvancementTriggers advancementTriggers;
 
     @SubscribeEvent
@@ -792,7 +796,14 @@ final class Registration {
         }
 
         if (AEConfig.instance().isFeatureEnabled(AEFeature.METEORITE_WORLD_GEN)) {
-            GameRegistry.registerWorldGenerator(new MeteoriteWorldGen(), 0);
+            this.meteoriteGen = new MeteoriteWorldGen();
+            GameRegistry.registerWorldGenerator(this.meteoriteGen,
+                    AEConfig.instance().getMeteoriteGeneratorPriority());
+            this.meteoriteGen.registerStructure();
+
+            MinecraftForge.EVENT_BUS.register(this.meteoriteGen);
+            MinecraftForge.TERRAIN_GEN_BUS.register(HeightMapAccessors.class);
+            MinecraftForge.EVENT_BUS.register(HeightMapAccessors.class);
         }
 
         final IMovableRegistry mr = registries.movable();

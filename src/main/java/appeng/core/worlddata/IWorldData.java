@@ -38,6 +38,4 @@ public interface IWorldData {
     @Nonnull
     IWorldPlayerData playerData();
 
-    @Nonnull
-    IWorldSpawnData spawnData();
 }

@@ -21,6 +21,7 @@ package appeng.core.worlddata;
 
 import appeng.core.AEConfig;
 import appeng.services.compass.converter.CompassDataConverter;
+import appeng.worldgen.meteorite.converter.MeteoriteDataConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import net.minecraft.server.MinecraftServer;
@@ -55,7 +56,6 @@ public final class WorldData implements IWorldData {
 
     private final IWorldPlayerData playerData;
     private final IWorldGridStorageData storageData;
-    private final IWorldSpawnData spawnData;
 
     private final List<IOnWorldStartable> startables;
     private final List<IOnWorldStoppable> stoppables;
@@ -80,15 +80,16 @@ public final class WorldData implements IWorldData {
         final PlayerData playerData = new PlayerData(this.sharedConfig);
         final StorageData storageData = new StorageData(this.sharedConfig);
 
-        final IWorldSpawnData spawnData = new SpawnData(this.spawnDirectory);
         final CompassDataConverter compassDataConverter = new CompassDataConverter(this.compassDirectory);
+        final MeteoriteDataConverter meteoriteDataConverter = new MeteoriteDataConverter(this.spawnDirectory);
 
         this.playerData = playerData;
         this.storageData = storageData;
-        this.spawnData = spawnData;
 
-        this.startables = Lists.newArrayList(playerData, storageData, compassDataConverter);
-        this.stoppables = Lists.newArrayList(playerData, storageData, compassDataConverter);
+        this.startables = Lists.newArrayList(playerData, storageData, compassDataConverter,
+                meteoriteDataConverter);
+        this.stoppables = Lists.newArrayList(playerData, storageData, compassDataConverter,
+                meteoriteDataConverter);
     }
 
     /**
@@ -169,9 +170,4 @@ public final class WorldData implements IWorldData {
         return this.playerData;
     }
 
-    @Nonnull
-    @Override
-    public IWorldSpawnData spawnData() {
-        return this.spawnData;
-    }
 }

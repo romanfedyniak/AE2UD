@@ -28,6 +28,7 @@ import appeng.core.stats.AdvancementTriggers;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.worlddata.WorldData;
+import appeng.worldgen.MeteoriteWorldGen;
 import appeng.helpers.NonBlockingItems;
 import appeng.hooks.TickHandler;
 import appeng.integration.IntegrationRegistry;
@@ -101,6 +102,10 @@ public final class AppEng {
     @Mod.InstanceFactory
     public static AppEng instance() {
         return INSTANCE;
+    }
+
+    public MeteoriteWorldGen getMeteoriteGen() {
+        return this.registration.meteoriteGen;
     }
 
     public Biome getStorageBiome() {

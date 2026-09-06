@@ -15,7 +15,8 @@ package appeng.core.worlddata.converter;
  * The kinds of old data a save can still be carrying, each remembering its own version.
  */
 public enum Converters {
-    COMPASS("compass_version");
+    COMPASS("compass_version"),
+    METEOR_SPAWN("meteor_spawn_version");
 
     private final String versionKey;
 

@@ -102,10 +102,10 @@ public final class AEConfig extends Configuration {
     private int quartzOresClusterAmount = 15;
     // Meteors
     private int minMeteoriteDistance = 707;
-    private int minMeteoriteDistanceSq = this.minMeteoriteDistance * this.minMeteoriteDistance;
     private double meteoriteClusterChance = 0.1;
     private int meteoriteMaximumSpawnHeight = 180;
     private int[] meteoriteDimensionWhitelist = {0};
+    private int meteoriteGeneratorPriority = 0;
     // Wireless
     private double wirelessBaseCost = 8;
     private double wirelessCostMultiplier = 1;
@@ -148,15 +148,21 @@ public final class AEConfig extends Configuration {
         this.oreDoublePercentage = this.get("GrindStone", "oreDoublePercentage", this.oreDoublePercentage, "Chance to actually get an output with stacksize > 1.").getDouble(this.oreDoublePercentage);
 
         this.spawnChargedChance = (float) (1.0 - this.get("worldGen", "spawnChargedChance", 1.0 - this.spawnChargedChance).getDouble(1.0 - this.spawnChargedChance));
-        this.minMeteoriteDistance = this.get("worldGen", "minMeteoriteDistance", this.minMeteoriteDistance).getInt(this.minMeteoriteDistance);
+        this.minMeteoriteDistance = this.get("worldGen", "minMeteoriteDistance", this.minMeteoriteDistance,
+                "The side of the square each meteorite is placed in, in blocks - so it sets how many there are."
+                        + " Two in neighbouring squares can end up as close as a fifth of it, so it is not a"
+                        + " guaranteed distance.").getInt(this.minMeteoriteDistance);
         this.meteoriteClusterChance = this.get("worldGen", "meteoriteClusterChance", this.meteoriteClusterChance).getDouble(this.meteoriteClusterChance);
         this.meteoriteMaximumSpawnHeight = this.get("worldGen", "meteoriteMaximumSpawnHeight", this.meteoriteMaximumSpawnHeight).getInt(this.meteoriteMaximumSpawnHeight);
         this.meteoriteDimensionWhitelist = this.get("worldGen", "meteoriteDimensionWhitelist", this.meteoriteDimensionWhitelist).getIntList();
+        this.meteoriteGeneratorPriority = this.get("worldGen", "meteoriteGeneratorPriority",
+                this.meteoriteGeneratorPriority,
+                "Where meteorites sit among the world generators of other mods. Lower runs earlier.")
+                .getInt(this.meteoriteGeneratorPriority);
 
         this.quartzOresPerCluster = this.get("worldGen", "quartzOresPerCluster", this.quartzOresPerCluster).getInt(this.quartzOresPerCluster);
         this.quartzOresClusterAmount = this.get("worldGen", "quartzOresClusterAmount", this.quartzOresClusterAmount).getInt(this.quartzOresClusterAmount);
 
-        this.minMeteoriteDistanceSq = this.minMeteoriteDistance * this.minMeteoriteDistance;
 
         this.addCustomCategoryComment("wireless", "Range= wirelessBaseRange + wirelessBoosterRangeMultiplier * Math.pow( boosters, wirelessBoosterExp )\nPowerDrain= wirelessBaseCost + wirelessCostMultiplier * Math.pow( boosters, 1 + boosters / wirelessHighWirelessCount )");
 
@@ -599,10 +605,6 @@ public final class AEConfig extends Configuration {
         return this.minMeteoriteDistance;
     }
 
-    public int getMinMeteoriteDistanceSq() {
-        return this.minMeteoriteDistanceSq;
-    }
-
     public double getMeteoriteClusterChance() {
         return this.meteoriteClusterChance;
     }
@@ -613,6 +615,10 @@ public final class AEConfig extends Configuration {
 
     public int[] getMeteoriteDimensionWhitelist() {
         return this.meteoriteDimensionWhitelist;
+    }
+
+    public int getMeteoriteGeneratorPriority() {
+        return this.meteoriteGeneratorPriority;
     }
 
     public double getWirelessBaseCost() {
