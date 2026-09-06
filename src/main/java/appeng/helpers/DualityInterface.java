@@ -155,6 +155,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private int isWorking = -1;
     private EnumSet<EnumFacing> visitedFaces = EnumSet.noneOf(EnumFacing.class);
     private EnumMap<EnumFacing, List<ItemStack>> waitingToSendFacing = new EnumMap<>(EnumFacing.class);
+    /** The last pattern each face was handed, which is what smart blocking lets through a second time. */
+    private final EnumMap<EnumFacing, ICraftingPatternDetails> lastRan = new EnumMap<>(EnumFacing.class);
     private boolean resetConfigCache = true;
     private MEStorage configCachedHandler;
 
@@ -170,7 +172,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.gridProxy.setFlags(GridFlags.REQUIRE_CHANNEL);
 
         this.upgrades = new StackUpgradeInventory(this.gridProxy.getMachineRepresentation(), this, 4);
-        this.cm.registerSetting(Settings.BLOCK, YesNo.NO);
+        this.cm.registerSetting(Settings.BLOCK, BlockingMode.NO);
         this.cm.registerSetting(Settings.PATTERN_ACCESS_TERMINAL, YesNo.YES);
         this.cm.registerSetting(Settings.UNLOCK, LockCraftingMode.NONE);
 
@@ -486,6 +488,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 newPattern = true;
                 this.addToCraftingList(this.patterns.getStackInSlot(x));
             }
+        }
+
+        if (removed) {
+            // A face remembering a pattern this interface no longer carries would hold the exception open
+            // for a recipe it cannot run.
+            this.lastRan.values().removeIf(pattern -> !this.craftingList.contains(pattern));
         }
 
         if (newPattern || removed) {
@@ -1292,6 +1300,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         if (cm instanceof PartP2PInterface) {
                             this.visitedFaces.clear();
                         }
+                        // Blocking on this face is the machine's own, not ours - but it is still blocking,
+                        // and the crafting engine has to be told this pattern is worth another try.
+                        this.lastRan.put(s, patternDetails);
                         onPushPatternSuccess(patternDetails);
                         return true;
                     }
@@ -1301,7 +1312,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
             InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
             if (ad != null && !fabricated) {
-                if (this.isBlocking()) {
+                if (this.isBlocking() && !(this.isSmartBlocking() && this.ranLastOnFace(s, patternDetails))) {
                     IPhantomTile phantomTE;
                     if (Platform.isModLoaded("actuallyadditions") && te instanceof IPhantomTile) {
                         phantomTE = ((IPhantomTile) te);
@@ -1334,6 +1345,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         }
                     }
                     this.pushExtras(s, extraInputs);
+                    this.lastRan.put(s, patternDetails);
                     onPushPatternSuccess(patternDetails);
                     pushItemsOut(s);
                     return true;
@@ -1492,8 +1504,47 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return grid == this.gridProxy.getGrid();
     }
 
+    public BlockingMode getBlockingMode() {
+        return (BlockingMode) this.cm.getSetting(Settings.BLOCK);
+    }
+
     public boolean isBlocking() {
-        return this.cm.getSetting(Settings.BLOCK) == YesNo.YES;
+        return this.getBlockingMode() != BlockingMode.NO;
+    }
+
+    public boolean isSmartBlocking() {
+        return this.getBlockingMode() == BlockingMode.SMART;
+    }
+
+    /**
+     * Whether this face was the one handed this pattern last, and so has a machine part way through the
+     * very recipe being offered - which has room for another helping of it. Kept per face because an
+     * interface looks at up to six machines, and the one running this recipe is not the one that must not
+     * be handed a second.
+     * <p>
+     * The hash is the gate and the comparison is the answer: a hash is four bytes of a pattern, two of them
+     * can collide, and here that would mean the wrong recipe going into a busy machine, silently.
+     */
+    private boolean ranLastOnFace(final EnumFacing side, final ICraftingPatternDetails pattern) {
+        final ICraftingPatternDetails last = this.lastRan.get(side);
+        return last != null && last.hashCode() == pattern.hashCode() && last.equals(pattern);
+    }
+
+    /**
+     * Whether any face would, which is as much as the crafting engine needs to know: it only decides
+     * whether trying is worth it, and {@link #pushPattern} settles which face actually takes the pattern.
+     */
+    public boolean acceptsWhileBusy(final ICraftingPatternDetails pattern) {
+        if (!this.isSmartBlocking()) {
+            return false;
+        }
+
+        for (final EnumFacing side : this.lastRan.keySet()) {
+            if (this.ranLastOnFace(side, pattern)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

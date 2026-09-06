@@ -173,8 +173,9 @@ public class GuiImgButton extends GuiButton implements ITooltip {
             this.registerApp(81, Settings.FULLNESS_MODE, FullnessMode.HALF, ButtonToolTips.OperationMode, ButtonToolTips.MoveWhenWorkIsDone);
             this.registerApp(82, Settings.FULLNESS_MODE, FullnessMode.FULL, ButtonToolTips.OperationMode, ButtonToolTips.MoveWhenFull);
 
-            this.registerApp(16 + 5, Settings.BLOCK, YesNo.YES, ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.Blocking);
-            this.registerApp(16 + 4, Settings.BLOCK, YesNo.NO, ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.NonBlocking);
+            this.registerApp(16 + 5, Settings.BLOCK, BlockingMode.YES, ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.Blocking);
+            this.registerApp(16 + 4, Settings.BLOCK, BlockingMode.NO, ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.NonBlocking);
+            this.registerApp(16 * 3 + 10, Settings.BLOCK, BlockingMode.SMART, ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.SmartBlocking);
 
             this.registerApp(16 + 3, Settings.CRAFT_ONLY, YesNo.YES, ButtonToolTips.Craft, ButtonToolTips.CraftOnly);
             this.registerApp(16 + 2, Settings.CRAFT_ONLY, YesNo.NO, ButtonToolTips.Craft, ButtonToolTips.CraftEither);

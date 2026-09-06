@@ -106,6 +106,7 @@ public enum ButtonToolTips {
 
     Blocking,
     NonBlocking,
+    SmartBlocking,
 
     CpuSelectionMode,
     CpuSelectionModeAny,

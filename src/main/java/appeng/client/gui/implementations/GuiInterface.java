@@ -19,6 +19,7 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
@@ -80,7 +81,7 @@ public class GuiInterface extends GuiUpgradeable {
         this.priority = GuiTabButton.priority(this.guiLeft + 154, this.guiTop, this.itemRender);
         this.buttonList.add(this.priority);
 
-        this.BlockMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.BLOCK, YesNo.NO);
+        this.BlockMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.BLOCK, BlockingMode.NO);
         this.buttonList.add(this.BlockMode);
 
         this.UnlockMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 26, Settings.UNLOCK, LockCraftingMode.NONE);

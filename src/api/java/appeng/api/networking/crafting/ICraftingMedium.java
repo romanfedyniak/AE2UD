@@ -88,6 +88,18 @@ public interface ICraftingMedium
 	boolean isBusy();
 
 	/**
+	 * Whether this medium will take one particular pattern even though {@link #isBusy()} says it is busy.
+	 * Asked only after that, so a medium answering false behaves exactly as it did before this existed.
+	 * <p>
+	 * The two are split because they cost differently: a busy answer is worth working out once a tick and
+	 * remembering, while this one depends on the pattern and has to be cheap.
+	 */
+	default boolean acceptsWhileBusy( ICraftingPatternDetails details )
+	{
+		return false;
+	}
+
+	/**
 	 * Whether a pattern pushed here is finished the moment it leaves - nothing comes back, and the job is
 	 * settled as if it had. For a machine chain that carries its own results, or one that consumes them.
 	 * <p>

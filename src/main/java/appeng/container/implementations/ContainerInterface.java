@@ -38,7 +38,7 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
     private final DualityInterface myDuality;
 
     @GuiSync(3)
-    public YesNo bMode = YesNo.NO;
+    public BlockingMode bMode = BlockingMode.NO;
 
     @GuiSync(4)
     public LockCraftingMode lMode = LockCraftingMode.NONE;
@@ -146,7 +146,7 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
 
     @Override
     protected void loadSettingsFromHost(final IConfigManager cm) {
-        this.setBlockingMode((YesNo) cm.getSetting(Settings.BLOCK));
+        this.setBlockingMode((BlockingMode) cm.getSetting(Settings.BLOCK));
         this.setUnlockMode((LockCraftingMode) cm.getSetting(Settings.UNLOCK));
         this.setPatternAccessMode((YesNo) cm.getSetting(Settings.PATTERN_ACCESS_TERMINAL));
     }
@@ -155,11 +155,11 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
 
     public void setUnlockMode(final LockCraftingMode mode) {this.lMode = mode;}
 
-    public YesNo getBlockingMode() {
+    public BlockingMode getBlockingMode() {
         return this.bMode;
     }
 
-    private void setBlockingMode(final YesNo bMode) {
+    private void setBlockingMode(final BlockingMode bMode) {
         this.bMode = bMode;
     }
 

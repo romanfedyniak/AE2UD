@@ -2208,6 +2208,19 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     64 and 256 parallel operations each, from the same fork. Upstream's co-processor is worth one, and still
     is; nothing existing changed.
 
+43. **`BlockingMode`** - widening. `Settings.BLOCK` was `EnumSet.of(YesNo.YES, YesNo.NO)` and is now
+    `EnumSet.allOf(BlockingMode.class)`, whose constants are `NO`, `YES` and the new `SMART`. A setting is
+    written down by the name of its constant and read back with `Enum.valueOf` against the registered
+    default's class, so the first two names being the ones they replaced is what makes every world saved
+    before this read back unchanged - no migration. The third value comes from GTNewHorizons' Applied
+    Energistics 2 Unofficial, which spends a second setting on it; upstream has two values here.
+
+44. **`ICraftingMedium.acceptsWhileBusy`** - additive, defaulted. Whether a medium takes one particular
+    pattern even though `isBusy()` said it is busy. Split from `isBusy()` rather than folded into it as an
+    overload because the two cost differently: the crafting CPU works a busy answer out once a tick and
+    remembers it per medium, and that cache is only sound while the answer does not depend on the pattern.
+    A medium that does not override it behaves exactly as before.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

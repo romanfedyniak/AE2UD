@@ -519,6 +519,7 @@ gui.tooltips.appliedenergistics2.HideStored=Hide stored items
 gui.tooltips.appliedenergistics2.Enable=Enabled
 gui.tooltips.appliedenergistics2.Blocking=Do not push crafting items if inventory contains items.
 gui.tooltips.appliedenergistics2.NonBlocking=Ignore the contents of the target inventory.
+gui.tooltips.appliedenergistics2.SmartBlocking=As blocking, but another helping of the recipe a machine was last given still goes in.
 gui.tooltips.appliedenergistics2.CpuSelectionMode=CPU Auto-Selection Mode
 gui.tooltips.appliedenergistics2.CpuSelectionModeAny=For requests by players or automation
 gui.tooltips.appliedenergistics2.CpuSelectionModePlayersOnly=Only for requests by players

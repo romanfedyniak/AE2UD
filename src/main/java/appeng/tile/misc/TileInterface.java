@@ -275,6 +275,11 @@ public class TileInterface extends AENetworkInvTile implements IGridTickable, II
     }
 
     @Override
+    public boolean acceptsWhileBusy(final ICraftingPatternDetails details) {
+        return this.duality.acceptsWhileBusy(details);
+    }
+
+    @Override
     public void provideCrafting(final ICraftingProviderHelper craftingTracker) {
         this.duality.provideCrafting(craftingTracker);
     }

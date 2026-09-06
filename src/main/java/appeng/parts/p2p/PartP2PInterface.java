@@ -19,6 +19,7 @@
 package appeng.parts.p2p;
 
 
+import appeng.api.config.BlockingMode;
 import appeng.api.implementations.tiles.ICraftingMachine;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
@@ -83,6 +84,13 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
 
     /** An output may face another tunnel's input; this stops a pair pointed at each other from recursing. */
     private boolean visiting;
+
+    /**
+     * The last pattern this output handed to its machine. Kept here rather than on the interface because
+     * through a tunnel the interface has one face and many machines, and smart blocking has to know which
+     * of them is running the recipe being offered.
+     */
+    private ICraftingPatternDetails lastRan;
 
     public PartP2PInterface(final ItemStack is) {
         super(is);
@@ -173,9 +181,11 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             final List<PartP2PInterface> outputs = this.getOutputList();
             final int count = outputs.size();
 
+            final BlockingMode blocking = this.sourceBlockingMode();
+
             for (int i = 0; i < count; i++) {
                 final int index = Math.floorMod(this.nextOutput + i, count);
-                if (outputs.get(index).accept(patternDetails, table, this.isSourceBlocking())) {
+                if (outputs.get(index).accept(patternDetails, table, blocking)) {
                     // Start at the next one, so a second pattern in the same tick goes to a second machine.
                     this.nextOutput = Math.floorMod(index + 1, count);
                     return true;
@@ -188,13 +198,15 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     }
 
     /**
-     * Whether the interface being served has blocking mode on. It is the interface's setting rather than the
-     * tunnel's, but it is applied per output: a machine that still holds something is skipped and the next
-     * one tried, which is the whole point of driving many machines from one interface.
+     * How hard the interface being served refuses a busy machine. It is the interface's setting rather than
+     * the tunnel's, but it is applied per output: a machine that still holds something is skipped and the
+     * next one tried, which is the whole point of driving many machines from one interface. Smart blocking
+     * is judged per output for that same reason - the machine running this recipe is the one that may have
+     * another helping of it, and its neighbours may not.
      */
-    private boolean isSourceBlocking() {
+    private BlockingMode sourceBlockingMode() {
         final DualityInterface duality = this.getServedInterface();
-        return duality != null && duality.isBlocking();
+        return duality == null ? BlockingMode.NO : duality.getBlockingMode();
     }
 
     /**
@@ -245,7 +257,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
      * the table directly; anything else is loaded through the send queue.
      */
     private boolean accept(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
-            final boolean blocking) {
+            final BlockingMode blocking) {
         if (!this.isOutput() || !this.getProxy().isActive() || this.hasItemsToSend()) {
             return false;
         }
@@ -266,7 +278,8 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             return false;
         }
 
-        if (blocking && ad.containsItems()) {
+        if (blocking != BlockingMode.NO && ad.containsItems()
+                && !(blocking == BlockingMode.SMART && this.ranLast(patternDetails))) {
             return false;
         }
 
@@ -281,8 +294,15 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             }
         }
 
+        this.lastRan = patternDetails;
         this.pushItemsOut();
         return true;
+    }
+
+    /** As {@code DualityInterface.ranLastOnFace}: hash as the gate, comparison as the answer. */
+    private boolean ranLast(final ICraftingPatternDetails pattern) {
+        return this.lastRan != null && this.lastRan.hashCode() == pattern.hashCode()
+                && this.lastRan.equals(pattern);
     }
 
     public boolean hasItemsToSend() {

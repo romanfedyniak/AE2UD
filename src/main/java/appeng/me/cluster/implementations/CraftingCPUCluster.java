@@ -693,7 +693,8 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // executeCrafting runs again for as long as anything moved, so within one tick the same task can be
         // asked several times. A task that has already answered "not enough ingredients", and a medium that
         // has already answered "busy", will answer the same on every re-pass - both are remembered for the
-        // tick and forgotten at the end of it, so nothing stays skipped for longer than that.
+        // tick and forgotten at the end of it, so nothing stays skipped for longer than that. What a busy
+        // medium will take anyway is not remembered with it: that depends on the pattern being offered.
         this.workableTasks.clear();
         this.workableTasks.putAll(this.tasks);
         this.busyMediums.clear();
@@ -757,13 +758,18 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                     ICraftingMedium m = visitedMediums.get(details).poll();
 
-                    if (e.getValue().value <= 0 || m == null || this.busyMediums.contains(m)) {
+                    if (e.getValue().value <= 0 || m == null) {
                         continue;
                     }
 
-                    if (m.isBusy()) {
+                    // Busy is worked out once a tick and remembered; whether this particular pattern
+                    // gets through anyway is asked every time, because it depends on the pattern.
+                    if (this.busyMediums.contains(m) || m.isBusy()) {
                         this.busyMediums.add(m);
-                        continue;
+
+                        if (!m.acceptsWhileBusy(details)) {
+                            continue;
+                        }
                     }
 
                     if (this.backedOff(details, m)) {

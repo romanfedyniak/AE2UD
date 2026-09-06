@@ -62,7 +62,7 @@ public enum Settings
 
 	UNLOCK(EnumSet.allOf(LockCraftingMode.class)),
 
-	BLOCK( EnumSet.of( YesNo.YES, YesNo.NO ) ),
+	BLOCK( EnumSet.allOf( BlockingMode.class ) ),
 
 	OPERATION_MODE( EnumSet.allOf( OperationMode.class ) ),
 

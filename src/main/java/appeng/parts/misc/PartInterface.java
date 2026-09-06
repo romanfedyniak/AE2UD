@@ -262,6 +262,11 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
     }
 
     @Override
+    public boolean acceptsWhileBusy(final ICraftingPatternDetails details) {
+        return this.duality.acceptsWhileBusy(details);
+    }
+
+    @Override
     public void provideCrafting(final ICraftingProviderHelper craftingTracker) {
         this.duality.provideCrafting(craftingTracker);
     }
