@@ -45,6 +45,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.behaviors.StackExportStrategy;
 import appeng.api.behaviors.StackWorldBehaviors;
@@ -157,6 +158,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private EnumMap<EnumFacing, List<ItemStack>> waitingToSendFacing = new EnumMap<>(EnumFacing.class);
     /** The last pattern each face was handed, which is what smart blocking lets through a second time. */
     private final EnumMap<EnumFacing, ICraftingPatternDetails> lastRan = new EnumMap<>(EnumFacing.class);
+
+    /**
+     * Every key type other than items that some pattern here pushes. What blocking has to look for in a
+     * neighbour beside its item slots, when there is no pattern in hand to ask - which is {@link #isBusy()}.
+     */
+    private Set<AEKeyType> pushedTypes = Collections.emptySet();
     private boolean resetConfigCache = true;
     private MEStorage configCachedHandler;
 
@@ -497,6 +504,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         }
 
         if (newPattern || removed) {
+            this.pushedTypes = this.craftingList == null ? Collections.emptySet() : typesOf(this.craftingList);
+
             try {
                 this.gridProxy.getGrid().postEvent(new MENetworkCraftingPatternChange(this, this.gridProxy.getNode()));
             } catch (GridAccessException e) {
@@ -1198,6 +1207,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         // takes in a real bucket, which would mint one out of water on every craft.
         final boolean fabricated = patternDetails.canSubstituteFluids();
 
+        // Only what this pattern actually pushes, not everything this interface can: a machine holding a
+        // coolant no recipe here asks for is not busy with anything.
+        final Set<AEKeyType> extraTypes = typesOf(extraInputs);
+
         for (final EnumFacing s : visitedFaces) {
             final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
             if (te == null) {
@@ -1313,6 +1326,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
             if (ad != null && !fabricated) {
                 if (this.isBlocking() && !(this.isSmartBlocking() && this.ranLastOnFace(s, patternDetails))) {
+                    if (this.holdsAnyOf(s, extraTypes)) {
+                        visitedFaces.remove(s);
+                        continue;
+                    }
+
                     IPhantomTile phantomTE;
                     if (Platform.isModLoaded("actuallyadditions") && te instanceof IPhantomTile) {
                         phantomTE = ((IPhantomTile) te);
@@ -1471,19 +1489,19 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         if (phantomTE.hasBoundPosition()) {
                             TileEntity phantom = w.getTileEntity(phantomTE.getBoundPosition());
                             if (NonBlockingItems.INSTANCE.getMap().containsKey(w.getBlockState(phantomTE.getBoundPosition()).getBlock().getRegistryName().getNamespace())) {
-                                if (!isCustomInvBlocking(phantom, s)) {
+                                if (!isCustomInvBlocking(phantom, s) && !this.holdsAnyOf(s, this.pushedTypes)) {
                                     allAreBusy = false;
                                     break;
                                 }
                             }
                         }
                     } else if (NonBlockingItems.INSTANCE.getMap().containsKey(w.getBlockState(tile.getPos().offset(s)).getBlock().getRegistryName().getNamespace())) {
-                        if (!isCustomInvBlocking(te, s)) {
+                        if (!isCustomInvBlocking(te, s) && !this.holdsAnyOf(s, this.pushedTypes)) {
                             allAreBusy = false;
                             break;
                         }
                     } else {
-                        if (!invIsBlocked(ad)) {
+                        if (!invIsBlocked(ad) && !this.holdsAnyOf(s, this.pushedTypes)) {
                             allAreBusy = false;
                             break;
                         }
@@ -1510,6 +1528,73 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     public boolean isBlocking() {
         return this.getBlockingMode() != BlockingMode.NO;
+    }
+
+    /**
+     * Every key type but items among these patterns' ingredients. Items are left out because the item
+     * slots are asked about separately, and far more cheaply, by {@link #invIsBlocked}.
+     */
+    private static Set<AEKeyType> typesOf(final Iterable<ICraftingPatternDetails> patterns) {
+        Set<AEKeyType> types = null;
+
+        for (final ICraftingPatternDetails pattern : patterns) {
+            for (final GenericStack input : pattern.getInputs()) {
+                if (input != null && input.what().getType() != AEKeyType.items()) {
+                    if (types == null) {
+                        types = new HashSet<>();
+                    }
+                    types.add(input.what().getType());
+                }
+            }
+        }
+
+        return types == null ? Collections.emptySet() : types;
+    }
+
+    private static Set<AEKeyType> typesOf(final GenericStack[] stacks) {
+        if (stacks.length == 0) {
+            return Collections.emptySet();
+        }
+
+        final Set<AEKeyType> types = new HashSet<>(stacks.length);
+        for (final GenericStack stack : stacks) {
+            types.add(stack.what().getType());
+        }
+        return types;
+    }
+
+    /**
+     * Whether the neighbour on this side is holding anything of these types. Blocking used to ask the item
+     * adaptor alone, so a machine whose slots were empty but whose tank was full counted as free, and a
+     * pattern made of fluids was never blocked by anything.
+     * <p>
+     * Asked through the same registry a storage bus reads a neighbour with, and named by key type rather
+     * than by fluid, so a type an addon registers is covered by this with no code of its own - as long as
+     * it registers how to read a neighbour and not only how to push into one.
+     */
+    private boolean holdsAnyOf(final EnumFacing side, final Set<AEKeyType> types) {
+        if (types.isEmpty()) {
+            return false;
+        }
+
+        final TileEntity self = this.iHost.getTileEntity();
+        final Map<AEKeyType, ExternalStorageStrategy> strategies = StackWorldBehaviors
+                .createExternalStorageStrategies(self.getWorld(), self.getPos().offset(side), side.getOpposite());
+
+        for (final AEKeyType type : types) {
+            final ExternalStorageStrategy strategy = strategies.get(type);
+            if (strategy == null) {
+                continue;
+            }
+
+            final MEStorage storage = strategy.createWrapper(false, () -> {
+            });
+            if (storage != null && !storage.getAvailableStacks().isEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public boolean isSmartBlocking() {
