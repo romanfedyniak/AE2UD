@@ -216,7 +216,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   hundred when forty are on the shelf still makes a hundred more - with one exception, which is the only way
   a self-feeding pattern could ever start: the first of a thing a loop grows can come from the forty. Bytes are counted by the same rule as before, with
   one difference: a pattern that hands a container back no longer pays for that container on every craft, so
-  such plans are cheaper and fit in a smaller cpu.
+  such plans are cheaper and fit in a smaller cpu. Written up in `docs/CRAFTING_CALCULATION.md` - what the
+  four layers are, which rules the arithmetic follows, what is deliberately not solved, and how to run the
+  tests and the in-game rig against it.
 
 - **A crafting cpu keeps hold of a tool instead of losing it after every craft.** A hammer leaves the cpu whole
   and comes back a little worn, which is a different thing entirely as far as the network is concerned - so

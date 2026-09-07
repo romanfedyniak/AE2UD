@@ -38,7 +38,7 @@ import java.util.Set;
  * Runs the crafting scenarios against the rig standing next to you, and says how the answers differ from the
  * ones recorded as right.
  * <p>
- * {@code /ae2 craftingtest} runs them all and reports differences; {@code baseline} records this run as the
+ * {@code /ae2 CraftingTest} runs them all and reports differences; {@code baseline} records this run as the
  * answers to compare against from now on; naming scenarios runs only those. Recording is deliberately a
  * separate word rather than something that happens when no baseline exists: a baseline is an agreement that
  * the current answers are correct, and nothing should be able to make that agreement by accident.
