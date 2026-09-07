@@ -22,6 +22,7 @@ package appeng.items.misc;
 import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInput;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
@@ -237,8 +238,10 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
 
             GenericStack shown = sparse[x];
 
-            if (details.isContainerFabricated(x)) {
-                final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+            final IPatternInput input = details.getPatternInputs().get(x);
+
+            if (input.isFabricated()) {
+                final GenericStack supplied = input.getSupplied();
                 shown = new GenericStack(supplied.what(), supplied.amount() * sparse[x].amount());
             }
 

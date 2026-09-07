@@ -88,13 +88,13 @@ public interface ICraftingMachine
 
 	/**
 	 * Whether this machine can be given a pattern whose container items the network assembled out of a
-	 * fluid - see {@link ICraftingPatternDetails#isContainerFabricated(int)}.
+	 * fluid - see {@link appeng.api.networking.crafting.IPatternInput#isFabricated()}.
 	 * <p>
 	 * Such a container never existed before the craft and must not survive it, so a machine that hands
 	 * every container back the way an ordinary crafting table does would be minting one out of a fluid on
 	 * every craft. Defaults to false, so a machine written before this existed is simply never offered such
 	 * a pattern rather than quietly duplicating items; the pattern waits for a molecular assembler instead.
-	 * Answer true only if the machine consults {@code isContainerFabricated} and leaves that slot empty.
+	 * Answer true only if the machine consults {@code isFabricated} and leaves that slot empty.
 	 */
 	default boolean acceptsFabricatedContainers()
 	{

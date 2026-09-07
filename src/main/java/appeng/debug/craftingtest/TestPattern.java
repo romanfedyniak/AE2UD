@@ -12,6 +12,7 @@ package appeng.debug.craftingtest;
 
 
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInputs;
 import appeng.api.stacks.GenericStack;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -32,6 +33,7 @@ public final class TestPattern implements ICraftingPatternDetails {
     private final String name;
     private final GenericStack[] inputs;
     private final GenericStack[] outputs;
+    private final IPatternInputs patternInputs;
     private int priority;
 
     public TestPattern(final String name, final GenericStack[] inputs, final GenericStack[] outputs,
@@ -39,6 +41,7 @@ public final class TestPattern implements ICraftingPatternDetails {
         this.name = name;
         this.inputs = inputs;
         this.outputs = outputs;
+        this.patternInputs = IPatternInputs.of(inputs);
         this.priority = priority;
     }
 
@@ -71,8 +74,8 @@ public final class TestPattern implements ICraftingPatternDetails {
     }
 
     @Override
-    public GenericStack[] getCondensedInputs() {
-        return this.inputs;
+    public IPatternInputs getPatternInputs() {
+        return this.patternInputs;
     }
 
     @Override

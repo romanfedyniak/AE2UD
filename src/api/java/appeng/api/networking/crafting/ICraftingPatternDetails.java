@@ -32,9 +32,6 @@ import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
-import java.util.Collections;
-import java.util.List;
-
 
 /**
  * do not implement provided by {@link ICraftingPatternItem}
@@ -69,9 +66,11 @@ public interface ICraftingPatternDetails
 	GenericStack[] getInputs();
 
 	/**
-	 * @return a list of the inputs, will be clean
+	 * Everything the input side says beyond {@link #getInputs()}: what else would do in each slot, which
+	 * slots the network fills in, and the condensed totals. Worked out once and kept - see
+	 * {@link IPatternInputs}.
 	 */
-	GenericStack[] getCondensedInputs();
+	IPatternInputs getPatternInputs();
 
 	/**
 	 * @return a list of the outputs, will be clean
@@ -109,33 +108,6 @@ public interface ICraftingPatternDetails
 	default boolean canSubstituteFluids()
 	{
 		return false;
-	}
-
-	/**
-	 * Whether the container item in the given input slot is assembled for the craft out of a key taken from
-	 * the network, instead of being pulled out of storage as an item.
-	 * <p>
-	 * Such a container never existed before the craft and must not survive it, so whoever performs the craft
-	 * has to leave nothing behind for that slot - see {@code Platform.getRemainingItem}. Note that this is
-	 * decided by the pattern alone and not by what happens to sit in the slot: a slot that answers true is
-	 * <em>only ever</em> supplied that way, which is what lets a molecular assembler still holding a
-	 * half-finished craft work it out again after a reload.
-	 */
-	default boolean isContainerFabricated( int slot )
-	{
-		return false;
-	}
-
-	/**
-	 * The inputs that may stand in for the one encoded in the given slot, most preferred first.
-	 * <p>
-	 * For a slot that {@link #isContainerFabricated(int)} reports, this is the single non-item stack the
-	 * network supplies - a fluid amount rather than the container - and nothing else, because mixing the
-	 * two sources would make the fabricated container indistinguishable from a real one.
-	 */
-	default List<GenericStack> getSubstituteInputs( int slot )
-	{
-		return Collections.emptyList();
 	}
 
 	/**

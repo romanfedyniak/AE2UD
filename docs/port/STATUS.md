@@ -2220,6 +2220,19 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     overload because the two cost differently: the crafting CPU works a busy answer out once a tick and
     remembers it per medium, and that cache is only sound while the answer does not depend on the pattern.
     A medium that does not override it behaves exactly as before.
+45. **`ICraftingPatternDetails.getPatternInputs()`, `IPatternInputs`, `IPatternInput`** - **breaking**.
+    Replaces three loose accessors with one object: `getSubstituteInputs(int)` and
+    `isContainerFabricated(int)` become `getPatternInputs().get(slot).getOptions()` and `.isFabricated()`,
+    and `getCondensedInputs()` becomes `getPatternInputs().getCondensed()`. The interface was mixing two
+    audiences - data a planner needs and behaviour only an executor uses - and the per-slot facts were
+    scattered across methods that had to be called together to mean anything. Amendment 7 put two of them
+    there; this is the same information, gathered. Superseding rather than adding, because two shapes for
+    the same facts drift. Only the planner-facing half moved: `isValidItemForSlot`, `getOutput`,
+    `getPattern`, `isCraftable` and `getInputs`/`getOutputs` are untouched, since replacing those would
+    churn over a hundred call sites that have nothing to do with planning. Whatever an implementation
+    returns must be worked out once and kept - `getCondensed()` is read every tick a crafting CPU runs.
+    This is the shape the crafting-calculation rewrite normalises a pattern through, and it will grow a
+    slot's durability and returned container when there is a solver to read them.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

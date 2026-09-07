@@ -546,9 +546,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         } else if (details.canSubstitute() || details.canSubstituteFluids()) {
             // When substitutions are allowed, we have to keep track of which items we've reserved
             final GenericStack[] inputs = details.getInputs();
+            final IPatternInputs patternInputs = details.getPatternInputs();
             final Map<AEKey, Long> consumedCount = new HashMap<>();
             for (int i = 0; i < inputs.length; i++) {
-                final List<GenericStack> substitutes = details.getSubstituteInputs(i);
+                final List<GenericStack> substitutes = patternInputs.get(i).getOptions();
                 if (substitutes.isEmpty()) {
                     continue;
                 }
@@ -737,7 +738,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
             final ICraftingPatternDetails details = e.getKey();
 
-            if (this.canCraft(details, details.getCondensedInputs())) {
+            if (this.canCraft(details, details.getPatternInputs().getCondensed())) {
                 if (details instanceof VirtualPatternDetails) {
                     // Not a registered pattern, so no medium will ever claim to provide for it -
                     // its ingredients are already gathered at this point, so that's the craft done.
@@ -813,10 +814,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         for (int x = 0; x < input.length; x++) {
                             if (input[x] != null) {
                                 found = false;
+                                final IPatternInput slot = details.getPatternInputs().get(x);
 
-                                if (details.isCraftable() && details.isContainerFabricated(x)
+                                if (details.isCraftable() && slot.isFabricated()
                                         && input[x].what() instanceof AEItemKey containerKey) {
-                                    final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                                    final GenericStack supplied = slot.getSupplied();
                                     final long needed = supplied.amount() * input[x].amount();
 
                                     // Simulate first: a partial draw would have to be undone by hand,
@@ -832,7 +834,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                     final List<GenericStack> itemList;
 
                                     if (details.canSubstitute()) {
-                                        final List<GenericStack> substitutes = details.getSubstituteInputs(x);
+                                        final List<GenericStack> substitutes = slot.getOptions();
                                         itemList = new ArrayList<>();
 
                                         for (final GenericStack sub : substitutes) {
@@ -1060,8 +1062,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      */
     private void putBack(final ICraftingPatternDetails details, final InventoryCrafting ic,
             final Iterable<GenericStack> beside, final Iterable<GenericStack> assembled) {
+        final IPatternInputs inputs = details.getPatternInputs();
+
         for (int x = 0; x < ic.getSizeInventory(); x++) {
-            if (details.isContainerFabricated(x)) {
+            if (inputs.get(x).isFabricated()) {
                 continue;
             }
 

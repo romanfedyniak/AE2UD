@@ -22,6 +22,7 @@ package appeng.crafting;
 import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInput;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -68,7 +69,7 @@ public class CraftingTreeProcess {
         final GenericStack[] list = details.getInputs();
 
         // this is minor different then below, this slot uses the pattern, but kinda fudges it.
-        for (GenericStack part : details.getCondensedInputs()) {
+        for (GenericStack part : details.getPatternInputs().getCondensed()) {
             if (part == null) {
                 continue;
             }
@@ -89,13 +90,14 @@ public class CraftingTreeProcess {
                     }
 
                     long wantedSize = part.amount();
+                    final IPatternInput slot = details.getPatternInputs().get(x);
 
                     // A slot the network fills in for has exactly one source and is not subject to the
                     // substitution config, which is off by default. Planning it as the encoded container
                     // instead would reserve buckets and leave the CPU waiting on water it never asked for -
                     // a job that hangs forever with a full CPU and nothing in the log.
-                    if (details.isContainerFabricated(x)) {
-                        final GenericStack supplied = details.getSubstituteInputs(x).get(0);
+                    if (slot.isFabricated()) {
+                        final GenericStack supplied = slot.getSupplied();
                         this.nodes.put(new CraftingTreeNode(cc, job, supplied.what(), this, x, depth + 1),
                                 wantedSize * supplied.amount());
                         if (isPartContainer) {
@@ -109,7 +111,7 @@ public class CraftingTreeProcess {
                         long requestAmount;
 
                         if (details.canSubstitute()) {
-                            for (final GenericStack subs : details.getSubstituteInputs(x)) {
+                            for (final GenericStack subs : slot.getOptions()) {
                                 remaining = job.checkAvailable(subs.what(), subs.amount());
 
                                 if (remaining > 0) {
@@ -148,7 +150,7 @@ public class CraftingTreeProcess {
                                 //try to order the crafting of a substitute
                                 ICraftingPatternDetails prioritizedPattern = null;
                                 AEKey prioritizedKey = null;
-                                for (final GenericStack subs : details.getSubstituteInputs(x)) {
+                                for (final GenericStack subs : slot.getOptions()) {
                                     final ImmutableCollection<ICraftingPatternDetails> detailCollection = cc.getCraftingFor(subs.what(), details, x, world);
 
                                     for (final ICraftingPatternDetails sp : detailCollection) {
@@ -190,7 +192,7 @@ public class CraftingTreeProcess {
 
     long getTimes(final long remaining, final long stackSize) {
         for (final GenericStack part : details.getCondensedOutputs()) {
-            for (final GenericStack o : details.getCondensedInputs()) {
+            for (final GenericStack o : details.getPatternInputs().getCondensed()) {
                 if (part.what().equals(o.what()) || this.returnsContainer(o.what())) {
                     return 1;
                 }
@@ -213,7 +215,8 @@ public class CraftingTreeProcess {
         final GenericStack[] sparse = this.details.getInputs();
 
         for (int x = 0; x < sparse.length; x++) {
-            if (sparse[x] != null && sparse[x].what().equals(what) && !this.details.isContainerFabricated(x)) {
+            if (sparse[x] != null && sparse[x].what().equals(what)
+                    && !this.details.getPatternInputs().get(x).isFabricated()) {
                 return true;
             }
         }

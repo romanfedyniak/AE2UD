@@ -103,7 +103,7 @@ public class GuiPatternView extends AEBaseGui {
         this.fabricated = new boolean[this.crafting ? sparse.length : 0];
 
         for (int i = 0; i < this.fabricated.length; i++) {
-            this.fabricated[i] = details.isContainerFabricated(i);
+            this.fabricated[i] = details.getPatternInputs().get(i).isFabricated();
         }
     }
 

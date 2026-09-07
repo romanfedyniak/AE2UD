@@ -23,6 +23,8 @@ import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInput;
+import appeng.api.networking.crafting.IPatternInputs;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -75,6 +77,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final ItemStack correctOutput;
     private final IRecipe standardRecipe;
     private final GenericStack[] condensedInputs;
+    private final IPatternInputs patternInputs;
     private final GenericStack[] condensedOutputs;
     private final GenericStack[] inputs;
     private final GenericStack[] outputs;
@@ -214,6 +217,37 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         for (final GenericStack io : tmpOutputs.values()) {
             this.condensedOutputs[offset] = io;
             offset++;
+        }
+
+        final IPatternInput[] slots = new IPatternInput[this.inputs.length];
+
+        for (int x = 0; x < slots.length; x++) {
+            slots[x] = this.inputs[x] == null ? IPatternInput.NOTHING : new Slot(x);
+        }
+
+        this.patternInputs = new IPatternInputs.Fixed(slots, this.condensedInputs);
+    }
+
+    /**
+     * One slot, answering out of the caches below it - what may stand in for an ingredient is worked out on
+     * first use rather than for every pattern in the network at load.
+     */
+    private final class Slot implements IPatternInput {
+
+        private final int slot;
+
+        private Slot(final int slot) {
+            this.slot = slot;
+        }
+
+        @Override
+        public List<GenericStack> getOptions() {
+            return PatternHelper.this.substitutesFor(this.slot);
+        }
+
+        @Override
+        public boolean isFabricated() {
+            return PatternHelper.this.isFabricatedSlot(this.slot);
         }
     }
 
@@ -427,8 +461,8 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     @Override
-    public GenericStack[] getCondensedInputs() {
-        return this.condensedInputs;
+    public IPatternInputs getPatternInputs() {
+        return this.patternInputs;
     }
 
     @Override
@@ -451,18 +485,16 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         return this.canSubstituteFluids;
     }
 
-    @Override
-    public boolean isContainerFabricated(final int slot) {
+    private boolean isFabricatedSlot(final int slot) {
         return slot >= 0 && slot < this.fabricated.length && this.fabricated[slot] != null;
     }
 
-    @Override
-    public List<GenericStack> getSubstituteInputs(int slot) {
+    private List<GenericStack> substitutesFor(int slot) {
         if (this.inputs[slot] == null) {
             return Collections.emptyList();
         }
 
-        if (this.isContainerFabricated(slot)) {
+        if (this.isFabricatedSlot(slot)) {
             return Collections.singletonList(this.fabricated[slot]);
         }
 

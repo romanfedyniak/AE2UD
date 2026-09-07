@@ -128,6 +128,18 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern's input slots answer as one thing instead of three.** `getSubstituteInputs(slot)`,
+  `isContainerFabricated(slot)` and `getCondensedInputs()` are gone, replaced by `getPatternInputs()`:
+  `get(slot)` hands back everything about that slot - what may stand in for the encoded ingredient, most
+  preferred first, and whether the network assembles that slot's container out of a key rather than pulling
+  it from storage - and `getCondensed()` gives the totals one craft consumes. The three were always read
+  together and meant nothing apart, and scattering them meant a caller could consult one and forget the
+  next; the crafting cpu had to ask the pattern four separate questions about a single slot before it could
+  fill one square of a table. Nothing about what a pattern does has changed, and both halves are still
+  worked out once and kept, which the cpu depends on - it reads the condensed totals on every tick a job is
+  running. Registered as amendment 45. This is the shape a pattern will be normalised through when the
+  crafting calculation is rewritten, and where a slot's durability and returned container will live.
+
 - **A network machine can say it holds patterns**, through the new `IPatternContainer`, and the Pattern Access Terminal lists whatever says so. It used to name two classes - the interface block and the interface part - so a machine from an addon that kept its own patterns could not appear in it at all, however much it behaved like one. A container answers with its pattern inventory, how many of those slots it has actually paid for, what to call it and draw for it, where it stands, and whether it would work a given pattern at all; everything else has a default, so implementing it is two methods. That last question is the interesting one: an interface says yes to a processing pattern anywhere, but to a crafting pattern only when something beside it will take plans, which is the only route there is from a network to a molecular assembler. Nothing in the mod behaves differently yet - the interface is still the only thing that implements it - and it is deliberately the smaller half of what upstream calls `PatternContainer`, with the same method names where the job is the same, so the rest can arrive later as defaults rather than as a rename.
 
 - An upgrade card is described by what it confers rather than by which item it is. A card names one or more `CardTrait`s and how many points of each it carries (`IUpgradeRegistry.registerCard`), a host declares the traits it takes from anyone's card (`addTraitSupport`) and may cap one (`setTraitLimit`), and everything else asks the same three questions: `getInstalledPoints(trait)`, `isInstalled(trait)`, and `canInstall(card)` for whether one more would do the host any good. Speed and capacity are two ordinary traits now - `CardTraits.SPEED` and `CardTraits.CAPACITY` - and the twelve methods that named them are gone, along with `getInstalledSpeedPoints()` and `getInstalledCapacityPoints()` on the two upgradable-host interfaces. An addon can name a trait of its own, and, which is the point of the change, hang its card on one of AE2's: a single card can stand in for two, which no amount of comparing items allows. A trait only counts where the host declared it, so a card does not smuggle an effect in by fitting through some other trait, and the rule for whether a card may be installed lives in exactly one place. Nothing a player can see changes - the cards AE2UD ships work as they did.

@@ -1404,7 +1404,7 @@ public class Platform {
      */
     public static ItemStack getRemainingItem(final ICraftingPatternDetails details, final int slot,
             final ItemStack inSlot, final boolean cpuSupplied) {
-        if (cpuSupplied && details != null && details.isContainerFabricated(slot)) {
+        if (cpuSupplied && details != null && details.getPatternInputs().get(slot).isFabricated()) {
             return ItemStack.EMPTY;
         }
 

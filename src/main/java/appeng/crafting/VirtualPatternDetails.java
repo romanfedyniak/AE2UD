@@ -20,6 +20,7 @@ package appeng.crafting;
 
 
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInputs;
 import appeng.api.stacks.GenericStack;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -42,11 +43,13 @@ public class VirtualPatternDetails implements ICraftingPatternDetails {
 
     private final GenericStack[] inputs;
     private final GenericStack[] outputs;
+    private final IPatternInputs patternInputs;
     private int priority = 0;
 
     public VirtualPatternDetails(final GenericStack[] inputs, final GenericStack[] outputs) {
         this.inputs = inputs;
         this.outputs = outputs;
+        this.patternInputs = IPatternInputs.of(inputs);
     }
 
     @Override
@@ -70,8 +73,8 @@ public class VirtualPatternDetails implements ICraftingPatternDetails {
     }
 
     @Override
-    public GenericStack[] getCondensedInputs() {
-        return this.inputs;
+    public IPatternInputs getPatternInputs() {
+        return this.patternInputs;
     }
 
     @Override

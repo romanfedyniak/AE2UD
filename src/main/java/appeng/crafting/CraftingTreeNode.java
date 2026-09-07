@@ -129,14 +129,14 @@ public class CraftingTreeNode {
         // which no InventoryCrafting can hold and no isValidItemForSlot would accept. It is drawn plainly,
         // like a processing pattern's ingredient, and leaves no container behind.
         if (this.getSlot() >= 0 && this.parent != null && this.parent.details.isCraftable()
-                && !this.parent.details.isContainerFabricated(this.slot)) {
+                && !this.parent.details.getPatternInputs().get(this.slot).isFabricated()) {
             final LinkedList<GenericStack> itemList = new LinkedList<>();
 
             final boolean damageableItem = this.what instanceof AEItemKey whatItemKey
                     && (whatItemKey.getItem().isDamageable() || Platform.isGTDamageableItem(whatItemKey.getItem()));
 
             if (this.parent.details.canSubstitute()) {
-                for (final GenericStack subs : this.parent.details.getSubstituteInputs(this.slot)) {
+                for (final GenericStack subs : this.parent.details.getPatternInputs().get(this.slot).getOptions()) {
                     if (damageableItem) {
                         for (final var entry : inventoryList.findFuzzy(this.what, FuzzyMode.IGNORE_ALL)) {
                             if (entry.getLongValue() > 0) {
