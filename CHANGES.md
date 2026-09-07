@@ -183,7 +183,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   for nothing. A cycle is recognised and left alone for now rather than looped over; making it productive is
   the next step. The tests run without Minecraft at all - no world, no registries, no items - which is the
   point of where the line was drawn: below the phase that resolves a pattern there is nothing but keys and
-  longs. Ten thousand patterns deep solves in 77 ms where the old tree would have run out of stack, and
+  longs. A container a craft hands back is counted as something that craft made, alongside the result: kept
+  off to the side it would be spent by a step running before the one that gives it back, which adds up and
+  cannot happen. An ingredient may also be measured in uses rather than in whole items, so a tool lasting
+  sixty crafts is two tools for a hundred rather than a hundred stages of wear - nothing asks for that yet.
+  Ten thousand patterns deep solves in 77 ms where the old tree would have run out of stack, and
   twenty-four levels of branches that share their inputs - sixteen million nodes to a tree - in under a
   millisecond.
 

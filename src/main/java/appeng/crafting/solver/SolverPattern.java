@@ -55,6 +55,12 @@ public final class SolverPattern {
     /**
      * Every key one craft makes, each appearing once. A key here that nothing asked for is a byproduct and
      * lands in the surplus ledger.
+     * <p>
+     * A container the craft hands back belongs here too, not off to the side with the ingredient that
+     * carried it in. It has to: the graph is built from what a pattern makes, and a bucket kept out of this
+     * list would be spent by a step that runs before the one giving it back - a plan that adds up and cannot
+     * happen. Listed here, an emptied bucket is either an ordinary byproduct or part of an honest cycle, and
+     * either way it is seen.
      */
     public List<GenericStack> getOutputs() {
         return this.outputs;

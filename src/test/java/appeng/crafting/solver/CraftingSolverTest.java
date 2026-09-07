@@ -276,6 +276,72 @@ public final class CraftingSolverTest {
         assertThat(plan.getUsed().get(network.key("a")), is(10L));
     }
 
+    @Test
+    public void anEmptiedContainerIsSomethingTheCraftMade() {
+        // A filled bucket goes in, an empty one comes out. It is listed as an output, so it is credited like
+        // any other and the next thing wanting a bucket finds it instead of asking for another.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("use", new GenericStack[] { network.stack("out", 1), network.stack("bucket", 1) },
+                Collections.singletonList(SolverIngredient.of(network.key("filled"), 1)));
+        network.pattern("crate", new GenericStack[] { network.stack("crated", 1) },
+                Collections.singletonList(SolverIngredient.of(network.key("bucket"), 1)));
+        network.inStorage("filled", 100);
+
+        final SolverPlan plan = network.solve("out", 10);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("filled")), is(10L));
+        assertThat(plan.producedOf(network.key("bucket")), is(10L));
+    }
+
+    @Test
+    public void aContainerFilledAndEmptiedInTheSameJobIsACycle() {
+        // Filling a bucket needs an empty one and emptying it gives one back, which is a loop and not a
+        // supply: somewhere a real bucket has to already exist. Left uncaught, this is the shape that adds up
+        // and cannot happen - buckets handed back by a step that has not run yet.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("fill", "filled", "bucket");
+        network.pattern("use", new GenericStack[] { network.stack("out", 1), network.stack("bucket", 1) },
+                Collections.singletonList(SolverIngredient.of(network.key("filled"), 1)));
+        network.inStorage("bucket", 4);
+
+        final SolverPlan plan = network.solve("out", 10);
+
+        assertThat(plan.isCyclic(), is(true));
+    }
+
+    @Test
+    public void aToolIsCountedInUsesRatherThanInCrafts() {
+        // A hammer lasts sixty crafts. A hundred crafts wear out two of them, not a hundred - and the plan
+        // says two hammers rather than listing sixty stages of wear nobody asked to see.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("forge", new GenericStack[] { network.stack("out", 1) },
+                Arrays.asList(new SolverIngredient(
+                                Collections.singletonList(new GenericStack(network.key("hammer"), 1)), 60),
+                        SolverIngredient.of(network.key("plate"), 1)));
+        network.inStorage("hammer", 8);
+        network.inStorage("plate", 1000);
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "forge"), is(100L));
+        assertThat(plan.getUsed().get(network.key("hammer")), is(2L));
+        assertThat(plan.getUsed().get(network.key("plate")), is(100L));
+    }
+
+    @Test
+    public void aToolShortOfItsLastUseStillCostsAWholeOne() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("forge", new GenericStack[] { network.stack("out", 1) },
+                Collections.singletonList(new SolverIngredient(
+                        Collections.singletonList(new GenericStack(network.key("hammer"), 1)), 60)));
+        network.inStorage("hammer", 8);
+
+        assertThat(SolverTestNetwork.crafts(network.solve("out", 60), "forge"), is(60L));
+        assertThat(network.solve("out", 61).getUsed().get(network.key("hammer")), is(2L));
+    }
+
     private static SolverTestNetwork growing() {
         final SolverTestNetwork network = new SolverTestNetwork();
         network.pattern("loop", new GenericStack[] { network.stack("t", 2) },

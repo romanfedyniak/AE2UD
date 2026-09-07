@@ -29,13 +29,23 @@ import java.util.List;
 public final class SolverIngredient {
 
     private final List<GenericStack> options;
+    private final long uses;
 
     public SolverIngredient(final List<GenericStack> options) {
+        this(options, 0);
+    }
+
+    /**
+     * @param uses how many crafts one of this input serves before it is spent, or zero when a craft consumes
+     *             it outright.
+     */
+    public SolverIngredient(final List<GenericStack> options, final long uses) {
         if (options.isEmpty()) {
             throw new IllegalArgumentException("An ingredient nothing can satisfy is not an ingredient");
         }
 
         this.options = Collections.unmodifiableList(options);
+        this.uses = uses;
     }
 
     public static SolverIngredient of(final AEKey what, final long amountPerCraft) {
@@ -55,6 +65,17 @@ public final class SolverIngredient {
      */
     public boolean hasChoice() {
         return this.options.size() > 1;
+    }
+
+    /**
+     * How many crafts one of this input serves before it is spent. Zero means each craft consumes its own.
+     * <p>
+     * This is how a tool is counted. A hammer that lasts sixty crafts is worn a little at a time, and every
+     * stage of that wear is a different key; counting it in uses keeps the plan to whole hammers and out of
+     * a list of sixty near-identical things nobody wanted to see.
+     */
+    public long getUses() {
+        return this.uses;
     }
 
     @Override

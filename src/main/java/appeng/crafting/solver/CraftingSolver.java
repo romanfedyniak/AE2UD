@@ -381,13 +381,24 @@ public final class CraftingSolver {
             final KeyCounter handedBack = new KeyCounter();
 
             for (final SolverIngredient ingredient : pattern.getInputs()) {
-                final GenericStack option = this.choose(ingredient, runs);
-                final long back = Math.min(option.amount(), pattern.outputOf(option.what()));
-                long total = multiply(option.amount() - back, runs);
+                final int chosen = this.choose(ingredient, runs);
+                final GenericStack option = ingredient.getOptions().get(chosen);
+                final long total;
 
-                if (back > 0) {
-                    handedBack.add(option.what(), back);
-                    total += back;
+                if (ingredient.getUses() > 0) {
+                    // Spent a little at a time rather than one per craft, so what is drawn is how many of
+                    // them the whole run wears out.
+                    total = multiply(option.amount(), ceilDiv(runs, ingredient.getUses()));
+                } else {
+                    final long back = Math.min(option.amount(), pattern.outputOf(option.what()));
+                    long drawnPerRun = multiply(option.amount() - back, runs);
+
+                    if (back > 0) {
+                        handedBack.add(option.what(), back);
+                        drawnPerRun += back;
+                    }
+
+                    total = drawnPerRun;
                 }
 
                 this.demand.add(option.what(), total);
@@ -411,16 +422,17 @@ public final class CraftingSolver {
          * one that nothing else is forced to use: a slot with a choice should not take the last of what a
          * slot without one is going to need.
          */
-        private GenericStack choose(final SolverIngredient ingredient, final long runs) {
+        private int choose(final SolverIngredient ingredient, final long runs) {
             final List<GenericStack> options = ingredient.getOptions();
 
             if (!ingredient.hasChoice()) {
-                return options.get(0);
+                return 0;
             }
 
-            GenericStack contested = null;
+            int contested = -1;
 
-            for (final GenericStack option : options) {
+            for (int x = 0; x < options.size(); x++) {
+                final GenericStack option = options.get(x);
                 final long wanted = multiply(option.amount(), runs);
                 final long atHand = this.surplus.get(option.what()) + this.stock.get(option.what());
 
@@ -429,25 +441,25 @@ public final class CraftingSolver {
                 }
 
                 if (!this.graph.isExclusive(option.what())) {
-                    return option;
+                    return x;
                 }
 
-                if (contested == null) {
-                    contested = option;
+                if (contested < 0) {
+                    contested = x;
                 }
             }
 
-            if (contested != null) {
+            if (contested >= 0) {
                 return contested;
             }
 
-            for (final GenericStack option : options) {
-                if (!this.graph.patternsFor(option.what()).isEmpty()) {
-                    return option;
+            for (int x = 0; x < options.size(); x++) {
+                if (!this.graph.patternsFor(options.get(x).what()).isEmpty()) {
+                    return x;
                 }
             }
 
-            return options.get(0);
+            return 0;
         }
 
         private long takeSurplus(final AEKey key, final long need) {
