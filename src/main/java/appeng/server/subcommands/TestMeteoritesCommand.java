@@ -53,7 +53,8 @@ public class TestMeteoritesCommand implements ISubCommand {
             return;
         }
 
-        final int range = Math.min(MAX_RANGE, args.length > 0 ? parseRange(args[0]) : DEFAULT_RANGE);
+        // args[0] is the subcommand's own name, which the dispatcher passes along.
+        final int range = Math.min(MAX_RANGE, args.length > 1 ? parseRange(args[1]) : DEFAULT_RANGE);
         final BlockPos origin = sender.getPosition();
         final List<BlockPos> found = predict(world, origin, range);
 
