@@ -23,6 +23,7 @@ import appeng.container.implementations.ContainerCraftingTerm;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerWirelessCraftingTerminal;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotFakeCraftingMatrix;
@@ -34,6 +35,7 @@ import appeng.helpers.PatternHelper;
 import appeng.util.Platform;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
+import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
@@ -56,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 
@@ -199,7 +202,7 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             }
         }
 
-        recipe.setTag("outputs", outputs);
+        recipe.setTag("outputs", promoteFocused(recipeLayout, outputs));
 
         // Ctrl+Move Items: craft whatever this recipe is missing instead of refusing the transfer.
         // Ctrl+Shift additionally starts that craft right away instead of opening the confirm screen.
@@ -237,6 +240,68 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
      * wrapped placeholder {@code ItemStack} the pattern slots already store, so the server needs no new case -
      * {@code AppEngInternalAEInventory} unwraps it back into a key on the way in.
      */
+    /**
+     * Puts the thing the player was actually looking up at the front of the outputs.
+     * <p>
+     * A recipe screen lists what a machine makes in whatever order the screen draws it, and a pattern's first
+     * output is not just decoration: it is what an interface waits for to unlock, and the output the plan
+     * settles the others after. Someone who searched for the byproduct of a two-output recipe meant that one,
+     * and the pattern should say so. Nothing moves when the player was browsing rather than searching, or was
+     * looking up what an ingredient is *used* for.
+     */
+    private static NBTTagList promoteFocused(final IRecipeLayout recipeLayout, final NBTTagList outputs) {
+        final IFocus<?> focus = recipeLayout.getFocus();
+
+        if (focus == null || focus.getMode() != IFocus.Mode.OUTPUT || outputs.tagCount() < 2) {
+            return outputs;
+        }
+
+        final AEKey wanted = keyOf(focus.getValue());
+
+        if (wanted == null) {
+            return outputs;
+        }
+
+        for (int x = 1; x < outputs.tagCount(); x++) {
+            final AEKey made = keyOf(stackFromNBT(outputs.getCompoundTagAt(x)));
+
+            // By what it is rather than by how much or what is written on it: the recipe screen shows one of
+            // a thing and the pattern may name a stack of it.
+            if (made == null || !made.getPrimaryKey().equals(wanted.getPrimaryKey())) {
+                continue;
+            }
+
+            final NBTTagList reordered = new NBTTagList();
+            reordered.appendTag(outputs.getCompoundTagAt(x));
+
+            for (int y = 0; y < outputs.tagCount(); y++) {
+                if (y != x) {
+                    reordered.appendTag(outputs.getCompoundTagAt(y));
+                }
+            }
+
+            return reordered;
+        }
+
+        return outputs;
+    }
+
+    /**
+     * @return what the object is, as the network names it, or null for something neither items nor fluids.
+     */
+    @Nullable
+    private static AEKey keyOf(@Nullable final Object what) {
+        if (what instanceof ItemStack stack) {
+            return stack.isEmpty() ? null : GenericStack.resolveItemStack(stack).what();
+        }
+
+        if (what instanceof FluidStack fluid) {
+            return AEFluidKey.of(fluid);
+        }
+
+        return null;
+    }
+
     private void transferFluids(final T container, final IRecipeLayout recipeLayout, final NBTTagCompound recipe,
             final NBTTagList outputs) {
         final Map<Integer, ? extends IGuiIngredient<FluidStack>> fluids = recipeLayout.getFluidStacks().getGuiIngredients();

@@ -148,6 +148,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A recipe sent from JEI puts the thing you were looking up first.** A recipe screen lists what a machine
+  makes in whatever order it happens to draw them, and the first output of a pattern is not decoration: it is
+  what an interface waits for to unlock, and the one a plan settles the others after. Someone who searched for
+  the byproduct of a two-output recipe meant that one, and JEI knows which it was - it is the thing the search
+  was focused on. The pattern is now encoded with it at the front. Nothing moves when the player was browsing
+  rather than searching, or was looking up what an ingredient is used *for* rather than how to make it, and
+  the outputs themselves are unchanged either way.
+
 - **A request too large to plan says so instead of coming back empty.** A plan has ceilings - on how much of
   the network one request may reach, and on numbers fitting in a `long` - and reaching one used to be written
   to the log and nowhere else, leaving an empty confirmation screen and no hint that anything had happened.
