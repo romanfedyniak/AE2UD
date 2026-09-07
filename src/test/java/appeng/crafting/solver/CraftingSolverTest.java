@@ -293,9 +293,9 @@ public final class CraftingSolverTest {
     }
 
     @Test
-    public void aLoopThroughSeveralThingsIsLeftAlone() {
-        // a is made from b and b from two a. Productive as a loop, but solving it wants more than the one
-        // division a self-feeding pattern needs, so it is recognised and not used rather than half-used.
+    public void aRingThatGivesBackNoMoreThanItTookIsNotASource() {
+        // One a from one b, one b from two a. Going round costs two a to get one back, so however many
+        // times it is turned it is a way of losing a, and the hundred asked for is not there.
         final SolverTestNetwork network = new SolverTestNetwork()
                 .pattern("pa", "a", "b");
         network.pattern("pb", new GenericStack[] { network.stack("b", 1) },
@@ -308,6 +308,103 @@ public final class CraftingSolverTest {
         assertThat(plan.isCyclic(), is(true));
         assertThat(plan.isComplete(), is(false));
         assertThat(plan.getMissing().get(network.key("a")), is(100L));
+    }
+
+    @Test
+    public void aRingThroughSeveralThingsGrowsFromASeed() {
+        // Two a from one b, one b from one a. Each turn of the ring nets one a, so a hundred turns - and the
+        // single b that started it is handed back at the end, never spent.
+        final SolverTestNetwork network = ring().inStorage("b", 1);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(100L));
+        assertThat(crafts(plan, "pb"), is(100L));
+        assertThat(plan.getUsed().get(network.key("base")), is(100L));
+    }
+
+    @Test
+    public void aRingWithNothingToStartFromCannotTurn() {
+        // The same ring with nothing on it. Each pattern waits on the other and neither can go first.
+        final SolverPlan plan = ring().solve("a", 100);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(crafts(plan, "pa"), is(0L));
+        assertThat(crafts(plan, "pb"), is(0L));
+    }
+
+    @Test
+    public void aTurnOfARingIsSizedSoNoStepHasToRound() {
+        // Three a per craft of pa, two b per craft of pb. Turning it one craft of pa at a time would round
+        // the halves of a craft of pb up and lose what the arithmetic promised, so a turn is two crafts of
+        // pa and one of pb - which nets five a exactly. A hundred wanted is twenty turns.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 3) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("base", 1000);
+        network.inStorage("b", 1);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(40L));
+        assertThat(crafts(plan, "pb"), is(20L));
+        assertThat(plan.getMissing().isEmpty(), is(true));
+    }
+
+    @Test
+    public void aRingOfThreeThingsTurnsToo() {
+        // a from b, b from c, c from two a. Nothing about the arithmetic cares how long the ring is.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("pa", "a", "b")
+                .pattern("pb", "b", "c");
+        network.pattern("pc", new GenericStack[] { network.stack("c", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("base", 1000);
+        network.inStorage("c", 1);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(200L));
+        assertThat(crafts(plan, "pb"), is(200L));
+        assertThat(crafts(plan, "pc"), is(100L));
+    }
+
+    @Test
+    public void aCycleThatBranchesIsStillLeftAlone() {
+        // a is made from b and c together, and both of those come back from a. There is no single ring to
+        // walk round, so this is reported rather than half-solved.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("pa", "a", "b", "c")
+                .pattern("pb", "b", "a")
+                .pattern("pc", "c", "a");
+        network.inStorage("b", 100);
+        network.inStorage("c", 100);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(false));
+    }
+
+    /** Two a from one b, one b from one a and a base ingredient. Each turn nets one a. */
+    private static SolverTestNetwork ring() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+
+        network.pattern("pa", new GenericStack[] { network.stack("a", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+
+        return network.inStorage("base", 1000);
     }
 
     @Test

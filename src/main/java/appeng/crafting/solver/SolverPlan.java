@@ -90,8 +90,9 @@ public final class SolverPlan {
     }
 
     /**
-     * Whether the request reached a cycle the solver left alone. Nothing in the plan is wrong when this is
-     * true - the keys in the cycle were simply taken from storage or reported missing rather than looped for.
+     * Whether the request reached a cycle at all - one solved by turning it as well as one left alone. It
+     * says nothing about whether the plan is good: a catalyst is a cycle of one by construction, and most
+     * plans that reach a cycle carry it out.
      */
     public boolean isCyclic() {
         return this.cyclic;

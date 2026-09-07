@@ -149,6 +149,27 @@ public final class CraftingSolverScaleTest {
         assertThat(crafts(plan, "loop"), is(huge));
     }
 
+    @Test
+    public void aRingAtAnAbsurdSizeTurnsAtOnce() {
+        // The same again for a cycle that runs through two things rather than one. A turn of the ring is
+        // worked out once and multiplied; how far round it goes and how much was ordered cost nothing.
+        final long huge = 10_000_000_000L;
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("b", 1);
+        network.inStorage("base", Long.MAX_VALUE / 4);
+
+        final SolverPlan plan = timed("ten billion round a ring", () -> network.solve("a", huge));
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(huge));
+        assertThat(crafts(plan, "pb"), is(huge));
+    }
+
     private static SolverTestNetwork chain() {
         return new SolverTestNetwork()
                 .pattern("b", "b", "a")

@@ -255,10 +255,12 @@ public final class CraftingSolver {
          * A cycle. What can be answered from outside it is answered first, because a loop is a way of
          * growing something you already have and never a way of conjuring the first of it.
          * <p>
-         * Only a pattern that feeds itself is then looped: it makes some of a key and eats some of the same
+         * A pattern that feeds itself is looped on the spot: it makes some of a key and eats some of the same
          * key per craft, so each craft nets the difference and the shortfall divides straight out - one
-         * division, no iteration, nothing that can fail to come back. A loop running through several keys is
-         * recognised and left alone; its keys are answered from storage or reported, as before.
+         * division, no iteration, nothing that can fail to come back. A cycle through several keys is the
+         * same division taken round the ring, which {@link SolverLoop} works out. A component that branches -
+         * where a thing on the cycle is made from two others on it - still has no answer here and is
+         * reported rather than half-solved.
          */
         private void settleCycle(final List<AEKey> component, final Map<SolverPattern, Long> caps) {
             for (final AEKey key : component) {
@@ -269,7 +271,16 @@ public final class CraftingSolver {
                 }
 
                 final long wanted = need;
-                final long holdBack = component.size() == 1 ? this.seedFor(key) : 0;
+                final SolverLoop ring = component.size() == 1
+                        ? null
+                        : SolverLoop.trace(key, component, this.graph);
+                final long holdBack;
+
+                if (component.size() == 1) {
+                    holdBack = this.seedFor(key);
+                } else {
+                    holdBack = ring == null ? 0 : ring.getEatenBefore(0);
+                }
 
                 need -= this.takeSurplus(key, need);
                 need -= this.takeStock(key, Math.min(need, Math.max(0, this.stock.get(key) - holdBack)));
@@ -281,6 +292,8 @@ public final class CraftingSolver {
 
                 if (need > 0 && component.size() == 1) {
                     need = this.growFromItself(key, need, caps);
+                } else if (need > 0 && ring != null) {
+                    need = this.growAroundRing(ring, need, caps);
                 }
 
                 // Held back for a loop that in the end did not run, or did not need all of it.
@@ -343,6 +356,77 @@ public final class CraftingSolver {
             }
 
             return need;
+        }
+
+        /**
+         * Turns a ring of keys that make each other, enough times to cover the shortfall.
+         * <p>
+         * One turn is a fixed number of crafts of every pattern on the ring and nets a fixed amount of the
+         * key being settled, so the whole thing is one division however long the ring is and however much was
+         * ordered. What the ring asks of the world outside it - the base ingredients each pattern also takes
+         * - lands as ordinary demand and is settled after this component, like anything else below it.
+         * <p>
+         * Stock of a thing part-way round the ring is not folded into the ratio: the ring is turned for what
+         * it must make, and that stock is left where it is rather than shortening the ring. It costs a few
+         * crafts that were not strictly needed, never a plan that cannot run.
+         *
+         * @return what is still wanted afterwards.
+         */
+        private long growAroundRing(final SolverLoop ring, final long shortfall,
+                final Map<SolverPattern, Long> caps) {
+            if (!this.canStart(ring)) {
+                return shortfall;
+            }
+
+            long turns = ceilDiv(shortfall, ring.getNetPerTurn());
+
+            // A pattern held down by an earlier pass holds down the whole ring with it: every turn runs all
+            // of them, so the tightest of them says how many turns there can be.
+            for (int at = 0; at < ring.size(); at++) {
+                final SolverPattern pattern = ring.patternAt(at);
+                final long allowed = allowance(pattern, caps) - this.craftsOf(pattern);
+
+                turns = Math.min(turns, allowed / ring.unitRunsAt(at));
+            }
+
+            if (turns <= 0) {
+                return shortfall;
+            }
+
+            final AEKey key = ring.keyAt(0);
+            final long before = this.demand.get(key);
+
+            for (int at = 0; at < ring.size(); at++) {
+                this.servedBy.putIfAbsent(ring.patternAt(at), ring.keyAt(at));
+                this.expand(ring.patternAt(at), multiply(ring.unitRunsAt(at), turns));
+            }
+
+            // Turning the ring asked this key for what the last pattern on it takes. Nothing will come back
+            // here afterwards, so that goes on what is still wanted and is answered now - out of what the
+            // ring itself just made, and then out of the network's own.
+            long need = shortfall + (this.demand.get(key) - before);
+
+            need -= this.takeSurplus(key, need);
+            need -= this.drawStock(key, need);
+
+            return need;
+        }
+
+        /**
+         * Whether there is enough of anything on the ring to feed one craft of the pattern that takes it. A
+         * ring grows what you have and never conjures the first of it, and one thing on it is enough to
+         * start: the first turn hands that thing back at the end, over and above what the turn netted.
+         */
+        private boolean canStart(final SolverLoop ring) {
+            for (int at = 0; at < ring.size(); at++) {
+                final AEKey key = ring.keyAt(at);
+
+                if (this.surplus.get(key) + this.stock.get(key) >= ring.getEatenBefore(at)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /**
@@ -549,8 +633,9 @@ public final class CraftingSolver {
         /**
          * What is already in the network does not count towards the order: asking for a hundred when forty
          * are on the shelf makes a hundred more, and always has. So the requested thing is the one thing a
-         * plan may not spend - with one exception, which {@link #growFromItself} makes: a loop grows what
-         * you have, and the one you have is the only place its first can come from.
+         * plan may not spend - with one exception, which {@link #growFromItself} and
+         * {@link #growAroundRing} make: a loop grows what you have, and the one you have is the only place
+         * its first can come from.
          */
         private long takeStock(final AEKey key, final long need) {
             if (key.equals(this.root)) {

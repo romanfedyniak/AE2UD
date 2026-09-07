@@ -148,6 +148,20 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A loop that runs through several things is planned now, not only one that feeds itself.** A pattern that
+  eats its own output has been solved since the planner was rewritten: each craft nets the difference, so the
+  shortfall is one division. A cycle spread over two or three patterns - one that makes a from b while another
+  makes b from a - was recognised and then left alone, and everything on it came back missing however much of
+  it the network could really have made. It is the same division taken round the ring: multiply the ratios
+  together and the ring either gives back more than it took or it does not, and if it does, one turn of it
+  nets a fixed amount however far round it goes. A turn is sized so that no step has to round a craft up,
+  because rounding each pattern on its own can quietly leave the ring short of what the arithmetic promised.
+  The rest is unchanged in spirit: a loop grows what you already have and never conjures the first of it, so
+  one thing on the ring has to be in storage to start it, and it is handed back at the end rather than spent.
+  Ordering ten billion round a ring costs what ordering one costs. A cycle that branches - where something on
+  it is made from two other things on it - still has no single ring to walk and is reported rather than
+  half-solved.
+
 - **A recipe sent from JEI puts the thing you were looking up first.** A recipe screen lists what a machine
   makes in whatever order it happens to draw them, and the first output of a pattern is not decoration: it is
   what an interface waits for to unlock, and the one a plan settles the others after. Someone who searched for

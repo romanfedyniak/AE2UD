@@ -113,6 +113,15 @@ public final class TestScenarios {
                 .request(k.stack("rec_t", 100))
                 .build());
 
+        scenarios.add(TestScenario.named("ring")
+                .describedAs("two patterns that make each other, and grow round the loop")
+                .pattern("a", in(k.stack("ring_b", 1)), out(k.stack("ring_a", 2)))
+                .pattern("b", in(k.stack("ring_a", 1), k.stack("ring_base", 1)), out(k.stack("ring_b", 1)))
+                .inStorage(k.stack("ring_b", 1))
+                .inStorage(k.stack("ring_base", 1000))
+                .request(k.stack("ring_a", 100))
+                .build());
+
         scenarios.add(deep(k, 40));
         scenarios.add(wide(k, 200));
         scenarios.add(batch(k, "batch_small", 1));
