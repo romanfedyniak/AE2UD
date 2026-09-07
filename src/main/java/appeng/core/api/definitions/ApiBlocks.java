@@ -183,6 +183,7 @@ public final class ApiBlocks implements IBlocks {
     private final IBlockDefinition phantomNode;
     private final IBlockDefinition cubeGenerator;
     private final IBlockDefinition energyGenerator;
+    private final IBlockDefinition craftingTestRig;
 
     public ApiBlocks(FeatureFactory registry, PartModels partModels) {
         // this.quartzOre = new BlockDefinition( "ore.quartz", new OreQuartz() );
@@ -545,6 +546,11 @@ public final class ApiBlocks implements IBlocks {
         this.energyGenerator = registry.block("debug_energy_gen", BlockEnergyGenerator::new)
                 .features(AEFeature.UNSUPPORTED_DEVELOPER_TOOLS, AEFeature.CREATIVE)
                 .tileEntity(new TileEntityDefinition(TileEnergyGenerator.class))
+                .useCustomItemModel()
+                .build();
+        this.craftingTestRig = registry.block("debug_crafting_test_rig", BlockCraftingTestRig::new)
+                .features(AEFeature.UNSUPPORTED_DEVELOPER_TOOLS, AEFeature.CREATIVE)
+                .tileEntity(new TileEntityDefinition(TileCraftingTestRig.class))
                 .useCustomItemModel()
                 .build();
     }
@@ -1025,5 +1031,9 @@ public final class ApiBlocks implements IBlocks {
 
     public IBlockDefinition energyGenerator() {
         return this.energyGenerator;
+    }
+
+    public IBlockDefinition craftingTestRig() {
+        return this.craftingTestRig;
     }
 }

@@ -21,6 +21,7 @@ package appeng.server;
 
 import appeng.services.compass.TestCompassCommand;
 import appeng.server.subcommands.ChunkLogger;
+import appeng.server.subcommands.CraftingTestCommand;
 import appeng.server.subcommands.TestMeteoritesCommand;
 import appeng.server.subcommands.Supporters;
 
@@ -28,6 +29,7 @@ import appeng.server.subcommands.Supporters;
 public enum Commands {
     Chunklogger(4, new ChunkLogger()),
     Compass(4, new TestCompassCommand()),
+    CraftingTest(4, new CraftingTestCommand()),
     Meteorites(4, new TestMeteoritesCommand()),
     Supporters(0, new Supporters());
 

@@ -104,6 +104,13 @@ public final class AppEng {
         return INSTANCE;
     }
 
+    /**
+     * Where AE2 keeps its own files. Set in pre-init, so anything asking earlier gets null.
+     */
+    public File getConfigDirectory() {
+        return this.configDirectory;
+    }
+
     public MeteoriteWorldGen getMeteoriteGen() {
         return this.registration.meteoriteGen;
     }

@@ -70,6 +70,12 @@ public enum PlayerMessages {
     MeteoritesDisabled,
     MeteoritesFound,
     MeteoriteAt,
+
+    // What /ae2 craftingtest answers
+    CraftingTestNoRig,
+    CraftingTestBusy,
+    CraftingTestNoScenario,
+    CraftingTestStarted,
     ;
 
     public ITextComponent get(Object... params) {
