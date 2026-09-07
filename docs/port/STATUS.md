@@ -2242,6 +2242,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     rather than assuming is the point: a guess of one damage point per craft would under-reserve a tool that
     costs ten, and a job that under-reserves a tool waits for ever.
 
+47. **`CraftingSubmitErrorCode.REQUEST_TOO_LARGE`** - additive to an enum, so anything switching on it
+    exhaustively has a new case to answer. A request reaching more of the network than a plan may hold, or
+    whose numbers do not fit in a `long`, is refused outright by the solver, and there was nowhere to say so:
+    the old `CraftingCalculationFailure` was caught, logged at debug and dropped, and the player was handed an
+    empty plan with no sign anything had gone wrong. This says it where every other reason a job did not start
+    is said.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

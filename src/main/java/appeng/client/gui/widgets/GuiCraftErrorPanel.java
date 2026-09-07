@@ -186,6 +186,8 @@ public class GuiCraftErrorPanel {
                 return GuiText.CraftErrorCpuOffline.getLocal();
             case CPU_TOO_SMALL:
                 return GuiText.CraftErrorCpuTooSmall.getLocal();
+            case REQUEST_TOO_LARGE:
+                return GuiText.CraftErrorRequestTooLarge.getLocal();
             case MISSING_INGREDIENT:
                 return this.container.missingIngredient.isEmpty()
                         ? GuiText.CraftErrorMissingIngredient.getLocal()

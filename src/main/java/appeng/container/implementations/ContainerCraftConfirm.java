@@ -206,6 +206,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
         if (this.getJob() != null && this.getJob().isDone()) {
             try {
                 this.result = (CraftingJob) this.getJob().get();
+                this.noteRefusal(this.result);
 
                 if (!this.result.isSimulation()) {
                     this.setSimulation(false);
@@ -493,6 +494,16 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
 
     private Future<ICraftingJob> getJob() {
         return this.job;
+    }
+
+    /**
+     * A request that was never planned says so, rather than showing an empty plan and leaving the player to
+     * work out that nothing is there.
+     */
+    private void noteRefusal(final CraftingJob job) {
+        if (job.isRefused()) {
+            this.submitError = CraftingSubmitErrorCode.REQUEST_TOO_LARGE.ordinal();
+        }
     }
 
     public void setJob(final Future<ICraftingJob> job) {

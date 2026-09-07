@@ -42,5 +42,11 @@ public enum CraftingSubmitErrorCode {
      * when something else empties storage between planning the job and starting it.
      * {@link ICraftingSubmitResult#errorDetail()} holds the {@link GenericStack} that was missing, if it is known.
      */
-    MISSING_INGREDIENT
+    MISSING_INGREDIENT,
+    /**
+     * The request was never planned at all: it reaches more of the network than a plan may hold, or its
+     * numbers do not fit in a {@code long}. Nothing is wrong with the network - the order is simply beyond
+     * what can be written down, and saying so is the answer.
+     */
+    REQUEST_TOO_LARGE
 }

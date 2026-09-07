@@ -148,6 +148,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A request too large to plan says so instead of coming back empty.** A plan has ceilings - on how much of
+  the network one request may reach, and on numbers fitting in a `long` - and reaching one used to be written
+  to the log and nowhere else, leaving an empty confirmation screen and no hint that anything had happened.
+  The confirmation screen now says it in the same place it says every other reason a job did not start.
+  Nothing about the network is wrong when this appears; the order is simply beyond what can be written down,
+  and the answer is to ask for less. The ceilings are on the *shape* of a request and never on how much was
+  ordered - ten billion of a thing plans as fast as one of it and is not refused.
+
 - **A pattern with a mould in its first output slot is planned properly.** A pattern is written with several
   outputs in whatever order the player put them, and the one at the front was taken as the thing the pattern
   is for. Usually it is - but a mould that goes in and comes out again, listed above the thing being cast,

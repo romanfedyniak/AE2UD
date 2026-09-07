@@ -374,6 +374,7 @@ gui.appliedenergistics2.CraftErrorNoSuitableCpuExcluded=%d kept for other reques
 gui.appliedenergistics2.CraftErrorCpuBusy=The chosen CPU is already working on another job.
 gui.appliedenergistics2.CraftErrorCpuOffline=The chosen CPU is offline.
 gui.appliedenergistics2.CraftErrorCpuTooSmall=The chosen CPU does not have enough storage.
+gui.appliedenergistics2.CraftErrorRequestTooLarge=This request is too large to plan. Ask for less of it.
 gui.appliedenergistics2.CraftErrorMissingIngredient=Something the job needs could not be taken from the network.
 gui.appliedenergistics2.CraftErrorMissingIngredientNamed=%s could not be taken from the network.
 gui.appliedenergistics2.CraftErrorRetry=Retry

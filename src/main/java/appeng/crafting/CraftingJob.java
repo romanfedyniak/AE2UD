@@ -87,6 +87,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     @Nullable
     private SolverPlan plan;
+    private boolean refused;
     private boolean running = false;
     private boolean done = false;
     private int time;
@@ -142,6 +143,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
         } catch (final Cancelled e) {
             AELog.crafting("Crafting calculation canceled.");
         } catch (final SolverTooLargeException e) {
+            this.refused = true;
             AELog.crafting("Crafting calculation refused: %s", e.getMessage());
         } catch (final Throwable t) {
             this.finish();
@@ -356,6 +358,15 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     public boolean isDone() {
         return this.done;
+    }
+
+    /**
+     * Whether there is no plan because the request was beyond what one can hold, rather than because the
+     * network is short of something. The two look alike from outside and are nothing alike to a player: one
+     * asks them to make more of something, the other to ask for less.
+     */
+    public boolean isRefused() {
+        return this.refused;
     }
 
     /**

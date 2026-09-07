@@ -233,6 +233,7 @@ public enum GuiText {
     CraftErrorCpuBusy,
     CraftErrorCpuOffline,
     CraftErrorCpuTooSmall,
+    CraftErrorRequestTooLarge,
     CraftErrorMissingIngredient,
     CraftErrorMissingIngredientNamed,
     CraftErrorRetry,
