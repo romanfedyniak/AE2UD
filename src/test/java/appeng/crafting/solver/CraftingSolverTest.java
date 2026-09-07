@@ -378,20 +378,61 @@ public final class CraftingSolverTest {
     }
 
     @Test
-    public void aCycleThatBranchesIsStillLeftAlone() {
-        // a is made from b and c together, and both of those come back from a. There is no single ring to
-        // walk round, so this is reported rather than half-solved.
-        final SolverTestNetwork network = new SolverTestNetwork()
-                .pattern("pa", "a", "b", "c")
-                .pattern("pb", "b", "a")
-                .pattern("pc", "c", "a");
-        network.inStorage("b", 100);
-        network.inStorage("c", 100);
+    public void aCycleThatBranchesIsTurnedLikeAnyOther() {
+        // Three a from one b and one c together, and each of those from one a. There is no ring to walk
+        // here - a turn has to make two things at once, not one after another - but it is the same question
+        // with one more unknown in it, and a turn nets one a.
+        final SolverTestNetwork network = branching(3).inStorage("b", 1);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(100L));
+        assertThat(crafts(plan, "pb"), is(100L));
+        assertThat(crafts(plan, "pc"), is(100L));
+        assertThat(plan.getUsed().get(network.key("base")), is(100L));
+    }
+
+    @Test
+    public void aCycleThatBranchesAndLosesIsStillReported() {
+        // The same shape making two a instead of three. One turn spends an a on the b and another on the c,
+        // so two out and two back in is no way of having any - and there is a hundred of each on the shelf
+        // to prove the answer does not come from being short of them.
+        final SolverTestNetwork network = branching(2).inStorage("b", 100).inStorage("c", 100);
 
         final SolverPlan plan = network.solve("a", 100);
 
         assertThat(plan.isCyclic(), is(true));
         assertThat(plan.isComplete(), is(false));
+        assertThat(crafts(plan, "pa"), is(0L));
+    }
+
+    @Test
+    public void aTurnOfABranchingCycleIsAlsoSizedSoNothingRounds() {
+        // Four a from one b and one c; two b from an a; three c from an a. A turn is six crafts of the
+        // first, three of the second and two of the third, which nets nineteen a exactly - a hundred wanted
+        // is six turns. Worked out a craft at a time the halves and thirds would have to be rounded, and the
+        // cycle would come up short of what its own arithmetic promised.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 4) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1),
+                        SolverIngredient.of(network.key("c"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
+        network.pattern("pc", new GenericStack[] { network.stack("c", 3) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
+        network.inStorage("base", 1000);
+        network.inStorage("b", 1);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(36L));
+        assertThat(crafts(plan, "pb"), is(18L));
+        assertThat(crafts(plan, "pc"), is(12L));
+        assertThat(plan.getMissing().isEmpty(), is(true));
     }
 
     @Test
@@ -498,6 +539,23 @@ public final class CraftingSolverTest {
         assertThat(plan.isComplete(), is(true));
         assertThat(crafts(plan, "loop"), is(100L));
         assertThat(crafts(plan, "plain"), is(0L));
+    }
+
+    /**
+     * A cycle with two things in the middle of it: so many a from one b and one c together, and one of each
+     * of those back from a single a.
+     */
+    private static SolverTestNetwork branching(final long made) {
+        final SolverTestNetwork network = new SolverTestNetwork();
+
+        network.pattern("pa", new GenericStack[] { network.stack("a", made) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1),
+                        SolverIngredient.of(network.key("c"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.pattern("pb", "b", "a");
+        network.pattern("pc", "c", "a");
+
+        return network.inStorage("base", 1000);
     }
 
     /** Nine nuggets from an ingot, an ingot from nine nuggets, and nine ingots from a block. */

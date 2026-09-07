@@ -143,23 +143,41 @@ A cycle is a component of more than one key, or a single key with an edge to its
 the difference, so the shortfall is one division: `runs = need / (made − eaten)`. No iteration, nothing that
 can fail to come back.
 
-**A cycle through several patterns** — `a` made from `b` while `b` is made from `a` — is the same division
-taken round the ring (`SolverLoop`). Multiply the ratios all the way round and the ring either gives back
-more than it took or it does not.
+**A cycle through several patterns** is the same question in more than one unknown, and `SolverCycle`
+answers it. Whatever shape the cycle is — two patterns feeding each other, five going round in a line, or one
+craft needing *two* things the cycle itself makes — the question is how many times to run each pattern so
+that the whole thing nets what was asked for and comes back to where it started on everything else. That is a
+set of linear equations, one per thing on the cycle:
 
-The trap is that crafts are whole numbers. Rounding each step up on its own can leave the ring *short* of
-what the arithmetic promised: three `a` from one `b`, two `b` from one `a`, asked for a hundred, comes out
-ninety-nine. So **a turn of the ring is sized to need no rounding anywhere** — the least common multiple of
-the reduced denominators down the ring — and every turn then nets the same amount exactly. The shortfall is
-one division by that.
+```
+(what the patterns make of it) − (what they take of it) = (what is wanted of it)
+```
 
-Two rules apply to both kinds:
+Wanted is one for the thing being settled and nothing for the rest. Solving gives how many crafts of each
+pattern make one of it.
 
-* **A loop grows what you have and never conjures the first of it.** Something on the ring has to be in
+The trap is that crafts are whole numbers, and rounding each pattern up on its own can leave the cycle
+*short* of what the arithmetic promised: three `a` from one `b`, two `b` from one `a`, asked for a hundred,
+comes out ninety-nine. So **a turn is sized to need no rounding anywhere** — the common multiple of what the
+answer's fractions are over — and every turn then nets the same amount exactly. The shortfall is one division
+by that, however tangled the cycle and however much was ordered.
+
+The arithmetic is exact throughout: whole-number fractions over `BigInteger`, never a `double`. A ratio worked
+out approximately would leave a plan a craft short of what it promised, which is the one thing a plan may not
+be. Gauss-Jordan on at most sixteen things; a cycle bigger than that is refused, which is the answer it got
+before any of this existed.
+
+Three rules apply to every kind:
+
+* **A loop grows what you have and never conjures the first of it.** Something on the cycle has to be in
   storage before it can turn. That seed is handed back at the end rather than spent, which is why it shows up
   in a plan as *not* used.
 * **A loop that gives back no more than it took is not a source of anything**, however many times it is run.
-  Neither is one that gives back less.
+  Neither is one that gives back less. Both come out of the equations on their own: no answer at all, or one
+  asking for a pattern to be run a negative number of times.
+* **One pattern serves each thing on the cycle** — the first that makes it and draws something else on the
+  cycle. That keeps the equations square, one per unknown. The other patterns for that thing are not lost;
+  they are what the next section is about.
 
 ### Getting off a cycle
 
@@ -191,13 +209,11 @@ The cycle itself is tried before any of this, ahead of priority: it is what the 
 loop that can turn is nearly always the cheaper of the two anyway, being largely a matter of giving back what
 it borrowed.
 
-Still left alone, and reported rather than half-solved: a **branching** cycle, where something on it is made
-from two other things on it. There is no single ring to walk. And a cycle with no way off it at all — nine
-nuggets to an ingot and back, with nothing feeding either — is correctly reported: going round gives back
-exactly what it took.
+A cycle with no way off it at all — nine nuggets to an ingot and back, with nothing feeding either — is
+correctly reported: going round gives back exactly what it took.
 
-One known non-minimality: stock of a thing part-way round a ring is not folded into the ratio, so a ring may
-turn a few more times than strictly needed. Never a plan that cannot run.
+One known non-minimality: stock of a thing on the cycle is not folded into the equations, so a cycle may turn
+a few more times than strictly needed. Never a plan that cannot run.
 
 ### When a pattern runs out
 

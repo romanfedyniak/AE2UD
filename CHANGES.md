@@ -157,6 +157,20 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A cycle that is not a ring is planned too.** Two patterns feeding each other go round in a circle and
+  the ratios multiply out, which is what the last of these did. But a cycle need not be a circle: one craft
+  can want *two* things that the cycle itself makes, and then there is no ring to walk and no chain of ratios
+  to multiply - and every such recipe came back with its output reported missing. What there always is,
+  whatever the shape, is a question of how many times to run each pattern so that the whole thing nets what
+  was asked for and comes back to where it started on everything else. That is a set of equations, one per
+  thing on the cycle, and it is solved as one. A turn of the cycle is still sized so no pattern's count has to
+  be rounded, and the whole of it is exact arithmetic on whole-number fractions - a ratio worked out
+  approximately would leave a plan a craft short of what it promised. Ordering ten billion round a cycle
+  costs what ordering one costs, as before. A cycle giving back no more than it took, or one whose answer
+  would need a pattern run backwards, is still reported rather than half-solved: both fall out of the
+  equations without having to be looked for. The old ring arithmetic is gone rather than kept beside this,
+  since a ring is one of these with one thing in the middle of it.
+
 - **A thing caught in a cycle is still made the ordinary way.** An ingot and its block feed each other, which
   is a cycle that gives back exactly what it took and is therefore no way of getting any - and the ingot is
   also made from dust, which has nothing to do with either. Patterns like that were never reached once their
@@ -193,9 +207,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   because rounding each pattern on its own can quietly leave the ring short of what the arithmetic promised.
   The rest is unchanged in spirit: a loop grows what you already have and never conjures the first of it, so
   one thing on the ring has to be in storage to start it, and it is handed back at the end rather than spent.
-  Ordering ten billion round a ring costs what ordering one costs. A cycle that branches - where something on
-  it is made from two other things on it - still has no single ring to walk and is reported rather than
-  half-solved.
+  Ordering ten billion round a ring costs what ordering one costs.
 
 - **A recipe sent from JEI puts the thing you were looking up first.** A recipe screen lists what a machine
   makes in whatever order it happens to draw them, and the first output of a pattern is not decoration: it is

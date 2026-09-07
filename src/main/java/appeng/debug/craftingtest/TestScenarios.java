@@ -122,6 +122,17 @@ public final class TestScenarios {
                 .request(k.stack("ring_a", 100))
                 .build());
 
+        scenarios.add(TestScenario.named("branching")
+                .describedAs("a cycle that is not a ring: one craft needs two things the cycle makes")
+                .pattern("a", in(k.stack("br_b", 1), k.stack("br_c", 1), k.stack("br_base", 1)),
+                        out(k.stack("br_a", 4)))
+                .pattern("b", in(k.stack("br_a", 1)), out(k.stack("br_b", 2)))
+                .pattern("c", in(k.stack("br_a", 1)), out(k.stack("br_c", 3)))
+                .inStorage(k.stack("br_b", 1))
+                .inStorage(k.stack("br_base", 1000))
+                .request(k.stack("br_a", 100))
+                .build());
+
         scenarios.add(deep(k, 40));
         scenarios.add(wide(k, 200));
         scenarios.add(batch(k, "batch_small", 1));

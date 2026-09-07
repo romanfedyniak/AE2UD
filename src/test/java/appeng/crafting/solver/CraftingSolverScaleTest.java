@@ -170,6 +170,34 @@ public final class CraftingSolverScaleTest {
         assertThat(crafts(plan, "pb"), is(huge));
     }
 
+    @Test
+    public void aBranchingCycleAtAnAbsurdSizeTurnsAtOnce() {
+        // A cycle that is not a ring costs a set of equations to solve, and that cost is the size of the
+        // cycle - three things here - and has nothing to do with how much was ordered.
+        final long huge = 10_000_000_000L;
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 4) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1),
+                        SolverIngredient.of(network.key("c"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
+        network.pattern("pc", new GenericStack[] { network.stack("c", 3) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
+        network.inStorage("b", 1);
+        network.inStorage("base", Long.MAX_VALUE / 4);
+
+        final SolverPlan plan = timed("ten billion round a branching cycle", () -> network.solve("a", huge));
+
+        assertThat(plan.isComplete(), is(true));
+        // Nineteen a to a turn, and six crafts of the first pattern to each of them.
+        assertThat(crafts(plan, "pa"), is(ceilDiv(huge, 19) * 6));
+    }
+
+    private static long ceilDiv(final long amount, final long per) {
+        return amount / per + (amount % per == 0 ? 0 : 1);
+    }
+
     private static SolverTestNetwork chain() {
         return new SolverTestNetwork()
                 .pattern("b", "b", "a")
