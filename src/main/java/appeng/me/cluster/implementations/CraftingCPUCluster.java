@@ -131,6 +131,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      */
     private KeyCounter promised = new KeyCounter();
     private long availableStorage = 0;
+    /**
+     * The tools this job holds, by the key they were reserved as. What comes back from a machine is a worn
+     * version of one of these and is claimed rather than let go - see {@link #isReturningTool(AEKey)}.
+     */
+    private final Set<AEKey> tools = new HashSet<>();
     private MachineSource machineSrc = null;
     private int accelerator = 0;
     private boolean isComplete = true;
@@ -338,7 +343,17 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         final long waitingAmount = this.waitingFor.get(what);
         if (waitingAmount <= 0) {
-            return 0;
+            if (!deliver || !this.isReturningTool(what)) {
+                return 0;
+            }
+
+            // Not progress, so nothing about the job moves - the tool is simply back where it belongs.
+            if (type == Actionable.MODULATE) {
+                this.inventory.insert(what, amount, Actionable.MODULATE, src);
+                this.postChange(what, src);
+            }
+
+            return amount;
         }
 
         final long used = Math.min(waitingAmount, amount);
@@ -636,7 +651,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.isComplete = true;
         this.myLastLink = null;
-        this.tasks.clear();
+        this.clearTasks();
         this.pushBackoff.clear();
         this.visitedMediums.clear();
 
@@ -979,7 +994,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             // clears them there; this one gets there while its own task still stands, and
                             // isBusy() counts a standing task as work.
                             if (this.isComplete) {
-                                this.tasks.clear();
+                                this.clearTasks();
                                 this.workableTasks.clear();
                                 this.updateCPU();
                                 return;
@@ -1195,10 +1210,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                 return CraftingSubmitResult.successful(whatLink);
             } else {
-                this.tasks.clear();
+                this.clearTasks();
             }
         } catch (final CraftBranchFailure e) {
-            this.tasks.clear();
+            this.clearTasks();
             // A branch that was there when the job was planned is gone now, so say what went missing.
             return CraftingSubmitResult.missingIngredient(e.getMissing());
         }
@@ -1369,14 +1384,63 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return this.promised.get(what);
     }
 
+    /**
+     * Forgets the job's steps, and with them the tools it was holding for those steps.
+     */
+    private void clearTasks() {
+        this.tasks.clear();
+        this.tools.clear();
+    }
+
     public void addCrafting(final ICraftingPatternDetails details, final long crafts) {
         TaskProgress i = this.tasks.get(details);
 
         if (i == null) {
             this.tasks.put(details, i = new TaskProgress());
+            this.rememberTools(details);
         }
 
         i.value += crafts;
+    }
+
+    /**
+     * Notes which of a pattern's ingredients are spent a little at a time rather than used up - tools.
+     * <p>
+     * Worked out from the patterns the job was given rather than told by the plan, because it is the same
+     * answer either way and the cpu is the only thing that needs it.
+     */
+    private void rememberTools(final ICraftingPatternDetails details) {
+        final GenericStack[] inputs = details.getInputs();
+        final IPatternInputs slots = details.getPatternInputs();
+
+        for (int x = 0; x < inputs.length; x++) {
+            if (inputs[x] != null && slots.get(x).getUses() > IPatternInput.CONSUMED) {
+                for (final GenericStack option : slots.get(x).getOptions()) {
+                    this.tools.add(option.what());
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether this is a worn version of a tool the job is holding, come back from the machine that used it.
+     * <p>
+     * A tool leaves the cpu whole and returns a little more worn, which is a different key - so nothing is
+     * waiting for it, and without this it would drift off into network storage while the job that owns it
+     * kept asking for another. It is claimed back instead, and is spent for as long as it lasts.
+     */
+    private boolean isReturningTool(final AEKey what) {
+        if (this.tools.isEmpty() || !(what instanceof AEItemKey worn)) {
+            return false;
+        }
+
+        for (final AEKey tool : this.tools) {
+            if (tool instanceof AEItemKey whole && whole.getItem() == worn.getItem()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public GenericStack getItemStack(final AEKey what, final CraftingItemList storage2) {

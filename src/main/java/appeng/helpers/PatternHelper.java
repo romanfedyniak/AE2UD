@@ -24,6 +24,7 @@ import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.crafting.IPatternInput;
+import static appeng.api.networking.crafting.IPatternInput.CONSUMED;
 import appeng.api.networking.crafting.IPatternInputs;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -235,6 +236,9 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final class Slot implements IPatternInput {
 
         private final int slot;
+        private boolean wearKnown;
+        private long uses = CONSUMED;
+        private GenericStack returned;
 
         private Slot(final int slot) {
             this.slot = slot;
@@ -248,6 +252,73 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         @Override
         public boolean isFabricated() {
             return PatternHelper.this.isFabricatedSlot(this.slot);
+        }
+
+        @Override
+        public GenericStack getReturned() {
+            this.workOutWear();
+            return this.returned;
+        }
+
+        @Override
+        public long getUses() {
+            this.workOutWear();
+            return this.uses;
+        }
+
+        /**
+         * Asks the craft itself what it hands back, once, and reads the answer.
+         * <p>
+         * The same call the molecular assembler makes when it puts the slot back, so the two cannot come to
+         * different conclusions about what a craft costs - which is the whole reason for asking rather than
+         * assuming a tool loses one point of damage a craft.
+         */
+        private void workOutWear() {
+            if (this.wearKnown) {
+                return;
+            }
+
+            this.wearKnown = true;
+
+            final ItemStack encoded = PatternHelper.this.crafting.getStackInSlot(this.slot);
+
+            // A slot the network fills in leaves nothing behind on purpose - the container never existed.
+            if (encoded.isEmpty() || this.isFabricated() || !encoded.getItem().hasContainerItem(encoded)) {
+                return;
+            }
+
+            final ItemStack single = encoded.copy();
+            single.setCount(1);
+            final ItemStack back = Platform.getContainerItem(single.copy());
+
+            if (back.isEmpty()) {
+                // It has something to hand back and hands back nothing, which is a tool breaking.
+                this.uses = 1;
+                return;
+            }
+
+            if (back.getItem() != single.getItem()) {
+                // A different thing came back: the emptied bucket, not a worn version of what went in.
+                this.returned = GenericStack.fromItemStack(back);
+                return;
+            }
+
+            if (!single.isItemStackDamageable()) {
+                // The same item in a different state, and no damage bar to measure it by - a tool that keeps
+                // its wear somewhere of its own. Counted one per craft, which is what it always was.
+                this.uses = 1;
+                return;
+            }
+
+            final int cost = back.getItemDamage() - single.getItemDamage();
+
+            if (cost <= 0) {
+                // Comes back untouched: a mould rather than a tool, and it is lent rather than spent.
+                this.returned = GenericStack.fromItemStack(back);
+                return;
+            }
+
+            this.uses = Math.max(1, (single.getMaxDamage() - single.getItemDamage()) / cost);
         }
     }
 

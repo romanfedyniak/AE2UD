@@ -148,6 +148,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A crafting cpu keeps hold of a tool instead of losing it after every craft.** A hammer leaves the cpu whole
+  and comes back a little worn, which is a different thing entirely as far as the network is concerned - so
+  nothing was waiting for it, it drifted off into storage, and the job that owned it went on asking for another.
+  A job now recognises a worn version of a tool it is holding and claims it back, so the same hammer serves the
+  whole run and what is left of it is returned at the end. Which ingredients are tools is worked out from the
+  patterns the job was given, and what a craft costs in wear is not guessed at either: it is read from the very
+  item the craft hands back, the same call the molecular assembler makes when it puts the slot down, so the two
+  cannot come to different conclusions. A tool with no damage bar to measure - one keeping its wear somewhere of
+  its own - still counts as one per craft, as it always did. This is half of the change; the other half is the
+  planner reserving two hammers for a hundred crafts rather than a hundred, which needs the new solver wired in.
+
 - **The solver understands a pattern that feeds itself.** Still wired to nothing; still only tests. A cycle
   used to be recognised and stepped around, which had a defect worth naming: the ordering stops at the first
   cycle and leaves *everything behind it* unplaced, not only the loop - so a step below one lost its pattern

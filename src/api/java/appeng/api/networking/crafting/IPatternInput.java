@@ -27,6 +27,8 @@ package appeng.api.networking.crafting;
 
 import appeng.api.stacks.GenericStack;
 
+import javax.annotation.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -57,6 +59,9 @@ public interface IPatternInput
 			return false;
 		}
 	};
+
+	/** {@link #getUses()} for an ingredient a craft consumes outright. */
+	long CONSUMED = 0;
 
 	/**
 	 * What may go in this slot, most preferred first, the encoded ingredient itself at the front. Each
@@ -89,5 +94,33 @@ public interface IPatternInput
 	default GenericStack getSupplied()
 	{
 		return this.getOptions().get( 0 );
+	}
+
+	/**
+	 * What one craft hands back for this slot, or null when it keeps what it took.
+	 * <p>
+	 * This is the emptied bucket, and nothing else: a tool that comes back worn is not a thing returned but a
+	 * thing partly spent, and is answered by {@link #getUses()} instead. The two are told apart by whether
+	 * what comes back is the same item that went in.
+	 */
+	@Nullable
+	default GenericStack getReturned()
+	{
+		return null;
+	}
+
+	/**
+	 * How many crafts one of this input serves before it is spent, or {@link #CONSUMED} when a craft uses one
+	 * up outright.
+	 * <p>
+	 * This is how a tool is counted. Each craft wears it a little, and every stage of that wear is a
+	 * different key - counting whole tools instead keeps a plan to "two hammers" rather than sixty
+	 * near-identical entries, and keeps the network from having to hold a hundred hammers to run a hundred
+	 * crafts. What a craft costs in wear is not guessed: it is read from the very item the craft hands back,
+	 * so a tool that loses ten points a craft is counted at ten and not at one.
+	 */
+	default long getUses()
+	{
+		return CONSUMED;
 	}
 }

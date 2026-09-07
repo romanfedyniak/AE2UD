@@ -2233,6 +2233,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     returns must be worked out once and kept - `getCondensed()` is read every tick a crafting CPU runs.
     This is the shape the crafting-calculation rewrite normalises a pattern through, and it will grow a
     slot's durability and returned container when there is a solver to read them.
+46. **`IPatternInput.getUses()` and `getReturned()`** - additive, defaulted, so amendment 45's shape is
+    unchanged for anything already written against it. The two facts a slot could not state: how many crafts
+    one of it serves before it is spent (a tool), and what a craft hands back (an emptied bucket). They are
+    one question split by which of the two answers applies - what comes back is either the same item worn,
+    which is wear, or a different item, which is a container - and `PatternHelper` tells them apart by asking
+    `Platform.getContainerItem`, the same call the molecular assembler makes when it puts a slot down. Asking
+    rather than assuming is the point: a guess of one damage point per craft would under-reserve a tool that
+    costs ten, and a job that under-reserves a tool waits for ever.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
