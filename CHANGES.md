@@ -148,6 +148,18 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **An ingredient carrying nbt no longer costs a full recipe match every tick.** A pattern remembers what it
+  has already judged for each of its slots, so a thing tested once is a lookup ever after - except that
+  anything with nbt on it was left out of that entirely and re-tested against the vanilla recipe every single
+  time. It was left out because what a pattern remembered was only the item and its damage, and two stacks of
+  one item with different nbt would have been mistaken for each other. In a pack where ingredients carry nbt
+  as a matter of course, that meant a full recipe match for every slot of every molecular assembler, on every
+  tick - an assembler checks whether it still has its materials each tick, not each craft, so this was paid
+  even while nothing was being made. The nbt is now part of what is remembered, so those slots are answered
+  from memory like any other. What one pattern remembers is capped, and starts over rather than freezing when
+  it fills: a wearing tool is never twice the same thing and would otherwise fill the memory with durability
+  values that will not come round again, crowding out the slots that do repeat.
+
 - **A loop that runs through several things is planned now, not only one that feeds itself.** A pattern that
   eats its own output has been solved since the planner was rewritten: each craft nets the difference, so the
   shortfall is one division. A cycle spread over two or three patterns - one that makes a from b while another

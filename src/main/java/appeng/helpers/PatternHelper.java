@@ -88,6 +88,15 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final boolean isCrafting;
     private final boolean canSubstitute;
     private final boolean canSubstituteFluids;
+    /**
+     * How many tested things one pattern will remember before starting over. Nine slots times a handful of
+     * things each is far under this, so an ordinary pattern never reaches it. What does reach it is a slot
+     * fed something that is never twice the same - a wearing tool, whose damage is part of what is
+     * remembered, adds one every craft - and without a ceiling that would grow without end. Starting over
+     * rather than simply refusing to record any more matters: freezing would leave the cache full of a
+     * tool's dead durability values and no room for the slots that do repeat.
+     */
+    private static final int MAX_REMEMBERED_TESTS = 256;
     private final Set<TestLookup> failCache = new HashSet<>();
     private final Set<TestLookup> passCache = new HashSet<>();
     private final AEItemKey pattern;
@@ -127,7 +136,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
             this.crafting.setInventorySlotContents(x, gs);
 
-            if (!gs.isEmpty() && (!this.isCrafting || !gs.hasTagCompound())) {
+            if (!gs.isEmpty()) {
                 this.markItemAs(x, gs, TestStatus.ACCEPT);
             }
 
@@ -483,11 +492,18 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     private void markItemAs(final int slotIndex, final ItemStack i, final TestStatus b) {
-        if (b == TestStatus.TEST || i.hasTagCompound()) {
+        if (b == TestStatus.TEST) {
             return;
         }
 
-        (b == TestStatus.ACCEPT ? this.passCache : this.failCache).add(new TestLookup(slotIndex, i));
+        if (this.passCache.size() + this.failCache.size() >= MAX_REMEMBERED_TESTS) {
+            this.passCache.clear();
+            this.failCache.clear();
+        }
+
+        // The tag is copied because the stack that carried it belongs to somebody else and may be written to
+        // again; a key that changes under a hash set is a key that is never found.
+        (b == TestStatus.ACCEPT ? this.passCache : this.failCache).add(TestLookup.remembering(slotIndex, i));
     }
 
     @Override
@@ -717,15 +733,13 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             return TestStatus.DECLINE;
         }
 
-        if (i.hasTagCompound()) {
-            return TestStatus.TEST;
-        }
+        final TestLookup asked = new TestLookup(slotIndex, i);
 
-        if (this.passCache.contains(new TestLookup(slotIndex, i))) {
+        if (this.passCache.contains(asked)) {
             return TestStatus.ACCEPT;
         }
 
-        if (this.failCache.contains(new TestLookup(slotIndex, i))) {
+        if (this.failCache.contains(asked)) {
             return TestStatus.DECLINE;
         }
 
@@ -775,21 +789,40 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         TEST
     }
 
+    /**
+     * What was tested in a slot: the item, its damage, and its nbt.
+     * <p>
+     * The nbt is part of the key because two stacks of the same item can carry different nbt and be judged
+     * differently by the same recipe - which is why anything carrying nbt used to be left out of the caches
+     * altogether and re-tested against the vanilla recipe every single time. In a pack where ingredients
+     * carry nbt as a matter of course that was every slot of every assembler, every tick.
+     */
     private static final class TestLookup {
 
         private final int slot;
         private final int ref;
+        private final NBTTagCompound tag;
         private final int hash;
 
+        /** For asking. Holds the stack's own tag, which is fine for a key that does not outlive the call. */
         public TestLookup(final int slot, final ItemStack i) {
-            this(slot, i.getItem(), i.getItemDamage());
+            this(slot, i.getItem(), i.getItemDamage(), i.getTagCompound());
         }
 
-        public TestLookup(final int slot, final Item item, final int dmg) {
+        /** For keeping. Takes a copy, since the stack it came from can be written to again. */
+        public static TestLookup remembering(final int slot, final ItemStack i) {
+            final NBTTagCompound tag = i.getTagCompound();
+
+            return new TestLookup(slot, i.getItem(), i.getItemDamage(), tag == null ? null : tag.copy());
+        }
+
+        private TestLookup(final int slot, final Item item, final int dmg, final NBTTagCompound tag) {
             this.slot = slot;
             this.ref = (dmg << Platform.DEF_OFFSET) | (Item.getIdFromItem(item) & 0xffff);
+            this.tag = tag;
             final int offset = 3 * slot;
-            this.hash = (this.ref << offset) | (this.ref >> (offset + 32));
+            this.hash = ((this.ref << offset) | (this.ref >> (offset + 32)))
+                    ^ (tag == null ? 0 : tag.hashCode());
         }
 
         @Override
@@ -804,7 +837,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             if (obj instanceof TestLookup) {
                 final TestLookup b = (TestLookup) obj;
 
-                equality = b.slot == this.slot && b.ref == this.ref;
+                equality = b.slot == this.slot && b.ref == this.ref && Objects.equals(b.tag, this.tag);
             } else {
                 equality = false;
             }
