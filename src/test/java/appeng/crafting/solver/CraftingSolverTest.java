@@ -199,7 +199,8 @@ public final class CraftingSolverTest {
 
     @Test
     public void aLoopThatGivesBackNoMoreThanItTookIsNotASource() {
-        // Two t in, one t out. Running it is a way of losing t, never of having more.
+        // Two t in, one t out. Running it is a way of losing t, never of having more - so the five on the
+        // shelf stay there, and ten more is not a thing this network can do.
         final SolverTestNetwork network = new SolverTestNetwork();
         network.pattern("loop", new GenericStack[] { network.stack("t", 1) },
                 Arrays.asList(SolverIngredient.of(network.key("t"), 2),
@@ -211,8 +212,42 @@ public final class CraftingSolverTest {
 
         assertThat(plan.isComplete(), is(false));
         assertThat(crafts(plan, "loop"), is(0L));
-        assertThat(plan.getUsed().get(network.key("t")), is(5L));
-        assertThat(plan.getMissing().get(network.key("t")), is(5L));
+        assertThat(plan.getMissing().get(network.key("t")), is(10L));
+    }
+
+    @Test
+    public void whatWasAskedForIsNotSpentToFillTheOrder() {
+        // Forty on the shelf and a hundred asked for makes a hundred more, not sixty. The requested thing is
+        // the one thing a plan may not help itself to.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("t", "t", "a")
+                .inStorage("t", 40)
+                .inStorage("a", 4096);
+
+        final SolverPlan plan = network.solve("t", 100);
+
+        assertThat(crafts(plan, "t"), is(100L));
+        assertThat(plan.getUsed().get(network.key("t")), is(0L));
+        assertThat(plan.getUsed().get(network.key("a")), is(100L));
+    }
+
+    @Test
+    public void oneIngredientCanBeCoveredBySeveralThings() {
+        // Ten crafts, four of one substitute in stock and plenty of the other. The tree this replaced shared
+        // a slot out like this; picking a single option for the whole run would call four of them missing.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("t", new GenericStack[] { network.stack("t", 1) },
+                Collections.singletonList(new SolverIngredient(Arrays.asList(
+                        new GenericStack(network.key("copper"), 1),
+                        new GenericStack(network.key("tin"), 1)))));
+        network.inStorage("copper", 4);
+        network.inStorage("tin", 100);
+
+        final SolverPlan plan = network.solve("t", 10);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("copper")), is(4L));
+        assertThat(plan.getUsed().get(network.key("tin")), is(6L));
     }
 
     @Test
@@ -328,6 +363,27 @@ public final class CraftingSolverTest {
         assertThat(crafts(plan, "forge"), is(100L));
         assertThat(plan.getUsed().get(network.key("hammer")), is(2L));
         assertThat(plan.getUsed().get(network.key("plate")), is(100L));
+    }
+
+    @Test
+    public void toolsInDifferentStatesAreWorthDifferentAmounts() {
+        // A fresh hammer and one with two crafts left in it. Both answer the same slot, and planning as
+        // though the tired one were new is how a job stops halfway holding a broken hammer.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("forge", new GenericStack[] { network.stack("out", 1) },
+                Collections.singletonList(new SolverIngredient(Arrays.asList(
+                        new GenericStack(network.key("worn_hammer"), 1),
+                        new GenericStack(network.key("hammer"), 1)),
+                        new long[] { 2, 60 })));
+        network.inStorage("worn_hammer", 1);
+        network.inStorage("hammer", 4);
+
+        final SolverPlan plan = network.solve("out", 62);
+
+        assertThat(plan.isComplete(), is(true));
+        // Two crafts out of the tired one, sixty out of a fresh one.
+        assertThat(plan.getUsed().get(network.key("worn_hammer")), is(1L));
+        assertThat(plan.getUsed().get(network.key("hammer")), is(1L));
     }
 
     @Test

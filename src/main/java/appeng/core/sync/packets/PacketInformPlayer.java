@@ -15,7 +15,7 @@ import java.io.IOException;
 /**
  * "Crafting could not extract what it needed" player notification (fork-specific, no upstream equivalent --
  * CONTRACT.md §10). Pinned signature: {@code PacketInformPlayer(GenericStack expected, @Nullable GenericStack
- * actual, InfoType type)}, called by {@code CraftingTreeNode}/{@code MECraftingInventory} (wave 2).
+ * actual, InfoType type)}, called by {@code CraftingJob}/{@code MECraftingInventory} (wave 2).
  */
 public class PacketInformPlayer extends AppEngPacket {
     private GenericStack actualItem = null;

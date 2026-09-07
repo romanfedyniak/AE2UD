@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,45 +37,60 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.util.DimensionalCoord;
 import appeng.core.AELog;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.PacketInformPlayer;
+import appeng.crafting.solver.CraftingSolver;
+import appeng.crafting.solver.SolverPattern;
+import appeng.crafting.solver.SolverPlan;
+import appeng.crafting.solver.SolverTooLargeException;
 import appeng.hooks.TickHandler;
+import appeng.me.cluster.implementations.CraftingCPUCluster;
 import com.google.common.base.Stopwatch;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
-import java.util.HashMap;
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 
+/**
+ * One request, worked out on a background thread.
+ * <p>
+ * The working out itself lives in {@link CraftingSolver}; this holds what the request was, what the network
+ * looked like when it was asked, and what came back. Notably there is only one attempt: a shortfall is a
+ * number the solver reports rather than a failure it throws, so the plan that says "this cannot be made and
+ * here is what is missing" is the same plan as the one that would have made it. The old tree ran the whole
+ * calculation twice to answer that, once in earnest and once again to find out why.
+ */
 public class CraftingJob implements Runnable, ICraftingJob {
     private static final String LOG_CRAFTING_JOB = "CraftingJob (%s) issued by %s requesting [%s] using %s bytes took %s us";
     private static final String LOG_MACHINE_SOURCE_DETAILS = "Machine[object=%s, %s]";
 
-    private final MECraftingInventory original;
+    /** What the network held when the job was asked. Kept, so the plan can be read against it afterwards. */
+    private final KeyCounter stock;
     private final World world;
-    private final KeyCounter crafting = new KeyCounter();
-    private final KeyCounter missing = new KeyCounter();
 
-    private final HashMap<String, TwoIntegers> opsAndMultiplier = new HashMap<>();
     private final Object monitor = new Object();
     private final Stopwatch tickSpreadingWatch = Stopwatch.createUnstarted();
-    private final Stopwatch craftingTreeWatch = Stopwatch.createUnstarted();
+    private final Stopwatch solverWatch = Stopwatch.createUnstarted();
     private final ICraftingGrid cc;
-    private CraftingTreeNode tree;
     private final GenericStack output;
-    private boolean simulate = false;
     private final CraftingMode craftingMode;
-    private MECraftingInventory availableCheck;
-    private long bytes = 0;
+    @Nullable
+    private final ICraftingPatternDetails rootPattern;
     private final IActionSource actionSrc;
     private final ICraftingCallback callback;
+
+    @Nullable
+    private SolverPlan plan;
     private boolean running = false;
     private boolean done = false;
     private int time;
     private int incTime;
-
-    private World wrapWorld(final World w) {
-        return w;
-    }
 
     public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingCallback callback) {
         this(w, grid, actionSrc, what, null, CraftingMode.STANDARD, callback);
@@ -93,113 +109,40 @@ public class CraftingJob implements Runnable, ICraftingJob {
     }
 
     public CraftingJob(final World w, final IGrid grid, final IActionSource actionSrc, final GenericStack what, final ICraftingPatternDetails rootPattern, final CraftingMode mode, final ICraftingCallback callback) {
-        this.world = this.wrapWorld(w);
+        this.world = w;
         this.output = what;
         this.actionSrc = actionSrc;
         this.craftingMode = mode;
-
+        this.rootPattern = rootPattern;
         this.callback = callback;
 
         this.cc = grid.getCache(ICraftingGrid.class);
         final IStorageService sg = grid.getCache(IStorageService.class);
-        this.original = new MECraftingInventory(sg.getCachedInventory());
-
-        this.setTree(this.getCraftingTree(cc, what, rootPattern));
-        this.availableCheck = null;
-    }
-
-    private CraftingTreeNode getCraftingTree(final ICraftingGrid cc, final GenericStack what, final ICraftingPatternDetails rootPattern) {
-        return new CraftingTreeNode(cc, this, what.what(), null, -1, 0, rootPattern);
-    }
-
-    void refund(final AEKey what, final long amount) {
-        this.availableCheck.insert(what, amount, Actionable.MODULATE, this.actionSrc);
-    }
-
-    long checkUse(final AEKey what, final long amount) {
-        return this.availableCheck.extract(what, amount, Actionable.MODULATE, this.actionSrc);
-    }
-
-    long checkAvailable(final AEKey what, final long amount) {
-        return this.availableCheck.extract(what, amount, Actionable.SIMULATE, this.actionSrc);
-    }
-
-    void addTask(final AEKey what, final long amount, final ICraftingPatternDetails details, final int depth) {
-        if (amount > 0) {
-            this.crafting.add(what, amount);
-        }
-    }
-
-    void addMissing(final AEKey what, final long amount) {
-        this.missing.add(what, amount);
+        // Kept whole. What is already there does not count towards the order - the solver reserves the
+        // requested key rather than spending it - but a self-feeding pattern needs one of it to start,
+        // and zeroing it here would make that first one unreachable.
+        this.stock = sg.getInventory().getAvailableStacks();
     }
 
     @Override
     public void run() {
         try {
-            try {
-                TickHandler.INSTANCE.registerCraftingSimulation(this.world, this);
-                this.handlePausing();
+            TickHandler.INSTANCE.registerCraftingSimulation(this.world, this);
+            this.handlePausing();
 
-                final MECraftingInventory craftingInventory = new MECraftingInventory(this.original, true, false, true);
-                craftingInventory.ignore(this.output.what());
+            final NetworkCraftingSource source = new NetworkCraftingSource(this.cc, this.world, this.stock,
+                    this.output.what(), this.rootPattern, this.isRequestedByPlayer());
 
-                this.availableCheck = new MECraftingInventory(this.original, false, false, false);
-                craftingTreeWatch.reset().start();
-                this.getTree().request(craftingInventory, this.output.amount(), this.actionSrc);
-                craftingTreeWatch.stop();
-                this.getTree().dive(this);
+            this.solverWatch.reset().start();
+            this.plan = new CraftingSolver(source, appeng.crafting.solver.SolverLimits.DEFAULT,
+                    this::pauseFromSolver).solve(this.output.what(), this.output.amount(), this.stock);
+            this.solverWatch.stop();
 
-                for (final String s : this.opsAndMultiplier.keySet()) {
-                    final TwoIntegers ti = this.opsAndMultiplier.get(s);
-                    AELog.crafting(s + " * " + ti.times + " = " + (ti.perOp * ti.times));
-                }
-
-                if (actionSrc.player().isPresent()) {
-                    this.logCraftingJob("simulated, success", craftingTreeWatch);
-                } else {
-                    this.logCraftingJob("real, success", craftingTreeWatch);
-                }
-            } catch (final CraftBranchFailure e) {
-                this.simulate = true;
-
-                try {
-                    if (actionSrc.player().isPresent()) {
-                        final MECraftingInventory craftingInventory = new MECraftingInventory(this.original, true, false, true);
-                        craftingInventory.ignore(this.output.what());
-
-                        this.getTree().setSimulate();
-                        this.availableCheck = new MECraftingInventory(this.original, false, false, false);
-                        craftingTreeWatch.reset().start();
-                        this.getTree().request(craftingInventory, this.output.amount(), this.actionSrc);
-                        craftingTreeWatch.stop();
-                        this.getTree().dive(this);
-
-                        for (final String s : this.opsAndMultiplier.keySet()) {
-                            final TwoIntegers ti = this.opsAndMultiplier.get(s);
-                            AELog.crafting(s + " * " + ti.times + " = " + (ti.perOp * ti.times));
-                        }
-
-                        this.logCraftingJob("simulated, failed", craftingTreeWatch);
-                    } else {
-                        this.logCraftingJob("real, failed", craftingTreeWatch);
-                    }
-                } catch (final CraftBranchFailure | CraftingCalculationFailure e1) {
-                    AELog.debug(e1);
-                } catch (final InterruptedException e1) {
-                    AELog.crafting("Crafting calculation canceled.");
-                    this.finish();
-                    return;
-                }
-            } catch (final CraftingCalculationFailure f) {
-                AELog.debug(f);
-            } catch (final InterruptedException e1) {
-                AELog.crafting("Crafting calculation canceled.");
-                this.finish();
-                return;
-            }
-
-            AELog.craftingDebug("crafting job now done");
+            this.logCraftingJob(this.isSimulation() ? "simulated" : "real", this.solverWatch);
+        } catch (final Cancelled e) {
+            AELog.crafting("Crafting calculation canceled.");
+        } catch (final SolverTooLargeException e) {
+            AELog.crafting("Crafting calculation refused: %s", e.getMessage());
         } catch (final Throwable t) {
             this.finish();
             throw new IllegalStateException(t);
@@ -208,14 +151,30 @@ public class CraftingJob implements Runnable, ICraftingJob {
         this.finish();
     }
 
+    /**
+     * The solver has no checked exceptions, so a cancelled job leaves through one of these and {@link #run}
+     * unwraps it. Nothing else ever sees it.
+     */
+    private static final class Cancelled extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private void pauseFromSolver() {
+        try {
+            this.handlePausing();
+        } catch (final InterruptedException e) {
+            throw new Cancelled();
+        }
+    }
+
     void handlePausing() throws InterruptedException {
         if (!this.actionSrc.player().isPresent() && this.incTime > 100) {
             this.incTime = 0;
             synchronized (this.monitor) {
                 if (this.tickSpreadingWatch.elapsed(TimeUnit.MICROSECONDS) > this.time) {
                     this.running = false;
-                    if (this.craftingTreeWatch.isRunning()) {
-                        this.craftingTreeWatch.stop();
+                    if (this.solverWatch.isRunning()) {
+                        this.solverWatch.stop();
                     }
 
                     if (this.tickSpreadingWatch.isRunning()) {
@@ -249,8 +208,6 @@ public class CraftingJob implements Runnable, ICraftingJob {
             this.callback.calculationComplete(this);
         }
 
-        this.availableCheck = null;
-
         synchronized (this.monitor) {
             this.running = false;
             this.done = true;
@@ -260,7 +217,10 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     @Override
     public boolean isSimulation() {
-        return this.simulate;
+        // A shortfall is what makes a job a simulation, except when the request was to plan around one: a
+        // forced start is a real job that waits for what it lacks to be brought.
+        return this.plan == null
+                || !this.plan.isComplete() && this.craftingMode != CraftingMode.IGNORE_MISSING;
     }
 
     @Override
@@ -270,33 +230,24 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     @Override
     public long getByteTotal() {
-        return this.bytes;
+        return this.plan == null ? 0 : this.plan.getBytes();
     }
 
     @Override
     public void populatePlan(final KeyCounter plan) {
-        if (this.getTree() == null) {
-            return;
-        }
-
         final KeyCounter used = new KeyCounter();
         final KeyCounter requestable = new KeyCounter();
-        this.getTree().getPlan(used, requestable, new KeyCounter());
+        this.populatePlan(used, requestable, new KeyCounter());
 
         plan.addAll(used);
         plan.addAll(requestable);
     }
 
     /**
-     * Same information as {@link #populatePlan(KeyCounter)}, but kept as two separate counters
-     * instead of merged into one. {@link ICraftingJob#populatePlan(KeyCounter)} (frozen API) only has
-     * room for a single {@link KeyCounter} argument, so it cannot carry both "already have this many
-     * in storage / missing" and "this many will be produced by crafting" for the same key the way the
-     * old {@code IAEItemStack}, with its independent {@code stackSize}/{@code countRequestable}
-     * fields, used to. Calling {@link #populatePlan(KeyCounter)} still works (it merges the two here),
-     * but a caller that needs the old split - e.g. the crafting confirmation GUI, which sent the two
-     * numbers to the client as two different packets - must call this overload directly on the
-     * concrete {@link CraftingJob} instead of through the interface.
+     * Same information as {@link #populatePlan(KeyCounter)}, but kept as two separate counters instead of
+     * merged into one. {@link ICraftingJob#populatePlan(KeyCounter)} (frozen API) only has room for a single
+     * {@link KeyCounter} argument, so it cannot carry both "already have this many in storage / missing" and
+     * "this many will be produced by crafting" for the same key.
      */
     public void populatePlan(final KeyCounter used, final KeyCounter requestable) {
         this.populatePlan(used, requestable, new KeyCounter());
@@ -306,8 +257,88 @@ public class CraftingJob implements Runnable, ICraftingJob {
      * Adds the number of pattern executions behind every crafted output to the split plan.
      */
     public void populatePlan(final KeyCounter used, final KeyCounter requestable, final KeyCounter craftingSteps) {
-        if (this.getTree() != null) {
-            this.getTree().getPlan(used, requestable, craftingSteps);
+        if (this.plan == null) {
+            return;
+        }
+
+        used.addAll(this.plan.getUsed());
+        // What is lacking is shown beside what was drawn, the way the old tree reported it: both are things
+        // the network has to find, and only one of them it already has.
+        used.addAll(this.plan.getMissing());
+
+        requestable.addAll(this.plan.getProduced());
+        requestable.addAll(this.plan.getEmitted());
+
+        for (final Map.Entry<SolverPattern, Long> entry : this.plan.getCrafts().entrySet()) {
+            for (final GenericStack out : entry.getKey().getOutputs()) {
+                craftingSteps.add(out.what(), entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * Hands the finished plan to a crafting cpu: what it needs is taken out of the network and put into the
+     * cpu, what nothing is making is promised to it, and every pattern is queued.
+     *
+     * @throws CraftBranchFailure when the network no longer holds something the plan counted on, which can
+     *                            happen between working the plan out and starting it.
+     */
+    public void setJob(final MECraftingInventory storage, final CraftingCPUCluster cpu,
+            final IActionSource src) throws CraftBranchFailure {
+        if (this.plan == null) {
+            return;
+        }
+
+        for (final var entry : this.plan.getUsed()) {
+            final AEKey key = entry.getKey();
+            final long amount = entry.getLongValue();
+
+            if (amount <= 0) {
+                continue;
+            }
+
+            final long extracted = storage.extract(key, amount, Actionable.MODULATE, src);
+
+            if (extracted != amount) {
+                tellThePlayer(src, key, amount, extracted);
+                throw new CraftBranchFailure(key, amount);
+            }
+
+            cpu.addStorage(key, extracted);
+        }
+
+        for (final var entry : this.plan.getEmitted()) {
+            cpu.addEmitable(entry.getKey(), entry.getLongValue());
+        }
+
+        // What the job was told to ignore is waited for in exactly the same way. It stays counted as missing
+        // rather than as emitted, so the plan still shows it as something the network has not got.
+        if (this.craftingMode == CraftingMode.IGNORE_MISSING) {
+            for (final var entry : this.plan.getMissing()) {
+                cpu.addEmitable(entry.getKey(), entry.getLongValue());
+            }
+        }
+
+        for (final Map.Entry<SolverPattern, Long> entry : this.plan.getCrafts().entrySet()) {
+            cpu.addCrafting((ICraftingPatternDetails) entry.getKey().getSource(), entry.getValue());
+        }
+    }
+
+    private static void tellThePlayer(final IActionSource src, final AEKey key, final long wanted,
+            final long got) {
+        if (!src.player().isPresent()) {
+            return;
+        }
+
+        try {
+            NetworkHandler.instance().sendTo(got <= 0
+                    ? new PacketInformPlayer(new GenericStack(key, wanted), null,
+                            PacketInformPlayer.InfoType.NO_ITEMS_EXTRACTED)
+                    : new PacketInformPlayer(new GenericStack(key, wanted), new GenericStack(key, got),
+                            PacketInformPlayer.InfoType.PARTIAL_ITEM_EXTRACTION),
+                    (EntityPlayerMP) src.player().get());
+        } catch (final IOException e) {
+            AELog.debug(e);
         }
     }
 
@@ -315,7 +346,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
      * Returns how much of a key existed when this crafting calculation started.
      */
     public long getAvailableAtStart(final AEKey what) {
-        return this.original.extract(what, Long.MAX_VALUE, Actionable.SIMULATE, this.actionSrc);
+        return this.stock.get(what);
     }
 
     @Override
@@ -325,6 +356,14 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     public boolean isDone() {
         return this.done;
+    }
+
+    /**
+     * The finished plan, or null while the job is still being worked out or if it was cancelled.
+     */
+    @Nullable
+    public SolverPlan getPlan() {
+        return this.plan;
     }
 
     /**
@@ -359,23 +398,11 @@ public class CraftingJob implements Runnable, ICraftingJob {
         return true;
     }
 
-    void addBytes(final long crafts) {
-        this.bytes += crafts;
-    }
-
     /**
      * The network this job was worked out on, so a caller can ask it what a pattern would be run by.
      */
     public ICraftingGrid getCraftingGrid() {
         return this.cc;
-    }
-
-    public CraftingTreeNode getTree() {
-        return this.tree;
-    }
-
-    private void setTree(final CraftingTreeNode tree) {
-        this.tree = tree;
     }
 
     private void logCraftingJob(String type, Stopwatch timer) {
@@ -399,12 +426,7 @@ public class CraftingJob implements Runnable, ICraftingJob {
                 actionSource = "[unknown source]";
             }
 
-            AELog.crafting(LOG_CRAFTING_JOB, type, actionSource, itemToOutput, this.bytes, elapsedTime);
+            AELog.crafting(LOG_CRAFTING_JOB, type, actionSource, itemToOutput, this.getByteTotal(), elapsedTime);
         }
-    }
-
-    private static class TwoIntegers {
-        private final long perOp = 0;
-        private final long times = 0;
     }
 }

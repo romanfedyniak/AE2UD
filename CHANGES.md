@@ -148,6 +148,29 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **Autocrafting is planned by the new solver, and the old crafting tree is gone.** This is the change the four
+  before it were building towards, and it is the one a player will feel. A plan no longer costs anything for
+  how much was ordered: the same request for one and for ten billion is the same work, where the tree walked
+  it once per item and copied the whole network ledger to do it. A chain of patterns can be any length -
+  ten thousand deep is a plan, where before it was a stack overflow. A thing several branches need is worked
+  out once instead of once per branch, so the shapes that used to take minutes are milliseconds. Along the way
+  the answers themselves get better in three places we can name. **A request that cannot be met costs half
+  what it did**: a shortfall is a number the solver reports rather than an error it throws, so there is one
+  attempt where there used to be two - the real one, and then the whole calculation again from scratch to find
+  out what was missing. **What the confirmation screen shows is what will actually happen**: when a preferred
+  pattern runs out of its ingredient the plan moves the rest onto the next pattern in *every* mode, so a
+  screen saying "missing 150 dust" where the network would in fact have used the furnace is gone, and a forced
+  start now does what the preview said. **Storage is handed out on the whole picture**: by the time a thing is
+  decided every branch wanting it has been counted, so scarce stock goes first to a step that has no
+  alternative rather than to whichever branch happened to be walked first - which also means the same network
+  and the same request now give the same plan every time. One ingredient can be covered by several things at
+  once, the way the tree did it: four of one substitute and six of another make ten crafts, and so do one
+  part-worn tool and the rest fresh. And what was asked for is never spent to fill its own order - ordering a
+  hundred when forty are on the shelf still makes a hundred more - with one exception, which is the only way
+  a self-feeding pattern could ever start: the first of a thing a loop grows can come from the forty. Bytes are counted by the same rule as before, with
+  one difference: a pattern that hands a container back no longer pays for that container on every craft, so
+  such plans are cheaper and fit in a smaller cpu.
+
 - **A crafting cpu keeps hold of a tool instead of losing it after every craft.** A hammer leaves the cpu whole
   and comes back a little worn, which is a different thing entirely as far as the network is concerned - so
   nothing was waiting for it, it drifted off into storage, and the job that owned it went on asking for another.
@@ -156,8 +179,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   patterns the job was given, and what a craft costs in wear is not guessed at either: it is read from the very
   item the craft hands back, the same call the molecular assembler makes when it puts the slot down, so the two
   cannot come to different conclusions. A tool with no damage bar to measure - one keeping its wear somewhere of
-  its own - still counts as one per craft, as it always did. This is half of the change; the other half is the
-  planner reserving two hammers for a hundred crafts rather than a hundred, which needs the new solver wired in.
+  its own - still counts as one per craft, as it always did. **A plan asks for the tools a run will really wear
+  out, not one per craft**: a hundred crafts with a sixty-craft hammer are two hammers, where before they were
+  a hundred and a network holding one simply could not do it. What is left in a *particular* tool is counted
+  too, since after a job the network holds part-used ones - a hammer with two crafts in it covers two, and the
+  rest come from the next one, in the same breath. Both halves are needed for either to help: reserving two
+  hammers is only safe because the job now keeps hold of the one it is using.
 
 - **The solver understands a pattern that feeds itself.** Still wired to nothing; still only tests. A cycle
   used to be recognised and stepped around, which had a defect worth naming: the ordering stops at the first

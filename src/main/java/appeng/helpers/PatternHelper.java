@@ -238,6 +238,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         private final int slot;
         private boolean wearKnown;
         private long uses = CONSUMED;
+        private int wearPerCraft;
         private GenericStack returned;
 
         private Slot(final int slot) {
@@ -264,6 +265,24 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         public long getUses() {
             this.workOutWear();
             return this.uses;
+        }
+
+        @Override
+        public long getUses(final GenericStack option) {
+            this.workOutWear();
+
+            if (this.uses == CONSUMED || !(option.what() instanceof AEItemKey offered)) {
+                return this.uses;
+            }
+
+            final ItemStack stack = offered.getReadOnlyStack();
+
+            if (this.wearPerCraft <= 0 || !stack.isItemStackDamageable()) {
+                return this.uses;
+            }
+
+            // What is left in this particular one, at the rate this particular craft wears it.
+            return Math.max(1, (stack.getMaxDamage() - stack.getItemDamage()) / this.wearPerCraft);
         }
 
         /**
@@ -318,6 +337,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 return;
             }
 
+            this.wearPerCraft = cost;
             this.uses = Math.max(1, (single.getMaxDamage() - single.getItemDamage()) / cost);
         }
     }

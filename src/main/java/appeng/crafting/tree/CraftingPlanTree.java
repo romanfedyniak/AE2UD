@@ -26,21 +26,24 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingJob;
-import appeng.crafting.CraftingTreeNode;
-import appeng.crafting.CraftingTreeProcess;
+import appeng.crafting.solver.SolverPattern;
+import appeng.crafting.solver.SolverPlan;
 import appeng.crafting.tree.CraftingPlanSource.Kind;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
+import appeng.api.stacks.KeyCounter;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -72,69 +75,81 @@ public final class CraftingPlanTree {
     }
 
     /**
-     * @return null when the job never produced a tree, which happens if it failed before it started.
+     * @return null when the job has no plan, which happens if it was cancelled or refused.
      */
     @Nullable
     public static CraftingPlanTree of(final CraftingJob job) {
-        final CraftingTreeNode solverRoot = job.getTree();
-        if (solverRoot == null) {
+        final SolverPlan plan = job.getPlan();
+        if (plan == null) {
             return null;
         }
 
         final GenericStack output = job.getOutput();
-        final CraftingPlanNode root = new CraftingPlanNode(solverRoot.getWhat(), output.amount());
+        final CraftingPlanNode root = new CraftingPlanNode(output.what(), output.amount());
 
         final Deque<Pending> pending = new ArrayDeque<>();
-        pending.push(new Pending(solverRoot, root));
+        // A plan is a graph, so a thing several branches need appears under each of them. It is expanded the
+        // first time and stands on its own after that, which is what keeps the drawing finite: unfolded in
+        // full, one shared step under twenty parents is a million rows nobody asked for.
+        final Set<AEKey> expanded = new HashSet<>();
+
+        pending.push(new Pending(output.what(), root));
 
         while (!pending.isEmpty()) {
             final Pending current = pending.pop();
-            addSources(current.solverNode, current.planNode, pending, job.getCraftingGrid());
+
+            if (expanded.add(current.what)) {
+                addSources(plan, current.what, current.planNode, pending, job.getCraftingGrid());
+            }
         }
 
         return new CraftingPlanTree(root);
     }
 
-    private static void addSources(final CraftingTreeNode solverNode, final CraftingPlanNode planNode,
+    private static void addSources(final SolverPlan plan, final AEKey what, final CraftingPlanNode planNode,
             final Deque<Pending> pending, final ICraftingGrid grid) {
-        for (final var entry : solverNode.getUsed()) {
-            if (entry.getLongValue() > 0) {
-                planNode.getSources().add(
-                        new CraftingPlanSource(Kind.STORAGE, entry.getKey(), entry.getLongValue(), 0));
-            }
+        final long fromStorage = plan.getUsed().get(what);
+        if (fromStorage > 0) {
+            planNode.getSources().add(new CraftingPlanSource(Kind.STORAGE, what, fromStorage, 0));
         }
 
-        if (solverNode.getEmitted() > 0) {
-            planNode.getSources().add(
-                    new CraftingPlanSource(Kind.EMITTER, solverNode.getWhat(), solverNode.getEmitted(), 0));
+        final long emitted = plan.getEmitted().get(what);
+        if (emitted > 0) {
+            planNode.getSources().add(new CraftingPlanSource(Kind.EMITTER, what, emitted, 0));
         }
 
-        if (solverNode.getMissing() > 0) {
-            planNode.getSources().add(
-                    new CraftingPlanSource(Kind.MISSING, solverNode.getWhat(), solverNode.getMissing(), 0));
+        final long missing = plan.getMissing().get(what);
+        if (missing > 0) {
+            planNode.getSources().add(new CraftingPlanSource(Kind.MISSING, what, missing, 0));
         }
 
-        for (final CraftingTreeProcess process : solverNode.getProcesses()) {
-            final long crafts = process.getCrafts();
-            // A pattern that was considered and dropped is not part of the plan, and showing it would
-            // describe work that never happens.
-            if (crafts <= 0) {
+        for (final Map.Entry<SolverPattern, Long> entry : plan.getCrafts().entrySet()) {
+            final SolverPattern pattern = entry.getKey();
+            final long crafts = entry.getValue();
+            final long per = pattern.outputOf(what);
+
+            // Every pattern that makes this thing is a way it is got; the ones that make something else are
+            // somebody else's row.
+            if (per <= 0 || crafts <= 0) {
                 continue;
             }
 
-            final GenericStack made = process.getAmountCrafted(solverNode.getWhat());
-            final long produced = made == null ? 0 : made.amount() * crafts;
             final CraftingPlanSource source =
-                    new CraftingPlanSource(Kind.CRAFT, solverNode.getWhat(), produced, crafts);
-            source.setMachine(machineFor(grid, process.getDetails()));
+                    new CraftingPlanSource(Kind.CRAFT, what, per * crafts, crafts);
+            source.setMachine(machineFor(grid, (ICraftingPatternDetails) pattern.getSource()));
             planNode.getSources().add(source);
 
-            for (final Object2LongMap.Entry<CraftingTreeNode> input : process.getInputs().object2LongEntrySet()) {
-                final CraftingTreeNode child = input.getKey();
+            final KeyCounter drawn = plan.getPatternInputs().get(pattern);
+
+            if (drawn == null) {
+                continue;
+            }
+
+            for (final var input : drawn) {
                 final CraftingPlanNode childPlan =
-                        new CraftingPlanNode(child.getWhat(), input.getLongValue() * crafts);
+                        new CraftingPlanNode(input.getKey(), input.getLongValue());
                 source.getInputs().add(childPlan);
-                pending.push(new Pending(child, childPlan));
+                pending.push(new Pending(input.getKey(), childPlan));
             }
         }
     }
@@ -308,11 +323,11 @@ public final class CraftingPlanTree {
     }
 
     private static final class Pending {
-        private final CraftingTreeNode solverNode;
+        private final AEKey what;
         private final CraftingPlanNode planNode;
 
-        private Pending(final CraftingTreeNode solverNode, final CraftingPlanNode planNode) {
-            this.solverNode = solverNode;
+        private Pending(final AEKey what, final CraftingPlanNode planNode) {
+            this.what = what;
             this.planNode = planNode;
         }
     }

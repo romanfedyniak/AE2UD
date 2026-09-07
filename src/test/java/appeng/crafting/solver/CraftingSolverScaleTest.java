@@ -12,6 +12,7 @@ package appeng.crafting.solver;
 
 
 import appeng.api.stacks.GenericStack;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -35,6 +36,18 @@ import static org.hamcrest.Matchers.lessThan;
 public final class CraftingSolverScaleTest {
 
     private static final long GENEROUS_MILLIS = 2000;
+
+    /**
+     * The first solve of a session pays for loading and compiling everything under it, which on a busy
+     * machine is seconds and has nothing to do with the shape of the problem. These budgets are here to
+     * catch a return to walking item by item, so the measurement starts after that is out of the way.
+     */
+    @BeforeAll
+    public static void warmUp() {
+        for (int x = 0; x < 200; x++) {
+            chain().solve("t", 64);
+        }
+    }
 
     @Test
     public void theAmountOrderedDoesNotChangeTheCost() {

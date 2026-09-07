@@ -29,7 +29,7 @@ import java.util.List;
 public final class SolverIngredient {
 
     private final List<GenericStack> options;
-    private final long uses;
+    private final long[] uses;
 
     public SolverIngredient(final List<GenericStack> options) {
         this(options, 0);
@@ -37,15 +37,34 @@ public final class SolverIngredient {
 
     /**
      * @param uses how many crafts one of this input serves before it is spent, or zero when a craft consumes
-     *             it outright.
+     *             it outright. The same for every option.
      */
     public SolverIngredient(final List<GenericStack> options, final long uses) {
+        this(options, filled(options.size(), uses));
+    }
+
+    /**
+     * @param uses what each option is worth in crafts, indexed alongside it. They differ: a fresh tool has
+     *             its whole life in it and a nearly finished one has a craft or two, and both are perfectly
+     *             good answers to the same slot.
+     */
+    public SolverIngredient(final List<GenericStack> options, final long[] uses) {
         if (options.isEmpty()) {
             throw new IllegalArgumentException("An ingredient nothing can satisfy is not an ingredient");
         }
 
+        if (uses.length != options.size()) {
+            throw new IllegalArgumentException("Every option says what it is worth, or none of them does");
+        }
+
         this.options = Collections.unmodifiableList(options);
-        this.uses = uses;
+        this.uses = uses.clone();
+    }
+
+    private static long[] filled(final int size, final long value) {
+        final long[] all = new long[size];
+        java.util.Arrays.fill(all, value);
+        return all;
     }
 
     public static SolverIngredient of(final AEKey what, final long amountPerCraft) {
@@ -68,14 +87,15 @@ public final class SolverIngredient {
     }
 
     /**
-     * How many crafts one of this input serves before it is spent. Zero means each craft consumes its own.
+     * How many crafts one of the option at that index serves before it is spent. Zero means each craft
+     * consumes its own.
      * <p>
      * This is how a tool is counted. A hammer that lasts sixty crafts is worn a little at a time, and every
      * stage of that wear is a different key; counting it in uses keeps the plan to whole hammers and out of
      * a list of sixty near-identical things nobody wanted to see.
      */
-    public long getUses() {
-        return this.uses;
+    public long getUses(final int option) {
+        return this.uses[option];
     }
 
     @Override

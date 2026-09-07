@@ -36,14 +36,26 @@ public final class CraftingSolver {
 
     private final ICraftingSource source;
     private final SolverLimits limits;
+    private final Runnable onProgress;
 
     public CraftingSolver(final ICraftingSource source) {
         this(source, SolverLimits.DEFAULT);
     }
 
     public CraftingSolver(final ICraftingSource source, final SolverLimits limits) {
+        this(source, limits, () -> {
+        });
+    }
+
+    /**
+     * @param onProgress run once for each group of keys settled. A job spread across ticks yields here, and a
+     *                   cancelled one throws from here; a solve is short enough that no finer grain would
+     *                   ever be reached.
+     */
+    public CraftingSolver(final ICraftingSource source, final SolverLimits limits, final Runnable onProgress) {
         this.source = source;
         this.limits = limits;
+        this.onProgress = onProgress;
     }
 
     /**
@@ -57,7 +69,7 @@ public final class CraftingSolver {
         final SolverGraph graph = SolverGraph.of(what, this.source, this.limits);
         final Map<SolverPattern, Long> caps = new LinkedHashMap<>();
 
-        Pass pass = new Pass(graph, stock).run(what, amount, caps);
+        Pass pass = new Pass(graph, stock, this.onProgress).run(what, amount, caps);
 
         // A pattern that ran out of an ingredient has not disproved the request, only itself. Hold it to
         // what it could really do and let the next pattern for that key take the rest - which is what the
@@ -67,7 +79,7 @@ public final class CraftingSolver {
                 break;
             }
 
-            pass = new Pass(graph, stock).run(what, amount, caps);
+            pass = new Pass(graph, stock, this.onProgress).run(what, amount, caps);
         }
 
         return pass.toPlan(graph);
@@ -155,6 +167,8 @@ public final class CraftingSolver {
     private static final class Pass {
 
         private final SolverGraph graph;
+        private final Runnable onProgress;
+        private AEKey root;
         private final KeyCounter stock = new KeyCounter();
         private final KeyCounter demand = new KeyCounter();
         private final KeyCounter surplus = new KeyCounter();
@@ -167,15 +181,18 @@ public final class CraftingSolver {
         private final Map<SolverPattern, AEKey> servedBy = new LinkedHashMap<>();
         private long bytes;
 
-        private Pass(final SolverGraph graph, final KeyCounter stock) {
+        private Pass(final SolverGraph graph, final KeyCounter stock, final Runnable onProgress) {
             this.graph = graph;
+            this.onProgress = onProgress;
             this.stock.addAll(stock);
         }
 
         private Pass run(final AEKey root, final long amount, final Map<SolverPattern, Long> caps) {
+            this.root = root;
             this.demand.add(root, amount);
 
             for (final List<AEKey> component : this.graph.getComponents()) {
+                this.onProgress.run();
                 final AEKey only = component.size() == 1 ? component.get(0) : null;
 
                 if (only != null && !this.graph.hasSelfLoop(only)) {
@@ -318,10 +335,11 @@ public final class CraftingSolver {
                 this.expand(pattern, runs);
 
                 // Running it asked for the seed. This key is being settled now and nothing will come back to
-                // it, so that goes on what is still wanted and is answered here with everything else.
+                // it, so that goes on what is still wanted and is answered here with everything else - out of
+                // the network's own, which is the one thing the loop is allowed to reach for.
                 need += this.demand.get(key) - before;
                 need -= this.takeSurplus(key, need);
-                need -= this.takeStock(key, need);
+                need -= this.drawStock(key, need);
             }
 
             return need;
@@ -381,28 +399,7 @@ public final class CraftingSolver {
             final KeyCounter handedBack = new KeyCounter();
 
             for (final SolverIngredient ingredient : pattern.getInputs()) {
-                final int chosen = this.choose(ingredient, runs);
-                final GenericStack option = ingredient.getOptions().get(chosen);
-                final long total;
-
-                if (ingredient.getUses() > 0) {
-                    // Spent a little at a time rather than one per craft, so what is drawn is how many of
-                    // them the whole run wears out.
-                    total = multiply(option.amount(), ceilDiv(runs, ingredient.getUses()));
-                } else {
-                    final long back = Math.min(option.amount(), pattern.outputOf(option.what()));
-                    long drawnPerRun = multiply(option.amount() - back, runs);
-
-                    if (back > 0) {
-                        handedBack.add(option.what(), back);
-                        drawnPerRun += back;
-                    }
-
-                    total = drawnPerRun;
-                }
-
-                this.demand.add(option.what(), total);
-                drawn.add(option.what(), total);
+                this.drawIngredient(pattern, ingredient, runs, drawn, handedBack);
             }
 
             for (final GenericStack out : pattern.getOutputs()) {
@@ -418,41 +415,93 @@ public final class CraftingSolver {
         }
 
         /**
-         * Which of an ingredient's options to draw. What is already at hand comes first, and among those,
-         * one that nothing else is forced to use: a slot with a choice should not take the last of what a
-         * slot without one is going to need.
+         * Draws one ingredient, which may take several things to cover.
+         * <p>
+         * An option that cannot serve the whole run is not thereby useless: one worn tool and nine fresh ones
+         * make ten crafts, and the tree this replaced knew that. So the run is shared out - as much as each
+         * option can really cover, in the order they are preferred - and whatever is left over goes on the
+         * one that can be made, or failing that on the encoded one, where it shows up as missing.
+         * <p>
+         * A key nothing else can be fed with is left till last among the ones at hand: a slot with a choice
+         * should not take the last of what a slot without one is going to need.
          */
-        private int choose(final SolverIngredient ingredient, final long runs) {
+        private void drawIngredient(final SolverPattern pattern, final SolverIngredient ingredient,
+                final long runs, final KeyCounter drawn, final KeyCounter handedBack) {
             final List<GenericStack> options = ingredient.getOptions();
+            final GenericStack encoded = options.get(0);
 
-            if (!ingredient.hasChoice()) {
+            // What the pattern hands back it did not consume, so it is asked for once - enough to have in
+            // hand at a time - however the rest of the run is shared out. Asking per share would count the
+            // same lent thing several times over.
+            if (ingredient.getUses(0) <= 0) {
+                final long back = Math.min(encoded.amount(), pattern.outputOf(encoded.what()));
+
+                if (back > 0) {
+                    handedBack.add(encoded.what(), back);
+                    this.demand.add(encoded.what(), back);
+                    drawn.add(encoded.what(), back);
+
+                    // Lent and nothing more: a mould, or a pattern giving back all of what it took.
+                    if (back >= encoded.amount()) {
+                        return;
+                    }
+                }
+            }
+
+            long left = runs;
+
+            for (int pass = 0; pass < 2 && left > 0; pass++) {
+                for (int x = 0; x < options.size() && left > 0; x++) {
+                    final GenericStack option = options.get(x);
+
+                    // Contested keys wait for the second time round, by which point anything else at hand
+                    // has been used up.
+                    if (this.graph.isExclusive(option.what()) != (pass == 1)) {
+                        continue;
+                    }
+
+                    final long covers = Math.min(left, this.runsCovered(pattern, ingredient, x));
+
+                    if (covers > 0) {
+                        left -= covers;
+                        this.take(pattern, covers, ingredient, x, drawn);
+                    }
+                }
+            }
+
+            if (left > 0) {
+                this.take(pattern, left, ingredient, this.fallback(options), drawn);
+            }
+        }
+
+        /**
+         * How many crafts what is at hand of this option would really cover - which is not how many of it
+         * there are: a tool serves as many crafts as it has left in it, and a thing handed back covers the
+         * whole run on its own.
+         */
+        private long runsCovered(final SolverPattern pattern, final SolverIngredient ingredient,
+                final int index) {
+            final GenericStack option = ingredient.getOptions().get(index);
+            final long atHand = this.surplus.get(option.what()) + this.stock.get(option.what());
+
+            if (atHand <= 0) {
                 return 0;
             }
 
-            int contested = -1;
-
-            for (int x = 0; x < options.size(); x++) {
-                final GenericStack option = options.get(x);
-                final long wanted = multiply(option.amount(), runs);
-                final long atHand = this.surplus.get(option.what()) + this.stock.get(option.what());
-
-                if (atHand < wanted) {
-                    continue;
-                }
-
-                if (!this.graph.isExclusive(option.what())) {
-                    return x;
-                }
-
-                if (contested < 0) {
-                    contested = x;
-                }
+            if (ingredient.getUses(index) > 0) {
+                return atHand / Math.max(1, option.amount()) * ingredient.getUses(index);
             }
 
-            if (contested >= 0) {
-                return contested;
-            }
+            final long net = option.amount() - Math.min(option.amount(), pattern.outputOf(option.what()));
 
+            return net <= 0 ? Long.MAX_VALUE : atHand / net;
+        }
+
+        /**
+         * Where the part nothing has in stock is asked for: the first option something can make, or the
+         * encoded one, which is then reported missing.
+         */
+        private int fallback(final List<GenericStack> options) {
             for (int x = 0; x < options.size(); x++) {
                 if (!this.graph.patternsFor(options.get(x).what()).isEmpty()) {
                     return x;
@@ -460,6 +509,31 @@ public final class CraftingSolver {
             }
 
             return 0;
+        }
+
+        /**
+         * Books {@code runs} crafts' worth of one option. What the pattern hands back was settled once by
+         * the caller, so only what is really spent is drawn here; a thing spent gradually is drawn by how
+         * many of it the run wears out.
+         */
+        private void take(final SolverPattern pattern, final long runs, final SolverIngredient ingredient,
+                final int index, final KeyCounter drawn) {
+            final GenericStack option = ingredient.getOptions().get(index);
+            final long total;
+
+            if (ingredient.getUses(index) > 0) {
+                total = multiply(option.amount(), ceilDiv(runs, ingredient.getUses(index)));
+            } else {
+                final long back = Math.min(option.amount(), pattern.outputOf(option.what()));
+                total = multiply(option.amount() - back, runs);
+            }
+
+            if (total <= 0) {
+                return;
+            }
+
+            this.demand.add(option.what(), total);
+            drawn.add(option.what(), total);
         }
 
         private long takeSurplus(final AEKey key, final long need) {
@@ -472,7 +546,21 @@ public final class CraftingSolver {
             return Math.max(0, taken);
         }
 
+        /**
+         * What is already in the network does not count towards the order: asking for a hundred when forty
+         * are on the shelf makes a hundred more, and always has. So the requested thing is the one thing a
+         * plan may not spend - with one exception, which {@link #growFromItself} makes: a loop grows what
+         * you have, and the one you have is the only place its first can come from.
+         */
         private long takeStock(final AEKey key, final long need) {
+            if (key.equals(this.root)) {
+                return 0;
+            }
+
+            return this.drawStock(key, need);
+        }
+
+        private long drawStock(final AEKey key, final long need) {
             final long taken = Math.min(this.stock.get(key), need);
 
             if (taken > 0) {

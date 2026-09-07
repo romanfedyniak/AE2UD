@@ -75,7 +75,7 @@ import java.util.stream.Collectors;
  * Storage-facing parts of this class (everything that used to speak {@code IAEItemStack}/
  * {@code IItemList}/{@code IMEInventory}/{@code IMEMonitorHandlerReceiver}) have been migrated to
  * {@code AEKey}/{@code GenericStack}/{@code KeyCounter}/{@link MEStorage}. The job-tree math itself
- * ({@code CraftingTreeNode}, {@code MECraftingInventory}, {@code CraftingJob}, {@code CraftingLink})
+ * ({@code MECraftingInventory}, {@code CraftingJob}, {@code CraftingLink})
  * lives in {@code appeng.crafting}, which is out of this migration's scope and still needs its own
  * pass (see the migration report) — this class calls into it assuming the same mapping applied here
  * (a plain {@link MEStorage}-shaped {@code MECraftingInventory}, {@code GenericStack}-based
@@ -1162,7 +1162,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         try {
             this.waitingFor.clear(); // see completeJob()
         this.promised.clear();
-            ((CraftingJob) job).getTree().setJob(ci, this, src);
+            ((CraftingJob) job).setJob(ci, this, src);
             if (ci.commit(src)) {
                 this.finalOutput = job.getOutput();
                 this.requestedAmount = this.finalOutput == null ? 0 : this.finalOutput.amount();

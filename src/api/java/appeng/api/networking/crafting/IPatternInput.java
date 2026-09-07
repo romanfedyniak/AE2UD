@@ -123,4 +123,16 @@ public interface IPatternInput
 	{
 		return CONSUMED;
 	}
+
+	/**
+	 * The same, for something offered in place of what was encoded - a tool of the same kind that has already
+	 * been part used.
+	 * <p>
+	 * They are not worth the same and cannot be treated as though they were: a hammer half gone has half the
+	 * crafts left in it, and planning as if it were new is how a job comes to a stop holding a broken one.
+	 */
+	default long getUses( GenericStack option )
+	{
+		return this.getUses();
+	}
 }
