@@ -35,12 +35,42 @@ public final class CraftingPlanNode {
     private final long amount;
     private final List<CraftingPlanSource> sources = new ArrayList<>();
 
+    private boolean repeated;
+    private long total;
     private boolean missingKnown;
     private boolean missingCache;
 
     public CraftingPlanNode(final AEKey what, final long amount) {
         this.what = what;
         this.amount = amount;
+    }
+
+    /**
+     * Whether this is a later mention of something already set out in full elsewhere in the tree.
+     * <p>
+     * A plan is a graph: one step can feed twenty others, and drawn out in full that is twenty copies of
+     * everything under it. It is drawn once, and the other nineteen say how much of it they want and leave
+     * the working to the first.
+     */
+    public boolean isRepeated() {
+        return this.repeated;
+    }
+
+    public void setRepeated(final boolean repeated) {
+        this.repeated = repeated;
+    }
+
+    /**
+     * How much of this thing the plan makes altogether, when that is more than this branch asked for. Zero
+     * when there is nothing to add - otherwise a branch wanting a hundred would appear to explain five
+     * hundred, and look wrong.
+     */
+    public long getTotal() {
+        return this.total;
+    }
+
+    public void setTotal(final long total) {
+        this.total = total;
     }
 
     public AEKey getWhat() {

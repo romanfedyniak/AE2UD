@@ -148,6 +148,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **The crafting plan tree says when a step is one it has already set out.** A plan is a graph rather than a
+  tree: one step can feed twenty others, and drawn out in full that is twenty copies of everything underneath
+  it - a shape that used to be held back only by the old calculator being too slow to reach it, and that the
+  new one reaches in milliseconds. So a thing is set out once and the later mentions say how much of it that
+  branch wants and leave the working to the first, which keeps the drawing the size of the plan instead of the
+  size of every path through it. Such a mention is outlined in blue and says so when hovered. The one that
+  *is* set out in full now also says what the whole plan makes of it, because a branch asking for a hundred
+  used to sit above working that explained five hundred and simply looked wrong.
+
 - **Autocrafting is planned by the new solver, and the old crafting tree is gone.** This is the change the four
   before it were building towards, and it is the one a player will feel. A plan no longer costs anything for
   how much was ordered: the same request for one and for ten billion is the same work, where the tree walked

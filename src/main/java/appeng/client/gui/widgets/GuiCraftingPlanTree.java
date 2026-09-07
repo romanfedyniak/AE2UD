@@ -80,6 +80,7 @@ public class GuiCraftingPlanTree extends Gui {
     private static final int OUTLINE_MISSING_COLOR = 0xFFB03030;
     private static final int OUTLINE_SEARCH_COLOR = 0xFFE0C000;
     private static final int OUTLINE_FOCUS_COLOR = 0xFF30D030;
+    private static final int OUTLINE_REPEAT_COLOR = 0xFF4A6B8A;
 
     private static final float[] CANVAS_BACKGROUND = { 0.23F, 0.23F, 0.23F, 1.0F };
 
@@ -401,6 +402,8 @@ public class GuiCraftingPlanTree extends Gui {
             outline = this.matches.get(this.matchIndex) == cell ? OUTLINE_FOCUS_COLOR : OUTLINE_SEARCH_COLOR;
         } else if (cell.isMissing()) {
             outline = OUTLINE_MISSING_COLOR;
+        } else if (cell.isRepeat()) {
+            outline = OUTLINE_REPEAT_COLOR;
         } else if (hovered) {
             outline = 0xFFFFFFFF;
         }
@@ -515,6 +518,20 @@ public class GuiCraftingPlanTree extends Gui {
             text.append('\n');
             text.append(TextFormatting.GRAY);
             text.append(cell.node.getWhat().formatAmount(cell.node.getAmount(), AmountFormat.FULL));
+
+            if (cell.node.getTotal() > 0) {
+                text.append('\n');
+                text.append(TextFormatting.GRAY);
+                text.append(GuiText.PlanOfTotal.getLocal(
+                        cell.node.getWhat().formatAmount(cell.node.getTotal(), AmountFormat.FULL)));
+            }
+
+            if (cell.node.isRepeated()) {
+                text.append('\n');
+                text.append(TextFormatting.DARK_GRAY);
+                text.append(GuiText.PlanShownAbove.getLocal());
+            }
+
             return cell.tooltip = text.toString();
         }
 
@@ -797,6 +814,11 @@ public class GuiCraftingPlanTree extends Gui {
                 return this.source.getKind() == CraftingPlanSource.Kind.MISSING;
             }
             return this.node.hasMissing();
+        }
+
+        /** A thing already set out in full somewhere above, standing here only for its share. */
+        private boolean isRepeat() {
+            return this.node != null && this.node.isRepeated();
         }
     }
 

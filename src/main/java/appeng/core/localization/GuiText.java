@@ -142,6 +142,8 @@ public enum GuiText {
     CraftingPattern,
     ProcessingPattern,
     Crafts,
+    PlanOfTotal,
+    PlanShownAbove,
     Creates,
     And,
     With,

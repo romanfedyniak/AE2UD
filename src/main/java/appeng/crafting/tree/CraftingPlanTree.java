@@ -95,11 +95,23 @@ public final class CraftingPlanTree {
 
         pending.push(new Pending(output.what(), root));
 
+        // Everything the plan settles of a thing, wherever it came from - what one branch asks for is read
+        // against this, so a step feeding several of them does not look like it is explaining too much.
+        final KeyCounter supplied = new KeyCounter();
+        supplied.addAll(plan.getUsed());
+        supplied.addAll(plan.getProduced());
+        supplied.addAll(plan.getEmitted());
+        supplied.addAll(plan.getMissing());
+
         while (!pending.isEmpty()) {
             final Pending current = pending.pop();
+            final long whole = supplied.get(current.what);
 
             if (expanded.add(current.what)) {
+                current.planNode.setTotal(whole > current.planNode.getAmount() ? whole : 0);
                 addSources(plan, current.what, current.planNode, pending, job.getCraftingGrid());
+            } else {
+                current.planNode.setRepeated(true);
             }
         }
 
@@ -184,6 +196,8 @@ public final class CraftingPlanTree {
                 if (next instanceof CraftingPlanNode node) {
                     body.writeInt(keyId(keyIds, keys, node.getWhat()));
                     body.writeLong(node.getAmount());
+                    body.writeLong(node.getTotal());
+                    body.writeBoolean(node.isRepeated());
                     body.writeInt(node.getSources().size());
                     pushReversed(stack, node.getSources());
                 } else {
@@ -267,9 +281,15 @@ public final class CraftingPlanTree {
 
         final AEKey what = key(keys, buf.readInt());
         final long amount = buf.readLong();
+        final long total = buf.readLong();
+        final boolean repeated = buf.readBoolean();
         final int sources = childCount(buf.readInt());
 
-        return new Frame(new CraftingPlanNode(what, amount), null, sources);
+        final CraftingPlanNode node = new CraftingPlanNode(what, amount);
+        node.setTotal(total);
+        node.setRepeated(repeated);
+
+        return new Frame(node, null, sources);
     }
 
     private static Frame readSource(final ByteBuf buf, final AEKey[] keys) throws IOException {
