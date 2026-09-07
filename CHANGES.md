@@ -148,6 +148,28 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A crafting plan solved on a graph rather than a tree.** Nothing uses it yet - the calculator a job runs
+  through is unchanged - but the thing that will replace it is here and is tested. A node is a *thing* rather
+  than a *request for a thing*, so the cost is the number of patterns the request can reach and the amount
+  ordered does not enter into it: one of something and ten billion of it are solved in the same work, which
+  the tests assert rather than claim. Keys are put in an order where every consumer of a thing is settled
+  before the thing itself, so the whole demand for it is known at once - that is what lets storage be handed
+  out on the full picture instead of to whichever branch was walked first, and it is why the answer no longer
+  depends on the order slots happen to be written in. A pattern that runs out of an ingredient is held to what
+  it managed and the next pattern for that key takes the rest, which is the spill the old tree did one craft
+  at a time. A byproduct is credited to a ledger and settled after the output its pattern was chosen for, so
+  the step that wants it finds it already made instead of crafting it again. Scarce storage goes first to a
+  slot that has no alternative, since a slot with a choice can be sent elsewhere. Arithmetic is checked rather
+  than saturated: an order that will not fit in a plan is refused outright, because a saturated plan looks
+  finished and is nonsense. The ceilings are on the *shape* - how many things are reachable, how many
+  connections between them - and never on the number of crafts, which would take away the ten-billion order
+  for nothing. A cycle is recognised and left alone for now rather than looped over; making it productive is
+  the next step. The tests run without Minecraft at all - no world, no registries, no items - which is the
+  point of where the line was drawn: below the phase that resolves a pattern there is nothing but keys and
+  longs. Ten thousand patterns deep solves in 77 ms where the old tree would have run out of stack, and
+  twenty-four levels of branches that share their inputs - sixteen million nodes to a tree - in under a
+  millisecond.
+
 - **A crafting test rig, so a change to the planner can be checked instead of remembered.** A developer block that is a whole ME network on its own - the storage, the power and the only machine on it, a machine that accepts every pattern and really performs it - so a test starts by placing one block and a crafting cpu rather than by building a network. `/ae2 craftingtest` runs fifteen scenarios through it: a plain chain, two branches meeting on one leaf, a preferred pattern running out of its ingredient and spilling onto the next, the same pair left at equal priority, a request nothing can satisfy, a forced start, a level emitter, a pattern making both ingredients of the next one, a pattern that eats its own output, a forty-step chain, two hundred branches feeding one output, the same question asked for one and for twenty thousand, and a plan actually handed to a cpu and watched until it is done. Each one records what the planner answered - whether it came back a simulation, the byte total, and the three plan counters - and the run reports how that differs from the answers recorded as right, line by line. Each is planned up to five times and the middle time reported, because the first answer of a session pays for the just-in-time compiler and can be two orders out; the time is reported and never compared, since a slower machine has not changed an answer. `/ae2 craftingtest baseline` records the current answers as those; naming scenarios runs only those. Recording is a separate word on purpose, because a baseline is an agreement that today's answers are correct and nothing should be able to make that agreement by accident. Nothing here is read by the mod: the block is behind `UnsupportedDeveloperTools` and the baseline lives in the config folder.
 
 - **Co-processing units come in four sizes above the first.** A Quad Core, a 16 Core, a 64 Core and a 256 Core unit, each built out of four of the one below it, and each worth that many parallel operations on its own - so a CPU that used to need two hundred and fifty-six blocks to run 256 crafts at once now needs one. The block is still a co-processor in every other way: it forms part of the same multiblock, and a CPU counts what its blocks are worth rather than how many there are. The tier shows in the pattern inside the block and, on a formed CPU, in how much of the face is lit: a point of light that grows into a disc and then fills the whole face. The family keeps its purple, since colour on a crafting cube already means storage size. `Features.CraftingFeatures.HighCapacityCoProcessors` turns the four off and leaves the original. Taken from [GTNewHorizons' Applied Energistics 2 Unofficial](https://github.com/GTNewHorizons/Applied-Energistics-2-Unofficial), including the patterns its own tiers wear.
