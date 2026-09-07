@@ -33,6 +33,7 @@ import appeng.api.networking.events.MENetworkPostCacheConstruction;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.AEKeyFilter;
@@ -50,9 +51,9 @@ import appeng.tile.crafting.TileCraftingStorageTile;
 import appeng.tile.crafting.TileCraftingTile;
 import com.google.common.collect.*;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet;
-import it.unimi.dsi.fastutil.objects.ObjectSet;
+import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 import java.util.*;
@@ -81,7 +82,12 @@ import java.util.stream.StreamSupport;
 public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper, IStorageProvider, MEStorage {
 
     private static final ExecutorService CRAFTING_POOL;
-    private static final Comparator<ICraftingPatternDetails> COMPARATOR = (firstDetail, nextDetail) -> nextDetail.getPriority() - firstDetail.getPriority();
+    /**
+     * Highest priority first. Only a priority: two patterns of equal priority are equally good, and this
+     * must never be used anywhere that would take that for "the same pattern" - which is what a sorted set
+     * does, and what used to throw one of them away. See {@link #recalculateCraftingPatterns()}.
+     */
+    private static final Comparator<ICraftingPatternDetails> COMPARATOR = Comparator.comparingInt(ICraftingPatternDetails::getPriority).reversed();
 
     static {
         final ThreadFactory factory = ar -> new Thread(ar, "AE Crafting Calculator");
@@ -93,10 +99,12 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     /** The same clusters, in the order they are offered work. See {@link #orderedCPUs()}. */
     private List<CraftingCPUCluster> orderedCPUClusters = new ArrayList<>();
     private boolean craftOrderDirty = true;
-    private final Set<ICraftingProvider> craftingProviders = new HashSet<>();
+    // Insertion-ordered, both of them: the order patterns are offered in decides which of two equally
+    // preferred ones a job reaches for, and a hash order would have that answer change between sessions.
+    private final Set<ICraftingProvider> craftingProviders = new LinkedHashSet<>();
     private final Map<IGridNode, ICraftingWatcher> craftingWatchers = new HashMap<>();
     private final IGrid grid;
-    private final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectLinkedOpenHashMap<>();
     private final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftableItems = new Object2ObjectOpenHashMap<>();
     /**
      * Keys every one of whose patterns sits in a medium that settles jobs itself. Recomputed with the
@@ -294,6 +302,18 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
         this.updatePatterns = true;
     }
 
+    /**
+     * What tells two patterns apart when the same thing can be made several ways: the pattern item itself,
+     * so the same encoded pattern sitting in ten interfaces is one way of making it rather than ten. A
+     * pattern with nothing encoded - a virtual one, or a test's - stands only for itself.
+     */
+    private static Object patternIdentity(final ICraftingPatternDetails details) {
+        final ItemStack encoded = details.getPattern();
+        final AEItemKey key = encoded == null ? null : AEItemKey.of(encoded);
+
+        return key == null ? details : key;
+    }
+
     private void recalculateCraftingPatterns() {
         final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> oldItems = new Object2ObjectOpenHashMap<>(this.craftableItems);
         final Set<AEKey> oldEmitableItems = new HashSet<>(this.emitableItems);
@@ -308,28 +328,31 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             provider.provideCrafting(this);
         }
 
-        final Object2ObjectMap<AEKey, ObjectSet<ICraftingPatternDetails>> tmpCraft = new Object2ObjectOpenHashMap<>();
+        final Object2ObjectMap<AEKey, List<ICraftingPatternDetails>> tmpCraft = new Object2ObjectLinkedOpenHashMap<>();
+        final Object2ObjectMap<AEKey, Set<Object>> alreadyOffered = new Object2ObjectLinkedOpenHashMap<>();
 
         // new craftables!
         for (final ICraftingPatternDetails details : this.craftingMethods.keySet()) {
+            final Object identity = patternIdentity(details);
+
             for (final GenericStack out : details.getOutputs()) {
                 if (out == null) {
                     continue;
                 }
                 final AEKey key = out.what();
 
-                ObjectSet<ICraftingPatternDetails> methods = tmpCraft.get(key);
-
-                if (methods == null) {
-                    tmpCraft.put(key, methods = new ObjectRBTreeSet<>(COMPARATOR));
+                // Two copies of one pattern are one way of making the thing, and so are two output slots
+                // holding the same key. Two *different* patterns are not, whatever their priorities.
+                if (alreadyOffered.computeIfAbsent(key, k -> new HashSet<>()).add(identity)) {
+                    tmpCraft.computeIfAbsent(key, k -> new ArrayList<>()).add(details);
                 }
-
-                methods.add(details);
             }
         }
 
         // make them immutable
-        for (final Entry<AEKey, ObjectSet<ICraftingPatternDetails>> e : tmpCraft.entrySet()) {
+        for (final Entry<AEKey, List<ICraftingPatternDetails>> e : tmpCraft.entrySet()) {
+            // A stable sort, so patterns of equal priority stay in the order they were offered in.
+            e.getValue().sort(COMPARATOR);
             this.craftableItems.put(e.getKey(), ImmutableList.copyOf(e.getValue()));
         }
 
