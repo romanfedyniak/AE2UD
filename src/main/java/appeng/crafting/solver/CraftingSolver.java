@@ -257,7 +257,7 @@ public final class CraftingSolver {
 
             final Map<AEKey, Integer> ranks = this.rankByWayOut(component, inside);
 
-            for (final AEKey key : nearestTheWayOutFirst(component, ranks)) {
+            for (final AEKey key : this.nearestTheWayOutFirst(component, ranks)) {
                 long need = this.demand.get(key);
 
                 if (need <= 0) {
@@ -380,17 +380,20 @@ public final class CraftingSolver {
          * The cycle settled from the way out inwards, so that what one thing asks of another always reaches
          * it before it is settled. What has no way out comes last, where nothing is left to ask it for
          * anything.
+         * <p>
+         * Where that says nothing - a cycle with no way off it at all ranks none of its things - whatever is
+         * already wanted goes first. Everything else on such a cycle is wanted only because turning it asks
+         * for them, and a thing settled before it was asked for is passed over and never returned to: the
+         * crafts and the storage come out right anyway, but nothing charges the job for what flows through
+         * it, and the byte total would then depend on which order the graph happened to be built in.
          */
-        private static List<AEKey> nearestTheWayOutFirst(final List<AEKey> component,
+        private List<AEKey> nearestTheWayOutFirst(final List<AEKey> component,
                 final Map<AEKey, Integer> ranks) {
-            if (ranks.isEmpty()) {
-                return component;
-            }
-
             final List<AEKey> order = new ArrayList<>(component);
 
-            order.sort(Comparator.comparingInt(key -> ranks.containsKey(key) ? -ranks.get(key)
-                    : Integer.MAX_VALUE));
+            order.sort(Comparator
+                    .comparingInt((AEKey key) -> ranks.containsKey(key) ? -ranks.get(key) : Integer.MAX_VALUE)
+                    .thenComparing(key -> this.demand.get(key) > 0 ? 0 : 1));
 
             return order;
         }

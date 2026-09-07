@@ -395,6 +395,20 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void everythingThatFlowsThroughACycleIsCharged() {
+        // A thing on a cycle is wanted only because turning it asks for it, so it has to be settled after the
+        // turn and not before. Settled first, while nothing wants it yet, it is passed over and never
+        // returned to - the crafts and the storage still come out right, but the job is charged for less
+        // than really flows through it, and the byte total would depend on the order the graph was built in.
+        final SolverPlan plan = branching(3).inStorage("b", 1).solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        // Three hundred crafts at eight bytes each, and one byte for each of the hundred a, b, c and base
+        // that flow through the plan.
+        assertThat(plan.getBytes(), is(300 * 8 + 400L));
+    }
+
+    @Test
     public void aCycleThatBranchesAndLosesIsStillReported() {
         // The same shape making two a instead of three. One turn spends an a on the b and another on the c,
         // so two out and two back in is no way of having any - and there is a hundred of each on the shelf

@@ -169,7 +169,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   costs what ordering one costs, as before. A cycle giving back no more than it took, or one whose answer
   would need a pattern run backwards, is still reported rather than half-solved: both fall out of the
   equations without having to be looked for. The old ring arithmetic is gone rather than kept beside this,
-  since a ring is one of these with one thing in the middle of it.
+  since a ring is one of these with one thing in the middle of it. A thing on a cycle is also settled after
+  the turn that asks for it rather than before: settled first, while nothing wants it yet, it was passed over
+  and never returned to, and the job was charged for less than really flowed through it - by which order the
+  graph happened to be built in, which is not something a byte total should depend on.
 
 - **A thing caught in a cycle is still made the ordinary way.** An ingot and its block feed each other, which
   is a cycle that gives back exactly what it took and is therefore no way of getting any - and the ingot is

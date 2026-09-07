@@ -209,6 +209,12 @@ The cycle itself is tried before any of this, ahead of priority: it is what the 
 loop that can turn is nearly always the cheaper of the two anyway, being largely a matter of giving back what
 it borrowed.
 
+Where the rank says nothing — a cycle with no way off it ranks none of its things — whatever is already
+wanted goes first. Everything else on such a cycle is wanted only because turning it asks for them, and a
+thing settled before it was asked for is passed over and never returned to. The crafts and the storage still
+come out right; what does not is the byte total, which would otherwise be charged for less than really flows
+through the plan, and by whichever order the graph happened to be built in.
+
 A cycle with no way off it at all — nine nuggets to an ingot and back, with nothing feeding either — is
 correctly reported: going round gives back exactly what it took.
 
