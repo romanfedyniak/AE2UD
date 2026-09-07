@@ -271,6 +271,28 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void aCatalystListedFirstIsStillOnlyACatalyst() {
+        // The same casting, written with the mould in the first output slot. Nothing says a player will put
+        // the thing the pattern is for at the front, and reading the order as gospel would have the mould and
+        // the casting waiting on each other - a loop that is not there, over a pattern that works.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("cast", new GenericStack[] { network.stack("mould", 1), network.stack("out", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("mould"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("mould", 1);
+        network.inStorage("base", 1000);
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        // Read as gospel, the order would put the casting in a component with the mould, where nothing is
+        // crafted at all and the whole thing is reported missing.
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "cast"), is(100L));
+        assertThat(plan.getUsed().get(network.key("mould")), is(1L));
+        assertThat(plan.getMissing().isEmpty(), is(true));
+    }
+
+    @Test
     public void aLoopThroughSeveralThingsIsLeftAlone() {
         // a is made from b and b from two a. Productive as a loop, but solving it wants more than the one
         // division a self-feeding pattern needs, so it is recognised and not used rather than half-used.

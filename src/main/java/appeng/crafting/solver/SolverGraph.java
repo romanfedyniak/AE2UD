@@ -103,7 +103,7 @@ public final class SolverGraph {
                 // A byproduct is settled after the output the pattern was chosen for, so it can be found
                 // already made rather than crafted again. Drawn from the primary output only: from every
                 // output would have two of them pointing at each other, which is a cycle that is not there.
-                final AEKey primary = pattern.getOutputs().get(0).what();
+                final AEKey primary = orderingOutput(pattern);
                 final Set<AEKey> fromPrimary = primary.equals(key)
                         ? out
                         : edges.computeIfAbsent(primary, k -> new LinkedHashSet<>());
@@ -149,6 +149,32 @@ public final class SolverGraph {
         }
 
         return new SolverGraph(patterns, edges, components, selfLoops, exclusive, emitted);
+    }
+
+    /**
+     * Which output the others are settled after: the first one the pattern does not also take in.
+     * <p>
+     * Ordinarily that is simply the first, since a pattern is written with what it is for at the front. But
+     * a mould listed above the thing it casts is still a mould, and settling the casting after it would have
+     * the two waiting on each other - a cycle that is not there, and a plan that gives up on a pattern which
+     * works perfectly well. What a pattern hands straight back is never the thing it is for.
+     */
+    private static AEKey orderingOutput(final SolverPattern pattern) {
+        for (final GenericStack produced : pattern.getOutputs()) {
+            boolean alsoTaken = false;
+
+            for (final SolverIngredient ingredient : pattern.getInputs()) {
+                for (final GenericStack option : ingredient.getOptions()) {
+                    alsoTaken |= option.what().equals(produced.what());
+                }
+            }
+
+            if (!alsoTaken) {
+                return produced.what();
+            }
+        }
+
+        return pattern.getOutputs().get(0).what();
     }
 
     private static int visit(final AEKey from, final AEKey to, final Set<AEKey> out,

@@ -148,6 +148,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A pattern with a mould in its first output slot is planned properly.** A pattern is written with several
+  outputs in whatever order the player put them, and the one at the front was taken as the thing the pattern
+  is for. Usually it is - but a mould that goes in and comes out again, listed above the thing being cast,
+  made the two appear to wait on each other, and a pattern that works perfectly well was left unplanned with
+  its output reported missing. What a pattern hands straight back is never the thing it is for, so the front
+  slot is no longer read as gospel: the first output the pattern does not also take in is the one the others
+  are settled after. Which outputs a pattern can be asked for is unchanged - any of them, as always.
+
 - **The crafting plan tree says when a step is one it has already set out.** A plan is a graph rather than a
   tree: one step can feed twenty others, and drawn out in full that is twenty copies of everything underneath
   it - a shape that used to be held back only by the old calculator being too slow to reach it, and that the
