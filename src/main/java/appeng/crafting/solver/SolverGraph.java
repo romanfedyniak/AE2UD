@@ -18,6 +18,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,8 +41,8 @@ public final class SolverGraph {
 
     private final Map<AEKey, List<SolverPattern>> patterns;
     private final Map<AEKey, Set<AEKey>> edges;
-    private final List<AEKey> order;
-    private final Set<AEKey> cyclic;
+    private final List<List<AEKey>> components;
+    private final Set<AEKey> selfLoops;
     /**
      * Keys some ingredient can be satisfied by and nothing else. Scarce stock goes to these first, because a
      * slot that would take an alternative can be sent to one instead - see {@code CraftingSolver}.
@@ -50,12 +51,12 @@ public final class SolverGraph {
     private final Set<AEKey> emitted;
 
     private SolverGraph(final Map<AEKey, List<SolverPattern>> patterns, final Map<AEKey, Set<AEKey>> edges,
-            final List<AEKey> order, final Set<AEKey> cyclic, final Set<AEKey> exclusive,
+            final List<List<AEKey>> components, final Set<AEKey> selfLoops, final Set<AEKey> exclusive,
             final Set<AEKey> emitted) {
         this.patterns = patterns;
         this.edges = edges;
-        this.order = Collections.unmodifiableList(order);
-        this.cyclic = Collections.unmodifiableSet(cyclic);
+        this.components = Collections.unmodifiableList(components);
+        this.selfLoops = Collections.unmodifiableSet(selfLoops);
         this.exclusive = Collections.unmodifiableSet(exclusive);
         this.emitted = Collections.unmodifiableSet(emitted);
     }
@@ -125,10 +126,29 @@ public final class SolverGraph {
             }
         }
 
-        final List<AEKey> order = new ArrayList<>(patterns.size());
-        final Set<AEKey> cyclic = kahn(patterns.keySet(), edges, order);
+        final Set<AEKey> selfLoops = new LinkedHashSet<>();
 
-        return new SolverGraph(patterns, edges, order, cyclic, exclusive, emitted);
+        for (final Map.Entry<AEKey, Set<AEKey>> entry : edges.entrySet()) {
+            if (entry.getValue().contains(entry.getKey())) {
+                selfLoops.add(entry.getKey());
+            }
+        }
+
+        final List<AEKey> order = new ArrayList<>(patterns.size());
+        final List<List<AEKey>> components = new ArrayList<>(patterns.size());
+
+        if (kahn(patterns.keySet(), edges, order)) {
+            for (final AEKey key : order) {
+                components.add(Collections.singletonList(key));
+            }
+        } else {
+            // Kahn stops at the first cycle and leaves everything behind it unplaced - not only the cycle
+            // but every key that depends on one. Tarjan gathers the cycles into components and puts the rest
+            // back in order around them, so a key below a cycle is still settled the ordinary way.
+            components.addAll(tarjan(patterns.keySet(), edges));
+        }
+
+        return new SolverGraph(patterns, edges, components, selfLoops, exclusive, emitted);
     }
 
     private static int visit(final AEKey from, final AEKey to, final Set<AEKey> out,
@@ -144,9 +164,11 @@ public final class SolverGraph {
     }
 
     /**
-     * Parents before dependencies. Whatever is left over is in a cycle, and is reported rather than ordered.
+     * Parents before dependencies.
+     *
+     * @return whether every node was placed, which is to say whether the graph is acyclic.
      */
-    private static Set<AEKey> kahn(final Set<AEKey> nodes, final Map<AEKey, Set<AEKey>> edges,
+    private static boolean kahn(final Set<AEKey> nodes, final Map<AEKey, Set<AEKey>> edges,
             final List<AEKey> order) {
         final Map<AEKey, Integer> incoming = new LinkedHashMap<>();
 
@@ -179,27 +201,116 @@ public final class SolverGraph {
             }
         }
 
-        if (order.size() == nodes.size()) {
-            return Collections.emptySet();
+        return order.size() == nodes.size();
+    }
+
+    /**
+     * Tarjan's components, parents before dependencies.
+     * <p>
+     * Written with an explicit stack rather than by recursion, like everything else here: a chain ten
+     * thousand patterns long is exactly the case this exists for, and it would run out of Java stack long
+     * before it ran out of anything else.
+     */
+    private static List<List<AEKey>> tarjan(final Set<AEKey> nodes, final Map<AEKey, Set<AEKey>> edges) {
+        final Map<AEKey, Integer> index = new LinkedHashMap<>();
+        final Map<AEKey, Integer> lowlink = new LinkedHashMap<>();
+        final Set<AEKey> onStack = new LinkedHashSet<>();
+        final Deque<AEKey> stack = new ArrayDeque<>();
+        final Deque<AEKey> walking = new ArrayDeque<>();
+        final Deque<Iterator<AEKey>> stepping = new ArrayDeque<>();
+        final List<List<AEKey>> found = new ArrayList<>();
+        int next = 0;
+
+        for (final AEKey start : nodes) {
+            if (index.containsKey(start)) {
+                continue;
+            }
+
+            index.put(start, next);
+            lowlink.put(start, next++);
+            stack.push(start);
+            onStack.add(start);
+            walking.push(start);
+            stepping.push(edges.getOrDefault(start, Collections.emptySet()).iterator());
+
+            while (!walking.isEmpty()) {
+                final AEKey node = walking.peek();
+                final Iterator<AEKey> steps = stepping.peek();
+
+                if (steps.hasNext()) {
+                    final AEKey target = steps.next();
+
+                    if (!index.containsKey(target)) {
+                        index.put(target, next);
+                        lowlink.put(target, next++);
+                        stack.push(target);
+                        onStack.add(target);
+                        walking.push(target);
+                        stepping.push(edges.getOrDefault(target, Collections.emptySet()).iterator());
+                    } else if (onStack.contains(target)) {
+                        lowlink.put(node, Math.min(lowlink.get(node), index.get(target)));
+                    }
+
+                    continue;
+                }
+
+                walking.pop();
+                stepping.pop();
+
+                if (lowlink.get(node).equals(index.get(node))) {
+                    final List<AEKey> component = new ArrayList<>();
+                    AEKey member;
+
+                    do {
+                        member = stack.pop();
+                        onStack.remove(member);
+                        component.add(member);
+                    } while (!member.equals(node));
+
+                    found.add(component);
+                }
+
+                final AEKey parent = walking.peek();
+
+                if (parent != null) {
+                    lowlink.put(parent, Math.min(lowlink.get(parent), lowlink.get(node)));
+                }
+            }
         }
 
-        final Set<AEKey> cyclic = new LinkedHashSet<>(nodes);
-        cyclic.removeAll(order);
-        return cyclic;
+        // Tarjan finishes a component only after everything it depends on, so the list comes out the wrong
+        // way round for us: we settle a thing before the things it is made of.
+        Collections.reverse(found);
+        return found;
     }
 
     /**
-     * Every key the request can reach, parents before dependencies. A key caught in a cycle is not in here.
+     * Every key the request can reach, gathered into groups and ordered parents before dependencies. All but
+     * one group holds a single key; a group of several is a cycle, and so is a single key that feeds itself.
      */
-    public List<AEKey> getOrder() {
-        return this.order;
+    public List<List<AEKey>> getComponents() {
+        return this.components;
     }
 
     /**
-     * The keys Kahn could not place, which is exactly the keys in a cycle. Empty on the ordinary path.
+     * Whether this key is made by a pattern that also consumes it - a cycle of one, which needs the same
+     * handling as a longer one and is much the commoner of the two.
      */
-    public Set<AEKey> getCyclic() {
-        return this.cyclic;
+    public boolean hasSelfLoop(final AEKey what) {
+        return this.selfLoops.contains(what);
+    }
+
+    /**
+     * Whether anything the request reaches is caught in a cycle.
+     */
+    public boolean isCyclic() {
+        for (final List<AEKey> component : this.components) {
+            if (component.size() > 1 || this.hasSelfLoop(component.get(0))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public List<SolverPattern> patternsFor(final AEKey what) {

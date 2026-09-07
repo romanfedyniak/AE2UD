@@ -148,6 +148,23 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **The solver understands a pattern that feeds itself.** Still wired to nothing; still only tests. A cycle
+  used to be recognised and stepped around, which had a defect worth naming: the ordering stops at the first
+  cycle and leaves *everything behind it* unplaced, not only the loop - so a step below one lost its pattern
+  too and was reported missing while its ingredients sat in storage. The graph is now condensed into
+  components when, and only when, a cycle is actually found, so what is below a loop is settled the ordinary
+  way. A pattern that consumes some of what it makes is then run by dividing rather than by going round:
+  each craft nets the difference, so the shortfall divides out once and a request for ten billion through a
+  loop is answered as fast as a request for one - the shape that used to hang, at the size at which it hung
+  worst. Nothing starts from nothing: a loop needs one craft's worth of its own output in hand, that seed is
+  held back from being spent on the order itself, and a loop with no seed and nothing to make one is reported
+  rather than attempted. A loop that gives back no more than it took is not treated as a source at all,
+  because running it is a way of losing the thing. The same rule settles catalysts, which are the commoner
+  half of this: what a pattern hands back is not something it consumed, so a mould that goes in and comes out
+  is asked for once rather than once per craft, and is not counted as made either. A loop running through
+  several different things is recognised and left alone for now; solving one wants more than the single
+  division a self-feeding pattern needs, and it will get its own change.
+
 - **A crafting plan solved on a graph rather than a tree.** Nothing uses it yet - the calculator a job runs
   through is unchanged - but the thing that will replace it is here and is tested. A node is a *thing* rather
   than a *request for a thing*, so the cost is the number of patterns the request can reach and the amount

@@ -175,14 +175,14 @@ public final class CraftingSolver {
         private Pass run(final AEKey root, final long amount, final Map<SolverPattern, Long> caps) {
             this.demand.add(root, amount);
 
-            for (final AEKey key : this.graph.getOrder()) {
-                this.settle(key, caps);
-            }
+            for (final List<AEKey> component : this.graph.getComponents()) {
+                final AEKey only = component.size() == 1 ? component.get(0) : null;
 
-            // Anything caught in a cycle never made it into the order. It is still wanted, so it is answered
-            // from what there is and whatever is left is reported rather than quietly dropped.
-            for (final AEKey key : this.graph.getCyclic()) {
-                this.settleWithoutCrafting(key);
+                if (only != null && !this.graph.hasSelfLoop(only)) {
+                    this.settle(only, caps);
+                } else {
+                    this.settleCycle(component, caps);
+                }
             }
 
             return this;
@@ -234,28 +234,130 @@ public final class CraftingSolver {
             this.chargeBytes(key, wanted);
         }
 
-        /** For a key in a cycle: storage and emitters answer it, its patterns are left alone. */
-        private void settleWithoutCrafting(final AEKey key) {
-            long need = this.demand.get(key);
+        /**
+         * A cycle. What can be answered from outside it is answered first, because a loop is a way of
+         * growing something you already have and never a way of conjuring the first of it.
+         * <p>
+         * Only a pattern that feeds itself is then looped: it makes some of a key and eats some of the same
+         * key per craft, so each craft nets the difference and the shortfall divides straight out - one
+         * division, no iteration, nothing that can fail to come back. A loop running through several keys is
+         * recognised and left alone; its keys are answered from storage or reported, as before.
+         */
+        private void settleCycle(final List<AEKey> component, final Map<SolverPattern, Long> caps) {
+            for (final AEKey key : component) {
+                long need = this.demand.get(key);
 
-            if (need <= 0) {
-                return;
+                if (need <= 0) {
+                    continue;
+                }
+
+                final long wanted = need;
+                final long holdBack = component.size() == 1 ? this.seedFor(key) : 0;
+
+                need -= this.takeSurplus(key, need);
+                need -= this.takeStock(key, Math.min(need, Math.max(0, this.stock.get(key) - holdBack)));
+
+                if (need > 0 && this.graph.isEmitted(key)) {
+                    this.emitted.add(key, need);
+                    need = 0;
+                }
+
+                if (need > 0 && component.size() == 1) {
+                    need = this.growFromItself(key, need, caps);
+                }
+
+                // Held back for a loop that in the end did not run, or did not need all of it.
+                need -= this.takeStock(key, need);
+
+                if (need > 0) {
+                    this.missing.add(key, need);
+                }
+
+                this.chargeBytes(key, wanted);
+            }
+        }
+
+        /**
+         * Runs a self-feeding pattern for the shortfall, if it makes more of the key than it takes.
+         *
+         * @return what is still wanted afterwards.
+         */
+        private long growFromItself(final AEKey key, final long shortfall,
+                final Map<SolverPattern, Long> caps) {
+            long need = shortfall;
+
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                if (need <= 0) {
+                    break;
+                }
+
+                final long eaten = this.eatenPerCraft(pattern, key);
+                final long net = pattern.outputOf(key) - eaten;
+
+                // A loop that gives back no more than it took is not a source of anything, however many
+                // times it is run. Neither is one that gives back less.
+                if (eaten <= 0 || net <= 0) {
+                    continue;
+                }
+
+                // Nothing starts without one craft's worth in hand, and that has to be there already: a loop
+                // grows what you have and never conjures the first of it.
+                if (this.surplus.get(key) + this.stock.get(key) < eaten) {
+                    continue;
+                }
+
+                final long allowed = allowance(pattern, caps) - this.craftsOf(pattern);
+                final long runs = Math.min(ceilDiv(need, net), allowed);
+
+                if (runs <= 0) {
+                    continue;
+                }
+
+                final long before = this.demand.get(key);
+                this.servedBy.putIfAbsent(pattern, key);
+                this.expand(pattern, runs);
+
+                // Running it asked for the seed. This key is being settled now and nothing will come back to
+                // it, so that goes on what is still wanted and is answered here with everything else.
+                need += this.demand.get(key) - before;
+                need -= this.takeSurplus(key, need);
+                need -= this.takeStock(key, need);
             }
 
-            final long wanted = need;
-            need -= this.takeSurplus(key, need);
-            need -= this.takeStock(key, need);
+            return need;
+        }
 
-            if (need > 0 && this.graph.isEmitted(key)) {
-                this.emitted.add(key, need);
-                need = 0;
+        /**
+         * The most any self-feeding pattern for this key would need in hand at once, which is what must not
+         * be spent on the demand before the loop has had its chance to start.
+         */
+        private long seedFor(final AEKey key) {
+            long seed = 0;
+
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                final long eaten = this.eatenPerCraft(pattern, key);
+
+                if (eaten > 0 && pattern.outputOf(key) > eaten) {
+                    seed = Math.max(seed, eaten);
+                }
             }
 
-            if (need > 0) {
-                this.missing.add(key, need);
+            return seed;
+        }
+
+        /**
+         * How much of the key one craft draws, counting the slots that were encoded with it.
+         */
+        private long eatenPerCraft(final SolverPattern pattern, final AEKey key) {
+            long total = 0;
+
+            for (final SolverIngredient ingredient : pattern.getInputs()) {
+                if (ingredient.getOptions().get(0).what().equals(key)) {
+                    total += ingredient.getOptions().get(0).amount();
+                }
             }
 
-            this.chargeBytes(key, wanted);
+            return total;
         }
 
         private static long allowance(final SolverPattern pattern, final Map<SolverPattern, Long> caps) {
@@ -264,26 +366,43 @@ public final class CraftingSolver {
         }
 
         /**
-         * Runs a pattern: demands what it takes, credits everything it makes. A byproduct is credited the
-         * same as the thing that was asked for, which is what lets the next key that wants it find it free.
+         * Runs a pattern: demands what it takes, credits what it makes. A byproduct is credited the same as
+         * the thing that was asked for, which is what lets the next key that wants it find it free.
+         * <p>
+         * An ingredient the pattern hands back is not something it consumed. Only the difference is drawn
+         * per craft, and the part that comes back is asked for once - enough to have in hand at a time - and
+         * is not credited as production either, or a mould would be minting copies of itself. That one rule
+         * covers the catalyst that comes out untouched, the pattern that eats some of its own output, and
+         * anything in between.
          */
         private void expand(final SolverPattern pattern, final long runs) {
             this.crafts.merge(pattern, runs, Long::sum);
             final KeyCounter drawn = this.patternInputs.computeIfAbsent(pattern, p -> new KeyCounter());
+            final KeyCounter handedBack = new KeyCounter();
 
             for (final SolverIngredient ingredient : pattern.getInputs()) {
                 final GenericStack option = this.choose(ingredient, runs);
-                final long total = multiply(option.amount(), runs);
+                final long back = Math.min(option.amount(), pattern.outputOf(option.what()));
+                long total = multiply(option.amount() - back, runs);
+
+                if (back > 0) {
+                    handedBack.add(option.what(), back);
+                    total += back;
+                }
 
                 this.demand.add(option.what(), total);
                 drawn.add(option.what(), total);
             }
 
             for (final GenericStack out : pattern.getOutputs()) {
-                final long total = multiply(out.amount(), runs);
+                final long net = out.amount() - handedBack.get(out.what());
 
-                this.surplus.add(out.what(), total);
-                this.produced.add(out.what(), total);
+                if (net > 0) {
+                    final long total = multiply(net, runs);
+
+                    this.surplus.add(out.what(), total);
+                    this.produced.add(out.what(), total);
+                }
             }
         }
 
@@ -373,7 +492,7 @@ public final class CraftingSolver {
             }
 
             return new SolverPlan(this.crafts, this.patternInputs, this.used, this.produced, this.missing,
-                    this.emitted, total, !graph.getCyclic().isEmpty());
+                    this.emitted, total, graph.isCyclic());
         }
     }
 }

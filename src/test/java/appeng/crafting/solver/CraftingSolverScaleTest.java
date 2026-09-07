@@ -11,8 +11,10 @@
 package appeng.crafting.solver;
 
 
+import appeng.api.stacks.GenericStack;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -114,6 +116,24 @@ public final class CraftingSolverScaleTest {
         assertThat(plan.isComplete(), is(true));
         assertThat(plan.getCrafts().size(), is(branches + 1));
         assertThat(crafts(plan, "mid0"), is(8L));
+    }
+
+    @Test
+    public void aLoopAtAnAbsurdSizeDividesOutAtOnce() {
+        // The reason cycles are done by division rather than by going round: this is the shape that would
+        // have hung, and the size at which it would have hung for good.
+        final long huge = 10_000_000_000L;
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("loop", new GenericStack[] { network.stack("t", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("t"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("t", 1);
+        network.inStorage("base", Long.MAX_VALUE / 4);
+
+        final SolverPlan plan = timed("ten billion round a loop", () -> network.solve("t", huge));
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "loop"), is(huge));
     }
 
     private static SolverTestNetwork chain() {

@@ -171,20 +171,117 @@ public final class CraftingSolverTest {
     }
 
     @Test
-    public void aCycleIsLeftAloneRatherThanLoopedOver() {
-        // One craft eats one t and makes two. The old tree refuses this outright; this says so plainly and,
-        // above all, comes back.
-        final SolverTestNetwork network = new SolverTestNetwork();
-        network.pattern("t", new GenericStack[] { network.stack("t", 2) },
-                Arrays.asList(SolverIngredient.of(network.key("t"), 1),
-                        SolverIngredient.of(network.key("base"), 1)));
-        network.inStorage("base", 1000);
+    public void aLoopWithNothingToStartFromCannotStart() {
+        // One craft eats one t and makes two, which grows - but only from a t that already exists. There is
+        // none, so this is not a plan however many times the pattern could be run.
+        final SolverTestNetwork network = growing();
 
         final SolverPlan plan = network.solve("t", 100);
 
         assertThat(plan.isCyclic(), is(true));
         assertThat(plan.isComplete(), is(false));
         assertThat(plan.getMissing().get(network.key("t")), is(100L));
+    }
+
+    @Test
+    public void aLoopGrowsFromASeed() {
+        // The same pattern with a single t to start from. Each craft nets one, so the shortfall divides
+        // straight out: a hundred crafts, and the one that started it is handed back at the end.
+        final SolverTestNetwork network = growing().inStorage("t", 1);
+
+        final SolverPlan plan = network.solve("t", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "loop"), is(100L));
+        assertThat(plan.getUsed().get(network.key("t")), is(1L));
+        assertThat(plan.getUsed().get(network.key("base")), is(100L));
+    }
+
+    @Test
+    public void aLoopThatGivesBackNoMoreThanItTookIsNotASource() {
+        // Two t in, one t out. Running it is a way of losing t, never of having more.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("loop", new GenericStack[] { network.stack("t", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("t"), 2),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("t", 5);
+        network.inStorage("base", 1000);
+
+        final SolverPlan plan = network.solve("t", 10);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(crafts(plan, "loop"), is(0L));
+        assertThat(plan.getUsed().get(network.key("t")), is(5L));
+        assertThat(plan.getMissing().get(network.key("t")), is(5L));
+    }
+
+    @Test
+    public void aCatalystIsBorrowedRatherThanConsumed() {
+        // The mould goes in and comes out again. A hundred crafts need one of it, not a hundred.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("cast", new GenericStack[] { network.stack("out", 1), network.stack("mould", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("mould"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("mould", 1);
+        network.inStorage("base", 1000);
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "cast"), is(100L));
+        assertThat(plan.getUsed().get(network.key("mould")), is(1L));
+        assertThat(plan.getUsed().get(network.key("base")), is(100L));
+        // And it is not counted as made either, or the plan would be minting mould out of nothing.
+        assertThat(plan.producedOf(network.key("mould")), is(0L));
+    }
+
+    @Test
+    public void aLoopThroughSeveralThingsIsLeftAlone() {
+        // a is made from b and b from two a. Productive as a loop, but solving it wants more than the one
+        // division a self-feeding pattern needs, so it is recognised and not used rather than half-used.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("pa", "a", "b");
+        network.pattern("pb", new GenericStack[] { network.stack("b", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 2),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("base", 1000);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(false));
+        assertThat(plan.getMissing().get(network.key("a")), is(100L));
+    }
+
+    @Test
+    public void whatIsBelowACycleIsStillCrafted() {
+        // Kahn stops at a cycle and leaves everything behind it unplaced, so c - which nothing loops through
+        // - used to lose its pattern along with the loop and be reported missing while d sat in storage.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("px", "x", "a", "c")
+                .pattern("pa", "a", "b")
+                .pattern("pc", "c", "d");
+        network.pattern("pb", new GenericStack[] { network.stack("b", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1),
+                        SolverIngredient.of(network.key("c"), 1)));
+        network.inStorage("a", 10);
+        network.inStorage("d", 100);
+
+        final SolverPlan plan = network.solve("x", 10);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pc"), is(10L));
+        assertThat(plan.getUsed().get(network.key("d")), is(10L));
+        assertThat(plan.getUsed().get(network.key("a")), is(10L));
+    }
+
+    private static SolverTestNetwork growing() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("loop", new GenericStack[] { network.stack("t", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("t"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        return network.inStorage("base", 1000);
     }
 
     @Test
