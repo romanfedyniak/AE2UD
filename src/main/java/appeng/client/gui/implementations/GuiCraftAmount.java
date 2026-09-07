@@ -93,6 +93,13 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     private static final int FIELD_Y = 57;
     private static final int FIELD_WIDTH = 59;
 
+    /**
+     * How much the field will hold. Long enough for the largest amount there is - nineteen digits - in any
+     * unit it may be read in, with room for a decimal point and the leading {@code =}. It was sixteen, which
+     * could not express the top of the range at all.
+     */
+    private static final int MAX_FIELD_LENGTH = 24;
+
     protected GuiTextField amountToCraft;
     protected GuiTabButton originalGuiBtn;
 
@@ -167,7 +174,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
 
         this.amountToCraft = new GuiTextField(0, this.fontRenderer, this.guiLeft + FIELD_X, this.guiTop + FIELD_Y, FIELD_WIDTH, this.fontRenderer.FONT_HEIGHT);
         this.amountToCraft.setEnableBackgroundDrawing(false);
-        this.amountToCraft.setMaxStringLength(16);
+        this.amountToCraft.setMaxStringLength(MAX_FIELD_LENGTH);
         this.amountToCraft.setTextColor(0xFFFFFF);
         this.amountToCraft.setVisible(true);
         this.amountToCraft.setFocused(true);

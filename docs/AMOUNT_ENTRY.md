@@ -53,6 +53,26 @@ The Shift set is the one modern AE2 offers, where holding Shift is the only choi
 A step is written in whatever unit the field is being read in - a `+10` on a screen reading buckets adds ten
 buckets - so screens pass their unit scale in. A factor is a factor in any unit and is never scaled.
 
+### Reading the field
+
+`AmountEntry.parse` takes two roads, and which one it takes depends on what was typed:
+
+* **A number typed as itself** - digits, and at most one decimal point - is read as itself, straight into a
+  `BigDecimal`. No `double` is involved at any point.
+* **Anything else** is handed to `MathExpressionParser`, which answers in a `double`.
+
+The split exists because a `double` holds whole numbers exactly only up to 2^53, and an amount is a `long`
+everywhere else in the mod. Nine quadrillion and one is the first number it cannot hold, and the field is long
+enough to type it: read the old way it came back one short. An expression is a different matter - someone
+typing `64*64*64` is not counting to the last unit - so that road is unchanged.
+
+The scale is applied before rounding, not after: rounding first would turn one and a half buckets into two of
+them rather than into 1500. The result is clamped to `Long.MAX_VALUE`, so a number too big for an amount is
+held at the top rather than wrapping.
+
+The field holds 24 characters. That is the largest amount there is - nineteen digits - in any unit it may be
+read in, with room for a decimal point and the leading `=`.
+
 ### Labels
 
 A step is the player's, and so is the font: `10000` is five characters of whatever width the pack in use

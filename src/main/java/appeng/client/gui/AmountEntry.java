@@ -52,16 +52,28 @@ public final class AmountEntry {
      * Where a text box starts drawing from. Private, and there is no accessor: {@code drawTextBox}
      * renders {@code text.substring(lineScrollOffset)} trimmed to the box width, so without it there is
      * no way to know how wide the amount was actually drawn - only how wide the whole string would be.
+     * <p>
+     * Looked up on first draw rather than when the class loads. Reading a field of a client class is not
+     * something the rest of this class needs - it converts between amounts and text, which is arithmetic -
+     * and doing it at load put the whole of that behind a client being there.
      */
-    private static final Field LINE_SCROLL_OFFSET = findLineScrollOffset();
+    private static Field lineScrollOffset;
+    private static boolean lookedForScrollOffset;
 
-    private static Field findLineScrollOffset() {
-        try {
-            return ReflectionHelper.findField(GuiTextField.class, "lineScrollOffset", "field_146225_q");
-        } catch (final RuntimeException e) {
-            AELog.debug(e);
-            return null;
+    @Nullable
+    private static Field lineScrollOffset() {
+        if (!lookedForScrollOffset) {
+            lookedForScrollOffset = true;
+
+            try {
+                lineScrollOffset = ReflectionHelper.findField(GuiTextField.class, "lineScrollOffset",
+                        "field_146225_q");
+            } catch (final RuntimeException e) {
+                AELog.debug(e);
+            }
         }
+
+        return lineScrollOffset;
     }
 
     private AmountEntry() {
@@ -129,6 +141,12 @@ public final class AmountEntry {
     /**
      * Reads an entry field back into a raw amount.
      * <p>
+     * A number typed as itself is read as itself. Only a field holding something to work out - a sum, a
+     * product, anything with an operator in it - goes through the expression parser, which answers in a
+     * {@code double} and so cannot tell nine quadrillion and one from nine quadrillion. A player who types
+     * a number that large means it, and it is theirs to type: the amount is a {@code long} everywhere else
+     * in the mod, and a field that quietly rounded the end off one would be the only place it was not.
+     * <p>
      * Rounding to a whole amount happens last, after the scale is applied: rounding first would turn one
      * and a half buckets into two of them instead of 1500 mB. The result is finished, so no caller can
      * get that order wrong.
@@ -136,13 +154,53 @@ public final class AmountEntry {
      * @return zero when the field does not hold a usable positive number.
      */
     public static long parse(final String text, final int scale) {
-        final double value = MathExpressionParser.parse(text);
-        if (Double.isNaN(value) || Double.isInfinite(value) || value <= 0) {
+        BigDecimal value = typedAsItself(text);
+
+        if (value == null) {
+            final double worked = MathExpressionParser.parse(text);
+
+            if (Double.isNaN(worked) || Double.isInfinite(worked)) {
+                return 0;
+            }
+
+            value = BigDecimal.valueOf(worked);
+        }
+
+        if (value.signum() <= 0) {
             return 0;
         }
 
-        final BigDecimal scaled = BigDecimal.valueOf(value).multiply(BigDecimal.valueOf(scale));
+        final BigDecimal scaled = value.multiply(BigDecimal.valueOf(scale));
         return scaled.min(MAX_AMOUNT).setScale(0, RoundingMode.HALF_UP).longValue();
+    }
+
+    /**
+     * @return the number the field holds, exactly, or null if it holds anything else - an expression
+     *         included, which is the caller's cue to work it out instead.
+     */
+    @Nullable
+    private static BigDecimal typedAsItself(final String text) {
+        final String trimmed = text.trim();
+        boolean point = false;
+        boolean digit = false;
+
+        for (int at = 0; at < trimmed.length(); at++) {
+            final char c = trimmed.charAt(at);
+
+            if (c == '.') {
+                if (point) {
+                    return null;
+                }
+
+                point = true;
+            } else if (c >= '0' && c <= '9') {
+                digit = true;
+            } else {
+                return null;
+            }
+        }
+
+        return digit ? new BigDecimal(trimmed) : null;
     }
 
     /**
@@ -189,9 +247,11 @@ public final class AmountEntry {
         final String text = field.getText();
         int offset = 0;
 
-        if (LINE_SCROLL_OFFSET != null) {
+        final Field scroll = lineScrollOffset();
+
+        if (scroll != null) {
             try {
-                offset = LINE_SCROLL_OFFSET.getInt(field);
+                offset = scroll.getInt(field);
             } catch (final IllegalAccessException e) {
                 AELog.debug(e);
             }

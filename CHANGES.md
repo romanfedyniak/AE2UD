@@ -118,6 +118,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Amount entry
 
+- **A number typed into an amount field is read as the number it is.** Everything typed there went through
+  the same parser, which answers in the kind of number that cannot tell nine quadrillion and one from nine
+  quadrillion - so past that point the end of what was typed was quietly rounded off, while an amount is a
+  whole 64-bit number everywhere else in the mod. A field holding nothing but a number is now read as that
+  number exactly; only a field with something to work out in it - a sum, a product - is worked out, where
+  the question does not arise. The field also holds enough characters to express the largest amount there
+  is: it stopped at sixteen, three short of what the top of the range needs, so the biggest orders could not
+  be typed at all.
+
 - The amount window's way back is always there now. The tab in its top right is drawn from whatever the screen was opened on top of - a terminal, a machine, a terminal in your hand - and when that host will not say what it is, the corner was simply left empty and the screen looked like a dead end. Those cases get a plain arrow labelled `Back` instead, which closes the window: the honest answer when nothing will say where you came from, and never the wrong screen to open.
 
 - **The plus and minus buttons take the step you tell them to.** Every screen that types an amount - ordering a craft, setting a fake slot, a level emitter threshold, a machine priority - draws the same four buttons above the field and four below, and each of those screens had its own set of steps in the config, capped so that the first button could never exceed 9. There is one set now, and a modifier key chooses between four of them: unmodified adds 1/10/100/1000 as before, Shift adds 1/16/32/64 (the set modern AE2 offers), Ctrl multiplies and divides by 2/3/5/10, and Alt by 10/100/1000/10000. Each group carries its own operation, so a group that multiplies is a group whose lower row divides. The labels change while a modifier is held, so what a press will do is written on the button before it is pressed; the arithmetic saturates instead of wrapping, a division truncates towards zero, and the result is held inside whatever the screen allows. There is no cap on a step any more - a button that cannot draw its step in full shortens it the way a slot amount is shortened, puts the whole reading in its tooltip, and past that draws it smaller. The three old config keys are dropped from the file when it is loaded.
