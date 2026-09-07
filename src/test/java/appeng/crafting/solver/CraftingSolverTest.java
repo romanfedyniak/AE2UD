@@ -394,6 +394,126 @@ public final class CraftingSolverTest {
         assertThat(plan.isComplete(), is(false));
     }
 
+    @Test
+    public void aThingInACycleIsStillMadeTheOrdinaryWay() {
+        // An ingot and its block feed each other, which is a cycle that nets nothing - and the ingot also
+        // comes from dust, which has nothing to do with either. That pattern was never reached from inside
+        // the component, so a network that could plainly have made the ingots was told it could not.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pingot", new GenericStack[] { network.stack("ingot", 9) },
+                Arrays.asList(SolverIngredient.of(network.key("block"), 1)));
+        network.pattern("pblock", new GenericStack[] { network.stack("block", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("ingot"), 9)));
+        network.pattern("pdust", "ingot", "dust");
+        network.inStorage("dust", 1000);
+
+        final SolverPlan plan = network.solve("ingot", 100);
+
+        assertThat(plan.isCyclic(), is(true));
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pdust"), is(100L));
+        assertThat(crafts(plan, "pingot"), is(0L));
+        assertThat(plan.getUsed().get(network.key("dust")), is(100L));
+    }
+
+    @Test
+    public void somethingOnACycleIsReachedThroughTheThingThatHasAWayOff() {
+        // Nuggets come from an ingot, and the ingot from nine nuggets - a cycle that nets nothing. The ingot
+        // also comes from a block, which the nugget cannot use directly. Ordering nuggets has to go through
+        // the ingot to reach that block, so the nugget is settled first and its demand for ingots arrives
+        // while the ingot can still answer it. Settled the other way round, the nuggets came back missing.
+        final SolverTestNetwork network = nuggets().inStorage("block", 1000);
+
+        final SolverPlan plan = network.solve("nugget", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pnugget"), is(12L));
+        assertThat(crafts(plan, "pblock"), is(2L));
+        assertThat(crafts(plan, "pingot"), is(0L));
+        assertThat(plan.getUsed().get(network.key("block")), is(2L));
+    }
+
+    @Test
+    public void aCycleWithNoWayOffItIsStillReported() {
+        // The same two patterns with nothing feeding them from outside. Going round is all there is, and
+        // going round gives back exactly what it took.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pnugget", new GenericStack[] { network.stack("nugget", 9) },
+                Arrays.asList(SolverIngredient.of(network.key("ingot"), 1)));
+        network.pattern("pingot", new GenericStack[] { network.stack("ingot", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("nugget"), 9)));
+
+        final SolverPlan plan = network.solve("nugget", 100);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(plan.getMissing().get(network.key("nugget")), is(100L));
+        assertThat(crafts(plan, "pnugget"), is(0L));
+        assertThat(crafts(plan, "pingot"), is(0L));
+    }
+
+    @Test
+    public void theWayOffACycleMayBeSeveralStepsAway() {
+        // a from b, b from c, c from a - and c also from raw. The way out is three steps from a, and each
+        // step has to be settled before the one it asks.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("pa", "a", "b")
+                .pattern("pb", "b", "c")
+                .pattern("pc", "c", "a")
+                .pattern("praw", "c", "raw")
+                .inStorage("raw", 1000);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(100L));
+        assertThat(crafts(plan, "pb"), is(100L));
+        assertThat(crafts(plan, "praw"), is(100L));
+        assertThat(crafts(plan, "pc"), is(0L));
+    }
+
+    @Test
+    public void aSelfFeedingThingWithNothingToStartFromFallsBackToItsOtherPattern() {
+        // The loop cannot turn without a t to grow from, but t is also made plainly from raw. The plain
+        // pattern is reached now instead of the whole thing being reported missing.
+        final SolverTestNetwork network = growing().pattern("plain", "t", "raw").inStorage("raw", 1000);
+
+        final SolverPlan plan = network.solve("t", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "plain"), is(100L));
+        assertThat(crafts(plan, "loop"), is(0L));
+    }
+
+    @Test
+    public void aLoopThatCanTurnIsPreferredToThePatternBesideIt() {
+        // The same network with a seed. The loop is what the component is for and is tried first, so the
+        // plain pattern is left alone - it is only there for when the loop cannot go.
+        final SolverTestNetwork network = growing()
+                .pattern("plain", "t", "raw")
+                .inStorage("raw", 1000)
+                .inStorage("t", 1);
+
+        final SolverPlan plan = network.solve("t", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "loop"), is(100L));
+        assertThat(crafts(plan, "plain"), is(0L));
+    }
+
+    /** Nine nuggets from an ingot, an ingot from nine nuggets, and nine ingots from a block. */
+    private static SolverTestNetwork nuggets() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+
+        network.pattern("pnugget", new GenericStack[] { network.stack("nugget", 9) },
+                Arrays.asList(SolverIngredient.of(network.key("ingot"), 1)));
+        network.pattern("pingot", new GenericStack[] { network.stack("ingot", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("nugget"), 9)));
+        network.pattern("pblock", new GenericStack[] { network.stack("ingot", 9) },
+                Arrays.asList(SolverIngredient.of(network.key("block"), 1)));
+
+        return network;
+    }
+
     /** Two a from one b, one b from one a and a base ingredient. Each turn nets one a. */
     private static SolverTestNetwork ring() {
         final SolverTestNetwork network = new SolverTestNetwork();

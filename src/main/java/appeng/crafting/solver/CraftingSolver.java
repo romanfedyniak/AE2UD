@@ -16,9 +16,15 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import com.google.common.math.LongMath;
 
+import javax.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -221,28 +227,7 @@ public final class CraftingSolver {
                 need = 0;
             }
 
-            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
-                if (need <= 0) {
-                    break;
-                }
-
-                final long per = pattern.outputOf(key);
-
-                if (per <= 0) {
-                    continue;
-                }
-
-                final long allowed = allowance(pattern, caps) - this.craftsOf(pattern);
-                final long runs = Math.min(ceilDiv(need, per), allowed);
-
-                if (runs <= 0) {
-                    continue;
-                }
-
-                this.servedBy.putIfAbsent(pattern, key);
-                this.expand(pattern, runs);
-                need -= this.takeSurplus(key, need);
-            }
+            need = this.runPatterns(key, need, caps, null);
 
             if (need > 0) {
                 this.missing.add(key, need);
@@ -261,9 +246,18 @@ public final class CraftingSolver {
          * same division taken round the ring, which {@link SolverLoop} works out. A component that branches -
          * where a thing on the cycle is made from two others on it - still has no answer here and is
          * reported rather than half-solved.
+         * <p>
+         * Whatever the cycle cannot answer is then put to the patterns that have nothing to do with it, which
+         * is how a thing caught in a cycle is still made the ordinary way. The cycle is tried first, before
+         * priority is consulted at all: it is what this component exists for, and a loop that can turn is
+         * nearly always the cheaper of the two anyway - it is largely giving back what it borrowed.
          */
         private void settleCycle(final List<AEKey> component, final Map<SolverPattern, Long> caps) {
-            for (final AEKey key : component) {
+            final Set<AEKey> inside = new LinkedHashSet<>(component);
+
+            final Map<AEKey, Integer> ranks = this.rankByWayOut(component, inside);
+
+            for (final AEKey key : nearestTheWayOutFirst(component, ranks)) {
                 long need = this.demand.get(key);
 
                 if (need <= 0) {
@@ -299,12 +293,125 @@ public final class CraftingSolver {
                 // Held back for a loop that in the end did not run, or did not need all of it.
                 need -= this.takeStock(key, need);
 
+                // A thing caught in a cycle is often makeable some other way - an ingot and its block feed
+                // each other, and the ingot also comes from dust. Those patterns were never reached from
+                // here, so a network that could plainly have made the thing was told it could not.
+                if (need > 0) {
+                    need = this.runPatterns(key, need, caps, outOfReachFrom(key, component, ranks));
+                }
+
                 if (need > 0) {
                     this.missing.add(key, need);
                 }
 
                 this.chargeBytes(key, wanted);
             }
+        }
+
+        /**
+         * How far each thing on a cycle is from a way off it.
+         * <p>
+         * Rank 1 is something the cycle does not have to be gone round to get at all: a pattern of its own
+         * drawing nothing inside the component, or a level emitter. Rank <em>r</em> is something with a
+         * pattern drawing only things of lower rank - one more step from the way out. What the walk never
+         * reaches has no way off the cycle and is left unranked.
+         * <p>
+         * This is what makes a cycle usable from inside without going round it: gold nuggets come from an
+         * ingot, and while the ingot also comes from nine nuggets, it comes from a block as well. The nugget
+         * is a step further out than the ingot, and settling it first means its demand for ingots arrives
+         * while the ingot can still answer.
+         * <p>
+         * Storage is deliberately not consulted. This is the shape of the network, and a thing that happens
+         * to be on the shelf today is not a way out of a cycle.
+         */
+        private Map<AEKey, Integer> rankByWayOut(final List<AEKey> component, final Set<AEKey> inside) {
+            final Map<AEKey, Integer> ranks = new LinkedHashMap<>();
+
+            for (int rank = 1; rank <= component.size(); rank++) {
+                final List<AEKey> reached = new ArrayList<>();
+
+                for (final AEKey key : component) {
+                    if (!ranks.containsKey(key)
+                            && (this.graph.isEmitted(key) || this.hasWayOut(key, inside, ranks))) {
+                        reached.add(key);
+                    }
+                }
+
+                if (reached.isEmpty()) {
+                    break;
+                }
+
+                // Added after the round rather than during it, so two things reached in the same round get
+                // the same rank and neither is read as a step nearer the way out than the other.
+                for (final AEKey key : reached) {
+                    ranks.put(key, rank);
+                }
+            }
+
+            return ranks;
+        }
+
+        /**
+         * Whether any pattern for this key draws nothing on the cycle that does not already have a way out.
+         */
+        private boolean hasWayOut(final AEKey key, final Set<AEKey> inside, final Map<AEKey, Integer> ranks) {
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                if (pattern.outputOf(key) <= 0) {
+                    continue;
+                }
+
+                boolean clear = true;
+
+                for (final SolverIngredient ingredient : pattern.getInputs()) {
+                    for (final GenericStack option : ingredient.getOptions()) {
+                        clear &= !inside.contains(option.what()) || ranks.containsKey(option.what());
+                    }
+                }
+
+                if (clear) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * The cycle settled from the way out inwards, so that what one thing asks of another always reaches
+         * it before it is settled. What has no way out comes last, where nothing is left to ask it for
+         * anything.
+         */
+        private static List<AEKey> nearestTheWayOutFirst(final List<AEKey> component,
+                final Map<AEKey, Integer> ranks) {
+            if (ranks.isEmpty()) {
+                return component;
+            }
+
+            final List<AEKey> order = new ArrayList<>(component);
+
+            order.sort(Comparator.comparingInt(key -> ranks.containsKey(key) ? -ranks.get(key)
+                    : Integer.MAX_VALUE));
+
+            return order;
+        }
+
+        /**
+         * What this key must not ask the cycle for: anything on it no nearer the way out than the key itself,
+         * which is settled either alongside it or before it and would never hear the request. Its own key is
+         * in there too - a pattern that eats what it makes is the loop's business, not this one's.
+         */
+        private static Set<AEKey> outOfReachFrom(final AEKey key, final List<AEKey> component,
+                final Map<AEKey, Integer> ranks) {
+            final int mine = ranks.getOrDefault(key, Integer.MAX_VALUE);
+            final Set<AEKey> refused = new LinkedHashSet<>();
+
+            for (final AEKey other : component) {
+                if (ranks.getOrDefault(other, Integer.MAX_VALUE) >= mine) {
+                    refused.add(other);
+                }
+            }
+
+            return refused;
         }
 
         /**
@@ -353,6 +460,47 @@ public final class CraftingSolver {
                 need += this.demand.get(key) - before;
                 need -= this.takeSurplus(key, need);
                 need -= this.drawStock(key, need);
+            }
+
+            return need;
+        }
+
+        /**
+         * Runs the patterns that make a key, in the order they are preferred, each taking as much of what is
+         * still wanted as it is allowed to.
+         *
+         * @param avoiding when given, only patterns drawing nothing in this set are run. That is how a key
+         *                 caught in a cycle still reaches a pattern which has nothing to do with the cycle:
+         *                 what such a pattern draws lies outside the component and is settled after it,
+         *                 where demand added now still arrives in time. Every option of an ingredient counts,
+         *                 not only the encoded one, since any of them may end up drawn.
+         * @return what is still wanted afterwards.
+         */
+        private long runPatterns(final AEKey key, final long shortfall,
+                final Map<SolverPattern, Long> caps, @Nullable final Set<AEKey> avoiding) {
+            long need = shortfall;
+
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                if (need <= 0) {
+                    break;
+                }
+
+                final long per = pattern.outputOf(key);
+
+                if (per <= 0 || (avoiding != null && draws(pattern, avoiding))) {
+                    continue;
+                }
+
+                final long allowed = allowance(pattern, caps) - this.craftsOf(pattern);
+                final long runs = Math.min(ceilDiv(need, per), allowed);
+
+                if (runs <= 0) {
+                    continue;
+                }
+
+                this.servedBy.putIfAbsent(pattern, key);
+                this.expand(pattern, runs);
+                need -= this.takeSurplus(key, need);
             }
 
             return need;
@@ -460,6 +608,21 @@ public final class CraftingSolver {
             }
 
             return total;
+        }
+
+        /**
+         * Whether any option of any ingredient of this pattern is one of the given keys.
+         */
+        private static boolean draws(final SolverPattern pattern, final Set<AEKey> keys) {
+            for (final SolverIngredient ingredient : pattern.getInputs()) {
+                for (final GenericStack option : ingredient.getOptions()) {
+                    if (keys.contains(option.what())) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static long allowance(final SolverPattern pattern, final Map<SolverPattern, Long> caps) {

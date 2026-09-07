@@ -148,6 +148,20 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **A thing caught in a cycle is still made the ordinary way.** An ingot and its block feed each other, which
+  is a cycle that gives back exactly what it took and is therefore no way of getting any - and the ingot is
+  also made from dust, which has nothing to do with either. Patterns like that were never reached once their
+  output had been found on a cycle, so a network that could plainly have made the thing was told it could not,
+  and the plan came back with the ingots missing. Whatever the cycle cannot answer is now put to the patterns
+  that have nothing to do with it. Gold is the case that shows why this needs care: nuggets come from an
+  ingot, and the ingot from nine nuggets *and* from a block - so the way off the cycle is one the nugget can
+  only reach *through* the ingot. Everything on a cycle is now ranked by how far it is from a way off, and the
+  cycle is settled nearest that way out first, so what one thing asks of another always arrives while the
+  other can still answer. Ordering nuggets follows the ingot to the block; ordering ingots goes straight
+  there. A cycle with no way off it at all is still reported as one, which is the honest answer. The cycle
+  itself is tried before any of this, and is nearly always the cheaper of the two: a loop that can turn is
+  largely giving back what it borrowed, while the pattern beside it spends something new every craft.
+
 - **An ingredient carrying nbt no longer costs a full recipe match every tick.** A pattern remembers what it
   has already judged for each of its slots, so a thing tested once is a lookup ever after - except that
   anything with nbt on it was left out of that entirely and re-tested against the vanilla recipe every single

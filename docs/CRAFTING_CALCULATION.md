@@ -161,11 +161,40 @@ Two rules apply to both kinds:
 * **A loop that gives back no more than it took is not a source of anything**, however many times it is run.
   Neither is one that gives back less.
 
-Still left alone, and reported rather than half-solved:
+### Getting off a cycle
 
-* a **branching** cycle, where something on it is made from two other things on it — there is no single ring
-  to walk;
-* a key inside a cycle whose alternative pattern is *not* on the cycle.
+Whatever the cycle cannot answer is then put to the patterns that have nothing to do with it — which is how a
+thing caught in a cycle is still made the ordinary way. An ingot and its block feed each other and net
+nothing, and the ingot also comes from dust.
+
+That needs an order, because inside a component there is otherwise none. Every thing on the cycle is given a
+**rank**: how far it is from a way off.
+
+* **Rank 1** is something the cycle does not have to be gone round to get at all — it has a pattern of its own
+  drawing nothing inside the component, or a level emitter.
+* **Rank r** is something with a pattern drawing only things of lower rank: one more step from the way out.
+* What the walk never reaches has **no way off** and stays unranked.
+
+The component is then settled **nearest the way out first**, and a key may only ask the cycle for something of
+strictly lower rank. Everything else on the cycle — its own rank, higher, or unranked — is refused, because it
+is settled alongside or before and would never hear the request.
+
+Gold is the case that makes this concrete. Nuggets come from an ingot; the ingot comes from nine nuggets,
+*and* from a block. The ingot is rank 1 and the nugget rank 2, so the nugget is settled first and its demand
+for ingots arrives while the ingot can still answer it, from the block. Settled the other way round — which is
+what happened before the rank existed — the nuggets came back missing while the blocks sat in storage.
+
+Storage is deliberately not consulted here. This is the shape of the network, and a thing that happens to be
+on the shelf today is not a way off a cycle.
+
+The cycle itself is tried before any of this, ahead of priority: it is what the component exists for, and a
+loop that can turn is nearly always the cheaper of the two anyway, being largely a matter of giving back what
+it borrowed.
+
+Still left alone, and reported rather than half-solved: a **branching** cycle, where something on it is made
+from two other things on it. There is no single ring to walk. And a cycle with no way off it at all — nine
+nuggets to an ingot and back, with nothing feeding either — is correctly reported: going round gives back
+exactly what it took.
 
 One known non-minimality: stock of a thing part-way round a ring is not folded into the ratio, so a ring may
 turn a few more times than strictly needed. Never a plan that cannot run.
