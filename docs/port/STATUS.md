@@ -1910,6 +1910,38 @@ They are separate on purpose - a hidden row still tracks its amounts and reappea
 turned off, and the scrollbar, the drawing loop and the key HEI asks about all read `displayed`, so they
 cannot disagree about which row is which.
 
+## Shift-clicking an upgrade card into an interface (done, verified in game)
+
+`transferStackInSlot` carried the same destination predicate twice, once per direction, spelled out inline.
+Upstream keeps it in one overridable place - `AEBaseMenu#isValidQuickMoveDestination(Slot, ItemStack,
+boolean fromPlayerSide)` - so that is the name and shape taken here, with `AppEngSlot` in place of `Slot`
+because `isPlayerSide()` lives on it and upstream reaches the same answer through a menu-side lookup this
+fork has no equivalent of. Upstream's `getQuickMovePriority` and its sorting by slot semantic were not
+taken: this branch has no slot semantics, and the problem below wants a slot refused rather than tried
+later.
+
+**The problem.** `ContainerInterface` has four upgrade slots, nine fake config slots and nine real storage
+slots. An upgrade slot answers `isItemValid` through `UpgradeInventory.canInstall`, so it says no to a card
+the interface does not support (it supports `CRAFTING`, `FAKE_CRAFTING` and `PATTERN_EXPANSION` x3), to one
+over its limit, and to the second card of a stack once the first is in. The storage row said yes to all of
+them - and `DualityInterface` pushes that row into the neighbouring machine.
+
+**The fallback is the other half of it.** Refusing the storage row alone is not enough: the fake-slot
+branch fires exactly when no real destination was found, so the card would have become a *filter* instead,
+and the interface would then fetch cards out of the network into the very row we just closed. That branch
+needed a gate of its own, and it could not be the same hook - the upstream predicate contains
+`!(s instanceof SlotFake)` and `s.isItemValid(i)`, and `SlotFake.isItemValid` is hard-coded `false`, so one
+hook asked in both places would answer no every time and shift-clicking into any filter in the mod would
+stop working. Hence `isValidQuickMoveFilter(AppEngSlot, ItemStack)`, which is this fork's own, defaults to
+`true`, and is documented as a divergence where it is declared.
+
+**The rule is stated forwards**, not as a list of rows to avoid: a card goes into a `PatternAwareUpgradeSlot`
+or nowhere. A row added to that screen later is covered without anyone remembering to.
+
+Both hooks are asked only about destinations. Shift-clicking a card *out* of a storage row still works, which
+matters for worlds that already have cards sitting there, and so does dragging one in by hand - the intent
+was to stop an accident, not to remove a way of stocking cards.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

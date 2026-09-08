@@ -385,7 +385,8 @@ public abstract class AEBaseContainer extends Container {
                         final AppEngSlot cs = (AppEngSlot) inventorySlot;
                         final ItemStack destination = cs.getStack();
 
-                        if (!(cs.isPlayerSide()) && cs instanceof SlotFake) {
+                        if (!(cs.isPlayerSide()) && cs instanceof SlotFake
+                                && this.isValidQuickMoveFilter(cs, tis)) {
                             if (Platform.itemComparisons().isSameItem(destination, tis)) {
                                 break;
                             } else if (destination.isEmpty()) {
@@ -510,6 +511,17 @@ public abstract class AEBaseContainer extends Container {
                 && !(s instanceof SlotFake)
                 && !(s instanceof SlotCraftingMatrix)
                 && s.isItemValid(i);
+    }
+
+    /**
+     * Whether a shift-click that found no real destination may be copied into the given filter slot.
+     * <p/>
+     * Not an upstream hook: upstream gates that fallback on nothing but the slot being a filter. A machine
+     * that refuses a stack everywhere else has to be able to refuse it here too, or the stack lands in the
+     * filter instead and the machine fetches it from the network by itself.
+     */
+    protected boolean isValidQuickMoveFilter(final AppEngSlot s, final ItemStack i) {
+        return true;
     }
 
     @Override

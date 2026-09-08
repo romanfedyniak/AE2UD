@@ -18,6 +18,7 @@
 
 package appeng.container.implementations;
 
+import appeng.api.AEApi;
 import appeng.api.upgrades.CardTraits;
 
 
@@ -30,6 +31,7 @@ import appeng.helpers.IInterfaceHost;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 
@@ -106,6 +108,31 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
             return super.canTakeStack(player)
                     && ContainerInterface.this.myDuality.canRemoveUpgrade(this.getSlotIndex());
         }
+    }
+
+    /**
+     * A card shift-clicked in goes to the four slots on the right or nowhere. Both stock rows would take
+     * whatever the upgrade slots refused - an unsupported card, one over its limit, the rest of a stack -
+     * and what lands in those rows is pushed into the machine next door.
+     */
+    @Override
+    protected boolean isValidQuickMoveDestination(final AppEngSlot s, final ItemStack i,
+            final boolean fromPlayerSide) {
+        if (fromPlayerSide && !(s instanceof PatternAwareUpgradeSlot) && isUpgradeCard(i)) {
+            return false;
+        }
+
+        return super.isValidQuickMoveDestination(s, i, fromPlayerSide);
+    }
+
+    /** The same rule: a card must not become something this interface then stocks either. */
+    @Override
+    protected boolean isValidQuickMoveFilter(final AppEngSlot s, final ItemStack i) {
+        return !isUpgradeCard(i);
+    }
+
+    private static boolean isUpgradeCard(final ItemStack i) {
+        return AEApi.instance().registries().upgrades().isUpgradeCard(i);
     }
 
     public DualityInterface getDuality() {
