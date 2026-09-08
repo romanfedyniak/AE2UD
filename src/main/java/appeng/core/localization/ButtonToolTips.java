@@ -265,6 +265,8 @@ public enum ButtonToolTips {
     // The pattern terminal's upload button
     PatternUpload,
     PatternUploadHint,
+    PatternUploadUndo,
+    PatternUploadUndoHint,
     TerminalModeList,
     SearchModePanel,
     TerminalModeLocked,

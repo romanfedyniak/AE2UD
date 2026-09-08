@@ -10,10 +10,14 @@
 
 package appeng.helpers;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.item.ItemStack;
@@ -43,6 +47,13 @@ public final class PatternUpload {
     /** What a button press is worth: {@code GuiButton.playPressSound} plays its click at a quarter. */
     private static final float PRESS_VOLUME = 0.25F;
 
+    /**
+     * The one upload each player can take back. Weak in the key so a record dies with the player who left,
+     * which is also how long the offer is meant to stand - between sessions the network has moved on, and
+     * "put it back" would be reaching into a machine nobody remembers choosing.
+     */
+    private static final Map<EntityPlayer, Undo> UNDO = new WeakHashMap<>();
+
     private PatternUpload() {
     }
 
@@ -57,14 +68,30 @@ public final class PatternUpload {
     }
 
     /**
+     * Whether the terminal's button should be offering to take the last upload back. Only that a record
+     * exists: whether it can still be honoured is asked when the button is pressed, not every tick.
+     */
+    public static boolean canReturn(final EntityPlayer player) {
+        return remembered(player) != null;
+    }
+
+    /**
      * The terminal's button: files the pattern when there is one sensible answer, otherwise opens the screen
-     * that asks.
+     * that asks. With nothing in the slot the same button means the opposite, and takes the last one back.
      *
      * @param pick true when the player asked to choose rather than have it decided.
      */
     public static void run(final EntityPlayerMP player, final AEBaseContainer from, final IPatternUploadHost host,
             final boolean pick) {
         final ItemStack pattern = host.getEncodedPattern();
+
+        // Which of the two things the button does is decided here rather than by the screen: the client's
+        // idea of the slot is a tick old, and only one of the two is ever possible at a time anyway.
+        if (pattern.isEmpty()) {
+            returnLast(player, host);
+            return;
+        }
+
         final ICraftingPatternDetails details = detailsOf(pattern, player.world);
 
         if (details == null) {
@@ -110,6 +137,46 @@ public final class PatternUpload {
         }
     }
 
+    /** Puts the last upload back in the terminal it was sent from. */
+    private static void returnLast(final EntityPlayerMP player, final IPatternUploadHost host) {
+        final Undo undo = remembered(player);
+        if (undo == null) {
+            player.sendMessage(PlayerMessages.PatternUploadNothingToUndo.get());
+            return;
+        }
+
+        final IPatternContainer target = undo.target.get();
+
+        // On this terminal's own network, not merely still alive somewhere: without this, uploading on one
+        // network and pressing the button on another would carry a pattern between the two.
+        if (target == null || !PatternContainers.visible(gridOf(host)).contains(target)) {
+            player.sendMessage(PlayerMessages.PatternUploadTargetGone.get());
+            return;
+        }
+
+        if (!PatternContainers.extract(target, undo.pattern)) {
+            player.sendMessage(PlayerMessages.PatternUploadAlreadyTaken.get());
+            return;
+        }
+
+        UNDO.remove(player);
+        host.setEncodedPattern(undo.pattern);
+        click(player);
+    }
+
+    /** The record, with a dead one cleared away as it is read. */
+    @Nullable
+    private static Undo remembered(final EntityPlayer player) {
+        final Undo undo = UNDO.get(player);
+
+        if (undo != null && undo.target.get() == null) {
+            UNDO.remove(player);
+            return null;
+        }
+
+        return undo;
+    }
+
     /**
      * @return true when the pattern is now in that container and gone from the terminal.
      */
@@ -142,6 +209,7 @@ public final class PatternUpload {
         }
 
         host.setEncodedPattern(ItemStack.EMPTY);
+        UNDO.put(player, new Undo(target, one));
         click(player);
         return true;
     }
@@ -153,6 +221,21 @@ public final class PatternUpload {
     private static void click(final EntityPlayerMP player) {
         player.connection.sendPacket(new SPacketSoundEffect(SoundEvents.UI_BUTTON_CLICK, SoundCategory.MASTER,
                 player.posX, player.posY, player.posZ, PRESS_VOLUME, 1.0F));
+    }
+
+    /**
+     * Where one pattern went. The container is held weakly: a strong one here would keep an interface the
+     * player has since broken alive for as long as they stay logged in.
+     */
+    private static final class Undo {
+
+        private final WeakReference<IPatternContainer> target;
+        private final ItemStack pattern;
+
+        private Undo(final IPatternContainer target, final ItemStack pattern) {
+            this.target = new WeakReference<>(target);
+            this.pattern = pattern;
+        }
     }
 
     @Nullable

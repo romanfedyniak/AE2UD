@@ -28,6 +28,7 @@ import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.sync.packets.PacketPatternSlot;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.helpers.PatternHelper;
+import appeng.helpers.PatternUpload;
 import appeng.items.storage.ItemViewCell;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.reporting.AbstractPartEncoder;
@@ -111,6 +112,9 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     /** See {@link AbstractPartEncoder#getPatternLoads()}; mirrored here so the screen can watch it. */
     @GuiSync(93)
     public int patternLoads = 0;
+    /** Whether the upload button has a pattern to take back. About the player, not about the terminal. */
+    @GuiSync(92)
+    public boolean canUndoUpload = false;
 
     protected ContainerPatternEncoder(InventoryPlayer ip, ITerminalHost monitorable, boolean bindInventory) {
         super(ip, monitorable, bindInventory);
@@ -924,6 +928,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
     private void readHostState() {
         if (Platform.isServer()) {
+            this.canUndoUpload = PatternUpload.canReturn(this.getPlayerInv().player);
+
             if (getPart() != null) {
                 if (this.isCraftingMode() != this.getPart().isCraftingRecipe()) {
                     this.setCraftingMode(this.getPart().isCraftingRecipe());

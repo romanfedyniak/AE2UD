@@ -66,5 +66,11 @@ public enum ActionItems
 	 * Sends the pattern a terminal has just encoded to something in the network that holds patterns, rather
 	 * than making the player carry it there. Upstream has no such button.
 	 */
-	UPLOAD
+	UPLOAD,
+
+	/**
+	 * The other half of {@link #UPLOAD}: takes the last pattern sent away back out of wherever it went.
+	 * Drawn as the same arrow pointing down, and worn by the same button when there is nothing to send.
+	 */
+	UPLOAD_UNDO
 }

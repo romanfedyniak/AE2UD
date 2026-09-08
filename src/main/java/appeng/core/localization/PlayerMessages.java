@@ -61,6 +61,9 @@ public enum PlayerMessages {
     PatternUploadNoRoom,
     PatternUploadDuplicate,
     PatternUploadUnsuitable,
+    PatternUploadNothingToUndo,
+    PatternUploadTargetGone,
+    PatternUploadAlreadyTaken,
 
     // What /ae2 compass answers
     CompassTestSuccess,

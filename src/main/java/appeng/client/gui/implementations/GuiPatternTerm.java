@@ -351,9 +351,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     /** Which half of the button cluster belongs to the mode on screen. */
     private void handleButtonVisibility() {
         if (this.uploadBtn != null) {
-            // Left on screen with nothing to send, so that a terminal says the button is there before there
-            // is ever a pattern in the slot for it to act on.
-            this.uploadBtn.enabled = this.container.patternSlotOUT.getHasStack();
+            final boolean send = this.container.patternSlotOUT.getHasStack();
+            // The same button both ways round: up while there is a pattern to send, down while the last one
+            // sent can still be fetched back. Left on screen and dim when it is neither, so that a terminal
+            // says the button is there before there is ever a pattern in the slot for it to act on.
+            final boolean undo = !send && this.container.canUndoUpload;
+
+            this.uploadBtn.enabled = send || undo;
+            this.uploadBtn.set(undo ? ActionItems.UPLOAD_UNDO : ActionItems.UPLOAD);
         }
 
         if (this.container.isCraftingMode()) {

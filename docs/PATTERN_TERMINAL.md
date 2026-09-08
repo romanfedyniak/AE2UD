@@ -170,4 +170,25 @@ they came to the screen for; and for a crafting pattern the unsuitable rows are 
 full bank of assemblers put below them would never be scrolled to. Inside each group the order is by name,
 which does not change while the screen is open.
 
-The feature switch is `PatternUpload`, under `Features.CraftingFeatures`.
+## Taking the last one back
+
+The same button, with nothing in the encoded slot. Which of the two it does is decided on the **server**, in
+`PatternUpload.run`, from the slot it is about to act on: the screen only picks the icon and whether the
+button is lit, and a client's idea of the slot is a tick old. `ContainerPatternEncoder.canUndoUpload` is the
+synced flag behind the lit state; it says only that a record exists, since whether the record can still be
+honoured is a question for the press and not for every tick.
+
+`PatternUpload.UNDO` is a `WeakHashMap` keyed by the player. That is the whole lifetime rule: the offer
+stands until it is used or replaced, and dies when the player leaves, with no logout hook to forget. It
+outlives the terminal's own container deliberately - choosing a target closes that container, and the
+ordinary way to check where a pattern went is to open the Pattern Access Terminal and look, so an offer that
+died with the screen would die exactly when it was wanted.
+
+Three things are checked on the press, each with its own chat line. The container is held through a
+`WeakReference`, so an interface broken since is already gone. It must be **on this terminal's network** -
+`PatternContainers.visible` is asked again and the target looked for in it - or uploading on one network and
+pressing the button on another would carry a pattern between the two. And it must still hold the pattern:
+`PatternContainers.extract` searches every slot rather than only the usable ones, because an expansion card
+pulled since leaves patterns standing past that line.
+
+The feature switch is `PatternUpload`, under `Features.CraftingFeatures`, for both halves.

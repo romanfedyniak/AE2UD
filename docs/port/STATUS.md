@@ -2371,6 +2371,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     room for stays in the grid, as upstream leaves it. `STASH` moved off shared icon cell 6 to cell 59 at the
     same time and the new item took cell 60, because the two are drawn as an up and a down arrow and cell 6
     still has to serve `CLOSE` and `RESET_IDENTITY`.
+49. **`ActionItems.UPLOAD_UNDO`** - additive, and upstream has neither half: sending a pattern out of the
+    terminal is this fork's own. It is the second face of the same button, worn while the encoded slot is
+    empty, and drawn in icon cell 61 as cell 57's arrow flipped - the same weight and colour, so the button
+    reads as one widget in two states rather than as two widgets. Note for anyone counting cells: the sheet
+    is **not** full. An earlier count treated the pink placeholder as the single colour `(255,190,170)` when
+    it is two, `(255,190,170)` and `(255,0,170)`, and so read 96 free cells as occupied. The one real trap
+    stands - cells 27 and 28 are the transparent bottom of the 25x22 `GuiTabButton` sprite blitted from
+    `(11*16, 0)`, and art written there appears along the bottom edge of every tab button in the mod. That
+    is the only blit out of `guis/states.png` wider than 16, so every other placeholder cell is free.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

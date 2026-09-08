@@ -95,6 +95,27 @@ public final class PatternContainers {
         return false;
     }
 
+    /**
+     * Takes that pattern back out. Every slot is searched, not only the usable ones: an expansion card
+     * pulled since it was filed leaves patterns standing past that line, and they are still in there.
+     *
+     * @return false if it is not there any more, in which case nothing was moved.
+     */
+    public static boolean extract(final IPatternContainer container, final ItemStack pattern) {
+        final IItemHandler patterns = container.getTerminalPatternInventory();
+
+        for (int slot = 0; slot < patterns.getSlots(); slot++) {
+            final ItemStack in = patterns.getStackInSlot(slot);
+
+            if (ItemStack.areItemsEqual(in, pattern) && ItemStack.areItemStackTagsEqual(in, pattern)
+                    && !patterns.extractItem(slot, 1, false).isEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** What it says it has paid for, and never more than it has. */
     public static int usableSlots(final IPatternContainer container) {
         return Math.min(container.getUsablePatternSlots(), container.getTerminalPatternInventory().getSlots());
