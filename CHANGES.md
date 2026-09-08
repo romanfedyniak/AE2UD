@@ -116,6 +116,18 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - Copying an interface with a memory card lost the last pattern of every row it held. The slots a copy may write to were counted as eight per expansion card plus eight, where an interface has nine to a row - so a full interface with no expansion cards came back one pattern short, and one with three cards came back four short, silently and with the blank patterns for them still in the player's inventory. The count is asked of the interface now, in the one place that already knew it. Three smaller faults in the same copy went with it: a pattern whose recipe no longer decodes - a mod removed, a recipe changed - used up a blank pattern to be re-encoded as the same dead pattern, and is now skipped without spending one; the copy demanded blank patterns in creative mode, where nothing else the card copies costs anything; and the step that hands back a blank for every pattern it clears ran when a wrenched interface was placed back down, which has no patterns to copy and never had. The whole copy also ran on the client as well as on the server, so the blanks handed back and the blanks spent were briefly applied twice to the same inventory, once against a copy the server was about to overwrite; it runs where it counts now. The code doing all of this was duplicated word for word between the interface part and the interface block, so each of these was two faults rather than one; it lives in one place now (`appeng.util.MemoryCardSettings`).
 
+- **A crafting pattern's grid took fluids, which no crafting recipe can use.** Left-clicking one of the nine
+  squares with a bucket in hand set it to the water rather than to the bucket, and the tooltip offered that as
+  one of two things the click could do - while a vanilla recipe is matched against item stacks, so a square
+  holding a fluid matched no recipe at all and the pattern could not be encoded. Each grid now says what it
+  will stand for and the slot turns away anything else, which covers the click and a dragged HEI ingredient
+  with one rule rather than two; "Move Items" from a recipe screen, which writes past the slots, offers a
+  fluid only to the grid that can take it. It is said in key types rather than
+  in fluids, so a type an addon registers is covered with no code of its own - though the real reason there is
+  that no key type can ever reach a crafting table, not that the list might grow. A bucket remains a perfectly
+  good ingredient: the left click places the bucket now, which is what fluid substitution on an encoded
+  pattern was always about. The processing grid is untouched and still takes anything the network can hold.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

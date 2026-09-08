@@ -404,6 +404,18 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     }
 
     /**
+     * @return true if a left click would set this filter slot to what the cursor's container holds, rather
+     *         than to the container itself. A slot that cannot stand for those contents takes the container,
+     *         which is an ordinary item: a crafting pattern's grid is a vanilla recipe, and a vanilla recipe
+     *         is made of items.
+     */
+    private boolean setsToHeldContents(final Slot slot) {
+        final GenericStack held = this.heldContents();
+
+        return held != null && (!(slot instanceof SlotFake fake) || fake.acceptedKeys().matches(held.what()));
+    }
+
+    /**
      * @return true if the HEI drop being handled right now came from the right mouse button, meaning the
      *         container item itself is wanted rather than its contents - the same rule as clicking a fake
      *         slot by hand.
@@ -689,7 +701,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             final InventoryAction action;
             if (mouseButton == 1) {
                 action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
-            } else if (heldContents() != null) {
+            } else if (this.setsToHeldContents(slot)) {
                 // Left-clicking a filter slot with a bucket or tank in hand sets the filter to what it
                 // HOLDS, not to the container. Right click still places the container itself, so an item
                 // filter can still be set to a bucket - that is the only way to tell the two apart, since a
@@ -776,7 +788,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 case PICKUP: // pickup / set-down.
                     if (mouseButton == 1) {
                         action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
-                    } else if (heldContents() != null) {
+                    } else if (this.setsToHeldContents(slot)) {
                         // Left click configures this slot to what the held container *holds*; right click
                         // still places the container itself. Same rule a SlotFake has followed since stage
                         // 0 - the config terminal writes into the very same config inventory, it just
@@ -955,7 +967,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         if (slot instanceof SlotFake || slot instanceof SlotDisconnected) {
-            if (held != null) {
+            // Both lines or neither: they are worth saying only as a pair, to tell apart two clicks that do
+            // different things with the same item. Where the slot will not take the contents both buttons
+            // place the container, and that is the ordinary visible action a filter slot never explains.
+            if (this.setsToHeldContents(slot)) {
                 hints.add(line(ButtonToolTips.SetAction, Tooltips.click(0), Tooltips.nameOf(held.what())));
                 hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), Tooltips.nameOf(carried)));
             }

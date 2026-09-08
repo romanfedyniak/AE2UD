@@ -181,10 +181,12 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         // Fluid ingredients live in their own IGuiIngredientGroup, which the item loop above never sees -
-        // which is why "Move Items" silently skipped every fluid in a recipe. Only the pattern terminal can
-        // take them: its matrix slots are fake, so they can hold a wrapped key. A real crafting matrix
-        // cannot, and a placeholder pushed into one would be an item that does not exist.
-        if (container instanceof ContainerPatternEncoder) {
+        // which is why "Move Items" silently skipped every fluid in a recipe. Only the processing grid can
+        // take them: its slots are fake, so they can hold a wrapped key. A crafting recipe is matched
+        // against items, whether the grid it is typed into is real or fake, and `packed` is true for
+        // exactly the recipes bound for the other grid. The server writes this one through the inventory
+        // rather than through the slots, so the slot's own filter never sees it.
+        if (packed) {
             this.transferFluids(container, recipeLayout, recipe, outputs);
         }
 

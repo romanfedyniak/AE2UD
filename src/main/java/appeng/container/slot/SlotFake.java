@@ -19,7 +19,9 @@
 package appeng.container.slot;
 
 
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.storage.AEKeyFilter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -49,9 +51,29 @@ public class SlotFake extends AppEngSlot implements IJEITargetSlot {
     @Override
     public void putStack(ItemStack is) {
         if (!is.isEmpty()) {
+            // Whichever way the stack got here - a click, a dragged ingredient, a recipe carried over from
+            // a recipe screen - a slot is never left standing for something it cannot mean.
+            if (!this.accepts(is)) {
+                return;
+            }
             is = is.copy();
         }
         super.putStack(is);
+    }
+
+    /**
+     * Which keys this slot may stand for. Anything the network can hold unless the slot says otherwise,
+     * since a filter is written in the same terms as the thing it filters.
+     */
+    public AEKeyFilter acceptedKeys() {
+        return AEKeyFilter.all();
+    }
+
+    /** What a stack in a fake slot names: the key inside a wrapper, or the item itself where there is none. */
+    private boolean accepts(final ItemStack is) {
+        final GenericStack wrapped = GenericStack.unwrapItemStack(is);
+
+        return this.acceptedKeys().matches(wrapped != null ? wrapped.what() : AEItemKey.of(is));
     }
 
     /**

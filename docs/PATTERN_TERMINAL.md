@@ -84,6 +84,21 @@ container is only catching up with the mode its terminal was already in - it sta
 opening one left in processing mode goes through it - and a copy there would mirror an empty matrix over a
 grid the player had saved.
 
+What each grid will hold is declared on its slot rather than asked of the mode. The two are separate
+classes under one base - `SlotFakeCraftingMatrix` answers `acceptedKeys()` with the item key type,
+`SlotFakeProcessingGrid` with everything - and `SlotFake.putStack` turns away a key its slot does not
+accept, so a click and a dragged ingredient are covered by one rule rather than two. `PacketJEIRecipe`
+writes through the inventory rather than through the slots and so never meets that filter; the transfer
+handler instead offers a fluid only to the grid that can take it, which is the same grid `packed` already
+decides the layout for. Items is not a count of the key types that exist today: `IRecipe` is shown an
+`InventoryCrafting`, so a type an addon registers tomorrow cannot reach a crafting table either.
+
+The client reads the same answer twice. A filled container clicked into a filter slot normally sets it to
+what the container *holds*; over the matrix it sets the container itself, which is an ordinary item and a
+legal ingredient - that is what `substitutefluids` on the encoded pattern is for. The pair of tooltip lines
+that tells those two clicks apart is dropped there for the same reason: both buttons do the same thing,
+and a filter slot never explains its ordinary action.
+
 That the matrix cannot hold a fluid is also why `getPhantomTargets` asks the mode before deciding what a
 dragged HEI ingredient means. Over the processing grid a filled container stands for its contents, the
 same as clicking it by hand, unless the drag ended on the right button. Over the matrix it stands for
