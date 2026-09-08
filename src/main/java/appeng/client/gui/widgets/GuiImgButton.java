@@ -132,7 +132,8 @@ public class GuiImgButton extends GuiButton implements ITooltip {
                     ButtonToolTips.PlaneMode, ButtonToolTips.PlaneModeActive);
             this.registerApp(6, Settings.ACTIONS, ActionItems.CLOSE, ButtonToolTips.Clear, ButtonToolTips.ClearSettings);
             this.registerApp(6, Settings.ACTIONS, ActionItems.RESET_IDENTITY, ButtonToolTips.ResetIdentity, ButtonToolTips.ResetIdentityDesc);
-            this.registerApp(6, Settings.ACTIONS, ActionItems.STASH, ButtonToolTips.Stash, ButtonToolTips.StashDesc);
+            this.registerApp(11 + 3 * 16, Settings.ACTIONS, ActionItems.STASH, ButtonToolTips.Stash, ButtonToolTips.StashDesc);
+            this.registerApp(12 + 3 * 16, Settings.ACTIONS, ActionItems.STASH_TO_PLAYER_INV, ButtonToolTips.StashToPlayer, ButtonToolTips.StashToPlayerDesc);
 
             this.registerApp(6 + 4 * 16, Settings.ACTIONS, ActionItems.MULTIPLY_BY_TWO, ButtonToolTips.MultiplyByTwo, ButtonToolTips.MultiplyByTwoDesc);
             this.registerApp(7 + 4 * 16, Settings.ACTIONS, ActionItems.MULTIPLY_BY_THREE, ButtonToolTips.MultiplyByThree, ButtonToolTips.MultiplyByThreeDesc);

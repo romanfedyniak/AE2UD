@@ -418,6 +418,8 @@ gui.appliedenergistics2.Deprecated=Deprecated
 // GUI Tooltips
 gui.tooltips.appliedenergistics2.Stash=Store Items
 gui.tooltips.appliedenergistics2.StashDesc=Return items on the crafting grid to network storage.
+gui.tooltips.appliedenergistics2.StashToPlayer=Move to Inventory
+gui.tooltips.appliedenergistics2.StashToPlayerDesc=Return items on the crafting grid to your own inventory.
 gui.tooltips.appliedenergistics2.Substitutions=Ore-Dict Substitutions
 gui.tooltips.appliedenergistics2.SubstitutionsDescEnabled=Allow substitutions of input components.
 gui.tooltips.appliedenergistics2.SubstitutionsDescDisabled=Prevent substitutions of input components.

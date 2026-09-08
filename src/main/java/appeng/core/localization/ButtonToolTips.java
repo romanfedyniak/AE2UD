@@ -157,6 +157,8 @@ public enum ButtonToolTips {
 
     Stash,
     StashDesc,
+    StashToPlayer,
+    StashToPlayerDesc,
     Encode,
     EncodeDescription,
     PatternSlotConfig,

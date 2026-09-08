@@ -688,6 +688,7 @@ public abstract class AEBaseContainer extends Container {
                     }
                     case CREATIVE_DUPLICATE:
                     case MOVE_REGION:
+                    case MOVE_REGION_TO_PLAYER:
                     case SHIFT_CLICK:
                     default:
                         break;
@@ -695,16 +696,18 @@ public abstract class AEBaseContainer extends Container {
             }
 
             if (action == InventoryAction.MOVE_REGION) {
-                final List<Slot> from = new ArrayList<>();
-
-                for (final Slot j : this.inventorySlots) {
-                    if (j != null && j.getClass() == s.getClass() && !(j instanceof SlotCraftingTerm)) {
-                        from.add(j);
-                    }
-                }
-
-                for (final Slot fr : from) {
+                for (final Slot fr : this.regionOf(s)) {
                     this.transferStackInSlot(player, fr.slotNumber);
+                }
+            }
+
+            if (action == InventoryAction.MOVE_REGION_TO_PLAYER) {
+                final InventoryAdaptor inv = InventoryAdaptor.getAdaptor(player);
+
+                for (final Slot fr : this.regionOf(s)) {
+                    // Whatever the player has no room for stays where it is, which is where they can see
+                    // it - and the button beside this one is how the rest goes to the network.
+                    fr.putStack(inv.addItems(fr.getStack()));
                 }
             }
 
@@ -990,6 +993,23 @@ public abstract class AEBaseContainer extends Container {
         // A single base unit rather than a whole unit, because a pattern may legitimately ask for less
         // than a bucket.
         return Math.max(floor, amount);
+    }
+
+    /**
+     * Every slot the given one stands for: a click on one cell of the crafting grid means the whole grid.
+     * A terminal's result slot is a subclass of nothing here, but it is excluded by name, because emptying
+     * a grid must not also take the thing the grid is currently making.
+     */
+    private List<Slot> regionOf(final Slot s) {
+        final List<Slot> region = new ArrayList<>();
+
+        for (final Slot j : this.inventorySlots) {
+            if (j != null && j.getClass() == s.getClass() && !(j instanceof SlotCraftingTerm)) {
+                region.add(j);
+            }
+        }
+
+        return region;
     }
 
     /**

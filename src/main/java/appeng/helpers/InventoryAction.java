@@ -38,6 +38,7 @@ public enum InventoryAction {
 
     // extra...
     MOVE_REGION,
+    MOVE_REGION_TO_PLAYER,
     PICKUP_SINGLE,
     UPDATE_HAND,
     ROLL_UP,

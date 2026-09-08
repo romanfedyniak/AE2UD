@@ -2208,8 +2208,9 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     Interface uses it to refuse a pattern expansion card while patterns still stand in the rows it pays for;
     it used to hand the card over and spill them on the floor.
 40. **`ActionItems.RESET_IDENTITY`** - additive. The quartz cutting knife screen's button for clearing a
-    machine's name and icon together. It shares icon cell 6 with `CLOSE` and `STASH`, which already share
-    it, and carries its own tooltip. Upstream has no such button.
+    machine's name and icon together. It shares icon cell 6 with `CLOSE`, and carries its own tooltip.
+    Upstream has no such button. (`STASH` shared that cell too until amendment 48 gave it a drawing of its
+    own.)
 
 41. **The storage tiers above 64k** - additive. `IItems` gained `cell256k`…`cell16384k` and their fluid
     counterparts, `IMaterials` gained `cell256kPart`…`cell16384kPart`, and `IBlocks` gained
@@ -2261,6 +2262,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     the old `CraftingCalculationFailure` was caught, logged at debug and dropped, and the player was handed an
     empty plan with no sign anything had gone wrong. This says it where every other reason a job did not start
     is said.
+48. **`ActionItems.STASH_TO_PLAYER_INV`** - additive. The second of the crafting terminal's two arrows: it
+    empties the grid into the player's own inventory, where `STASH` empties it into the network. Upstream has
+    the same pair (`CraftingTermScreen` builds `S_STASH` and `S_STASH_TO_PLAYER_INV` side by side), and this
+    is the half that was never ported. It carries `InventoryAction.MOVE_REGION_TO_PLAYER`, a new enum
+    constant: the codebase's own rule, already written by `SHIFT_EMPTY_ITEM`, is that a different source or
+    destination earns a name while a mere modifier rides in the packet's `id`. Whatever the player has no
+    room for stays in the grid, as upstream leaves it. `STASH` moved off shared icon cell 6 to cell 59 at the
+    same time and the new item took cell 60, because the two are drawn as an up and a down arrow and cell 6
+    still has to serve `CLOSE` and `RESET_IDENTITY`.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

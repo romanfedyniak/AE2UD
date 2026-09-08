@@ -30,6 +30,12 @@ public enum ActionItems
 	CLOSE,
 	RESET_IDENTITY,
 	STASH,
+
+	/**
+	 * Empties a crafting terminal's grid into the player's own inventory rather than into network storage,
+	 * which is what {@link #STASH} does. Upstream calls the pair STASH and STASH_TO_PLAYER_INV as well.
+	 */
+	STASH_TO_PLAYER_INV,
 	ENCODE,
 	SUBSTITUTION,
 	MULTIPLY_BY_TWO,

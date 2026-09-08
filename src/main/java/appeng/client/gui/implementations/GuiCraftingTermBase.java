@@ -43,6 +43,7 @@ import net.minecraft.inventory.Slot;
 public abstract class GuiCraftingTermBase extends GuiMEMonitorable {
 
     private GuiImgButton clearBtn;
+    private GuiImgButton clearToPlayerBtn;
 
     public GuiCraftingTermBase(final InventoryPlayer inventoryPlayer, final ITerminalHost te, final ContainerMEMonitorable c) {
         super(inventoryPlayer, te, c);
@@ -53,11 +54,15 @@ public abstract class GuiCraftingTermBase extends GuiMEMonitorable {
     protected void actionPerformed(final GuiButton btn) {
         super.actionPerformed(btn);
 
-        if (this.clearBtn == btn) {
+        if (this.clearBtn == btn || this.clearToPlayerBtn == btn) {
             final Slot s = this.firstGridSlot();
 
             if (s != null) {
-                NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.MOVE_REGION, s.slotNumber, 0));
+                final InventoryAction action = this.clearBtn == btn
+                        ? InventoryAction.MOVE_REGION
+                        : InventoryAction.MOVE_REGION_TO_PLAYER;
+
+                NetworkHandler.instance().sendToServer(new PacketInventoryAction(action, s.slotNumber, 0));
             }
         }
     }
@@ -79,8 +84,13 @@ public abstract class GuiCraftingTermBase extends GuiMEMonitorable {
     @Override
     public void initGui() {
         super.initGui();
+        // Both sit in the gap between the grid and the arrow painted on the background, which starts ten
+        // pixels lower than they end.
         this.buttonList.add(this.clearBtn = new GuiImgButton(this.guiLeft + 92, this.guiTop + this.ySize - 156, Settings.ACTIONS, ActionItems.STASH));
         this.clearBtn.setHalfSize(true);
+
+        this.buttonList.add(this.clearToPlayerBtn = new GuiImgButton(this.guiLeft + 102, this.guiTop + this.ySize - 156, Settings.ACTIONS, ActionItems.STASH_TO_PLAYER_INV));
+        this.clearToPlayerBtn.setHalfSize(true);
     }
 
     @Override
