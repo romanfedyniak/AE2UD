@@ -801,8 +801,21 @@ a bucket is a normal item everywhere else. Same convention the legacy fluid term
 
 **Three upstream behaviours deliberately not ported yet**, none of them a regression:
 
-- `FILL_ENTIRE_ITEM` / `EMPTY_ENTIRE_ITEM` (shift to transfer a whole container rather than one unit). One
-  unit per click, matching `AEKey.getAmountPerUnit()`, is what the legacy fluid terminal did.
+- ~~`FILL_ENTIRE_ITEM` / `EMPTY_ENTIRE_ITEM` (shift to transfer a whole container rather than one unit). One
+  unit per click, matching `AEKey.getAmountPerUnit()`, is what the legacy fluid terminal did.~~ **Done** after
+  the owner asked for it, but not by upstream's route. Upstream keeps one unit on a plain click and puts the
+  whole container on shift; here shift over a `SlotME` is already `SHIFT_CLICK` and ctrl is already "every
+  container on the cursor", so there is no free chord and no reason to want one - a click simply moves as much
+  as the container takes or gives. For a bucket that *is* one unit, so nothing about the vanilla case changed.
+  `fillOneContainer` and `drainContainer` ask `Long.MAX_VALUE` / `getExtractableContent().amount()` instead of
+  `getAmountPerUnit()`, and the same two limits came out of `handleSlotContainerItemAction`, which is what the
+  interface's fluid slots go through. Both carry a `requireFull` flag, set for every iteration after the
+  first: `settleStackResult` multiplies one result stack by how many containers were processed, so a stack
+  that filled unevenly would have handed the player the last container's contents several times over. The flag
+  stops the loop before a short transfer happens rather than undoing one afterwards, which is possible only
+  because every container in a stack is identical and so has the same room - the network is the only thing
+  that varies. GTNewHorizons' fork fills by capacity too (`FluidUtils.fillFluidContainer`), and
+  `PartConversionMonitor` in this fork always did.
 - ~~Clicking a fluid row with an **empty hand** to pull an empty bucket out of the network and fill it.~~
   **Done** after the owner asked for it. Upstream hardcodes `Items.BUCKET` into its terminal menu; here it is
   `ContainerItemStrategy.getEmptyContainerFor(AEKey)`, so the terminal still does not know fluids exist and an

@@ -1018,7 +1018,7 @@ public abstract class AEBaseContainer extends Container {
                 return;
             }
 
-            final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+            final long room = ctx.insert(what, Long.MAX_VALUE, Actionable.SIMULATE);
             final long available = inv.extract(index, what, room, Actionable.SIMULATE);
             if (available <= 0) {
                 return;
@@ -1047,7 +1047,7 @@ public abstract class AEBaseContainer extends Container {
         }
 
         final AEKey what = content.what();
-        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        final long drainable = content.amount();
         final long room = inv.insert(index, what, drainable, Actionable.SIMULATE);
         if (room <= 0) {
             return;
@@ -1104,8 +1104,8 @@ public abstract class AEBaseContainer extends Container {
 
     /**
      * Fills the held container from the network, or empties it into the network, through the
-     * {@link ContainerItemStrategy} registered for the key type involved. One unit per click - a bucket for
-     * fluids - matching {@link AEKey#getAmountPerUnit()}.
+     * {@link ContainerItemStrategy} registered for the key type involved. A click moves as much as the
+     * container itself takes or gives - a bucketful for a bucket, a tankful for a tank.
      * <p>
      * Replaces the three near-identical copies of this dance that lived in the fluid-only containers. Nothing
      * here mentions fluids: a key type that registers a strategy gets the interaction for free.
@@ -1155,7 +1155,7 @@ public abstract class AEBaseContainer extends Container {
             return;
         }
 
-        final ItemStack filled = this.fillOneContainer(container, what);
+        final ItemStack filled = this.fillOneContainer(container, what, false);
         if (filled.isEmpty()) {
             this.getCellInventory().insert(containerKey, 1, Actionable.MODULATE, this.getActionSource());
         } else {
@@ -1174,7 +1174,7 @@ public abstract class AEBaseContainer extends Container {
         int processed = 0;
 
         for (int i = 0; i < iterations; i++) {
-            final ItemStack filled = this.fillOneContainer(held, what);
+            final ItemStack filled = this.fillOneContainer(held, what, i > 0);
             if (filled.isEmpty()) {
                 break;
             }
@@ -1190,25 +1190,28 @@ public abstract class AEBaseContainer extends Container {
     }
 
     /**
+     * @param requireFull do nothing unless the container can be filled to the brim. A stack of containers has
+     *                    to come out even, since {@link #settleStackResult} multiplies one result by how many
+     *                    were processed; the remainder stays in the network rather than half-filling one.
      * @return the container after being filled, or {@link ItemStack#EMPTY} if nothing was moved. Does not
      * touch {@code held} or the cursor - the caller decides where the result and any leftover end up.
      */
-    private ItemStack fillOneContainer(final ItemStack held, final AEKey what) {
+    private ItemStack fillOneContainer(final ItemStack held, final AEKey what, final boolean requireFull) {
         final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
         if (ctx == null) {
             return ItemStack.EMPTY;
         }
 
-        // Room in the container first: asking the network for a bucket we cannot hold would charge power
-        // for nothing.
-        final long room = ctx.insert(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        // Room in the container first: asking the network for what we cannot hold would charge power for
+        // nothing.
+        final long room = ctx.insert(what, Long.MAX_VALUE, Actionable.SIMULATE);
         if (room <= 0) {
             return ItemStack.EMPTY;
         }
 
         final long available = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), what, room,
                 this.getActionSource(), Actionable.SIMULATE);
-        if (available <= 0) {
+        if (available <= 0 || (requireFull && available < room)) {
             return ItemStack.EMPTY;
         }
 
@@ -1233,25 +1236,28 @@ public abstract class AEBaseContainer extends Container {
     }
 
     /**
-     * Drains one unit's worth of content from {@code ctx} into the network.
+     * Drains everything {@code ctx} will give up into the network.
      *
+     * @param requireFull do nothing unless the network takes all of it, for the same reason
+     *                    {@link #fillOneContainer} has the flag: a stack of containers has to come out even.
      * @return true if anything was actually moved.
      */
-    private boolean drainOneUnit(final ContainerItemStrategy.Context ctx) {
+    private boolean drainContainer(final ContainerItemStrategy.Context ctx, final boolean requireFull) {
         final GenericStack content = ctx.getExtractableContent();
         if (content == null) {
             return false;
         }
 
         final AEKey what = content.what();
-        final long drainable = ctx.extract(what, Math.max(1, what.getAmountPerUnit()), Actionable.SIMULATE);
+        // What the container will part with, which is what getExtractableContent already answers.
+        final long drainable = content.amount();
         if (drainable <= 0) {
             return false;
         }
 
         final long storable = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), what, drainable,
                 this.getActionSource(), Actionable.SIMULATE);
-        if (storable <= 0) {
+        if (storable <= 0 || (requireFull && storable < drainable)) {
             return false;
         }
 
@@ -1280,10 +1286,10 @@ public abstract class AEBaseContainer extends Container {
 
         for (int i = 0; i < iterations; i++) {
             // No key type asked for: the container decides what comes out of it. held itself is never
-            // mutated here - drainOneUnit only touches the network - so reopening it every iteration is
+            // mutated here - drainContainer only touches the network - so reopening it every iteration is
             // just re-reading the same size-one sample, matching openContext's own contract.
             final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
-            if (ctx == null || !this.drainOneUnit(ctx)) {
+            if (ctx == null || !this.drainContainer(ctx, i > 0)) {
                 break;
             }
             resultTemplate = ctx.getContainer();
@@ -1320,7 +1326,7 @@ public abstract class AEBaseContainer extends Container {
 
         for (int i = 0; i < iterations; i++) {
             final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(initial, null);
-            if (ctx == null || !this.drainOneUnit(ctx)) {
+            if (ctx == null || !this.drainContainer(ctx, i > 0)) {
                 break;
             }
             resultTemplate = ctx.getContainer();
