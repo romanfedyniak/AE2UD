@@ -985,6 +985,17 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
         }
 
+        // Middle orders a craft, whatever is held and whatever the row has in stock. The row marks itself
+        // craftable - the word "Craft" in place of an amount, or a small plus beside one - but a mark says
+        // only that it can be done, never by which click.
+        if (slot instanceof SlotME && AEClientConfig.instance().isShowCraftableTooltip()) {
+            final GridInventoryEntry craftable = ((SlotME) slot).getEntry();
+
+            if (craftable != null && craftable.isCraftable()) {
+                hints.add(line(ButtonToolTips.CraftAction, Tooltips.click(2)));
+            }
+        }
+
         if (slot instanceof SlotFake || slot instanceof SlotDisconnected) {
             // Both lines or neither: they are worth saying only as a pair, to tell apart two clicks that do
             // different things with the same item. Where the slot will not take the contents both buttons

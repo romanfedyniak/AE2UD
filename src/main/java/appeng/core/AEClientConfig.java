@@ -148,7 +148,7 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         this.enableEffects = this.get(CATEGORY, "enableEffects", true).getBoolean(true);
         this.useColoredCraftingStatus = this.get(CATEGORY, "useColoredCraftingStatus", true).getBoolean(true);
         this.disableColoredCableRecipesInJEI = this.get(CATEGORY, "disableColoredCableRecipesInJEI", true).getBoolean(true);
-        this.showCraftableTooltip = this.get(CATEGORY, "showCraftableTooltip", true, "Whether to add \"Craftable\" to item tooltips when they can be crafted automatically.").getBoolean(true);
+        this.showCraftableTooltip = this.get(CATEGORY, "showCraftableTooltip", true, "Whether a terminal tooltip says that what it names can be crafted, and which click orders it.").getBoolean(true);
         this.showPlacementPreview = this.get(CATEGORY, "showPlacementPreview", true, "Whether to show a preview of part and facade placement.").getBoolean(true);
         this.turnToHighlightedBlock = this.get(CATEGORY, "turnToHighlightedBlock", true,
                 "Whether highlighting a block also turns the player to face it.").getBoolean(true);

@@ -284,6 +284,7 @@ public enum ButtonToolTips {
     DepositAction,
     ExtractAllAction,
     DepositAllAction,
+    CraftAction,
 
     // Which way the list beside the button is being sorted, rather than that it can be turned around
     Ascending,

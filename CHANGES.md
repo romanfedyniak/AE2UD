@@ -135,6 +135,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   the square is left alone. This is every screen with filter slots rather than that one grid, and every
   ingredient a slot turns down rather than fluids.
 
+- **A terminal row said it was craftable without ever saying how to craft it.** The tooltip carried a bare
+  "Craftable", and the row itself marks the same thing with the word "Craft" in place of an amount or a
+  small plus beside one - three ways of saying that it can be done and none of saying by which click. A row
+  with nothing in stock is crafted by clicking it, which is discoverable enough; a row that *is* in stock is
+  extracted by that click, and the only way to order one is the middle button, which nothing anywhere
+  mentioned. The line now names it: "Middle-Click: Craft", written among the other things a click on that
+  row does rather than up among the amounts. The switch that used to hide the old line hides this one,
+  since it is longer than what it replaces and whoever turned that off wanted a shorter tooltip.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

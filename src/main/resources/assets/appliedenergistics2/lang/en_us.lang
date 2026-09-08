@@ -496,6 +496,7 @@ gui.tooltips.appliedenergistics2.ExtractAction=%s: Extract %s
 gui.tooltips.appliedenergistics2.DepositAction=%s: Deposit %s
 gui.tooltips.appliedenergistics2.ExtractAllAction=%s: Fill the Whole Stack
 gui.tooltips.appliedenergistics2.DepositAllAction=%s: Empty the Whole Stack
+gui.tooltips.appliedenergistics2.CraftAction=%s: Craft
 gui.tooltips.appliedenergistics2.TrashController=Deletion via Shift / Space Clicking.
 gui.tooltips.appliedenergistics2.InterfaceBlockingMode=Blocking Mode
 gui.tooltips.appliedenergistics2.InterfaceCraftingMode=Crafting Mode
