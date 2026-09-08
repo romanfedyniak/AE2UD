@@ -26,6 +26,10 @@ public final class AEKeyFormattingTest {
         return AEKeyFormatting.format(amount, 1, "", AmountFormat.PREVIEW_LARGE);
     }
 
+    private static String fluidPreview(final long amount) {
+        return AEKeyFormatting.format(amount, 1000, "B", AmountFormat.PREVIEW_LARGE);
+    }
+
     private static String narrowPreview(final long amount) {
         return AEKeyFormatting.format(amount, 1, "", AmountFormat.PREVIEW_REGULAR);
     }
@@ -114,9 +118,28 @@ public final class AEKeyFormattingTest {
     }
 
     @Test
+    public void aFluidPreviewIsAbbreviatedWhetherOrNotItDividesEvenly() {
+        // A remainder used to send the whole amount down a branch that ignored the format and printed
+        // every digit: 12,315,561,040 mB read "12315561B".
+        assertThat(fluidPreview(12315561000L), is("12MB"));
+        assertThat(fluidPreview(12315561040L), is("12MB"));
+
+        // 7,241 million buckets is 7.2G of them, not "7241MB".
+        assertThat(fluidPreview(7241000000000L), is("7.2GB"));
+        assertThat(fluidPreview(7241000000123L), is("7.2GB"));
+
+        // Below the threshold the fractional digit is still worth having.
+        assertThat(fluidPreview(1500), is("1.5B"));
+        assertThat(fluidPreview(16750), is("16.7B"));
+    }
+
+    @Test
     public void theFullFormIsUnaffected() {
         assertThat(AEKeyFormatting.format(8128, 1, "", AmountFormat.FULL), is("8,128"));
         assertThat(AEKeyFormatting.format(1040, 1000, "B", AmountFormat.FULL_BASE), is("1,040mB"));
         assertThat(AEKeyFormatting.format(1500, 1000, "B", AmountFormat.FULL), is("1.5B"));
+
+        // The exact reading keeps its digit grouping however large it gets.
+        assertThat(AEKeyFormatting.format(12315561234L, 1000, "B", AmountFormat.FULL), is("12,315,561.2B"));
     }
 }

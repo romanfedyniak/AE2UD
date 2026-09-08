@@ -52,6 +52,9 @@ final class AEKeyFormatting {
     private static final DecimalFormat FRACTIONAL_FORM = downward("0.#");
     private static final DecimalFormat WHOLE_FORM = downward("0");
 
+    /** The same fractional digit, with the digit grouping {@link AmountFormat#FULL} promises. */
+    private static final DecimalFormat GROUPED_FRACTIONAL_FORM = downward("#,##0.#");
+
     private static Format precisionFormat() {
         final DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.ROOT);
         symbols.setDecimalSeparator('.');
@@ -94,8 +97,16 @@ final class AEKeyFormatting {
             return formatRaw(whole, format, slotWidth(unitSymbol)) + unitSymbol;
         }
 
+        // Answer in the format that was asked for, as every branch above does. Past the threshold the
+        // number is shortened anyway, and a fractional digit there would claim a precision the suffix has
+        // already thrown away.
+        if (Math.abs(whole) > abbreviationThreshold(format)) {
+            return formatRaw(whole, format, slotWidth(unitSymbol)) + unitSymbol;
+        }
+
         double value = (double) amount / amountPerUnit;
-        return FRACTIONAL_FORM.format(value) + unitSymbol;
+        return (format == AmountFormat.FULL ? GROUPED_FRACTIONAL_FORM : FRACTIONAL_FORM).format(value)
+                + unitSymbol;
     }
 
     /**
@@ -116,9 +127,8 @@ final class AEKeyFormatting {
             case FULL_BASE:
                 return String.format(Locale.ROOT, "%,d", amount);
             case PREVIEW_LARGE:
-                return abbreviate(amount, 9999);
             case PREVIEW_REGULAR:
-                return abbreviate(amount, 999);
+                return abbreviate(amount, abbreviationThreshold(format));
             case SLOT:
                 return abbreviateToWidth(amount, slotWidth);
             default:
@@ -160,8 +170,24 @@ final class AEKeyFormatting {
     }
 
     /**
+     * The widest number a form prints whole. Read both by {@link #formatRaw}, which does the abbreviating,
+     * and by the caller that has to know whether abbreviating is going to happen.
+     */
+    private static long abbreviationThreshold(AmountFormat format) {
+        switch (format) {
+            case PREVIEW_LARGE:
+                return 9999;
+            case PREVIEW_REGULAR:
+                return 999;
+            default:
+                return Long.MAX_VALUE;
+        }
+    }
+
+    /**
      * Abbreviates once the value no longer fits below {@code threshold}, keeping one fractional
-     * digit while it fits.
+     * digit while it fits. The threshold governs only whether to abbreviate at all - how far to go is
+     * settled by the suffixes themselves.
      */
     private static String abbreviate(long amount, long threshold) {
         if (amount <= threshold) {

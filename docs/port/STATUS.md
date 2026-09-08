@@ -1972,6 +1972,24 @@ how far is settled by the suffixes, and a suffixed number stays under a thousand
 **A constant carried over from a donor keeps the donor's limits** long after the thing that justified them
 is gone.
 
+### The branch nobody had read
+
+The reported bug itself. `AEKeyFormatting` has one branch for an amount that leaves a remainder against its
+unit, and that branch **ignored the `AmountFormat` it was handed**, printing
+`df.format(amount / amountPerUnit)` whatever was asked. Every consumer of `PREVIEW_LARGE` showed it -
+`GuiCraftConfirm`, `GuiCraftingCPU`, `GuiCraftingCPUTable`, `TesrRenderHelper` and the tree - and so did
+every `FULL` tooltip, which lost its digit grouping the same way.
+
+**It stayed hidden because the branch is only reached by a fluid whose amount is not a round number of
+buckets.** The sibling branch one line up - the even case - had been correct all along, so the same screen
+showing the same magnitude was right or wrong depending on the last three digits.
+
+The threshold both branches need is one method now: `formatRaw` reads it to abbreviate, and the caller reads
+it to know whether abbreviating is going to happen at all.
+
+Every fix carries a regression test in `AEKeyFormattingTest`, which is the one place in this codebase where
+a display rule can be pinned without a running game.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not
