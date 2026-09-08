@@ -1388,7 +1388,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     final GenericStack resolved = GenericStack.resolveItemStack(stackInSlot);
                     // SlotCraftingMatrix (the crafting terminal's actual grid) holds a real item already
                     // placed there, not a browsable network key - marking it craftable would be
-                    // nonsensical. SlotFakeCraftingMatrix (the pattern terminal's ingredient slots) is a
+                    // nonsensical. SlotFakePatternGrid (the pattern terminal's ingredient slots) is a
                     // placeholder for a key and keeps showing it.
                     final boolean craftable = resolved != null && !(s instanceof SlotCraftingMatrix)
                             && this.isDisplayedKeyCraftable(resolved.what());

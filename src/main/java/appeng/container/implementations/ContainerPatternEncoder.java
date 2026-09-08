@@ -19,6 +19,8 @@ import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.IOptionalSlotHost;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.container.slot.SlotFakePatternGrid;
+import appeng.container.slot.SlotFakeProcessingGrid;
 import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotPlayerHotBar;
 import appeng.container.slot.SlotPlayerInv;
@@ -82,7 +84,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     protected IRecipe currentRecipe;
 
     protected SlotFakeCraftingMatrix[] craftingSlots;
-    protected SlotFakeCraftingMatrix[] processingSlots;
+    protected SlotFakeProcessingGrid[] processingSlots;
     protected OptionalSlotFake[] outputSlots;
 
     /**
@@ -395,7 +397,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         for (final Slot slot : this.inventorySlots) {
-            if (slot instanceof OptionalSlotFake || slot instanceof SlotFakeCraftingMatrix
+            if (slot instanceof OptionalSlotFake || slot instanceof SlotFakePatternGrid
                     || slot == this.patternSlotIN || slot == this.patternSlotOUT) {
                 for (final IContainerListener listener : this.listeners) {
                     listener.sendSlotContents(this, slot.slotNumber, slot.getStack());
@@ -524,7 +526,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canMultiplyInputs = true;
         boolean canMultiplyOutputs = true;
 
-        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+        for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) * multiple < 1) {
                 canMultiplyInputs = false;
@@ -537,7 +539,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canMultiplyInputs && canMultiplyOutputs) {
-            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
                 final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
                     setAmount(inputSlot, stack, amountIn(stack) * multiple);
@@ -556,7 +558,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canDivideInputs = true;
         boolean canDivideOutputs = true;
 
-        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+        for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) % divide != 0) {
                 canDivideInputs = false;
@@ -569,7 +571,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canDivideInputs && canDivideOutputs) {
-            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
                 final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
                     setAmount(inputSlot, stack, amountIn(stack) / divide);
@@ -588,7 +590,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canIncreaseInputs = true;
         boolean canIncreaseOutputs = true;
 
-        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+        for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) + stepAmount(in, increase) < 1) {
                 canIncreaseInputs = false;
@@ -601,7 +603,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canIncreaseInputs && canIncreaseOutputs) {
-            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
                 final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
                     setAmount(inputSlot, stack, amountIn(stack) + stepAmount(stack, increase));
@@ -620,7 +622,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         boolean canDecreaseInputs = true;
         boolean canDecreaseOutputs = true;
 
-        for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+        for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
             if (!in.isEmpty() && amountIn(in) - stepAmount(in, decrease) < 1) {
                 canDecreaseInputs = false;
@@ -633,7 +635,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             }
         }
         if (canDecreaseInputs && canDecreaseOutputs) {
-            for (final SlotFakeCraftingMatrix inputSlot : this.processingSlots) {
+            for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
                 final ItemStack stack = inputSlot.getStack();
                 if (!stack.isEmpty()) {
                     setAmount(inputSlot, stack, amountIn(stack) - stepAmount(stack, decrease));
@@ -682,12 +684,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     /** The grid the current mode encodes from - the three-by-three matrix, or the processing grid. */
-    protected SlotFakeCraftingMatrix[] gridSlots() {
+    protected SlotFakePatternGrid[] gridSlots() {
         return this.isCraftingMode() ? this.craftingSlots : this.processingSlots;
     }
 
     protected ItemStack[] getInputs() {
-        final SlotFakeCraftingMatrix[] slots = this.gridSlots();
+        final SlotFakePatternGrid[] slots = this.gridSlots();
         final ItemStack[] input = new ItemStack[slots.length];
         boolean hasValue = false;
 

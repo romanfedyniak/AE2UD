@@ -52,7 +52,7 @@ import appeng.container.implementations.ContainerMEMonitorable;
 import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotCraftingMatrix;
-import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.container.slot.SlotFakePatternGrid;
 import appeng.core.AEClientConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -503,7 +503,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                 }
             }
 
-            if (s instanceof SlotCraftingMatrix || s instanceof SlotFakeCraftingMatrix) {
+            if (s instanceof SlotCraftingMatrix || s instanceof SlotFakePatternGrid) {
                 final Slot g = (Slot) s;
                 if (g.xPos > 0 && g.yPos > 0) {
                     craftingGridOffsetX = Math.min(craftingGridOffsetX, g.xPos);

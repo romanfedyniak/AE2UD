@@ -30,6 +30,7 @@ import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.container.slot.SlotFakeProcessingGrid;
 import appeng.container.slot.SlotPatternOutputs;
 import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotRestrictedInput;
@@ -80,7 +81,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
         this.pattern = new AppEngInternalInventory(this, 2);
 
         this.craftingSlots = new SlotFakeCraftingMatrix[CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION];
-        this.processingSlots = new SlotFakeCraftingMatrix[PROCESSING_INPUT_LIMIT];
+        this.processingSlots = new SlotFakeProcessingGrid[PROCESSING_INPUT_LIMIT];
         this.outputSlots = new OptionalSlotFake[PROCESSING_OUTPUT_LIMIT];
 
         if (gui != null) {
@@ -112,7 +113,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
         // The processing grids go in at the origin: updateSlotVisibility owns their positions from here
         // on, and moves them whenever the page or the orientation changes.
         for (int i = 0; i < PROCESSING_INPUT_LIMIT; i++) {
-            this.addSlotToContainer(this.processingSlots[i] = new SlotFakeCraftingMatrix(this.processing, i, 0, 0));
+            this.addSlotToContainer(this.processingSlots[i] = new SlotFakeProcessingGrid(this.processing, i, 0, 0));
         }
 
         for (int i = 0; i < PROCESSING_OUTPUT_LIMIT; i++) {

@@ -1,6 +1,7 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2026 AE2UD contributors
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,12 +24,18 @@ import net.minecraftforge.items.IItemHandler;
 
 
 /**
- * A square of the three-by-three grid a crafting pattern is typed into, which stands for the same square of
- * a vanilla crafting table.
+ * One square of a pattern being encoded. The terminal carries two grids at once and shows whichever the
+ * mode calls for, so both are made of these; what they will and will not stand for is what tells the two
+ * apart.
  */
-public class SlotFakeCraftingMatrix extends SlotFakePatternGrid {
+public abstract class SlotFakePatternGrid extends SlotFake {
 
-    public SlotFakeCraftingMatrix(final IItemHandler inv, final int idx, final int x, final int y) {
+    public SlotFakePatternGrid(final IItemHandler inv, final int idx, final int x, final int y) {
         super(inv, idx, x, y);
+    }
+
+    @Override
+    public int getSlotStackLimit() {
+        return Integer.MAX_VALUE;
     }
 }

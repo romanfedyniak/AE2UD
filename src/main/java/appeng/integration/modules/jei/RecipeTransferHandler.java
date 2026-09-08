@@ -26,7 +26,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
-import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.container.slot.SlotFakePatternGrid;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketJEIRecipe;
@@ -162,7 +162,7 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             }
 
             for (final Slot slot : container.inventorySlots) {
-                if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
+                if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakePatternGrid) {
                     if (slot.getSlotIndex() == slotIndex) {
                         final NBTTagList tags = new NBTTagList();
 
@@ -224,7 +224,7 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         final Set<Integer> free = new LinkedHashSet<>();
 
         for (final Slot slot : container.inventorySlots) {
-            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakeCraftingMatrix) {
+            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakePatternGrid) {
                 if (!recipe.hasKey("#" + slot.getSlotIndex())) {
                     free.add(slot.getSlotIndex());
                 }
