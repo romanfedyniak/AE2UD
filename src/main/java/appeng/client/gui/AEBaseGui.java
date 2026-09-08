@@ -100,6 +100,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private final List<InternalSlotME> meSlots = new ArrayList<>();
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
+    private boolean ignoreGhostDropClick;
     protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
     /**
@@ -281,6 +282,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
+        // The click a refused drag hands back arrives in the same input pass that armed this, well before
+        // the next frame - so anything still armed here was armed by a drag that ended some other way, Esc
+        // among them, and no longer stands for a click that is coming.
+        this.ignoreGhostDropClick = false;
+
         super.drawDefaultBackground();
         super.drawScreen(mouseX, mouseY, partialTicks);
 
@@ -573,8 +579,21 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         to.setFocused(from.isFocused());
     }
 
+    /**
+     * The click that ends a refused HEI drag is about to arrive; it is the drag's, not the player's. Called
+     * from {@link AEGuiHandler#onComplete()}, which HEI runs before handing the click back.
+     */
+    void ignoreGhostDropClick() {
+        this.ignoreGhostDropClick = true;
+    }
+
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
+        if (this.ignoreGhostDropClick) {
+            this.ignoreGhostDropClick = false;
+            return;
+        }
+
         this.drag_click.clear();
 
         if (btn == 0 && this.searchForCarried(xCoord, yCoord)) {

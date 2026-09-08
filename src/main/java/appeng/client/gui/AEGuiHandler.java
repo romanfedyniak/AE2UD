@@ -17,6 +17,8 @@ import appeng.container.slot.IJEITargetSlot;
 import mezz.jei.api.gui.IAdvancedGuiHandler;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import mezz.jei.api.gui.ISlotIngredientProvider;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -30,6 +32,9 @@ import java.util.List;
 
 
 public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngredientHandler<AEBaseGui>, ISlotIngredientProvider<AEBaseGui> {
+
+    /** Whether the drag now ending was dropped on a target of ours. See {@link #onComplete()}. */
+    private boolean landed;
     @Override
     @Nonnull
     public Class<AEBaseGui> getGuiContainerClass() {
@@ -169,6 +174,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
 
         // Dropping an ingredient on a search box searches for its name - the same convention GTNH's NEI
         // integration used, and now on every box rather than only the terminal's.
+        // NOTE: keep the search-box targets last; the wrapping below is applied to the whole list.
         final AEKey dragged = keyOf(ingredient);
         if (dragged != null) {
             for (final KeySearchTarget box : gui.getKeySearchTargets()) {
@@ -185,7 +191,31 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
                 });
             }
         }
-        return targets;
+
+        if (!doStart) {
+            // Only a query - a hover highlight, or quickMove looking up the slot behind a target. The map
+            // that lookup reads is keyed by the targets the screen itself made, so hand those back bare.
+            return targets;
+        }
+
+        this.landed = false;
+
+        final List<Target<I>> watched = new ArrayList<>(targets.size());
+        for (final Target<I> target : targets) {
+            watched.add(new Target<I>() {
+                @Override
+                public Rectangle getArea() {
+                    return target.getArea();
+                }
+
+                @Override
+                public void accept(final I ingredient) {
+                    AEGuiHandler.this.landed = true;
+                    target.accept(ingredient);
+                }
+            });
+        }
+        return watched;
     }
 
     /**
@@ -219,8 +249,24 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         return false;
     }
 
+    /**
+     * A drag has ended, landed or not. HEI hands the click back to the screen when nothing took the
+     * ingredient, and there an empty hand over a filter slot means "clear it" - so a refused ingredient
+     * wiped whatever was in the slot it was dropped on. This runs first, while the drag is still the
+     * reason for that click, so it is the last chance to say the click is not the player's.
+     * <p>
+     * The slot test keeps a drop onto one of HEI's own bookmark targets out of it: those land nowhere near
+     * the window's slots, and no click reaches the screen after them.
+     */
     @Override
     public void onComplete() {
+        final GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+
+        if (!this.landed && screen instanceof AEBaseGui gui && gui.getSlotUnderMouse() != null) {
+            gui.ignoreGhostDropClick();
+        }
+
+        this.landed = false;
     }
 
     @Override

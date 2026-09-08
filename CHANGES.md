@@ -128,6 +128,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   good ingredient: the left click places the bucket now, which is what fluid substitution on an encoded
   pattern was always about. The processing grid is untouched and still takes anything the network can hold.
 
+- **An ingredient dragged out of HEI onto a slot that would not take it wiped what was already there.**
+  HEI hands the click back to the screen when a drag ends on nothing that accepts it, and an empty hand over
+  a filter slot means "clear it" - so a fluid dropped on a crafting pattern's grid, which cannot hold one,
+  emptied the square instead of doing nothing. The drop is now told apart from a click of the player's and
+  the square is left alone. This is every screen with filter slots rather than that one grid, and every
+  ingredient a slot turns down rather than fluids.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
