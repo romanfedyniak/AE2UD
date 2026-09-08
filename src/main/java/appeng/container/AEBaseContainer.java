@@ -354,35 +354,23 @@ public abstract class AEBaseContainer extends Container {
             
             final List<Slot> selectedSlots = new ArrayList<>();
 
+            final boolean fromPlayerSide = clickSlot.isPlayerSide();
+
             /**
              * Gather a list of valid destinations.
              */
-            if (clickSlot.isPlayerSide()) {
+            if (fromPlayerSide) {
                 tis = this.transferStackToContainer(tis);
-
-                if (!tis.isEmpty()) {
-                    // target slots in the container...
-                    for (final Object inventorySlot : this.inventorySlots) {
-                        final AppEngSlot cs = (AppEngSlot) inventorySlot;
-
-                        if (!(cs.isPlayerSide()) && !(cs instanceof SlotFake) && !(cs instanceof SlotCraftingMatrix)) {
-                            if (cs.isItemValid(tis)) {
-                                selectedSlots.add(cs);
-                            }
-                        }
-                    }
-                }
             } else {
                 tis = tis.copy();
+            }
 
-                // target slots in the container...
+            if (!tis.isEmpty()) {
                 for (final Object inventorySlot : this.inventorySlots) {
                     final AppEngSlot cs = (AppEngSlot) inventorySlot;
 
-                    if ((cs.isPlayerSide()) && !(cs instanceof SlotFake) && !(cs instanceof SlotCraftingMatrix)) {
-                        if (cs.isItemValid(tis)) {
-                            selectedSlots.add(cs);
-                        }
+                    if (this.isValidQuickMoveDestination(cs, tis, fromPlayerSide)) {
+                        selectedSlots.add(cs);
                     }
                 }
             }
@@ -390,7 +378,7 @@ public abstract class AEBaseContainer extends Container {
             /**
              * Handle Fake Slot Shift clicking.
              */
-            if (selectedSlots.isEmpty() && clickSlot.isPlayerSide()) {
+            if (selectedSlots.isEmpty() && fromPlayerSide) {
                 if (!tis.isEmpty()) {
                     // target slots in the container...
                     for (final Object inventorySlot : this.inventorySlots) {
@@ -506,6 +494,22 @@ public abstract class AEBaseContainer extends Container {
 
         this.updateSlot(clickSlot);
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Whether a shift-click may move the given stack into the given slot. A destination stands on the far
+     * side from where the click came, is neither a filter nor a crafting grid, and takes the stack.
+     * <p/>
+     * Mirrors upstream's {@code AEBaseMenu#isValidQuickMoveDestination}, down to the name, so that a
+     * container with a reason to refuse a slot says so in one place rather than in two copies of the same
+     * predicate.
+     */
+    protected boolean isValidQuickMoveDestination(final AppEngSlot s, final ItemStack i,
+            final boolean fromPlayerSide) {
+        return s.isPlayerSide() != fromPlayerSide
+                && !(s instanceof SlotFake)
+                && !(s instanceof SlotCraftingMatrix)
+                && s.isItemValid(i);
     }
 
     @Override
