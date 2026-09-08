@@ -163,4 +163,11 @@ so by the time it is open the terminal's container is closed. A terminal part an
 inventory; a wireless terminal keeps its pattern slots in the container, which writes them into the item on
 every change, so the host reads them back out of the item's per-mode NBT.
 
+**The list is ordered by how close each row is to being an answer** - `Row.rank` in `GuiPatternUpload`:
+takes it now, would take it if a slot were freed, will never take it. Full sorts above unsuitable, because
+freeing a slot is an action the player can take and moving an interface next to another machine is not what
+they came to the screen for; and for a crafting pattern the unsuitable rows are most of a large network, so a
+full bank of assemblers put below them would never be scrolled to. Inside each group the order is by name,
+which does not change while the screen is open.
+
 The feature switch is `PatternUpload`, under `Features.CraftingFeatures`.

@@ -149,8 +149,9 @@ public class GuiPatternUpload extends AEBaseGui {
                     tag.hasKey("icon") ? new ItemStack(tag.getCompoundTag("icon")) : ItemStack.EMPTY));
         }
 
-        // Suitable first, then by name, so a list that grows while the screen is open does not reshuffle.
-        this.rows.sort(Comparator.<Row, Boolean>comparing(row -> !row.fits).thenComparing(row -> row.name()));
+        // By how close each one is to being an answer, then by name, so a list that grows while the
+        // screen is open does not reshuffle.
+        this.rows.sort(Comparator.comparingInt(Row::rank).thenComparing(Row::name));
         this.refilter();
     }
 
@@ -283,6 +284,15 @@ public class GuiPatternUpload extends AEBaseGui {
         /** It would run the pattern, and it has somewhere to put it. */
         private boolean usable() {
             return this.fits && this.free > 0;
+        }
+
+        /**
+         * 0 takes it now, 1 would take it if a slot were freed, 2 never will. A full one sorts above an
+         * unsuitable one because freeing a slot is something the player can go and do; standing an
+         * interface next to a different machine is not what they came here for.
+         */
+        private int rank() {
+            return this.usable() ? 0 : this.fits ? 1 : 2;
         }
 
         private Row(final long id, final String unlocalizedName, final int free, final int slots,
