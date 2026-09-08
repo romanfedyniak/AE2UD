@@ -25,7 +25,6 @@ package appeng.api.stacks;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.text.Format;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
@@ -45,23 +44,15 @@ final class AEKeyFormatting {
     /** Characters a slot gives an amount, unit included. */
     private static final int SLOT_BUDGET = 4;
 
-    /** Keeps one fractional digit while it fits, and never rounds an amount up into one it is not. */
-    private static final Format PRECISE_FORM = precisionFormat();
-
-    /** One fractional digit, and the same whole number without one. Both round down, for the reason above. */
+    /**
+     * One fractional digit where there is one, and the same whole number without one. Both round down: an
+     * amount must never be printed as one it is not.
+     */
     private static final DecimalFormat FRACTIONAL_FORM = downward("0.#");
     private static final DecimalFormat WHOLE_FORM = downward("0");
 
     /** The same fractional digit, with the digit grouping {@link AmountFormat#FULL} promises. */
     private static final DecimalFormat GROUPED_FRACTIONAL_FORM = downward("#,##0.#");
-
-    private static Format precisionFormat() {
-        final DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.ROOT);
-        symbols.setDecimalSeparator('.');
-        final DecimalFormat format = new DecimalFormat(".#;0.#", symbols);
-        format.setRoundingMode(RoundingMode.DOWN);
-        return format;
-    }
 
     private static DecimalFormat downward(final String pattern) {
         final DecimalFormat format = new DecimalFormat(pattern, DecimalFormatSymbols.getInstance(Locale.ROOT));
@@ -165,7 +156,7 @@ final class AEKeyFormatting {
             postFix = SUFFIXES[exponent];
         }
 
-        final String withPrecision = PRECISE_FORM.format(last / 1000.0D) + postFix;
+        final String withPrecision = FRACTIONAL_FORM.format(last / 1000.0D) + postFix;
         return withPrecision.length() <= width ? withPrecision : base + postFix;
     }
 

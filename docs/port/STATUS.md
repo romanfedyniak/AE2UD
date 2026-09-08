@@ -1987,6 +1987,18 @@ showing the same magnitude was right or wrong depending on the last three digits
 The threshold both branches need is one method now: `formatRaw` reads it to abbreviate, and the caller reads
 it to know whether abbreviating is going to happen at all.
 
+### Two readings of one number, on adjacent lines
+
+The play-test again. `GuiCraftConfirm` drew `To Craft: 1T` over `Steps: 1.0T`, the first through
+`PREVIEW_LARGE` and the second through `SLOT` - a form named for a 16x16 slot, used on a line of text. Two
+separate faults met there:
+
+- `PRECISE_FORM`'s pattern `.#;0.#` carries `minimumFractionDigits = 1`, so a whole number came out with a
+  `.0` that spent one of the four characters a slot has. Its one advantage over `0.#` - printing `.5`
+  rather than `0.5` - is unreachable, because `abbreviateToWidth` only formats a value once the plain
+  number is wider than the field, which puts that value at 1 or above every time. Deleted; the file's
+  `FRACTIONAL_FORM` is the same thing without the fault.
+
 Every fix carries a regression test in `AEKeyFormattingTest`, which is the one place in this codebase where
 a display rule can be pinned without a running game.
 

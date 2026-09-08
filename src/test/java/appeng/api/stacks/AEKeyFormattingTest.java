@@ -53,6 +53,16 @@ public final class AEKeyFormattingTest {
     }
 
     @Test
+    public void aWholeAmountCarriesNoFractionalZero() {
+        // A trillion is "1T". It read "1.0T" while the preview form beside it on the same screen read
+        // "1T", and the zero was spending one of the four characters a slot has.
+        assertThat(item(1000000000000L), is("1T"));
+        assertThat(item(1000000), is("1M"));
+        assertThat(item(6000000000L), is("6G"));
+        assertThat(preview(1000000000000L), is("1T"));
+    }
+
+    @Test
     public void anAbbreviationRoundsDown() {
         // 10500 is ten thousand and a half, and "11K" would be a promise of more than there is.
         assertThat(item(10500), is("10K"));
