@@ -1942,6 +1942,36 @@ Both hooks are asked only about destinations. Shift-clicking a card *out* of a s
 matters for worlds that already have cards sitting there, and so does dragging one in by hand - the intent
 was to stop an accident, not to remove a way of stocking cards.
 
+## On-screen amounts, third pass: the formatter, and a caller asking it the wrong question (done, verified in game)
+
+Reported as "the crafting tree does not shorten a fluid amount". Four defects came out of that one line,
+three of them in `AEKeyFormatting` and the last in a screen that was asking the right formatter for the
+wrong form. This is the third pass over on-screen amounts, after the six hand-rolled copies of `46f4c2cdd`
+and the `AmountFormat.SLOT` width rewrite of amendment 24; both of those stopped at *which* method to call,
+and neither looked at what the method does once inside.
+
+### `abbreviate` was wrong twice, in one loop
+
+**It rounded up.** The `DecimalFormat` was built per call with the default `HALF_EVEN`, so 9,999,999 read
+`10M` - while `PRECISE_FORM`, five lines above it, existed with `RoundingMode.DOWN` and a comment saying an
+amount must never round up into one it is not. One rule, stated in the file, applied by one of the two
+methods that needed it.
+
+**Rounding down alone made a reading worse, not better.** The loop divided while `value > threshold`, and
+999.999 is over a threshold of 999, so 999,999 took one step too many and read `0.9M` where `HALF_EVEN` had
+been printing `1M`. The overshoot and the rounding were one defect seen from two sides, so the condition
+weighs `Math.floor(value)` - the number as it will actually be printed.
+
+**And the threshold was doing two jobs at once**, which is what the owner found in the play-test: six
+billion items read `6000M`, seven and a quarter billion buckets `7241MB`. The search stopped the moment the
+number fitted `PREVIEW_LARGE`'s four digits, with `G` sitting unused one step away. Inherited verbatim:
+ae2uel's `GuiCraftConfirm` had `if (>= 10000) k; if (>= 10000000) m;` and ended at `m`, because that was
+every suffix it had. `SUFFIXES` here runs to `E`. The threshold decides only *whether* to abbreviate now;
+how far is settled by the suffixes, and a suffixed number stays under a thousand.
+
+**A constant carried over from a donor keeps the donor's limits** long after the thing that justified them
+is gone.
+
 ## Standing rules that have already been broken in practice
 
 **Rule 6 — do not cut any mechanic** (`CONTRACT.md` rule 6). This is a new API and new capabilities, not

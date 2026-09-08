@@ -25,8 +25,8 @@ package appeng.api.stacks;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.text.Format;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
 /**
@@ -48,10 +48,20 @@ final class AEKeyFormatting {
     /** Keeps one fractional digit while it fits, and never rounds an amount up into one it is not. */
     private static final Format PRECISE_FORM = precisionFormat();
 
+    /** One fractional digit, and the same whole number without one. Both round down, for the reason above. */
+    private static final DecimalFormat FRACTIONAL_FORM = downward("0.#");
+    private static final DecimalFormat WHOLE_FORM = downward("0");
+
     private static Format precisionFormat() {
         final DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.ROOT);
         symbols.setDecimalSeparator('.');
         final DecimalFormat format = new DecimalFormat(".#;0.#", symbols);
+        format.setRoundingMode(RoundingMode.DOWN);
+        return format;
+    }
+
+    private static DecimalFormat downward(final String pattern) {
+        final DecimalFormat format = new DecimalFormat(pattern, DecimalFormatSymbols.getInstance(Locale.ROOT));
         format.setRoundingMode(RoundingMode.DOWN);
         return format;
     }
@@ -85,8 +95,7 @@ final class AEKeyFormatting {
         }
 
         double value = (double) amount / amountPerUnit;
-        DecimalFormat df = new DecimalFormat("0.#", DecimalFormatSymbols.getInstance(Locale.ROOT));
-        return df.format(value) + unitSymbol;
+        return FRACTIONAL_FORM.format(value) + unitSymbol;
     }
 
     /**
@@ -161,14 +170,15 @@ final class AEKeyFormatting {
 
         double value = amount;
         int suffix = 0;
-        while (value > threshold && suffix < SUFFIXES.length - 1) {
+        // Once a suffix is in play the number stays under a thousand: a bigger suffix exists precisely so
+        // that it can, and "6000M" is a worse reading of six billion than "6G". Weighing the number as it
+        // will be *printed* rather than the raw quotient is what keeps 999,999 at "999K" instead of
+        // rounding it up a step into "1M".
+        while (Math.floor(value) >= 1000 && suffix < SUFFIXES.length - 1) {
             value /= 1000.0D;
             suffix++;
         }
 
-        DecimalFormat df = value < 10.0D
-                ? new DecimalFormat("0.#", DecimalFormatSymbols.getInstance(Locale.ROOT))
-                : new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ROOT));
-        return df.format(value) + SUFFIXES[suffix];
+        return (value < 10.0D ? FRACTIONAL_FORM : WHOLE_FORM).format(value) + SUFFIXES[suffix];
     }
 }

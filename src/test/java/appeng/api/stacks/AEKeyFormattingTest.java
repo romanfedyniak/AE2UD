@@ -22,6 +22,14 @@ public final class AEKeyFormattingTest {
         return AEKeyFormatting.format(amount, 1000, "B", AmountFormat.SLOT);
     }
 
+    private static String preview(final long amount) {
+        return AEKeyFormatting.format(amount, 1, "", AmountFormat.PREVIEW_LARGE);
+    }
+
+    private static String narrowPreview(final long amount) {
+        return AEKeyFormatting.format(amount, 1, "", AmountFormat.PREVIEW_REGULAR);
+    }
+
     @Test
     public void anAmountThatFitsIsWrittenOut() {
         assertThat(item(0), is("0"));
@@ -69,6 +77,40 @@ public final class AEKeyFormattingTest {
         // The slot has no room for it, and the tooltip carries the exact figure.
         assertThat(fluid(1500), is("1B"));
         assertThat(fluid(16750), is("16B"));
+    }
+
+    @Test
+    public void aFormatDecidesOnlyWhenToAbbreviate() {
+        // Up to its own threshold the number is written out...
+        assertThat(preview(9999), is("9999"));
+        assertThat(narrowPreview(999), is("999"));
+
+        // ...and past it the suffix carries the magnitude, which is the same suffix either way.
+        assertThat(preview(10000), is("10K"));
+        assertThat(narrowPreview(1000), is("1K"));
+        assertThat(preview(12315561), is("12M"));
+        assertThat(narrowPreview(12315561), is("12M"));
+    }
+
+    @Test
+    public void aSuffixedNumberStaysUnderAThousand() {
+        // Six billion is 6G. It used to read "6000M": the search stopped as soon as the number fitted the
+        // format's own width, and never reached the suffix that was sitting right there.
+        assertThat(preview(6000000000L), is("6G"));
+        assertThat(preview(1000000), is("1M"));
+        assertThat(preview(1999999), is("1.9M"));
+        assertThat(preview(9999999), is("9.9M"));
+        assertThat(preview(999999), is("999K"));
+        assertThat(narrowPreview(999999999), is("999M"));
+    }
+
+    @Test
+    public void aPreviewNeverRoundsUpIntoAnAmountThatIsNotThere() {
+        // One short of a million is not a million, at either width.
+        assertThat(preview(999999), is("999K"));
+        assertThat(narrowPreview(999999), is("999K"));
+        assertThat(narrowPreview(9999), is("9.9K"));
+        assertThat(preview(999999999999L), is("999G"));
     }
 
     @Test
