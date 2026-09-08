@@ -793,7 +793,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
             if (steps > 0) {
                 str = GuiText.ToCraftRequests.getLocal() + ": "
-                        + AEKeyType.items().formatAmount(steps, AmountFormat.SLOT);
+                        + AEKeyType.items().formatAmount(steps, AmountFormat.PREVIEW_LARGE);
                 final int stepsWidth = 4 + this.fontRenderer.getStringWidth(str);
                 this.fontRenderer.drawString(
                         str,
@@ -804,7 +804,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
                 if (tooltipLines != null) {
                     tooltipLines.add(GuiText.ToCraftRequests.getLocal() + ": "
-                            + NumberFormat.getInstance().format(steps));
+                            + AEKeyType.items().formatAmount(steps, AmountFormat.FULL));
                 }
             }
         }

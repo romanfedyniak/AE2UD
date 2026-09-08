@@ -1998,6 +1998,14 @@ separate faults met there:
   rather than `0.5` - is unreachable, because `abbreviateToWidth` only formats a value once the plain
   number is wider than the field, which puts that value at 1 or above every time. Deleted; the file's
   `FRACTIONAL_FORM` is the same thing without the fault.
+- The `Steps` line asked for `SLOT`, and its tooltip used `NumberFormat.getInstance()` - the **default
+  locale**, where the line directly above it uses `Locale.ROOT` through `formatAmount`. Two players could
+  see one plan grouped by commas and by full stops. Both go through `formatAmount` now, `PREVIEW_LARGE` on
+  screen and `FULL` in the tooltip, exactly as the line above.
+
+**"Consistent" is a property of call sites, not of the formatter.** Three of these four fixes were in the
+formatter; the fourth was a screen picking the wrong one of its forms, and no amount of work inside the
+formatter could have prevented it.
 
 Every fix carries a regression test in `AEKeyFormattingTest`, which is the one place in this codebase where
 a display rule can be pinned without a running game.
