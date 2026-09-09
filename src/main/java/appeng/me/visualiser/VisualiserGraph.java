@@ -14,6 +14,9 @@ package appeng.me.visualiser;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+
+import javax.annotation.Nullable;
 
 
 /**
@@ -37,6 +40,11 @@ public final class VisualiserGraph {
     /** A node imposing no limit of its own, which is what {@code -1} means throughout the grid. */
     public static final int UNLIMITED = -1;
 
+    private static final ResourceLocation[] NO_STYLES = new ResourceLocation[0];
+
+    /** Nothing claimed this node or link, so it is drawn the ordinary way. */
+    private static final int NO_STYLE = -1;
+
     public final long[] positions;
     public final byte[] nodeFlags;
 
@@ -49,8 +57,26 @@ public final class VisualiserGraph {
     /** Whether the walk stopped at the cap, so what is drawn is only part of the network. */
     public final boolean truncated;
 
+    /**
+     * Styles claimed by addons, and an index into them per node and per link. The arrays are null on the
+     * ordinary network where no addon said anything, and then nothing about styles is written at all.
+     */
+    private final ResourceLocation[] styles;
+    private final int[] nodeStyle;
+    private final int[] linkStyle;
+
     public VisualiserGraph(final long[] positions, final byte[] nodeFlags, final int[] linkA, final int[] linkB,
             final int[] linkUsed, final int[] linkCapacity, final short[] linkFrequency, final boolean truncated) {
+        this(positions, nodeFlags, linkA, linkB, linkUsed, linkCapacity, linkFrequency, truncated, NO_STYLES, null,
+                null);
+    }
+
+    public VisualiserGraph(final long[] positions, final byte[] nodeFlags, final int[] linkA, final int[] linkB,
+            final int[] linkUsed, final int[] linkCapacity, final short[] linkFrequency, final boolean truncated,
+            final ResourceLocation[] styles, @Nullable final int[] nodeStyle, @Nullable final int[] linkStyle) {
+        this.styles = styles;
+        this.nodeStyle = nodeStyle;
+        this.linkStyle = linkStyle;
         this.positions = positions;
         this.nodeFlags = nodeFlags;
         this.linkA = linkA;
@@ -69,15 +95,36 @@ public final class VisualiserGraph {
         return this.linkA.length;
     }
 
+    @Nullable
+    public ResourceLocation styleOfNode(final int node) {
+        return this.nodeStyle == null || this.nodeStyle[node] == NO_STYLE ? null : this.styles[this.nodeStyle[node]];
+    }
+
+    @Nullable
+    public ResourceLocation styleOfLink(final int link) {
+        return this.linkStyle == null || this.linkStyle[link] == NO_STYLE ? null : this.styles[this.linkStyle[link]];
+    }
+
     public byte[] encode() {
         final PacketBuffer out = new PacketBuffer(Unpooled.buffer());
 
         out.writeBoolean(this.truncated);
 
+        out.writeVarInt(this.styles.length);
+        for (final ResourceLocation style : this.styles) {
+            out.writeString(style.toString());
+        }
+
+        final boolean styled = this.styles.length > 0;
+
         out.writeVarInt(this.positions.length);
         for (int i = 0; i < this.positions.length; i++) {
             out.writeLong(this.positions[i]);
             out.writeByte(this.nodeFlags[i]);
+
+            if (styled) {
+                out.writeVarInt(this.nodeStyle[i] + 1);
+            }
         }
 
         out.writeVarInt(this.linkA.length);
@@ -91,6 +138,10 @@ public final class VisualiserGraph {
             out.writeVarInt(this.linkUsed[i]);
             out.writeVarInt(this.linkCapacity[i] + 1);
             out.writeVarInt(this.linkFrequency[i] & 0xFFFF);
+
+            if (styled) {
+                out.writeVarInt(this.linkStyle[i] + 1);
+            }
         }
 
         final byte[] bytes = new byte[out.readableBytes()];
@@ -113,12 +164,24 @@ public final class VisualiserGraph {
 
         final boolean truncated = in.readBoolean();
 
+        final ResourceLocation[] styles = new ResourceLocation[in.readVarInt()];
+        for (int i = 0; i < styles.length; i++) {
+            styles[i] = new ResourceLocation(in.readString(256));
+        }
+
+        final boolean styled = styles.length > 0;
+
         final int nodes = in.readVarInt();
         final long[] positions = new long[nodes];
         final byte[] nodeFlags = new byte[nodes];
+        final int[] nodeStyle = styled ? new int[nodes] : null;
         for (int i = 0; i < nodes; i++) {
             positions[i] = in.readLong();
             nodeFlags[i] = in.readByte();
+
+            if (styled) {
+                nodeStyle[i] = in.readVarInt() - 1;
+            }
         }
 
         final int links = in.readVarInt();
@@ -127,6 +190,7 @@ public final class VisualiserGraph {
         final int[] linkUsed = new int[links];
         final int[] linkCapacity = new int[links];
         final short[] linkFrequency = new short[links];
+        final int[] linkStyle = styled ? new int[links] : null;
         for (int i = 0; i < links; i++) {
             linkA[i] = in.readVarInt();
 
@@ -136,9 +200,13 @@ public final class VisualiserGraph {
             linkUsed[i] = in.readVarInt();
             linkCapacity[i] = in.readVarInt() - 1;
             linkFrequency[i] = (short) in.readVarInt();
+
+            if (styled) {
+                linkStyle[i] = in.readVarInt() - 1;
+            }
         }
 
         return new VisualiserGraph(positions, nodeFlags, linkA, linkB, linkUsed, linkCapacity, linkFrequency,
-                truncated);
+                truncated, styles, nodeStyle, linkStyle);
     }
 }

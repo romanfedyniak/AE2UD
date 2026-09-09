@@ -2390,6 +2390,16 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     a storage that does not implement it is treated exactly as before by everything except the running total.
     `reportsChanges()` is what makes a chain of wrappers answerable: a pure delegate reports only what it is
     given, so whoever is above the chain can tell whether anyone below will speak.
+51. **`INetworkVisualiserProvider`, `IVisualiserSink`, `NetworkVisualisers`, and on the client
+    `NetworkVisualiserStyles` and `VisualiserStyle`** - additive, no upstream equivalent, since upstream has
+    no network visualiser at all. The tool it belongs to is this fork's own, taken in shape from AE2Stuff and
+    from the port of it in GregTech: New Horizons. That port is the argument for the interface: having no
+    way for an addon to add its own machinery to the picture, it imported `gregtech.common.tileentities` into
+    the item itself. Anything that makes a real `IGridConnection` needs none of this - the visualiser walks
+    connections, so a wireless connector between two distant nodes is drawn without asking. The provider is
+    for what that walk cannot see, and for giving those links a look of their own. A style crosses the wire
+    as a `ResourceLocation` and is turned into a colour on the client, so an addon installed only on the
+    server leaves links that are drawn plainly rather than a client that cannot read the packet.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

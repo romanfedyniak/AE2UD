@@ -11,6 +11,7 @@
 package appeng.me.visualiser;
 
 
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ import java.util.Random;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.nullValue;
 
 
 /**
@@ -78,6 +80,31 @@ public class VisualiserGraphTest {
         for (int i = 0; i < count; i++) {
             assertThat(received.linkFrequency[i], equalTo((short) i));
         }
+    }
+
+    /**
+     * A style claimed by an addon travels as a name, and costs nothing at all on a network where no addon
+     * claimed anything.
+     */
+    @Test
+    public void stylesTravelAndCostNothingWhenThereAreNone() {
+        final ResourceLocation wireless = new ResourceLocation("aewireless", "link");
+
+        final VisualiserGraph styled = new VisualiserGraph(new long[] {1, 2}, new byte[2], new int[] {0},
+                new int[] {1}, new int[] {4}, new int[] {8}, new short[1], false,
+                new ResourceLocation[] {wireless}, new int[] {-1, 0}, new int[] {0});
+
+        final VisualiserGraph received = VisualiserGraph.decode(styled.encode());
+
+        assertThat(received.styleOfNode(0), nullValue());
+        assertThat(received.styleOfNode(1), equalTo(wireless));
+        assertThat(received.styleOfLink(0), equalTo(wireless));
+
+        final VisualiserGraph plain = new VisualiserGraph(new long[] {1, 2}, new byte[2], new int[] {0},
+                new int[] {1}, new int[] {4}, new int[] {8}, new short[1], false);
+
+        assertThat(VisualiserGraph.decode(plain.encode()).styleOfNode(0), nullValue());
+        assertThat(plain.encode().length, equalTo(styled.encode().length - "aewireless:link".length() - 4));
     }
 
     /**

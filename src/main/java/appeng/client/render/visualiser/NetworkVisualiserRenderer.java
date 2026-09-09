@@ -11,6 +11,8 @@
 package appeng.client.render.visualiser;
 
 
+import appeng.api.client.NetworkVisualiserStyles;
+import appeng.api.client.VisualiserStyle;
 import appeng.api.util.AEColor;
 import appeng.core.AEClientConfig;
 import appeng.items.tools.ToolNetworkVisualiser;
@@ -222,11 +224,18 @@ public final class NetworkVisualiserRenderer {
                     continue;
                 }
 
-                final int colour = (graph.nodeFlags[i] & VisualiserGraph.FLAG_MISSING_CHANNEL) != 0
-                        ? config.getVisualiserNodeMissingColor()
-                        : config.getVisualiserNodeColor();
+                final VisualiserStyle style = NetworkVisualiserStyles.get(graph.styleOfNode(i));
 
-                cube(buffer, x[i], y[i], z[i], size, colour);
+                final int colour;
+                if ((graph.nodeFlags[i] & VisualiserGraph.FLAG_MISSING_CHANNEL) != 0) {
+                    colour = config.getVisualiserNodeMissingColor();
+                } else if (style != null) {
+                    colour = style.getColor();
+                } else {
+                    colour = config.getVisualiserNodeColor();
+                }
+
+                cube(buffer, x[i], y[i], z[i], style == null ? size : size * style.getThickness(), colour);
             }
         }
 
@@ -274,7 +283,8 @@ public final class NetworkVisualiserRenderer {
                 continue;
             }
 
-            final float half = halfWidth(graph.linkCapacity[i], base);
+            final VisualiserStyle style = NetworkVisualiserStyles.get(graph.styleOfLink(i));
+            final float half = halfWidth(graph.linkCapacity[i], base) * (style == null ? 1 : style.getThickness());
             final int shared = sharing.get(pairKey(a, b));
             final double offset = (rank[i] - (shared - 1) / 2.0) * half * 2.5;
 
@@ -301,9 +311,16 @@ public final class NetworkVisualiserRenderer {
             if (frequency != 0) {
                 p2pLink(buffer, x1, y1, z1, x2, y2, z2, half, offset, frequency);
             } else {
-                final int colour = b == VisualiserGraph.NO_NODE
-                        ? config.getVisualiserLinkOtherColor()
-                        : loadColour(graph.linkUsed[i], graph.linkCapacity[i], config);
+                // A link an addon claimed keeps its own colour rather than being coloured by how full it is,
+                // and one claimed by an addon this client has never heard of is drawn plainly.
+                final int colour;
+                if (style != null) {
+                    colour = style.getColor();
+                } else if (b == VisualiserGraph.NO_NODE || graph.styleOfLink(i) != null) {
+                    colour = config.getVisualiserLinkOtherColor();
+                } else {
+                    colour = loadColour(graph.linkUsed[i], graph.linkCapacity[i], config);
+                }
 
                 box(buffer, x1, y1, z1, x2, y2, z2, half, offset, colour);
             }

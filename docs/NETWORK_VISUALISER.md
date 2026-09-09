@@ -96,6 +96,26 @@ Vertices are floats relative to an origin near the player rather than absolute w
 what the rebuild-after-walking rule is really for: a float loses a tenth of a block of precision out at the
 edge of a Minecraft world.
 
+## What an addon can add
+
+Anything that makes a real `IGridConnection` is drawn already, because the walk follows connections: a
+wireless connector joining two distant nodes is a long link with no code on either side. `AEWirelessChannel`
+is exactly that case.
+
+`INetworkVisualiserProvider` covers the two things the walk cannot do.
+
+- `styleOf(node)` and `styleOf(connection)` claim something the grid already has, so an addon's links can
+  look like its own rather than like cable.
+- `contribute(node, sink)` adds blocks and links the grid does not know about at all. The GregTech: New
+  Horizons port of AE2Stuff needed exactly this and had no way to ask for it, so it imported GregTech's tile
+  entities into the visualiser item; nothing of that kind belongs in this fork's core.
+
+A style crosses the wire as a `ResourceLocation`, and `NetworkVisualiserStyles` on the client turns it into a
+colour and a thickness. That split is the point: the colour stays something the player can change, and an
+addon installed only on the server leaves links drawn in `linkOtherColor` rather than a client that cannot
+read the packet. Neither the table nor the per-node column is written when no provider claimed anything, so
+the ordinary network pays nothing for this.
+
 ## Client config
 
 `NetworkVisualiser` in the client config carries the render distance, the distance at which numbers appear,
