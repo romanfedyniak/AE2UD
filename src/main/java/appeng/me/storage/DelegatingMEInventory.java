@@ -28,6 +28,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.MEStorage;
 
 
@@ -37,8 +38,12 @@ import appeng.api.storage.MEStorage;
  * Replaces {@code MEPassThrough}: unlike that class, it is not generic and it does not itself implement any
  * listener/priority machinery - that is layered on top by {@link MEInventoryHandler}.
  */
-public class DelegatingMEInventory implements MEStorage {
+public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
     private MEStorage delegate;
+
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+    /** Held as a field rather than written twice, because unsubscribing needs the same object back. */
+    private final Listener forwarder = this::report;
 
     public DelegatingMEInventory(final MEStorage delegate) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
@@ -49,7 +54,59 @@ public class DelegatingMEInventory implements MEStorage {
     }
 
     protected void setDelegate(final MEStorage delegate) {
+        this.listenToDelegate(false);
         this.delegate = delegate;
+        this.listenToDelegate(true);
+    }
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        final boolean first = this.listeners.isEmpty();
+        this.listeners.addChangeListener(listener);
+
+        if (first) {
+            this.listenToDelegate(true);
+        }
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+
+        if (this.listeners.isEmpty()) {
+            this.listenToDelegate(false);
+        }
+    }
+
+    /**
+     * Whether whatever is underneath says when it changes. A wrapper that has one of those below it must stay
+     * quiet about its own insertions and extractions, or every one of them would be counted twice.
+     */
+    protected boolean delegateReportsChanges() {
+        return this.delegate instanceof IStorageChangeSource source && source.reportsChanges();
+    }
+
+    /** Nothing of its own: a plain wrapper is worth listening to only for what it passes on. */
+    @Override
+    public boolean reportsChanges() {
+        return this.delegateReportsChanges();
+    }
+
+    /** Passes a change on to whoever is listening to this wrapper. */
+    protected void report(final AEKey what, final long delta) {
+        this.listeners.post(what, delta);
+    }
+
+    private void listenToDelegate(final boolean listen) {
+        if (this.listeners.isEmpty() || !(this.delegate instanceof IStorageChangeSource source)) {
+            return;
+        }
+
+        if (listen) {
+            source.addChangeListener(this.forwarder);
+        } else {
+            source.removeChangeListener(this.forwarder);
+        }
     }
 
     @Override

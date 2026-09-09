@@ -31,6 +31,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.MEStorage;
 import appeng.util.InventoryAdaptor;
 import appeng.util.inv.ItemSlot;
@@ -47,11 +48,22 @@ import appeng.util.inv.ItemSlot;
  * {@link KeyCounter}. The per-listener notification that {@code IMEMonitor} used to do is gone; the network's
  * storage service diffs its own cached amounts instead.
  */
-public class MEMonitorIInventory implements MEStorage, ITickingMonitor {
+public class MEMonitorIInventory implements MEStorage, ITickingMonitor, IStorageChangeSource {
 
     private final InventoryAdaptor adaptor;
     private KeyCounter cache = new KeyCounter();
     private StorageFilter mode = StorageFilter.EXTRACTABLE_ONLY;
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
 
     public MEMonitorIInventory(final InventoryAdaptor adaptor) {
         this.adaptor = adaptor;
@@ -75,6 +87,7 @@ public class MEMonitorIInventory implements MEStorage, ITickingMonitor {
 
         if (inserted > 0 && type == Actionable.MODULATE) {
             this.cache.add(itemKey, inserted);
+            this.listeners.post(itemKey, inserted);
         }
 
         return inserted;
@@ -99,6 +112,7 @@ public class MEMonitorIInventory implements MEStorage, ITickingMonitor {
 
         if (type == Actionable.MODULATE) {
             this.cache.remove(itemKey, extracted.getCount());
+            this.listeners.post(itemKey, -extracted.getCount());
         }
 
         return extracted.getCount();
@@ -124,6 +138,8 @@ public class MEMonitorIInventory implements MEStorage, ITickingMonitor {
         }
 
         final boolean changed = this.hasChanged(next);
+        // What the box next door did on its own, which nothing else here would ever hear about.
+        this.listeners.postDiff(this.cache, next);
         this.cache = next;
 
         return changed ? TickRateModulation.URGENT : TickRateModulation.SLOWER;

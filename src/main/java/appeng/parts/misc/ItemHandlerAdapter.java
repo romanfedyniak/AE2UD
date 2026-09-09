@@ -29,7 +29,9 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.me.storage.ITickingMonitor;
+import appeng.me.storage.StorageChangeListeners;
 import appeng.util.inv.ItemHandlerIterator;
 import appeng.util.inv.ItemSlot;
 import net.minecraft.item.ItemStack;
@@ -53,12 +55,24 @@ import javax.annotation.Nullable;
  * {@link PartStorageBus} can hold onto the {@code Factory} for the part's whole lifetime and only re-resolve the
  * capability when it actually needs to.
  */
-class ItemHandlerAdapter implements MEStorage, ITickingMonitor {
+class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
     private final IItemHandler itemHandler;
     private final boolean extractableOnly;
     @Nullable
     private final Runnable changeListener;
     private KeyCounter currentlyCached = new KeyCounter();
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
+
 
     ItemHandlerAdapter(final IItemHandler itemHandler, final boolean extractableOnly, @Nullable final Runnable changeListener) {
         this.itemHandler = itemHandler;
@@ -186,6 +200,9 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor {
                 fresh.add(stack.what(), stack.amount());
             }
         }
+        // Every change this adapter can see passes through here - its own insertions as much as a
+        // hopper filling the box next door - so this is the one place that has to say what moved.
+        this.listeners.postDiff(this.currentlyCached, fresh);
         this.currentlyCached = fresh;
     }
 

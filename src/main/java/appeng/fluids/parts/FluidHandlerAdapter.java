@@ -37,7 +37,9 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.me.storage.ITickingMonitor;
+import appeng.me.storage.StorageChangeListeners;
 
 /**
  * Wraps a plain {@link IFluidHandler} (any tank that only exposes the vanilla Forge capability) so it can be used
@@ -50,12 +52,24 @@ import appeng.me.storage.ITickingMonitor;
  * {@code appeng.parts.misc.InitExternalStorageStrategies}. Public (unlike the item version) because the
  * registration call in that class lives in a different package.
  */
-public class FluidHandlerAdapter implements MEStorage, ITickingMonitor {
+public class FluidHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
     private final IFluidHandler fluidHandler;
     private final boolean extractableOnly;
     @Nullable
     private final Runnable changeListener;
     private KeyCounter currentlyCached = new KeyCounter();
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
+
 
     FluidHandlerAdapter(final IFluidHandler fluidHandler, final boolean extractableOnly, @Nullable final Runnable changeListener) {
         this.fluidHandler = fluidHandler;
@@ -135,6 +149,9 @@ public class FluidHandlerAdapter implements MEStorage, ITickingMonitor {
                 fresh.add(key, contents.amount);
             }
         }
+        // Every change this adapter can see passes through here - its own insertions as much as a
+        // hopper filling the box next door - so this is the one place that has to say what moved.
+        this.listeners.postDiff(this.currentlyCached, fresh);
         this.currentlyCached = fresh;
     }
 

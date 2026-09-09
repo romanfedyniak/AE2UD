@@ -83,6 +83,11 @@ public class GridStorageCache implements IStorageService, IGridCache {
     private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
     private boolean cachedStacksNeedUpdate = true;
     /**
+     * What has moved since the last tick, and by how much. This is the whole point of the change: a network is
+     * told what changed instead of counting everything again to find out.
+     */
+    private final Object2LongMap<AEKey> pendingChanges = new Object2LongOpenHashMap<>();
+    /**
      * Tracks the stack watcher associated with a given grid node. Needed to clean up watchers when the node
      * leaves the grid.
      */
@@ -91,16 +96,61 @@ public class GridStorageCache implements IStorageService, IGridCache {
     public GridStorageCache(final IGrid g) {
         this.myGrid = g;
         this.storage = new NetworkStorage();
+        this.storage.addChangeListener(this::recordChange);
+    }
+
+    /** Called by whatever moved something, from anywhere - including a machine writing to its own mount. */
+    private void recordChange(final AEKey what, final long delta) {
+        this.pendingChanges.put(what, this.pendingChanges.getLong(what) + delta);
     }
 
     @Override
     public void onUpdateTick() {
-        if (interestManager.isEmpty()) {
-            // lazily rebuild cache list
-            cachedStacksNeedUpdate = true;
-        } else {
-            // we need to rebuild the cache every tick to notify listeners
-            updateCachedStacks();
+        this.refreshCachedStacks();
+    }
+
+    /**
+     * Brings the running total up to date: from the changes reported since the last tick, or from scratch when
+     * something has happened that those cannot describe - a mount leaving, or a machine saying it changed behind
+     * the network's back through {@link #invalidateCache()}.
+     */
+    private void refreshCachedStacks() {
+        if (this.cachedStacksNeedUpdate) {
+            this.pendingChanges.clear();
+            this.updateCachedStacks();
+        } else if (!this.pendingChanges.isEmpty()) {
+            this.applyPendingChanges();
+        }
+    }
+
+    /**
+     * Watchers hear about a change once per tick, in one batch, exactly as they did when this was a full recount
+     * - a machine that moves the same stack a hundred times in a tick must not wake a level emitter a hundred
+     * times.
+     */
+    private void applyPendingChanges() {
+        boolean emptied = false;
+
+        for (final var entry : this.pendingChanges.object2LongEntrySet()) {
+            final AEKey what = entry.getKey();
+            final long amount = this.cachedAvailableAmounts.getLong(what) + entry.getLongValue();
+
+            if (amount > 0) {
+                this.cachedAvailableStacks.set(what, amount);
+                this.cachedAvailableAmounts.put(what, amount);
+            } else {
+                this.cachedAvailableStacks.remove(what);
+                this.cachedAvailableAmounts.removeLong(what);
+                emptied = true;
+            }
+
+            this.postWatcherUpdate(what, Math.max(0, amount));
+        }
+
+        this.pendingChanges.clear();
+
+        if (emptied) {
+            this.cachedAvailableStacks.removeEmptySubmaps();
         }
     }
 
@@ -205,9 +255,7 @@ public class GridStorageCache implements IStorageService, IGridCache {
 
     @Override
     public KeyCounter getCachedInventory() {
-        if (cachedStacksNeedUpdate) {
-            updateCachedStacks();
-        }
+        this.refreshCachedStacks();
         return cachedAvailableStacks;
     }
 
@@ -316,6 +364,11 @@ public class GridStorageCache implements IStorageService, IGridCache {
 
             // Mount this inventory into the network storage
             storage.mount(priority, inventory);
+
+            // Everything it already holds has just appeared as far as the running total is concerned.
+            for (final var entry : inventory.getAvailableStacks()) {
+                recordChange(entry.getKey(), entry.getLongValue());
+            }
         }
 
         void update() {
@@ -333,6 +386,10 @@ public class GridStorageCache implements IStorageService, IGridCache {
                 storage.unmount(inventory);
             }
             inventories.clear();
+
+            // Not subtracted the way mounting adds: what a storage holds on the way out need not be what it
+            // contributed, and a total that has drifted is worse than a recount nobody notices.
+            cachedStacksNeedUpdate = true;
         }
     }
 }

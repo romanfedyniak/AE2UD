@@ -38,6 +38,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.MEStorage;
 
 
@@ -50,7 +51,7 @@ import appeng.api.storage.MEStorage;
  * {@link #mount(int, MEStorage)}/{@link #unmount(MEStorage)}); its public shape is frozen by the migration
  * contract and must not change without coordinating with that package.
  */
-public class NetworkStorage implements MEStorage {
+public class NetworkStorage implements MEStorage, IStorageChangeSource {
     private static final Comparator<Integer> PRIORITY_SORTER = (o1, o2) -> Integer.compare(o2, o1);
 
     // This flag prevents both concurrent modifications of the mounted storage while
@@ -65,8 +66,47 @@ public class NetworkStorage implements MEStorage {
     @Nullable
     private List<QueuedOperation> queuedOperations;
 
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+    private final Listener forwarder = this.listeners::post;
+
     public NetworkStorage() {
         this.priorityInventory = new TreeMap<>(PRIORITY_SORTER);
+    }
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
+
+    /**
+     * Moves a stack and says so. A mount that reports for itself is left to do it - it knows about changes this
+     * network never asked for, and counting the same insert here as well would double it.
+     */
+    private long insertInto(final MEStorage inv, final AEKey what, final long amount, final Actionable type,
+            final IActionSource src) {
+        final long inserted = inv.insert(what, amount, type, src);
+
+        if (inserted > 0 && type == Actionable.MODULATE && !reportsForItself(inv)) {
+            this.listeners.post(what, inserted);
+        }
+
+        return inserted;
+    }
+
+    private long extractFrom(final MEStorage inv, final AEKey what, final long amount, final Actionable mode,
+            final IActionSource src) {
+        final long extracted = inv.extract(what, amount, mode, src);
+
+        if (extracted > 0 && mode == Actionable.MODULATE && !reportsForItself(inv)) {
+            this.listeners.post(what, -extracted);
+        }
+
+        return extracted;
     }
 
     public void mount(final int priority, final MEStorage inventory) {
@@ -77,6 +117,10 @@ public class NetworkStorage implements MEStorage {
             this.queuedOperations.add(new MountOperation(priority, inventory));
         } else {
             this.priorityInventory.computeIfAbsent(priority, k -> new ArrayList<>()).add(inventory);
+
+            if (reportsForItself(inventory)) {
+                ((IStorageChangeSource) inventory).addChangeListener(this.forwarder);
+            }
         }
     }
 
@@ -87,6 +131,10 @@ public class NetworkStorage implements MEStorage {
             }
             this.queuedOperations.add(new UnmountOperation(inventory));
         } else {
+            if (reportsForItself(inventory)) {
+                ((IStorageChangeSource) inventory).removeChangeListener(this.forwarder);
+            }
+
             final var prioIt = this.priorityInventory.entrySet().iterator();
             while (prioIt.hasNext()) {
                 final var prioEntry = prioIt.next();
@@ -126,7 +174,7 @@ public class NetworkStorage implements MEStorage {
                     if (inv.isPreferredStorageFor(what, src)) {
                         stickyClaimed = true;
                         if (remaining > 0) {
-                            remaining -= inv.insert(what, remaining, type, src);
+                            remaining -= this.insertInto(inv, what, remaining, type, src);
                         }
                     }
                 }
@@ -146,7 +194,7 @@ public class NetworkStorage implements MEStorage {
                         }
 
                         if (inv.isPreferredStorageFor(what, src)) {
-                            remaining -= inv.insert(what, remaining, type, src);
+                            remaining -= this.insertInto(inv, what, remaining, type, src);
                         } else {
                             this.secondPassInventories.add(inv);
                         }
@@ -162,7 +210,7 @@ public class NetworkStorage implements MEStorage {
                             continue;
                         }
 
-                        remaining -= inv.insert(what, remaining, type, src);
+                        remaining -= this.insertInto(inv, what, remaining, type, src);
                     }
                 }
             }
@@ -195,7 +243,7 @@ public class NetworkStorage implements MEStorage {
                         continue;
                     }
 
-                    extracted += inv.extract(what, amount - extracted, mode, source);
+                    extracted += this.extractFrom(inv, what, amount - extracted, mode, source);
                 }
             }
 
@@ -212,7 +260,7 @@ public class NetworkStorage implements MEStorage {
                             continue;
                         }
 
-                        extracted += inv.extract(what, amount - extracted, mode, source);
+                        extracted += this.extractFrom(inv, what, amount - extracted, mode, source);
                     }
                 }
             }
@@ -230,6 +278,11 @@ public class NetworkStorage implements MEStorage {
      *         CONTRACT.md §10) with no upstream equivalent, so it's deliberately not part of {@link MEStorage}
      *         itself - only {@link MEInventoryHandler} (and its {@link DriveWatcher} subclass) can carry it.
      */
+    /** Whether that mount says when it changes, or has to be watched by whoever moves things into it. */
+    private static boolean reportsForItself(final MEStorage inv) {
+        return inv instanceof IStorageChangeSource source && source.reportsChanges();
+    }
+
     private static boolean isSticky(final MEStorage inv) {
         return inv instanceof MEInventoryHandler handler && handler.isSticky();
     }

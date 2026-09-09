@@ -104,6 +104,12 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         this.sticky = sticky;
     }
 
+    /** Always: what it wraps does not have to say anything, because this reports for it. */
+    @Override
+    public boolean reportsChanges() {
+        return true;
+    }
+
     @Override
     public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
         if (!this.allowInsertion || !this.passesBlackOrWhitelist(what)) {
@@ -111,6 +117,12 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         }
 
         final long inserted = super.insert(what, amount, mode, source);
+
+        if (mode == Actionable.MODULATE && !this.delegateReportsChanges()) {
+            // What really landed, not what the void card claims: the network counts what is there.
+            this.report(what, inserted);
+        }
+
         return this.voidOverflow ? amount : inserted;
     }
 
@@ -120,7 +132,13 @@ public class MEInventoryHandler extends DelegatingMEInventory {
             return 0;
         }
 
-        return super.extract(what, amount, mode, source);
+        final long extracted = super.extract(what, amount, mode, source);
+
+        if (mode == Actionable.MODULATE && !this.delegateReportsChanges()) {
+            this.report(what, -extracted);
+        }
+
+        return extracted;
     }
 
     @Override

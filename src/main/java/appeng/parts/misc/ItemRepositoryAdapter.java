@@ -8,7 +8,9 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.me.storage.ITickingMonitor;
+import appeng.me.storage.StorageChangeListeners;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import net.minecraft.item.ItemStack;
 
@@ -23,11 +25,23 @@ import javax.annotation.Nullable;
  * {@link appeng.api.behaviors.StackWorldBehaviors} because {@code IItemRepository} is not keyed by
  * {@link appeng.api.stacks.AEKeyType} at all, it is a capability specific to one third-party inventory mod.
  */
-class ItemRepositoryAdapter implements MEStorage, ITickingMonitor {
+class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
     private final IItemRepository itemRepository;
     @Nullable
     private final Runnable changeListener;
     private KeyCounter currentlyCached = new KeyCounter();
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
+
 
     ItemRepositoryAdapter(final IItemRepository itemRepository, @Nullable final Runnable changeListener) {
         this.itemRepository = itemRepository;
@@ -111,6 +125,9 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor {
                 fresh.add(key, entry.count);
             }
         }
+        // Every change this adapter can see passes through here - its own insertions as much as a
+        // hopper filling the box next door - so this is the one place that has to say what moved.
+        this.listeners.postDiff(this.currentlyCached, fresh);
         this.currentlyCached = fresh;
     }
 

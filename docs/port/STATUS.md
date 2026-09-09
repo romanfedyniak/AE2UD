@@ -2380,6 +2380,16 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     stands - cells 27 and 28 are the transparent bottom of the 25x22 `GuiTabButton` sprite blitted from
     `(11*16, 0)`, and art written there appears along the bottom edge of every tab button in the mod. That
     is the only blit out of `guis/states.png` wider than 16, so every other placeholder cell is free.
+50. **`IStorageChangeSource`** - additive, no upstream equivalent, and the resolution of a gap this port
+    left open. `Platform.postChanges` still carries the note: the pre-migration code pushed a delta through
+    `IStorageGrid.postAlterationOfStoredItems`, the ported `IStorageService` had no such entry point, and the
+    question of whether `invalidateCache()` alone was enough was left for whoever implemented the service.
+    It was not enough. Upstream answers it by recounting every network's contents on every tick that anything
+    is watching, which was measured here at 25 ms per tick on a thousand mounted cells; the interface is what
+    lets a storage say what changed instead. `MEStorage` itself is untouched - the interface is separate, and
+    a storage that does not implement it is treated exactly as before by everything except the running total.
+    `reportsChanges()` is what makes a chain of wrappers answerable: a pure delegate reports only what it is
+    given, so whoever is above the chain can tell whether anyone below will speak.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

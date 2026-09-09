@@ -32,6 +32,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.MEStorage;
 
 
@@ -43,10 +44,21 @@ import appeng.api.storage.MEStorage;
  * AE2-original's {@code ExternalStorageFacade}: 1.12.2 has no equivalent to NeoForge's unified transfer API. Only
  * {@code IAEFluidStack}/{@code IItemList} are replaced, by {@link AEFluidKey}/{@link KeyCounter}.
  */
-public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor {
+public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor, IStorageChangeSource {
 
     private final IFluidHandler handler;
     private KeyCounter cache = new KeyCounter();
+    private final StorageChangeListeners listeners = new StorageChangeListeners();
+
+    @Override
+    public void addChangeListener(final Listener listener) {
+        this.listeners.addChangeListener(listener);
+    }
+
+    @Override
+    public void removeChangeListener(final Listener listener) {
+        this.listeners.removeChangeListener(listener);
+    }
     private StorageFilter mode = StorageFilter.EXTRACTABLE_ONLY;
 
     public MEMonitorIFluidHandler(final IFluidHandler handler) {
@@ -64,6 +76,7 @@ public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor {
 
         if (filled > 0 && type == Actionable.MODULATE) {
             this.cache.add(fluidKey, filled);
+            this.listeners.post(fluidKey, filled);
         }
 
         return filled;
@@ -84,6 +97,7 @@ public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor {
 
         if (type == Actionable.MODULATE) {
             this.cache.remove(fluidKey, removed.amount);
+            this.listeners.post(fluidKey, -removed.amount);
         }
 
         return removed.amount;
@@ -112,6 +126,8 @@ public class MEMonitorIFluidHandler implements MEStorage, ITickingMonitor {
         }
 
         final boolean changed = this.hasChanged(next);
+        // What the tank next door did on its own, which nothing else here would ever hear about.
+        this.listeners.postDiff(this.cache, next);
         this.cache = next;
 
         return changed ? TickRateModulation.URGENT : TickRateModulation.SLOWER;

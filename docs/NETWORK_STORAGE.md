@@ -1,0 +1,72 @@
+# What a network knows it is holding
+
+A terminal, a level emitter and a storage monitor all ask the same question: how much of this is on the
+network? Answering it by adding up every mounted cell is too slow to do often, so the answer is kept as a
+running total and brought up to date once a tick.
+
+How that total is kept is the whole subject of this file.
+
+## The shape it replaced, and why
+
+`GridStorageCache.onUpdateTick` used to recount everything, every tick, whenever anything on the network was
+watching - which an open terminal is. Measured on a network with a thousand mounted cells holding sixty-three
+thousand different things:
+
+| | per tick |
+|---|---|
+| nobody watching | 5 ns |
+| one level emitter watching one key | **25 400 000 ns** |
+
+Half of a fifty-millisecond tick, spent by a network that had moved nothing. Splitting that figure by how the
+contents were spread showed roughly two fifths going on walking the mounts and three fifths on comparing the
+result with the previous tick, key by key - so making the comparison cleverer could only ever have removed
+part of it. The list had to stop being rebuilt at all.
+
+Modern AE2 recounts the same way. This fork's own ancestor did not: it pushed changes to listeners as they
+happened. What follows is a return to that, and it is recorded as a deliberate departure in
+`docs/port/STATUS.md`, api amendment 50.
+
+## Who says what
+
+`IStorageChangeSource` is how a storage says its contents moved. `GridStorageCache` listens to
+`NetworkStorage`, and everything else feeds into that:
+
+- **`NetworkStorage`** subscribes to every mount as it is mounted, and passes on what it hears. For a mount
+  that says nothing for itself it reports what it moved into or out of it, so a plain `MEStorage` a machine
+  only ever reaches through the network still counts correctly with no work at all.
+- **`MEInventoryHandler`** - which is what a drive, an ME chest and a storage bus all mount - reports its own
+  insertions and extractions. This is the hook that catches a hopper filling an ME Chest: the chest's own
+  accessor writes through the same wrapper the network mounted, not past it.
+- **The adapters** (`MEMonitorIInventory`, `ItemHandlerAdapter`, `ItemRepositoryAdapter`, and the fluid pair)
+  report the difference their periodic rescan finds. That rescan is the only way the box next door can be
+  known to have changed, and it was already being computed; now it is handed on instead of thrown away.
+- **A nested network** - a storage bus pointed at another network through
+  `STORAGE_MONITORABLE_ACCESSOR` - chains, because `NetworkStorage` is itself a change source and the
+  wrappers between forward what they are told.
+
+`reportsChanges()` is the part that is easy to get wrong. `DelegatingMEInventory` is a change source
+whether or not it has anything to say, so asking `instanceof` alone would let a wrapper over a silent storage
+pass for one that speaks, and whoever was above it would fall quiet too. A plain delegate therefore answers
+for what is underneath it; `MEInventoryHandler` answers yes, because it reports for whatever it wraps.
+
+## What a tick does now
+
+`refreshCachedStacks` takes one of three paths:
+
+1. **A full recount**, when something has happened that a delta cannot describe: a mount leaving, or a machine
+   calling `IStorageService.invalidateCache()`. Unmounting is deliberately not accounted for by subtraction -
+   what a storage holds on the way out need not be what it contributed, and a total that has drifted is worse
+   than a recount nobody notices.
+2. **Applying what was reported**, which is the ordinary case.
+3. **Nothing**, when nothing moved.
+
+Watchers hear about changes **once per tick, in one batch**, exactly as they did when this was a recount. A
+machine that moves the same stack a hundred times in a tick must not wake a level emitter a hundred times, and
+keeping the batching is what makes this change invisible from outside.
+
+## The contract
+
+A mount that changes behind the network's back, implements nothing and never calls
+`IStorageService.invalidateCache()` will be shown with a stale count that never corrects itself. That is
+a worse failure than slowness, and it is why the interface is documented where an addon author will meet it
+rather than only here.
