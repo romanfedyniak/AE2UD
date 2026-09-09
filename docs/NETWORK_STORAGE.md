@@ -9,8 +9,8 @@ How that total is kept is the whole subject of this file.
 ## The shape it replaced, and why
 
 `GridStorageCache.onUpdateTick` used to recount everything, every tick, whenever anything on the network was
-watching - which an open terminal is. Measured on a network with a thousand mounted cells holding sixty-three
-thousand different things:
+watching - which an open terminal is. Measured on the ladder in `StorageThroughputTest`, on a network with a
+thousand mounted cells holding sixty-three thousand different things:
 
 | | per tick |
 |---|---|
@@ -74,3 +74,17 @@ and forces a recount so that one silent mount does not leave every terminal wron
 
 It costs exactly what the old per-tick recount cost, which is why it is off. Turn it on while chasing a wrong
 count in a terminal - including one caused by a mistake in this code, which looks identical from the outside.
+
+## Measuring it
+
+`src/test/java/appeng/me/storage/StorageThroughputTest` drives all of this directly, with no world: a
+`GridStorageCache` takes a null grid and never asks it for anything, `addGlobalStorageProvider` mounts storage
+without any nodes, and a JUnit run can build the `AEKeyType` registry by hand and fake FML's side so
+`Platform` will load. It prints a table of what an insert, an extract, a tick and a cell's NBT write cost
+across a ladder of network sizes, and asserts two things: an idle tick, and a tick after a hundred changes,
+both on the largest network on the ladder.
+
+Those two budgets are loose absolute ceilings rather than ratios. An idle tick now costs tens of nanoseconds,
+where the timer's own overhead is most of the reading and any ratio built from it swings by a factor of two
+between runs; the shape being guarded against was three orders of magnitude larger, so a generous ceiling
+still catches it and will not turn red because the machine is busy.

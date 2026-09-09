@@ -141,7 +141,7 @@ public class BasicCellInventory implements StorageCell {
         // rather than dereferencing it keeps a third-party cell that does the same from crashing the client
         // while it builds the creative search tree, where the stack trace points at a tooltip and not at the
         // cell. This is defensive only; it is not what fixed the creative cell (see ItemCreativeStorageCell).
-        final IUpgradeRegistry registry = AEApi.instance().registries().upgrades();
+        final IUpgradeRegistry registry = upgrades == null ? null : AEApi.instance().registries().upgrades();
         for (int x = 0; upgrades != null && x < upgrades.getSlots(); x++) {
             final ItemStack is = upgrades.getStackInSlot(x);
             // Asked once per card rather than as a chain of alternatives: one card may carry several of
