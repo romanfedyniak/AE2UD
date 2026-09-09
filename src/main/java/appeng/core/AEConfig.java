@@ -64,6 +64,7 @@ public final class AEConfig extends Configuration {
     private boolean updatable = false;
     // Misc
     private boolean removeCrashingItemsOnLoad = false;
+    private boolean auditNetworkStorage = false;
     private int adHocNetworkChannels = 8;
     private int p2pTunnelChannelCost = 1;
     private int formationPlaneEntityLimit = 128;
@@ -135,6 +136,7 @@ public final class AEConfig extends Configuration {
         CondenserOutput.SINGULARITY.requiredPower = this.get("Condenser", "Singularity", 256000).getInt(256000);
 
         this.removeCrashingItemsOnLoad = this.get("general", "removeCrashingItemsOnLoad", false, "Will auto-remove items that crash when being loaded from storage. This will destroy those items instead of crashing the game!").getBoolean();
+        this.auditNetworkStorage = this.get("general", "auditNetworkStorage", false, "For addon authors: once a second, count every network's contents the slow way and log anything that disagrees with the running total. Names the storage that is not reporting its changes. Costs real time on a large network; leave it off unless you are chasing a wrong count in a terminal.").getBoolean();
         this.adHocNetworkChannels = this.get("general", "adHocNetworkChannels", this.adHocNetworkChannels, "How many channels a network with no controller carries. Asking for more than this leaves it with none at all, rather than with this many.").getInt(this.adHocNetworkChannels);
         this.p2pTunnelChannelCost = Math.max(0, this.get("general", "p2pTunnelChannelCost", this.p2pTunnelChannelCost, "How many channels an ME P2P tunnel takes from the network it sits in. What it carries through is a separate matter, decided by the cables at either end.").getInt(this.p2pTunnelChannelCost));
         this.setCategoryComment("ChannelTiers", "How many channels each kind of node carries. 0 carries nothing, -1 imposes no limit of its own and lets whatever is on either side decide. Addons add their own lines here.");
@@ -485,6 +487,10 @@ public final class AEConfig extends Configuration {
     // Getters
     public boolean isRemoveCrashingItemsOnLoad() {
         return this.removeCrashingItemsOnLoad;
+    }
+
+    public boolean isNetworkStorageAudited() {
+        return this.auditNetworkStorage;
     }
 
     public int getFormationPlaneEntityLimit() {

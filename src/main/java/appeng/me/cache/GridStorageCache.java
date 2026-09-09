@@ -40,6 +40,9 @@ import appeng.api.networking.IGridStorage;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.stacks.AEKey;
+import appeng.api.storage.IStorageChangeSource;
+import appeng.core.AEConfig;
+import appeng.core.AELog;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -87,6 +90,9 @@ public class GridStorageCache implements IStorageService, IGridCache {
      * told what changed instead of counting everything again to find out.
      */
     private final Object2LongMap<AEKey> pendingChanges = new Object2LongOpenHashMap<>();
+    /** Once a second is often enough to find a mount that lies, and rare enough to be affordable while looking. */
+    private static final int AUDIT_INTERVAL = 20;
+    private int ticksSinceAudit = 0;
     /**
      * Tracks the stack watcher associated with a given grid node. Needed to clean up watchers when the node
      * leaves the grid.
@@ -107,6 +113,68 @@ public class GridStorageCache implements IStorageService, IGridCache {
     @Override
     public void onUpdateTick() {
         this.refreshCachedStacks();
+
+        // Asked for the flag rather than assuming there is a config to ask: this service can be driven
+        // without one around it, and then nobody has asked for an audit.
+        final AEConfig config = AEConfig.instance();
+        if (config != null && config.isNetworkStorageAudited() && ++this.ticksSinceAudit >= AUDIT_INTERVAL) {
+            this.ticksSinceAudit = 0;
+            this.audit();
+        }
+    }
+
+    /**
+     * Counts everything the slow way and complains about whatever disagrees with the running total.
+     * <p>
+     * A storage that changes without reporting it - see {@link IStorageChangeSource} - shows up in a terminal
+     * as a count that is quietly wrong and never corrects itself, which is not something anyone can diagnose by
+     * looking at it. This turns that into a line in the log naming the storage. It is off by default because it
+     * costs exactly what the old per-tick recount cost, which is the whole reason that recount is gone.
+     */
+    private void audit() {
+        final KeyCounter counted = new KeyCounter();
+        this.storage.getAvailableStacks(counted);
+        counted.removeEmptySubmaps();
+
+        int wrong = 0;
+        for (final var entry : counted) {
+            final long running = this.cachedAvailableAmounts.getLong(entry.getKey());
+            if (running != entry.getLongValue()) {
+                AELog.warn("Storage audit: %s counted %d but the network is tracking %d.",
+                        entry.getKey(), entry.getLongValue(), running);
+                wrong++;
+            }
+        }
+
+        for (final var what : this.cachedAvailableAmounts.keySet()) {
+            if (counted.get(what) == 0) {
+                AELog.warn("Storage audit: the network is tracking %d of %s, which nothing on it holds.",
+                        this.cachedAvailableAmounts.getLong(what), what);
+                wrong++;
+            }
+        }
+
+        if (wrong > 0) {
+            AELog.warn("Storage audit: %d wrong on this network. Something mounted on it changes without "
+                    + "reporting it; the mounts are:", wrong);
+            for (final var invList : this.mountedStorages()) {
+                AELog.warn("  %s", invList.getDescription().getFormattedText());
+            }
+
+            // Put it right, so that one silent mount does not leave every terminal wrong until a reload.
+            this.cachedStacksNeedUpdate = true;
+        }
+    }
+
+    private List<MEStorage> mountedStorages() {
+        final List<MEStorage> all = new ArrayList<>();
+        for (final ProviderState state : this.nodeProviders.values()) {
+            all.addAll(state.inventories);
+        }
+        for (final ProviderState state : this.globalProviders) {
+            all.addAll(state.inventories);
+        }
+        return all;
     }
 
     /**

@@ -64,9 +64,13 @@ Watchers hear about changes **once per tick, in one batch**, exactly as they did
 machine that moves the same stack a hundred times in a tick must not wake a level emitter a hundred times, and
 keeping the batching is what makes this change invisible from outside.
 
-## The contract
+## The contract, and how a breach is found
 
-A mount that changes behind the network's back, implements nothing and never calls
-`IStorageService.invalidateCache()` will be shown with a stale count that never corrects itself. That is
-a worse failure than slowness, and it is why the interface is documented where an addon author will meet it
-rather than only here.
+A mount that changes behind the network's back, implements nothing and calls nothing will be shown with a
+stale count that never corrects itself. That is a worse failure than slowness, so there is a way to find it:
+`auditNetworkStorage` in the config's `general` section, **off by default**. Once a second it counts the
+network the slow way, logs every key that disagrees with the running total, names every mount on the network,
+and forces a recount so that one silent mount does not leave every terminal wrong until a reload.
+
+It costs exactly what the old per-tick recount cost, which is why it is off. Turn it on while chasing a wrong
+count in a terminal - including one caused by a mistake in this code, which looks identical from the outside.
