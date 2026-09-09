@@ -40,6 +40,9 @@ public enum GuiText {
     SpatialIOPort,
     LevelEmitter,
     FluidLevelEmitter,
+
+    MonitorLock,
+    MonitorLockHint,
     Terminal,
 
     Interface,

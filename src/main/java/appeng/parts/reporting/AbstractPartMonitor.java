@@ -31,9 +31,12 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.render.TesrRenderHelper;
-import appeng.core.localization.PlayerMessages;
+import appeng.core.sync.GuiBridge;
 import appeng.helpers.Reflected;
 import appeng.me.GridAccessException;
+import appeng.tile.inventory.AppEngInternalAEInventory;
+import appeng.util.inv.IAEAppEngInventory;
+import appeng.util.inv.InvOperation;
 import appeng.util.Platform;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.client.renderer.GlStateManager;
@@ -46,6 +49,7 @@ import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -62,12 +66,21 @@ import java.io.IOException;
  * @version rv3
  * @since rv3
  */
-public abstract class AbstractPartMonitor extends AbstractPartDisplay implements IPartStorageMonitor, IStorageWatcherNode {
+public abstract class AbstractPartMonitor extends AbstractPartDisplay
+        implements IPartStorageMonitor, IStorageWatcherNode, IAEAppEngInventory {
 
     /**
-     * The one key this monitor watches, or null while unconfigured. Replaces the old split
-     * {@code configuredItem}/{@code configuredFluid} fields - both variants of {@code IAEStack} used to need their
-     * own field, but a single type-erased {@link AEKey} covers both (and any future type) uniformly.
+     * What the monitor watches, as one slot of a config inventory rather than a bare field: a slot is what a
+     * screen can show, click on and be dropped into, and this one holds a key of any type rather than an
+     * {@link ItemStack}, so a fluid works there with no code of its own.
+     */
+    private final AppEngInternalAEInventory config = new AppEngInternalAEInventory(this, 1);
+
+    /**
+     * The one key this monitor watches, or null while unconfigured. Mirrors the config slot on the server and
+     * arrives from the stream on the client. Replaces the old split {@code configuredItem}/{@code configuredFluid}
+     * fields - both variants of {@code IAEStack} used to need their own field, but a single type-erased
+     * {@link AEKey} covers both (and any future type) uniformly.
      */
     @Nullable
     private AEKey configuredKey;
@@ -85,7 +98,14 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         super.readFromNBT(data);
 
         this.isLocked = data.getBoolean("isLocked");
-        this.configuredKey = AEKey.fromTagGeneric(data.getCompoundTag("configuredKey"));
+        this.config.readFromNBT(data, "config");
+        this.configuredKey = this.config.getAEStackInSlot(0) == null ? null : this.config.getAEStackInSlot(0).what();
+
+        // A monitor placed before the config slot existed kept its key in a tag of its own. Read it when the
+        // slot is empty, or every configured monitor in an existing world comes back blank.
+        if (this.configuredKey == null && data.hasKey("configuredKey")) {
+            this.setConfiguredKey(AEKey.fromTagGeneric(data.getCompoundTag("configuredKey")));
+        }
     }
 
     @Override
@@ -93,12 +113,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         super.writeToNBT(data);
 
         data.setBoolean("isLocked", this.isLocked);
-
-        final NBTTagCompound keyTag = new NBTTagCompound();
-        if (this.configuredKey != null) {
-            this.configuredKey.toTagGeneric(keyTag);
-        }
-        data.setTag("configuredKey", keyTag);
+        this.config.writeToNBT(data, "config");
     }
 
     @Override
@@ -144,7 +159,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
             final ItemStack eq = player.getHeldItem(hand);
 
             if (eq.isEmpty()) {
-                this.configuredKey = null;
+                this.setConfiguredKey(null);
             } else if (AEItemKey.matches(this.configuredKey, eq)) {
                 // The container is already on the monitor, so this click asks for what is inside it instead.
                 // Whether anything is depends on the registered strategies, so a key type an addon brings
@@ -152,15 +167,11 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
                 final GenericStack contained = ContainerItemStrategies.getContainedStack(eq);
 
                 if (contained != null) {
-                    this.configuredKey = contained.what();
+                    this.setConfiguredKey(contained.what());
                 }
             } else {
-                this.configuredKey = AEItemKey.of(eq);
+                this.setConfiguredKey(AEItemKey.of(eq));
             }
-
-            this.configureWatchers();
-            this.getHost().markForSave();
-            this.getHost().markForUpdate();
         } else {
             return super.onPartActivate(player, hand, pos);
         }
@@ -168,6 +179,10 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
         return true;
     }
 
+    /**
+     * The lock used to live on this gesture alone, which left a monitor with one setting and no room for
+     * another. It is a button in the window now, and the gesture opens the window.
+     */
     @Override
     public boolean onPartShiftActivate(EntityPlayer player, EnumHand hand, Vec3d pos) {
         if (Platform.isClient()) {
@@ -178,18 +193,47 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
             return false;
         }
 
-        if (!Platform.hasPermissions(this.getLocation(), player)) {
-            return false;
-        }
-
         if (player.getHeldItem(hand).isEmpty()) {
-            this.isLocked = !this.isLocked;
-            player.sendMessage((this.isLocked ? PlayerMessages.isNowLocked : PlayerMessages.isNowUnlocked).get());
-            this.getHost().markForSave();
-            this.getHost().markForUpdate();
+            // The permission is checked by the bridge on the way in, and again on every tick the window is
+            // open, which the check that used to stand here could not do.
+            Platform.openGUI(player, this.getHost().getTile(), this.getSide(), GuiBridge.GUI_MONITOR);
         }
 
         return true;
+    }
+
+    public void setLocked(final boolean locked) {
+        if (this.isLocked == locked) {
+            return;
+        }
+
+        this.isLocked = locked;
+        this.getHost().markForSave();
+        this.getHost().markForUpdate();
+    }
+
+    public AppEngInternalAEInventory getConfigInventory() {
+        return this.config;
+    }
+
+    protected void setConfiguredKey(@Nullable final AEKey key) {
+        this.config.setStackInSlot(0, key == null ? ItemStack.EMPTY : GenericStack.wrapInItemStack(key, 1));
+    }
+
+    @Override
+    public void saveChanges() {
+        this.getHost().markForSave();
+    }
+
+    @Override
+    public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc,
+            final ItemStack removedStack, final ItemStack newStack) {
+        final GenericStack configured = this.config.getAEStackInSlot(0);
+        this.configuredKey = configured == null ? null : configured.what();
+
+        this.configureWatchers();
+        this.getHost().markForSave();
+        this.getHost().markForUpdate();
     }
 
     // update the system...
@@ -206,6 +250,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay implements
 
                 this.configuredAmount = this.getProxy().getStorage().getCachedInventory().get(this.configuredKey);
             }
+
         } catch (final GridAccessException e) {
             // >.>
         }

@@ -155,6 +155,10 @@ public enum GuiBridge implements IGuiHandler {
     // extends (Container/Gui) + Bus
     GUI_LEVEL_EMITTER(ContainerLevelEmitter.class, PartLevelEmitter.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
+    // Every monitor opens the same window, so the target is the class they all share rather than one
+    // of them: a conversion monitor has the same key and the same lock as a storage monitor.
+    GUI_MONITOR(ContainerMonitor.class, AbstractPartMonitor.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
+
 
     GUI_SPATIAL_IO_PORT(ContainerSpatialIOPort.class, TileSpatialIOPort.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
