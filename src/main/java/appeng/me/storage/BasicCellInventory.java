@@ -518,7 +518,7 @@ public class BasicCellInventory implements StorageCell {
 
         if (mode == Actionable.MODULATE) {
             this.getCellItems().put(what, currentAmount + toInsert);
-            this.saveChanges();
+            this.saveChanges(what, toInsert);
         }
 
         return toInsert;
@@ -539,7 +539,7 @@ public class BasicCellInventory implements StorageCell {
             } else {
                 this.getCellItems().put(what, currentAmount - extracted);
             }
-            this.saveChanges();
+            this.saveChanges(what, -extracted);
         }
 
         return extracted;
@@ -662,6 +662,24 @@ public class BasicCellInventory implements StorageCell {
         }
     }
 
+    /**
+     * One key moved by a known amount, which is every change but a reload: the totals are adjusted rather than
+     * added up again. Counting the whole cell to learn what one insertion did costs a pass over sixty-three
+     * entries per item moved, and a busy network moves a great many.
+     */
+    private void saveChanges(final AEKey what, final long delta) {
+        this.storedItemTypes = this.getCellItems().size();
+        this.storedItemCount += delta;
+
+        if (this.storedAmountsByType != null) {
+            final AEKeyType type = what.getType();
+            this.storedAmountsByType.put(type, this.storedAmountsByType.getLong(type) + delta);
+        }
+
+        this.markDirty();
+    }
+
+    /** When what changed is not one known amount, and the totals have to be built from the contents. */
     private void saveChanges() {
         this.storedItemTypes = this.getCellItems().size();
         this.storedAmountsByType = null;
@@ -672,6 +690,10 @@ public class BasicCellInventory implements StorageCell {
         }
         this.storedItemCount = count;
 
+        this.markDirty();
+    }
+
+    private void markDirty() {
         this.isPersisted = false;
         if (this.container != null) {
             this.container.saveChanges();
