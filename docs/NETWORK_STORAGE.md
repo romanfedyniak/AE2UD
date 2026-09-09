@@ -64,6 +64,21 @@ Watchers hear about changes **once per tick, in one batch**, exactly as they did
 machine that moves the same stack a hundred times in a tick must not wake a level emitter a hundred times, and
 keeping the batching is what makes this change invisible from outside.
 
+## What an insertion costs
+
+`NetworkStorage.insert` gives sticky mounts first refusal before the ordinary search runs, and that pass walks
+every mount on the network. The ordinary search after it usually stops almost at once, because
+`MEInventoryHandler.isPreferredStorageFor` calls a mount preferred when it already holds the key - so on a
+network of a thousand cells the sticky pass was not half the cost of an insertion, it was nearly all of it:
+1 578 ns against 87 ns without it.
+
+So the network remembers whether it has any sticky mount at all, and skips the pass when it has none. The
+remembering is the fiddly part: a Sticky Card put into a storage bus calls `setSticky` on a mount that is
+already mounted, because `PartStorageBus.getInternalHandler` asks for a fresh mount only when the bus starts
+or stops offering storage at all. A count kept at mount time would therefore go stale and quietly turn sticky
+behaviour off. `MEInventoryHandler` tells the network instead, and the answer is recounted on the next
+insertion.
+
 ## The contract, and how a breach is found
 
 A mount that changes behind the network's back, implements nothing and calls nothing will be shown with a

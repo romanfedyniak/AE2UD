@@ -69,6 +69,15 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
     private final StorageChangeListeners listeners = new StorageChangeListeners();
     private final Listener forwarder = this.listeners::post;
 
+    /**
+     * Whether any mount is sticky, and whether that is still known. Worth keeping because the sticky pass in
+     * {@link #insert} walks every mount before the ordinary one does, and on a network with no Sticky Card at
+     * all - which is most of them - that walk finds nothing and costs about half of what an insertion costs.
+     */
+    private boolean stickyMountsKnown = false;
+    private boolean anyStickyMounts = false;
+    private final Runnable stickyChanged = () -> this.stickyMountsKnown = false;
+
     public NetworkStorage() {
         this.priorityInventory = new TreeMap<>(PRIORITY_SORTER);
     }
@@ -121,6 +130,11 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
             if (reportsForItself(inventory)) {
                 ((IStorageChangeSource) inventory).addChangeListener(this.forwarder);
             }
+
+            this.stickyMountsKnown = false;
+            if (inventory instanceof MEInventoryHandler handler) {
+                handler.setStickyObserver(this.stickyChanged);
+            }
         }
     }
 
@@ -133,6 +147,11 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
         } else {
             if (reportsForItself(inventory)) {
                 ((IStorageChangeSource) inventory).removeChangeListener(this.forwarder);
+            }
+
+            this.stickyMountsKnown = false;
+            if (inventory instanceof MEInventoryHandler handler) {
+                handler.setStickyObserver(null);
             }
 
             final var prioIt = this.priorityInventory.entrySet().iterator();
@@ -165,16 +184,18 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
             // non-sticky mounts afterwards - even if the sticky mount(s) can't hold all of `remaining`. The excess
             // is simply not inserted this call, exactly like the old sticky pass returning early.
             boolean stickyClaimed = false;
-            for (final var invList : this.priorityInventory.values()) {
-                for (final var inv : invList) {
-                    if (this.isQueuedForRemoval(inv) || !isSticky(inv)) {
-                        continue;
-                    }
+            if (this.hasStickyMounts()) {
+                for (final var invList : this.priorityInventory.values()) {
+                    for (final var inv : invList) {
+                        if (this.isQueuedForRemoval(inv) || !isSticky(inv)) {
+                            continue;
+                        }
 
-                    if (inv.isPreferredStorageFor(what, src)) {
-                        stickyClaimed = true;
-                        if (remaining > 0) {
-                            remaining -= this.insertInto(inv, what, remaining, type, src);
+                        if (inv.isPreferredStorageFor(what, src)) {
+                            stickyClaimed = true;
+                            if (remaining > 0) {
+                                remaining -= this.insertInto(inv, what, remaining, type, src);
+                            }
                         }
                     }
                 }
@@ -278,6 +299,26 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
      *         CONTRACT.md §10) with no upstream equivalent, so it's deliberately not part of {@link MEStorage}
      *         itself - only {@link MEInventoryHandler} (and its {@link DriveWatcher} subclass) can carry it.
      */
+    /** Counted once and then remembered, since mounting and carding are both far rarer than inserting. */
+    private boolean hasStickyMounts() {
+        if (!this.stickyMountsKnown) {
+            this.anyStickyMounts = false;
+
+            for (final var invList : this.priorityInventory.values()) {
+                for (final var inv : invList) {
+                    if (isSticky(inv)) {
+                        this.anyStickyMounts = true;
+                        break;
+                    }
+                }
+            }
+
+            this.stickyMountsKnown = true;
+        }
+
+        return this.anyStickyMounts;
+    }
+
     /** Whether that mount says when it changes, or has to be watched by whoever moves things into it. */
     private static boolean reportsForItself(final MEStorage inv) {
         return inv instanceof IStorageChangeSource source && source.reportsChanges();

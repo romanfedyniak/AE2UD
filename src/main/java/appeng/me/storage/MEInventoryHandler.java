@@ -19,6 +19,8 @@
 package appeng.me.storage;
 
 
+import javax.annotation.Nullable;
+
 import appeng.api.config.Actionable;
 import appeng.api.config.IncludeExclude;
 import appeng.api.networking.security.IActionSource;
@@ -52,6 +54,8 @@ public class MEInventoryHandler extends DelegatingMEInventory {
     private boolean allowInsertion = true;
     private boolean voidOverflow;
     private boolean sticky;
+    @Nullable
+    private Runnable stickyObserver;
 
     private boolean gettingAvailableContent = false;
 
@@ -101,7 +105,23 @@ public class MEInventoryHandler extends DelegatingMEInventory {
     }
 
     public void setSticky(final boolean sticky) {
+        if (this.sticky == sticky) {
+            return;
+        }
+
         this.sticky = sticky;
+
+        if (this.stickyObserver != null) {
+            this.stickyObserver.run();
+        }
+    }
+
+    /**
+     * Told when {@link #isSticky()} changes, because a card put into a storage bus changes it on a mount that
+     * is already mounted - the bus only asks for a fresh mount when it starts or stops offering storage at all.
+     */
+    void setStickyObserver(@Nullable final Runnable observer) {
+        this.stickyObserver = observer;
     }
 
     /** Always: what it wraps does not have to say anything, because this reports for it. */
