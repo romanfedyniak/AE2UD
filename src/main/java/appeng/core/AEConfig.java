@@ -68,6 +68,8 @@ public final class AEConfig extends Configuration {
     private int adHocNetworkChannels = 8;
     private int p2pTunnelChannelCost = 1;
     private int formationPlaneEntityLimit = 128;
+    private int visualiserMaxNodes = 16384;
+    private int visualiserUpdateInterval = 20;
     private int craftingCalculationTimePerTick = 5;
     private boolean craftingCPURequiresSingleChunk = false;
     private int craftingCPUMaxSizeX = 17;
@@ -137,6 +139,8 @@ public final class AEConfig extends Configuration {
 
         this.removeCrashingItemsOnLoad = this.get("general", "removeCrashingItemsOnLoad", false, "Will auto-remove items that crash when being loaded from storage. This will destroy those items instead of crashing the game!").getBoolean();
         this.auditNetworkStorage = this.get("general", "auditNetworkStorage", false, "For addon authors: once a second, count every network's contents the slow way and log anything that disagrees with the running total. Names the storage that is not reporting its changes. Costs real time on a large network; leave it off unless you are chasing a wrong count in a terminal.").getBoolean();
+        this.visualiserMaxNodes = this.get("general", "visualiserMaxNodes", this.visualiserMaxNodes, "How many blocks the network visualiser draws at most. The walk starts at the block it is bound to and stops here, so what is drawn is always the part of the network around that block.", 64, 1000000).getInt(this.visualiserMaxNodes);
+        this.visualiserUpdateInterval = this.get("general", "visualiserUpdateInterval", this.visualiserUpdateInterval, "How many ticks apart a network is walked for the visualisers pointed at it. One walk serves everyone watching that network; a network nobody is watching is never walked.", 1, 200).getInt(this.visualiserUpdateInterval);
         this.adHocNetworkChannels = this.get("general", "adHocNetworkChannels", this.adHocNetworkChannels, "How many channels a network with no controller carries. Asking for more than this leaves it with none at all, rather than with this many.").getInt(this.adHocNetworkChannels);
         this.p2pTunnelChannelCost = Math.max(0, this.get("general", "p2pTunnelChannelCost", this.p2pTunnelChannelCost, "How many channels an ME P2P tunnel takes from the network it sits in. What it carries through is a separate matter, decided by the cables at either end.").getInt(this.p2pTunnelChannelCost));
         this.setCategoryComment("ChannelTiers", "How many channels each kind of node carries. 0 carries nothing, -1 imposes no limit of its own and lets whatever is on either side decide. Addons add their own lines here.");
@@ -491,6 +495,14 @@ public final class AEConfig extends Configuration {
 
     public boolean isNetworkStorageAudited() {
         return this.auditNetworkStorage;
+    }
+
+    public int getVisualiserMaxNodes() {
+        return this.visualiserMaxNodes;
+    }
+
+    public int getVisualiserUpdateInterval() {
+        return this.visualiserUpdateInterval;
     }
 
     public int getFormationPlaneEntityLimit() {

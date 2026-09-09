@@ -29,6 +29,7 @@ import appeng.core.AppEng;
 import appeng.core.sync.packets.PacketPaintedEntity;
 import appeng.crafting.CraftingJob;
 import appeng.me.Grid;
+import appeng.me.visualiser.NetworkVisualiserService;
 import appeng.tile.AEBaseTile;
 import appeng.util.IWorldCallable;
 import appeng.util.Platform;
@@ -195,6 +196,8 @@ public class TickHandler {
             for (final Grid g : this.getRepo().networks) {
                 g.update();
             }
+
+            NetworkVisualiserService.INSTANCE.onServerTick();
 
             // cross world queue.
             this.processQueue(this.serverQueue, null);

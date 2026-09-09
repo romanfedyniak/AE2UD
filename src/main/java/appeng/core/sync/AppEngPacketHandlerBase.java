@@ -111,6 +111,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CLEAR_COMPASS_CACHE(PacketClearCompassCache.class),
 
+        PACKET_NETWORK_VISUALISER(PacketNetworkVisualiser.class),
+
         ;
 
 

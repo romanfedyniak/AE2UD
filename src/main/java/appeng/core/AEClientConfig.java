@@ -61,6 +61,8 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     /** Which recipe categories the mod offers JEI. Display only - nothing here changes a recipe. */
     private static final String CATEGORY_JEI = "JEI";
 
+    private static final String CATEGORY_VISUALISER = "NetworkVisualiser";
+
     private static AEClientConfig instance;
 
     private final IConfigManager settings = new ConfigManager(this);
@@ -73,6 +75,15 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     private boolean turnToHighlightedBlock = true;
     private boolean showCraftingPins = true;
     private boolean showPlayerPins = true;
+    private int visualiserRenderDistance = 128;
+    private int visualiserLabelDistance = 24;
+    private double visualiserLineWidth = 0.05;
+    private double visualiserNodeSize = 0.18;
+    private int visualiserNodeColor = 0xFF8CD6FF;
+    private int visualiserNodeMissingColor = 0xFFFF4040;
+    private int visualiserLinkIdleColor = 0xFF3CD63C;
+    private int visualiserLinkFullColor = 0xFFFF4040;
+    private int visualiserLinkOtherColor = 0xFFCCCCCC;
     private final Map<JeiCategory, Boolean> shownCategories = new EnumMap<>(JeiCategory.class);
     private PowerUnits selectedPowerUnit = PowerUnits.AE;
 
@@ -157,6 +168,27 @@ public final class AEClientConfig extends Configuration implements IConfigurable
         this.showPlayerPins = this.get(CATEGORY, "showPlayerPins", true,
                 "Whether terminals show persistent player pins.").getBoolean(true);
 
+        this.visualiserRenderDistance = this.get(CATEGORY_VISUALISER, "renderDistance", 128,
+                "How far from the player the network visualiser draws, in blocks.", 16, 512).getInt(128);
+        this.visualiserLabelDistance = this.get(CATEGORY_VISUALISER, "labelDistance", 24,
+                "How far from the player the network visualiser writes channel counts, in blocks.", 0, 128).getInt(24);
+        this.visualiserLineWidth = this.get(CATEGORY_VISUALISER, "lineWidth", 0.05,
+                "Half the thickness, in blocks, of a link carrying eight channels. Thicker tiers scale up from here.",
+                0.005, 0.5).getDouble(0.05);
+        this.visualiserNodeSize = this.get(CATEGORY_VISUALISER, "nodeSize", 0.18,
+                "Half the size, in blocks, of the cube drawn at a network node.", 0.02, 0.5).getDouble(0.18);
+
+        this.visualiserNodeColor = this.getColor(CATEGORY_VISUALISER, "nodeColor", 0xFF8CD6FF,
+                "Colour of a node, as AARRGGBB.");
+        this.visualiserNodeMissingColor = this.getColor(CATEGORY_VISUALISER, "nodeMissingChannelColor", 0xFFFF4040,
+                "Colour of a node that is asking for a channel it did not get.");
+        this.visualiserLinkIdleColor = this.getColor(CATEGORY_VISUALISER, "linkIdleColor", 0xFF3CD63C,
+                "Colour of a link carrying nothing. A link is coloured between this and linkFullColor by how full it is; the pair defaults to green and red, so change both if that pair is hard for you to tell apart.");
+        this.visualiserLinkFullColor = this.getColor(CATEGORY_VISUALISER, "linkFullColor", 0xFFFF4040,
+                "Colour of a link with no channels left.");
+        this.visualiserLinkOtherColor = this.getColor(CATEGORY_VISUALISER, "linkOtherColor", 0xFFCCCCCC,
+                "Colour of a link whose far end is not in this world, and of anything an addon draws without saying what colour it wants.");
+
         for (final JeiCategory category : JeiCategory.values()) {
             this.shownCategories.put(category,
                     this.get(CATEGORY_JEI, category.key(), true, category.comment()).getBoolean(true));
@@ -187,6 +219,54 @@ public final class AEClientConfig extends Configuration implements IConfigurable
     }
 
     /** Whether this recipe category is offered to JEI at all. A category switched off is never registered. */
+    /** Colours are written as AARRGGBB so that a person editing the file can read them. */
+    private int getColor(final String category, final String name, final int fallback, final String comment) {
+        final String written = this.get(category, name, String.format("%08X", fallback), comment).getString();
+
+        try {
+            return (int) Long.parseLong(written.trim(), 16);
+        } catch (final NumberFormatException e) {
+            AELog.warn("%s/%s is not a colour: %s", category, name, written);
+            return fallback;
+        }
+    }
+
+    public int getVisualiserRenderDistance() {
+        return this.visualiserRenderDistance;
+    }
+
+    public int getVisualiserLabelDistance() {
+        return this.visualiserLabelDistance;
+    }
+
+    public double getVisualiserLineWidth() {
+        return this.visualiserLineWidth;
+    }
+
+    public double getVisualiserNodeSize() {
+        return this.visualiserNodeSize;
+    }
+
+    public int getVisualiserNodeColor() {
+        return this.visualiserNodeColor;
+    }
+
+    public int getVisualiserNodeMissingColor() {
+        return this.visualiserNodeMissingColor;
+    }
+
+    public int getVisualiserLinkIdleColor() {
+        return this.visualiserLinkIdleColor;
+    }
+
+    public int getVisualiserLinkFullColor() {
+        return this.visualiserLinkFullColor;
+    }
+
+    public int getVisualiserLinkOtherColor() {
+        return this.visualiserLinkOtherColor;
+    }
+
     public boolean shows(final JeiCategory category) {
         return this.shownCategories.getOrDefault(category, true);
     }

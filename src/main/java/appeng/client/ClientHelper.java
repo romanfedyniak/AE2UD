@@ -49,6 +49,7 @@ import appeng.api.storage.cells.StorageCell;
 import appeng.client.gui.implementations.GuiCellView;
 import appeng.client.gui.implementations.GuiPatternView;
 import appeng.entity.RenderTinyTNTPrimed;
+import appeng.client.render.visualiser.NetworkVisualiserRenderer;
 import appeng.helpers.HighlighterHandler;
 import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.TickHandler;
@@ -173,6 +174,7 @@ public class ClientHelper extends ServerHelper {
     @SubscribeEvent
     public void renderWorldLastEvent(RenderWorldLastEvent event) {
         HighlighterHandler.tick(event);
+        NetworkVisualiserRenderer.render(event);
     }
 
     @Override

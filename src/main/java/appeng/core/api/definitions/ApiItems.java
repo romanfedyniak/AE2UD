@@ -83,6 +83,7 @@ public final class ApiItems implements IItems {
     private final IItemDefinition massCannon;
     private final IItemDefinition memoryCard;
     private final IItemDefinition networkTool;
+    private final IItemDefinition networkVisualiser;
     private final IItemDefinition portableCell;
 
     private final IItemDefinition cellCreative;
@@ -213,6 +214,7 @@ public final class ApiItems implements IItems {
                 .features(AEFeature.MEMORY_CARD)
                 .build();
         this.networkTool = registry.item("network_tool", ToolNetworkTool::new).features(AEFeature.NETWORK_TOOL).build();
+        this.networkVisualiser = registry.item("network_visualiser", ToolNetworkVisualiser::new).features(AEFeature.NETWORK_VISUALISER).build();
 
         this.cellCreative = registry.item("creative_storage_cell", ItemCreativeStorageCell::new)
                 .features(AEFeature.STORAGE_CELLS, AEFeature.CREATIVE)
@@ -409,6 +411,11 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition networkTool() {
         return this.networkTool;
+    }
+
+    @Override
+    public IItemDefinition networkVisualiser() {
+        return this.networkVisualiser;
     }
 
     @Override

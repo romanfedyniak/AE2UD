@@ -31,6 +31,7 @@ import appeng.core.worlddata.WorldData;
 import appeng.worldgen.MeteoriteWorldGen;
 import appeng.helpers.NonBlockingItems;
 import appeng.hooks.TickHandler;
+import appeng.me.visualiser.NetworkVisualiserService;
 import appeng.integration.IntegrationRegistry;
 import appeng.integration.IntegrationType;
 import appeng.server.AECommand;
@@ -248,6 +249,7 @@ public final class AppEng {
     private void serverStopped(final FMLServerStoppedEvent event) {
         WorldData.instance().onServerStoppped();
         TickHandler.INSTANCE.shutdown();
+        NetworkVisualiserService.INSTANCE.onServerStopped();
     }
 
     @EventHandler
