@@ -41,4 +41,19 @@ public interface IStorageWatcherNode {
      * @param amount the new total amount in the network.
      */
     void onStackChange(AEKey what, long amount);
+
+    /**
+     * How much of one key moved in the last tick, in each direction, for a node that asked to be metered
+     * through {@link IStorageService#meter}. Never called with both amounts zero, and never called at all
+     * for a node that did not ask.
+     * <p>
+     * This is not the same question as {@link #onStackChange}: a key that arrives and leaves again inside
+     * one tick does not change the total by anything, and the total is all a watcher is told about. What
+     * passes through a network is only visible here.
+     *
+     * @param inserted  how much appeared, never negative.
+     * @param extracted how much went away, never negative.
+     */
+    default void onStackFlow(AEKey what, long inserted, long extracted) {
+    }
 }

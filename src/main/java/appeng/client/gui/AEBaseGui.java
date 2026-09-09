@@ -465,7 +465,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
                 final String msg = tooltip.getMessage();
                 if (msg != null) {
-                    this.drawTooltip(x + 11, y + 4, msg);
+                    // Just off the widget's right edge, whatever it is wide. This used to be a fixed 11
+                    // pixels, which is the middle of the 16-wide icon buttons that were the only things
+                    // wearing a tooltip - a wider button had its explanation land on top of itself.
+                    this.drawTooltip(x + tooltip.getWidth() - 5, y + 4, msg);
                 }
             }
         }

@@ -23,8 +23,11 @@ import appeng.api.config.SecurityPermissions;
 import appeng.container.AEBaseContainer;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.SlotFakeTypeOnly;
+import appeng.core.AEConfig;
 import appeng.helpers.InventoryAction;
 import appeng.parts.reporting.AbstractPartMonitor;
+import appeng.parts.reporting.ThroughputFigure;
+import appeng.parts.reporting.ThroughputUnit;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -53,6 +56,16 @@ public class ContainerMonitor extends AEBaseContainer {
     @GuiSync(0)
     public boolean locked;
 
+    @GuiSync(1)
+    public ThroughputUnit unit = ThroughputUnit.OFF;
+
+    @GuiSync(2)
+    public ThroughputFigure figure = ThroughputFigure.NET;
+
+    /** Whether the server lets a monitor meter at all, so that a switched-off feature has no live button. */
+    @GuiSync(3)
+    public boolean throughputAllowed = true;
+
     public ContainerMonitor(final InventoryPlayer ip, final AbstractPartMonitor monitor) {
         super(ip, null, monitor);
 
@@ -80,7 +93,12 @@ public class ContainerMonitor extends AEBaseContainer {
     @Override
     public void detectAndSendChanges() {
         if (Platform.isServer()) {
+            final AEConfig config = AEConfig.instance();
+
             this.locked = this.monitor.isLocked();
+            this.unit = this.monitor.getThroughputUnit();
+            this.figure = this.monitor.getThroughputFigure();
+            this.throughputAllowed = config == null || config.isMonitorThroughputEnabled();
         }
 
         this.verifyPermissions(SecurityPermissions.BUILD, false);
@@ -92,7 +110,31 @@ public class ContainerMonitor extends AEBaseContainer {
         return this.locked;
     }
 
+    public ThroughputUnit getUnit() {
+        return this.unit;
+    }
+
+    public ThroughputFigure getFigure() {
+        return this.figure;
+    }
+
+    public boolean isThroughputAllowed() {
+        return this.throughputAllowed;
+    }
+
     public void toggleLock() {
         this.monitor.setLocked(!this.monitor.isLocked());
+    }
+
+    public void cycleUnit() {
+        final AEConfig config = AEConfig.instance();
+
+        if (config == null || config.isMonitorThroughputEnabled()) {
+            this.monitor.cycleThroughputUnit();
+        }
+    }
+
+    public void cycleFigure() {
+        this.monitor.cycleThroughputFigure();
     }
 }

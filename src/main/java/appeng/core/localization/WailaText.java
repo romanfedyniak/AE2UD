@@ -39,6 +39,8 @@ public enum WailaText {
     Locked,
     Unlocked,
     Showing,
+    Throughput,
+    InOut,
 
     Contains,
     Channels,

@@ -23,6 +23,9 @@ import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.GenericStack;
 import appeng.core.localization.WailaText;
+import appeng.parts.reporting.AbstractPartMonitor;
+import appeng.parts.reporting.ThroughputFigure;
+import appeng.parts.reporting.ThroughputUnit;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
 
@@ -63,6 +66,16 @@ public final class StorageMonitorWailaDataProvider extends BasePartWailaDataProv
             }
 
             currentToolTip.add((isLocked) ? WailaText.Locked.getLocal() : WailaText.Unlocked.getLocal());
+
+            // The face has room for one of the three numbers, and shows whichever was asked for. Here there
+            // is room for all of them, which is the only place a line's throughput can be read against what
+            // it is actually gaining or losing.
+            if (part instanceof AbstractPartMonitor meter && meter.getThroughputUnit() != ThroughputUnit.OFF) {
+                currentToolTip.add(WailaText.Throughput.getLocal() + ": "
+                        + meter.formatRate(ThroughputFigure.NET));
+                currentToolTip.add(WailaText.InOut.getLocal() + ": "
+                        + meter.formatRate(ThroughputFigure.IN) + "  " + meter.formatRate(ThroughputFigure.OUT));
+            }
         }
 
         return currentToolTip;

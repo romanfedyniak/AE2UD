@@ -26,6 +26,7 @@ package appeng.api.networking.storage;
 
 import appeng.api.networking.IGridCache;
 import appeng.api.networking.IGridNode;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
@@ -61,6 +62,20 @@ public interface IStorageService extends IGridCache {
     void refreshNodeStorageProvider(IGridNode node);
 
     void refreshGlobalStorageProvider(IStorageProvider provider);
+
+    /**
+     * Asks to be told how much of one key moves through this network, on top of the totals a watcher gets.
+     * A node meters one key at a time; asking again replaces what it was metering before.
+     * <p>
+     * Metering is not free the way watching is: the network has to keep the two directions apart for every
+     * metered key as changes come in, rather than adding them up. It costs nothing at all while nobody asks,
+     * so stop as soon as the answer stops being wanted.
+     *
+     * @see IStorageWatcherNode#onStackFlow
+     */
+    void meter(AEKey what, IStorageWatcherNode node);
+
+    void stopMetering(IStorageWatcherNode node);
 
     void invalidateCache();
 }

@@ -130,6 +130,10 @@ public class PacketValueConfig extends AppEngPacket {
             qk.setNewName(this.Value);
         } else if (this.Name.equals("Monitor.Lock") && c instanceof ContainerMonitor) {
             ((ContainerMonitor) c).toggleLock();
+        } else if (this.Name.equals("Monitor.Unit") && c instanceof ContainerMonitor) {
+            ((ContainerMonitor) c).cycleUnit();
+        } else if (this.Name.equals("Monitor.Figure") && c instanceof ContainerMonitor) {
+            ((ContainerMonitor) c).cycleFigure();
         } else if (this.Name.equals("Renamer.Reset") && c instanceof ContainerRenamer) {
             ((ContainerRenamer) c).reset();
         } else if (this.Name.equals("TileSecurityStation.ToggleOption") && c instanceof ContainerSecurityStation) {

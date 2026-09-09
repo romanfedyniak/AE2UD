@@ -98,6 +98,15 @@ public class GridStorageCache implements IStorageService, IGridCache {
      * leaves the grid.
      */
     private final Map<IGridNode, StackWatcher<IStorageWatcherNode>> watchers = new IdentityHashMap<>();
+    /**
+     * Which nodes want the gross flow of which key, and what has flowed this tick. Kept apart from
+     * {@link #pendingChanges} because that map answers a different question: it holds the sum, and a key that
+     * arrives and leaves again in one tick sums to nothing.
+     */
+    private final SetMultimap<AEKey, IStorageWatcherNode> metered = HashMultimap.create();
+    private final Map<IStorageWatcherNode, AEKey> meteredKeys = new IdentityHashMap<>();
+    private final Object2LongMap<AEKey> flowIn = new Object2LongOpenHashMap<>();
+    private final Object2LongMap<AEKey> flowOut = new Object2LongOpenHashMap<>();
 
     public GridStorageCache(final IGrid g) {
         this.myGrid = g;
@@ -108,11 +117,70 @@ public class GridStorageCache implements IStorageService, IGridCache {
     /** Called by whatever moved something, from anywhere - including a machine writing to its own mount. */
     private void recordChange(final AEKey what, final long delta) {
         this.pendingChanges.put(what, this.pendingChanges.getLong(what) + delta);
+
+        // One lookup, and only while something is actually being metered. Everything else about a change
+        // is the same as it was before there was such a thing as a meter.
+        if (!this.metered.isEmpty() && this.metered.containsKey(what)) {
+            if (delta > 0) {
+                this.flowIn.put(what, this.flowIn.getLong(what) + delta);
+            } else {
+                this.flowOut.put(what, this.flowOut.getLong(what) - delta);
+            }
+        }
+    }
+
+    @Override
+    public void meter(final AEKey what, final IStorageWatcherNode node) {
+        this.stopMetering(node);
+
+        this.metered.put(what, node);
+        this.meteredKeys.put(node, what);
+    }
+
+    @Override
+    public void stopMetering(final IStorageWatcherNode node) {
+        final AEKey was = this.meteredKeys.remove(node);
+
+        if (was != null) {
+            this.metered.remove(was, node);
+
+            if (!this.metered.containsKey(was)) {
+                this.flowIn.removeLong(was);
+                this.flowOut.removeLong(was);
+            }
+        }
+    }
+
+    /**
+     * Hands out what moved this tick and starts the next one empty. Batched exactly like the watcher updates
+     * beside it: a meter is a number per tick, not per operation.
+     */
+    private void deliverFlow() {
+        if (this.flowIn.isEmpty() && this.flowOut.isEmpty()) {
+            return;
+        }
+
+        for (final AEKey what : this.metered.keySet()) {
+            final long in = this.flowIn.getLong(what);
+            final long out = this.flowOut.getLong(what);
+
+            if (in == 0 && out == 0) {
+                continue;
+            }
+
+            for (final IStorageWatcherNode node : this.metered.get(what)) {
+                node.onStackFlow(what, in, out);
+            }
+        }
+
+        this.flowIn.clear();
+        this.flowOut.clear();
     }
 
     @Override
     public void onUpdateTick() {
         this.refreshCachedStacks();
+        this.deliverFlow();
 
         // Asked for the flag rather than assuming there is a config to ask: this service can be driven
         // without one around it, and then nobody has asked for an audit.
@@ -293,6 +361,10 @@ public class GridStorageCache implements IStorageService, IGridCache {
         final StackWatcher<IStorageWatcherNode> watcher = this.watchers.remove(node);
         if (watcher != null) {
             watcher.destroy();
+        }
+
+        if (machine instanceof IStorageWatcherNode) {
+            this.stopMetering((IStorageWatcherNode) machine);
         }
 
         final ProviderState providerState = this.nodeProviders.remove(node);

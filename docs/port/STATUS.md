@@ -2401,6 +2401,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     as a `ResourceLocation` and is turned into a colour on the client, so an addon installed only on the
     server leaves links that are drawn plainly rather than a client that cannot read the packet.
 
+52. **`IStorageService.meter` / `stopMetering`, and `default IStorageWatcherNode.onStackFlow`** - additive,
+    no upstream equivalent. A watcher is told the network's *total* for a key, which is a different question
+    from how much of it moved: a key that arrives and leaves inside one tick changes no total at all. The
+    network already sees every change separately (see amendment 50) and adds them up, so keeping the two
+    directions apart for a handful of asked-for keys costs one lookup per change and nothing at all while
+    nobody asks. Metering is deliberately not part of watching: a terminal watches every key in the network,
+    and inheriting a meter from that would meter the lot.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

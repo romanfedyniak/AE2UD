@@ -65,6 +65,7 @@ public final class AEConfig extends Configuration {
     // Misc
     private boolean removeCrashingItemsOnLoad = false;
     private boolean auditNetworkStorage = false;
+    private boolean monitorThroughput = true;
     private int adHocNetworkChannels = 8;
     private int p2pTunnelChannelCost = 1;
     private int formationPlaneEntityLimit = 128;
@@ -139,6 +140,7 @@ public final class AEConfig extends Configuration {
 
         this.removeCrashingItemsOnLoad = this.get("general", "removeCrashingItemsOnLoad", false, "Will auto-remove items that crash when being loaded from storage. This will destroy those items instead of crashing the game!").getBoolean();
         this.auditNetworkStorage = this.get("general", "auditNetworkStorage", false, "For addon authors: once a second, count every network's contents the slow way and log anything that disagrees with the running total. Names the storage that is not reporting its changes. Costs real time on a large network; leave it off unless you are chasing a wrong count in a terminal.").getBoolean();
+        this.monitorThroughput = this.get("general", "monitorThroughput", true, "Whether monitors can be switched to show how much of what they watch is moving. The network keeps the two directions of a change apart for every key a monitor is metering, which costs a lookup per change; nothing at all is done while no monitor is metering.").getBoolean();
         this.visualiserMaxNodes = this.get("general", "visualiserMaxNodes", this.visualiserMaxNodes, "How many blocks the network visualiser draws at most. The walk starts at the block it is bound to and stops here, so what is drawn is always the part of the network around that block.", 64, 1000000).getInt(this.visualiserMaxNodes);
         this.visualiserUpdateInterval = this.get("general", "visualiserUpdateInterval", this.visualiserUpdateInterval, "How many ticks apart a network is walked for the visualisers pointed at it. One walk serves everyone watching that network; a network nobody is watching is never walked.", 1, 200).getInt(this.visualiserUpdateInterval);
         this.adHocNetworkChannels = this.get("general", "adHocNetworkChannels", this.adHocNetworkChannels, "How many channels a network with no controller carries. Asking for more than this leaves it with none at all, rather than with this many.").getInt(this.adHocNetworkChannels);
@@ -491,6 +493,10 @@ public final class AEConfig extends Configuration {
     // Getters
     public boolean isRemoveCrashingItemsOnLoad() {
         return this.removeCrashingItemsOnLoad;
+    }
+
+    public boolean isMonitorThroughputEnabled() {
+        return this.monitorThroughput;
     }
 
     public boolean isNetworkStorageAudited() {

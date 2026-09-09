@@ -32,7 +32,7 @@ import net.minecraft.util.ResourceLocation;
  * so anything shorter than 20 loses its bottom border and looks cut off. This takes each border from the
  * edge it belongs to, in four pieces, so the frame closes at any size up to 20x20.
  */
-public class GuiSmallButton extends GuiButton {
+public class GuiSmallButton extends GuiButton implements ITooltip {
 
     private static final ResourceLocation TEXTURE = new ResourceLocation("textures/gui/widgets.png");
 
@@ -43,6 +43,14 @@ public class GuiSmallButton extends GuiButton {
     public GuiSmallButton(final int id, final int x, final int y, final int width, final int height,
             final String text) {
         super(id, x, y, width, height, text);
+    }
+
+    /** What to say when the pointer rests on it, or null for a button that explains itself. */
+    private String tooltip;
+
+    public GuiSmallButton setTooltip(final String tooltip) {
+        this.tooltip = tooltip;
+        return this;
     }
 
     @Override
@@ -83,5 +91,35 @@ public class GuiSmallButton extends GuiButton {
 
         this.drawCenteredString(minecraft.fontRenderer, this.displayString, this.x + this.width / 2,
                 this.y + (this.height - 8) / 2, color);
+    }
+
+    @Override
+    public String getMessage() {
+        return this.tooltip;
+    }
+
+    @Override
+    public int xPos() {
+        return this.x;
+    }
+
+    @Override
+    public int yPos() {
+        return this.y;
+    }
+
+    @Override
+    public int getWidth() {
+        return this.width;
+    }
+
+    @Override
+    public int getHeight() {
+        return this.height;
+    }
+
+    @Override
+    public boolean isVisible() {
+        return this.visible;
     }
 }

@@ -26,12 +26,20 @@ import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.storage.IStackWatcher;
 import appeng.api.networking.storage.IStorageWatcherNode;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.storage.IStorageService;
+import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.render.TesrRenderHelper;
+import appeng.core.AEConfig;
 import appeng.core.sync.GuiBridge;
+import appeng.core.settings.TickRates;
 import appeng.helpers.Reflected;
 import appeng.me.GridAccessException;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -67,7 +75,7 @@ import java.io.IOException;
  * @since rv3
  */
 public abstract class AbstractPartMonitor extends AbstractPartDisplay
-        implements IPartStorageMonitor, IStorageWatcherNode, IAEAppEngInventory {
+        implements IPartStorageMonitor, IStorageWatcherNode, IAEAppEngInventory, IGridTickable {
 
     /**
      * What the monitor watches, as one slot of a config inventory rather than a bare field: a slot is what a
@@ -88,6 +96,16 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
     private boolean isLocked;
     private IStackWatcher myWatcher;
 
+    /** How much of the watched key has moved lately. Server-side only; the client is sent the two rates. */
+    private final ThroughputMeter meter = new ThroughputMeter();
+
+    private ThroughputUnit unit = ThroughputUnit.OFF;
+    private ThroughputFigure figure = ThroughputFigure.NET;
+
+    /** Per tick, in each direction, as last sent. The unit is applied where the number is drawn. */
+    private float rateIn;
+    private float rateOut;
+
     @Reflected
     public AbstractPartMonitor(final ItemStack is) {
         super(is);
@@ -98,6 +116,8 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         super.readFromNBT(data);
 
         this.isLocked = data.getBoolean("isLocked");
+        this.unit = ThroughputUnit.byOrdinal(data.getInteger("throughputUnit"));
+        this.figure = ThroughputFigure.byOrdinal(data.getInteger("throughputFigure"));
         this.config.readFromNBT(data, "config");
         this.configuredKey = this.config.getAEStackInSlot(0) == null ? null : this.config.getAEStackInSlot(0).what();
 
@@ -113,6 +133,8 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         super.writeToNBT(data);
 
         data.setBoolean("isLocked", this.isLocked);
+        data.setInteger("throughputUnit", this.unit.ordinal());
+        data.setInteger("throughputFigure", this.figure.ordinal());
         this.config.writeToNBT(data, "config");
     }
 
@@ -123,6 +145,10 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         data.writeBoolean(this.isLocked);
         AEKey.writeOptionalKey(data, this.configuredKey);
         data.writeLong(this.configuredAmount);
+        data.writeByte(this.unit.ordinal());
+        data.writeByte(this.figure.ordinal());
+        data.writeFloat(this.rateIn);
+        data.writeFloat(this.rateOut);
     }
 
     @Override
@@ -137,6 +163,11 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         // Not part of needRedraw: the amount is drawn by the dynamic renderer, and a monitor on a busy
         // network would rebuild its chunk on every change.
         this.configuredAmount = data.readLong();
+
+        this.unit = ThroughputUnit.byOrdinal(data.readByte());
+        this.figure = ThroughputFigure.byOrdinal(data.readByte());
+        this.rateIn = data.readFloat();
+        this.rateOut = data.readFloat();
 
         return needRedraw;
     }
@@ -251,9 +282,110 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
                 this.configuredAmount = this.getProxy().getStorage().getCachedInventory().get(this.configuredKey);
             }
 
+            this.configureMeter();
         } catch (final GridAccessException e) {
             // >.>
         }
+    }
+
+    /**
+     * Asks the network for the gross flow of the watched key, or stops asking. Metering costs the network
+     * something per change, so a monitor that is not showing a rate does not ask for one.
+     */
+    private void configureMeter() throws GridAccessException {
+        final IStorageService storage = this.getProxy().getStorage();
+        final AEConfig config = AEConfig.instance();
+        final boolean wanted = this.unit != ThroughputUnit.OFF && this.configuredKey != null
+                && (config == null || config.isMonitorThroughputEnabled());
+
+        if (wanted) {
+            storage.meter(this.configuredKey, this);
+        } else {
+            storage.stopMetering(this);
+            this.meter.clear();
+            this.rateIn = 0;
+            this.rateOut = 0;
+        }
+    }
+
+    @Override
+    public void onStackFlow(final AEKey what, final long inserted, final long extracted) {
+        this.meter.add(inserted, extracted);
+    }
+
+    public ThroughputUnit getThroughputUnit() {
+        return this.unit;
+    }
+
+    public ThroughputFigure getThroughputFigure() {
+        return this.figure;
+    }
+
+    public float getRateIn() {
+        return this.rateIn;
+    }
+
+    public float getRateOut() {
+        return this.rateOut;
+    }
+
+    public void cycleThroughputUnit() {
+        this.unit = this.unit.next();
+
+        this.meter.clear();
+        this.rateIn = 0;
+        this.rateOut = 0;
+
+        try {
+            this.configureMeter();
+            // Woken rather than alerted: this device is not alertable, and a monitor that has been showing
+            // nothing is asleep - it would have stayed that way until something else in the network stirred.
+            this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            // >.>
+        }
+
+        this.getHost().markForSave();
+        this.getHost().markForUpdate();
+    }
+
+    public void cycleThroughputFigure() {
+        this.figure = this.figure.next();
+
+        this.getHost().markForSave();
+        this.getHost().markForUpdate();
+    }
+
+    @Override
+    public TickingRequest getTickingRequest(final IGridNode node) {
+        return new TickingRequest(TickRates.Monitor.getMin(), TickRates.Monitor.getMax(),
+                this.unit == ThroughputUnit.OFF, false);
+    }
+
+    @Override
+    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
+        if (this.unit == ThroughputUnit.OFF) {
+            return TickRateModulation.SLEEP;
+        }
+
+        this.meter.advance(ticksSinceLastCall);
+
+        final float in = (float) this.meter.inRate(this.unit.getWindow());
+        final float out = (float) this.meter.outRate(this.unit.getWindow());
+
+        // Sent when the number a player would read changes, not when the measurement does. A rate moves every
+        // tick by an amount nobody can see, and every send is a block update to everyone in range.
+        if (worthSending(in, this.rateIn) || worthSending(out, this.rateOut)) {
+            this.rateIn = in;
+            this.rateOut = out;
+            this.getHost().markForUpdate();
+        }
+
+        return TickRateModulation.SAME;
+    }
+
+    private static boolean worthSending(final float now, final float before) {
+        return Math.abs(now - before) > 0.0001f + 0.002f * Math.abs(before);
     }
 
     @Override
@@ -277,9 +409,55 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
 
         TesrRenderHelper.moveToFace(facing);
         TesrRenderHelper.rotateToFace(facing, this.getSpin());
-        TesrRenderHelper.renderKey2dWithAmount(key, this.configuredAmount, 0.8f, 0.17f);
+        TesrRenderHelper.renderKey2dWithAmount(key, this.configuredAmount, 0.8f, 0.17f,
+                this.formatRate(this.figure), rateColor(this.rateOf(this.figure), this.figure));
         GlStateManager.popMatrix();
 
+    }
+
+    /** What this monitor is showing per its chosen span, in the direction asked for. */
+    public double rateOf(final ThroughputFigure which) {
+        return which.valueOf(this.rateIn, this.rateOut) * this.unit.getTicks();
+    }
+
+    /**
+     * The line under the amount, or null on a monitor that is not metering. Every piece of it comes out of the
+     * language file - the sign, the arrow and the order they sit in - because a number and a unit are not put
+     * together the same way in every language.
+     */
+    @Nullable
+    @SideOnly(Side.CLIENT)
+    public String formatRate(final ThroughputFigure which) {
+        if (this.unit == ThroughputUnit.OFF || this.configuredKey == null) {
+            return null;
+        }
+
+        final double value = this.rateOf(which);
+        final double magnitude = Math.abs(value);
+
+        // Rounded to a whole one the moment there is more than one of it, since that is how much of anything
+        // a monitor ever shows - but a rate is allowed to be a fraction, and a slow line reading "0" would be
+        // indistinguishable from a stopped one.
+        final String number = magnitude >= 10 || magnitude == 0
+                ? this.configuredKey.formatAmount(Math.round(magnitude), AmountFormat.PREVIEW_LARGE)
+                : String.format("%.2f", magnitude);
+
+        final String signed = (value < 0 ? "-" : which == ThroughputFigure.NET && value > 0 ? "+" : "") + number;
+
+        return which.getFormat().getLocal(signed, this.unit.getLabel().getLocal());
+    }
+
+    /**
+     * Green for what the network gains, red for what it loses, grey for nothing moving - grey rather than the
+     * black the amount is drawn in, so that a still line is told apart from the stock above it at a glance.
+     */
+    @SideOnly(Side.CLIENT)
+    public static int rateColor(final double value, final ThroughputFigure which) {
+        if (value == 0) {
+            return 0x808080;
+        }
+
+        return which == ThroughputFigure.OUT || value < 0 ? 0xD03030 : 0x17B66C;
     }
 
     @Override

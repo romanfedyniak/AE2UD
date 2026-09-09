@@ -23,6 +23,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.*;
@@ -114,6 +115,20 @@ public class TesrRenderHelper {
     private static final float BLOCK_DEPTH = 0.0001f;
 
     /**
+     * How much smaller both lines are drawn once there are two of them, and how far above a lone amount the
+     * pair starts. Taken from GregTech: New Horizons' throughput monitor, which solves the same fit by
+     * halving the text rather than by moving the icon: it draws its two lines at 1/120 where one line is
+     * drawn at 1/62, starting at 0.14 - just under the icon - so the pair ends exactly where a single
+     * amount ends. Raising the icon instead was tried and looks worse: the picture is then off-centre on
+     * every monitor that is metering and level on every one that is not.
+     */
+    private static final float PAIRED_TEXT_SCALE = 62.0f / 120.0f;
+    private static final float PAIRED_TEXT_RISE = 0.03f;
+
+    /** The gap between the two lines, in the font's own pixels. */
+    private static final int PAIRED_TEXT_GAP = 3;
+
+    /**
      * Render an item in 2D.
      */
     public static void renderItem2d(ItemStack itemStack, float scale) {
@@ -192,6 +207,15 @@ public class TesrRenderHelper {
      * @param spacing Specifies how far apart the icon and the amount are rendered.
      */
     public static void renderKey2dWithAmount(AEKey what, long amount, float scale, float spacing) {
+        renderKey2dWithAmount(what, amount, scale, spacing, null, 0);
+    }
+
+    /**
+     * The same, with a second line under the amount - how much of this key is moving, on a monitor that has
+     * been asked to show that.
+     */
+    public static void renderKey2dWithAmount(AEKey what, long amount, float scale, float spacing,
+            @Nullable String rate, int rateColor) {
         if (what instanceof AEItemKey itemKey) {
             // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
             TesrRenderHelper.renderItem2d(itemKey.toStack(), scale);
@@ -203,16 +227,39 @@ public class TesrRenderHelper {
             return;
         }
 
-        renderAmount2d(what.formatAmount(amount, AmountFormat.PREVIEW_LARGE), spacing);
+        // Two lines do not fit where one did. The lit panel of a display part is twelve pixels of the
+        // sixteen, so a second line at full size falls off the bottom of the block entirely: the pair is
+        // drawn smaller and tucked under the icon, ending where the single line ends.
+        final float textScale = rate == null ? 1.0f : PAIRED_TEXT_SCALE;
+        final float top = rate == null ? spacing : spacing - PAIRED_TEXT_RISE;
+
+        final int width = renderAmount2d(what.formatAmount(amount, AmountFormat.PREVIEW_LARGE), top, textScale);
+
+        if (rate != null) {
+            renderRate2d(rate, rateColor, width);
+        }
     }
 
-    private static void renderAmount2d(String text, float spacing) {
+    /** @return how wide the line came out, which is what a line under it has to be centred against. */
+    private static int renderAmount2d(String text, float spacing, float textScale) {
         final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
         final int width = fr.getStringWidth(text);
         GlStateManager.translate(0.0f, spacing, 0);
-        GlStateManager.scale(1.0f / 62.0f, 1.0f / 62.0f, 1.0f / 62.0f);
+        GlStateManager.scale(textScale / 62.0f, textScale / 62.0f, textScale / 62.0f);
         GlStateManager.translate(-0.5f * width, 0.0f, 0.5f);
         fr.drawString(text, 0, 0, 0);
+        return width;
+    }
+
+    /**
+     * A line under the amount, still in the space the amount was drawn in - so it is placed by undoing the
+     * centring of the line above rather than by starting again.
+     */
+    private static void renderRate2d(String text, int color, int amountWidth) {
+        final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
+        final int width = fr.getStringWidth(text);
+        GlStateManager.translate(0.5f * amountWidth - 0.5f * width, fr.FONT_HEIGHT + PAIRED_TEXT_GAP, 0.5f);
+        fr.drawString(text, 0, 0, color);
     }
 
 }

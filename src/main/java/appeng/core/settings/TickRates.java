@@ -40,6 +40,8 @@ public enum TickRates {
 
     METunnel(5, 20),
 
+    Monitor(10, 20),
+
     Inscriber(1, 1),
 
     Charger(10, 120),
