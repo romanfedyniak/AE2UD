@@ -35,6 +35,8 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
     private GuiImgButton rwMode;
     private static final Pattern ORE_DICTIONARY_FILTER = Pattern.compile("[0-9a-zA-Z* &|^!()]*");
     private MEGuiTextField searchFieldInputs;
+    /** The expression as the bus holds it, so closing the window only sends one that was edited. */
+    private String savedRegex = "";
 
     public GuiOreDictStorageBus(final InventoryPlayer inventoryPlayer, final PartOreDicStorageBus te) {
         super(new ContainerOreDictStorageBus(inventoryPlayer, te));
@@ -77,6 +79,17 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
 
     public void fillRegex(String regex) {
         this.searchFieldInputs.setText(regex);
+        this.savedRegex = this.searchFieldInputs.getText();
+    }
+
+    /** Sends the expression only when it differs from what the bus already holds. */
+    private void saveRegex() throws IOException {
+        this.searchFieldInputs.setText(OreDictFilterMatcher.validateExp(this.searchFieldInputs.getText()));
+        final String regex = this.searchFieldInputs.getText();
+        if (!regex.equals(this.savedRegex)) {
+            NetworkHandler.instance().sendToServer(new PacketValueConfig("OreDictStorageBus.save", regex));
+            this.savedRegex = regex;
+        }
     }
 
     @Override
@@ -110,8 +123,7 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
         }
 
         if (!searchFieldInputs.isFocused() && wasFocused) {
-            searchFieldInputs.setText(OreDictFilterMatcher.validateExp(searchFieldInputs.getText()));
-            NetworkHandler.instance().sendToServer(new PacketValueConfig("OreDictStorageBus.save", searchFieldInputs.getText()));
+            this.saveRegex();
         }
 
         super.mouseClicked(xCoord, yCoord, btn);
@@ -121,10 +133,14 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
-                searchFieldInputs.setText(OreDictFilterMatcher.validateExp(searchFieldInputs.getText()));
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("OreDictStorageBus.save", searchFieldInputs.getText()));
+                this.saveRegex();
             }
             if (!this.searchFieldInputs.textboxKeyTyped(character, key)) {
+                // Before the window closes, not in onGuiClosed: the close reaches the server first, and it ignores
+                // a save for a container that is no longer open.
+                if (key == Keyboard.KEY_ESCAPE || this.mc.gameSettings.keyBindInventory.isActiveAndMatches(key)) {
+                    this.saveRegex();
+                }
                 super.keyTyped(character, key);
             }
         }

@@ -226,6 +226,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #604](https://github.com/AE2-UEL/Applied-Energistics-2/pull/604) stops reading
   the off hand at all, and a memory card's paste as an input with it.
 
+- **An ore dictionary storage bus threw away an expression if its window was closed with Escape.** It saved
+  on Enter and when a click took the focus from the field, but Escape while typing closed the window with the
+  field still focused. Escape and the inventory key save it now, just before the window closes - a save sent
+  once it has closed arrives after the server has shut the container and is ignored - and only when it
+  changed. Reported in
+  [AE2 Unofficial Extended Life #549](https://github.com/AE2-UEL/Applied-Energistics-2/pull/549), which saves on
+  Escape alone.
+
 - **An import or export bus ignored a change of its redstone mode.** The mode was saved, but nothing woke the
   bus or put it to sleep, so it went on as the old mode had it until something next to it changed. In pulse
   mode it did its work in the middle of the block update that carried the pulse, and a bus that had slowed
