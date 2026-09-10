@@ -36,6 +36,7 @@ import appeng.block.networking.BlockController.ControllerBlockState;
 import appeng.me.GridAccessException;
 import appeng.tile.grid.AENetworkPowerTile;
 import appeng.util.inv.InvOperation;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
@@ -111,8 +112,14 @@ public class TileController extends AENetworkPowerTile {
             metaState = ControllerBlockState.offline;
         }
 
-        if (this.checkController(this.pos) && this.world.getBlockState(this.pos).getValue(BlockController.CONTROLLER_STATE) != metaState) {
-            this.world.setBlockState(this.pos, this.world.getBlockState(this.pos).withProperty(BlockController.CONTROLLER_STATE, metaState));
+        if (!this.checkController(this.pos)) {
+            return;
+        }
+
+        // An explosion turns the block to air before the tile hears that its network lost power.
+        final IBlockState state = this.world.getBlockState(this.pos);
+        if (state.getBlock() instanceof BlockController && state.getValue(BlockController.CONTROLLER_STATE) != metaState) {
+            this.world.setBlockState(this.pos, state.withProperty(BlockController.CONTROLLER_STATE, metaState));
         }
 
     }

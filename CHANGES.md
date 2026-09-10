@@ -198,6 +198,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   brackets with it. The colon was fixed first in
   [AE2 Unofficial Extended Life #547](https://github.com/AE2-UEL/Applied-Energistics-2/pull/547).
 
+- **A server crashed when an explosion took an ME Controller.** The tile outlives its block for a moment: the
+  explosion turns the block to air before the network tells the tile it lost power, and the tile then asked
+  the air which light it had on. A crafting unit, co-processor or crafting storage asked the same of whatever
+  block stood in its place, which crashed a server whose world generator swapped such a block out. Each of
+  them checks the block is still its own first. Reported in
+  [AE2 Unofficial Extended Life #606](https://github.com/AE2-UEL/Applied-Energistics-2/issues/606) and
+  [AE2 Unofficial Extended Life #567](https://github.com/AE2-UEL/Applied-Energistics-2/issues/567).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

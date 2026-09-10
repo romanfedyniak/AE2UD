@@ -86,7 +86,10 @@ public class TileCraftingStorageTile extends TileCraftingTile {
             return 0;
         }
 
-        final BlockCraftingUnit unit = (BlockCraftingUnit) this.world.getBlockState(this.pos).getBlock();
+        if (!(this.world.getBlockState(this.pos).getBlock() instanceof BlockCraftingUnit unit)) {
+            return 0;
+        }
+
         switch (unit.type) {
             default:
             case STORAGE_1K:

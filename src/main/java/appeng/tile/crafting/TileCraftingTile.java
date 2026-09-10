@@ -136,7 +136,10 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
             return 0;
         }
 
-        final BlockCraftingUnit unit = (BlockCraftingUnit) this.world.getBlockState(this.pos).getBlock();
+        // A tile can outlive its block for a moment, when an explosion or another mod replaces the block.
+        if (!(this.world.getBlockState(this.pos).getBlock() instanceof BlockCraftingUnit unit)) {
+            return 0;
+        }
 
         switch (unit.type) {
             case ACCELERATOR:
@@ -225,7 +228,8 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
 
     public boolean isFormed() {
         if (Platform.isClient()) {
-            return this.world.getBlockState(this.pos).getValue(BlockCraftingUnit.FORMED);
+            final IBlockState state = this.world.getBlockState(this.pos);
+            return state.getBlock() instanceof BlockCraftingUnit && state.getValue(BlockCraftingUnit.FORMED);
         }
         return this.cluster != null;
     }
@@ -371,7 +375,8 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     @Override
     public boolean isPowered() {
         if (Platform.isClient()) {
-            return this.world.getBlockState(this.pos).getValue(BlockCraftingUnit.POWERED);
+            final IBlockState state = this.world.getBlockState(this.pos);
+            return state.getBlock() instanceof BlockCraftingUnit && state.getValue(BlockCraftingUnit.POWERED);
         }
         return this.getProxy().isActive();
     }
