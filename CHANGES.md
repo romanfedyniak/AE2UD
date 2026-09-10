@@ -171,6 +171,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   thing, but asks before checking there is anything to ask, which throws for every output with no machine
   beside it; this checks first.
 
+- **A power or light P2P tunnel in a chunk nobody was near delivered nothing.** A part works out whether it
+  has power and a channel while writing the packet that tells nearby players, and nowhere else - but the FE
+  and GregTech EU tunnels read that same answer on the server to decide whether an output is connected, and
+  the light tunnel reads it to decide how bright to be. With no player in range no packet is written, so a
+  tunnel behind a chunk loader stayed switched off. The answer is also worked out now whenever the network's
+  power, channels or boot state change. Fixed first in
+  [AE2 Unofficial Extended Life #570](https://github.com/AE2-UEL/Applied-Energistics-2/pull/570), which moved
+  the work out of the packet altogether; here it stays in the packet as well, because a toggle bus and a level
+  emitter add flags of their own that no network event announces, and they would have kept showing a stale
+  state.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

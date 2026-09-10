@@ -46,16 +46,19 @@ public abstract class PartBasicState extends AEBasePart implements IPowerChannel
 
     @MENetworkEventSubscribe
     public void chanRender(final MENetworkChannelsChanged c) {
+        this.updateClientFlags();
         this.getHost().markForUpdate();
     }
 
     @MENetworkEventSubscribe
     public void powerRender(final MENetworkPowerStatusChange c) {
+        this.updateClientFlags();
         this.getHost().markForUpdate();
     }
 
     @MENetworkEventSubscribe
     public void bootingRender(final MENetworkBootingStatusChange bs) {
+        this.updateClientFlags();
         this.getHost().markForUpdate();
     }
 
@@ -63,6 +66,16 @@ public abstract class PartBasicState extends AEBasePart implements IPowerChannel
     public void writeToStream(final ByteBuf data) throws IOException {
         super.writeToStream(data);
 
+        // Again here as well: a toggle bus and a level emitter add flags that no network event announces.
+        this.updateClientFlags();
+        data.writeByte((byte) this.getClientFlags());
+    }
+
+    /**
+     * The server keeps its own copy current, not only the one it sends: a P2P output asks these whether it is
+     * connected, and no packet is ever written for a chunk nobody is watching.
+     */
+    private void updateClientFlags() {
         this.setClientFlags(0);
 
         try {
@@ -78,8 +91,6 @@ public abstract class PartBasicState extends AEBasePart implements IPowerChannel
         } catch (final GridAccessException e) {
             // meh
         }
-
-        data.writeByte((byte) this.getClientFlags());
     }
 
     protected int populateFlags(final int cf) {
