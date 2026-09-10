@@ -148,17 +148,17 @@ public final class P2PStateWailaDataProvider extends BasePartWailaDataProvider {
 
     private static String getOutputText(int outputs) {
         if (outputs <= 1) {
-            return WailaText.P2P_INPUT_ONE_OUTPUT.getLocal();
+            return WailaText.P2PInputOneOutput.getLocal();
         } else {
-            return String.format(WailaText.P2P_INPUT_MANY_OUTPUTS.getLocal(), outputs);
+            return String.format(WailaText.P2PInputManyOutputs.getLocal(), outputs);
         }
     }
 
     private static String getInputText(int inputs) {
         if (inputs <= 1) {
-            return WailaText.P2P_OUTPUT_ONE_INPUT.getLocal();
+            return WailaText.P2POutputOneInput.getLocal();
         } else {
-            return String.format(WailaText.P2P_OUTPUT_MANY_INPUTS.getLocal(), inputs);
+            return String.format(WailaText.P2POutputManyInputs.getLocal(), inputs);
         }
     }
 

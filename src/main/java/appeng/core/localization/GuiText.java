@@ -39,7 +39,6 @@ public enum GuiText {
     VibrationChamber,
     SpatialIOPort,
     LevelEmitter,
-    FluidLevelEmitter,
 
     MonitorOff,
     MonitorNet,
@@ -63,12 +62,9 @@ public enum GuiText {
     Interface,
     Config,
     StoredItems,
-    StoredFluids,
     Patterns,
     ImportBus,
-    ImportBusFluids,
     ExportBus,
-    ExportBusFluids,
     ConfigureImportedTypes,
     ConfigureImportedTypesHint,
     ConfigureVisibleTypes,
@@ -109,13 +105,11 @@ public enum GuiText {
 
     StorageBus,
     OreDictStorageBus,
-    StorageBusFluids,
     Priority,
     CraftPriority,
     CraftPriorityOf,
     CraftPriorityBack,
     Security,
-    Encoded,
     Blank,
     Unlinked,
     Linked,
@@ -128,7 +122,6 @@ public enum GuiText {
     CraftingTerminal,
     AnnihilationPlane,
     FormationPlane,
-    FluidFormationPlane,
     Inscriber,
     QuartzCuttingKnife,
 
@@ -141,12 +134,10 @@ public enum GuiText {
     RedstoneTunnel,
     EUTunnel,
     FluidTunnel,
-    FluidTerminal,
     OCTunnel,
     LightTunnel,
     FETunnel,
     GTEUTunnel,
-    PressureTunnel,
 
     // spatial
     StoredSize,
@@ -180,15 +171,9 @@ public enum GuiText {
     Efficiency,
     SCSSize,
     SCSInvalid,
-    InWorldCrafting,
 
 
 
-    NoSecondOutput,
-    OfSecondOutput,
-    MultipleOutputs,
-
-    Stores,
     Next,
     SelectAmount,
     SetAmount,
@@ -199,7 +184,6 @@ public enum GuiText {
     Lumen,
     Empty,
 
-    ConfirmCrafting,
     Stored,
     Crafting,
     Scheduled,
@@ -208,7 +192,6 @@ public enum GuiText {
     Cancel,
     Suspend,
     Resume,
-    ETA,
     ETAFormat,
     CraftName,
     Remains,
@@ -264,7 +247,6 @@ public enum GuiText {
     PatternTargetFreeSlots,
     InterfaceConfigurationTerminal,
     NoCraftingCPUs,
-    Clean,
     InvalidPattern,
 
     PatternAccessTerminalHint,
@@ -274,7 +256,6 @@ public enum GuiText {
 
     NoCraftingJobs,
     CPUs,
-    FacadeCrafting,
     inWorldCraftingPresses,
     ChargedQuartzFind,
     JeiCharging,
@@ -293,9 +274,6 @@ public enum GuiText {
     Sticky,
     EqualDistributionOf,
     OverflowDestruction,
-
-    // Used in a ME Interface when no appropriate TileEntity was detected near it
-    Nothing,
 
     // Used in Crafting Toasts
     CraftingToastDone,
@@ -319,7 +297,6 @@ public enum GuiText {
     // Used in Annihilation Planes
     CanBeEnchanted,
     IncreasedEnergyUseFromEnchants,
-    Deprecated,
 
     // How the two priorities actually decide anything, which neither number says by itself
     PriorityHintInsert,

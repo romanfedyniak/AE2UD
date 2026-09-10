@@ -79,7 +79,7 @@ public class P2PStateInfoProvider implements IPartProbInfoProvider {
             final short freq = tunnel.getFrequency();
             final String freqTooltip = Platform.p2p().toHexString(freq);
 
-            probeInfo.text(freqTooltip);
+            probeInfo.text(String.format(TheOneProbeText.P2P_FREQUENCY.getLocal(), freqTooltip));
         }
     }
 

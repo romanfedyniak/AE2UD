@@ -29,12 +29,8 @@ public enum PlayerMessages {
     LoadedSettings,
     SavedSettings,
     ResetSettings,
-    MachineNotPowered,
 
-    isNowLocked,
-    isNowUnlocked,
     AmmoDepleted,
-    CommunicationError,
     OutOfRange,
     DeviceNotPowered,
     DeviceNotWirelessTerminal,

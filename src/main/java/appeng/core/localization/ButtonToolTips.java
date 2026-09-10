@@ -29,9 +29,7 @@ public enum ButtonToolTips {
     IOMode,
     CondenserOutput,
     RedstoneMode,
-    MatchingFuzzy,
 
-    MatchingMode,
     TransferDirection,
     SortOrder,
     SortBy,
@@ -41,10 +39,8 @@ public enum ButtonToolTips {
     Clear,
     FuzzyMode,
     OperationMode,
-    TrashController,
 
     InterfaceBlockingMode,
-    InterfaceCraftingMode,
     Trash,
     MatterBalls,
 
@@ -60,11 +56,9 @@ public enum ButtonToolTips {
 
     EmitLevelsBelow,
     EmitLevelAbove,
-    MatchingExact,
     TransferToNetwork,
 
     TransferToStorageCell,
-    ToggleSortDirection,
 
     SearchMode_Auto,
     SearchMode_Standard,
@@ -165,8 +159,6 @@ public enum ButtonToolTips {
     PatternSlotConfigDesc32_8,
     PatternSlotConfigDesc8_32,
     Substitutions,
-    SubstitutionsOn,
-    SubstitutionsOff,
     SubstitutionsDescEnabled,
     SubstitutionsDescDisabled,
     FluidSubstitutions,
@@ -184,9 +176,6 @@ public enum ButtonToolTips {
     ReportInaccessibleItems,
     ReportInaccessibleItemsYes,
     ReportInaccessibleItemsNo,
-    ReportInaccessibleFluids,
-    ReportInaccessibleFluidsYes,
-    ReportInaccessibleFluidsNo,
 
     BlockPlacement,
     BlockPlacementYes,
@@ -214,7 +203,6 @@ public enum ButtonToolTips {
     ToggleShowOnlyInvalidInterfaceOnDesc,
     ToggleShowOnlyInvalidInterfaceOffDesc,
     HighlightInterface,
-    HighlightInterfaceDesc,
     SearchFieldInputs,
     SearchFieldConfigured,
     SearchFieldOutputs,
@@ -232,10 +220,6 @@ public enum ButtonToolTips {
     SchedulingModeDefault,
     SchedulingModeRoundRobin,
     SchedulingModeRandom,
-
-    FilterMode,
-    FilterModeKeep,
-    FilterModeClear,
 
     InscriberSideness,
     InscriberSidenessSeparate,

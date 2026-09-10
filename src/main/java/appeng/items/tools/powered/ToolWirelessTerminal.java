@@ -115,7 +115,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 }
             }
         } else {
-            lines.add(I18n.translateToLocal("AppEng.GuiITooltip.Unlinked"));
+            lines.add(TextFormatting.RED + GuiText.Unlinked.getLocal());
         }
 
         this.addModeInformation(stack, lines);

@@ -30,10 +30,10 @@ public enum WailaText {
     DeviceMissingChannel,
 
     P2PUnlinked,
-    P2P_INPUT_ONE_OUTPUT,
-    P2P_INPUT_MANY_OUTPUTS,
-    P2P_OUTPUT_ONE_INPUT,
-    P2P_OUTPUT_MANY_INPUTS,
+    P2PInputOneOutput,
+    P2PInputManyOutputs,
+    P2POutputOneInput,
+    P2POutputManyInputs,
     P2POutput,
 
     Locked,
