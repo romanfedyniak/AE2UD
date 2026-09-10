@@ -152,6 +152,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   row does rather than up among the amounts. The switch that used to hide the old line hides this one,
   since it is longer than what it replaces and whoever turned that off wanted a shorter tooltip.
 
+- **A bucket attuned a P2P tunnel to carry power instead of fluids.** Everything registered as a fluid
+  attunement - the buckets, any item that holds a fluid, the fluid pipes of Mekanism, Ender IO and Thermal
+  Dynamics, and whatever a CraftTweaker script adds through `attuneFluid` - turned the tunnel into an FE one,
+  because the fluid tunnel type named the wrong part. HEI's attunement page listed them all under the FE
+  tunnel for the same reason. Fixed first in
+  [AE2 Unofficial Extended Life #554](https://github.com/AE2-UEL/Applied-Energistics-2/pull/554).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
