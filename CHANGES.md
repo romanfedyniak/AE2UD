@@ -159,6 +159,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   tunnel for the same reason. Fixed first in
   [AE2 Unofficial Extended Life #554](https://github.com/AE2-UEL/Applied-Energistics-2/pull/554).
 
+- **The card slot of an ME Quantum Link Chamber took any AE2 material.** It compared the item and not its
+  damage, and quartz, processors, presses and every card are one item told apart by damage - so all of them
+  went in where only a Quantum Link Card belongs. Fixed first in
+  [AE2 Unofficial Extended Life #569](https://github.com/AE2-UEL/Applied-Energistics-2/pull/569).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
