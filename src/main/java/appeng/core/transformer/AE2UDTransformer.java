@@ -71,6 +71,12 @@ public class AE2UDTransformer implements IClassTransformer {
                             "readItemStack", "func_150791_c",
                             "writeItemStack", "func_150788_a");
                 });
+            } else if ("net.minecraftforge.common.util.PacketUtil".equals(transformedName)) {
+                // A click packet writes its stack here, and the server reads it with the patch above.
+                consumer = consumer.andThen((node) -> {
+                    spliceClasses(node, "appeng.core.transformer.PacketUtilPatch",
+                            "writeItemStackFromClientToServer");
+                });
             }
         }
 

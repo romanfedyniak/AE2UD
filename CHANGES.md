@@ -236,6 +236,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   them over from Applied Energistics 2; the missed short signal was reported in
   [AE2 Unofficial Extended Life #290](https://github.com/AE2-UEL/Applied-Energistics-2/issues/290).
 
+- **Clicking a slot holding more than a stack could disconnect a player from a server.** A count above 64 is
+  written as a marker followed by the full number, but the packet a click sends writes its stack through a
+  Forge helper that still wrote the count as one byte, and the server read it the other way. A count whose
+  low byte happened to be the marker made the server read past the end of the packet and drop the
+  connection. The helper writes the marker as well now. Reported in
+  [AE2 Unofficial Extended Life #529](https://github.com/AE2-UEL/Applied-Energistics-2/issues/529);
+  [AE2 Unofficial Extended Life #572](https://github.com/AE2-UEL/Applied-Energistics-2/pull/572) fixes it by
+  writing every count in a different format, which ModularUI does not expect.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
