@@ -164,6 +164,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   went in where only a Quantum Link Card belongs. Fixed first in
   [AE2 Unofficial Extended Life #569](https://github.com/AE2-UEL/Applied-Energistics-2/pull/569).
 
+- **A GregTech EU P2P tunnel asked each of its outputs twice how much it could take.** An output that is itself
+  the input of another tunnel answers by asking all of its own outputs, so every tunnel chained behind the
+  first doubled the work. Each output is asked once now.
+  [AE2 Unofficial Extended Life #593](https://github.com/AE2-UEL/Applied-Energistics-2/pull/593) fixed the same
+  thing, but asks before checking there is anything to ask, which throws for every output with no machine
+  beside it; this checks first.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

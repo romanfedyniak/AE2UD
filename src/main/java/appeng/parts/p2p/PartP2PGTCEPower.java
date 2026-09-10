@@ -94,10 +94,14 @@ public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
                 if (output == this) {
                     return 0;
                 }
-                if (output == null || output.getEnergyCanBeInserted() <= 0) {
+                if (output == null) {
                     continue;
                 }
-                canInsert += output.getEnergyCanBeInserted();
+                // Asked once: an output that is itself a tunnel asks every one of its own outputs in turn.
+                final long room = output.getEnergyCanBeInserted();
+                if (room > 0) {
+                    canInsert += room;
+                }
             }
             return canInsert;
         }
