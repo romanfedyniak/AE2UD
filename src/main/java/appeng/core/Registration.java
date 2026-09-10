@@ -71,6 +71,7 @@ import appeng.core.stats.AdvancementTriggers;
 import appeng.core.stats.PartItemPredicate;
 import appeng.core.stats.Stats;
 import appeng.core.worlddata.SpatialDimensionManager;
+import appeng.hooks.ItemSpawnCapture;
 import appeng.hooks.TickHandler;
 import appeng.hooks.WrenchClickHook;
 import appeng.items.materials.ItemMaterial;
@@ -340,6 +341,8 @@ final class Registration {
         MinecraftForge.EVENT_BUS.register(TickHandler.INSTANCE);
 
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
+
+        MinecraftForge.EVENT_BUS.register(ItemSpawnCapture.INSTANCE);
 
         // The conditions and functions AE2's own loot tables are written with. Registered whatever else is
         // switched on: one nothing uses costs nothing, while registering one twice throws.

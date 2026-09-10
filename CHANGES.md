@@ -261,6 +261,19 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #583](https://github.com/AE2-UEL/Applied-Energistics-2/pull/583) frees it in one
   packet only.
 
+- **An annihilation plane dropped what it broke into the world and picked it back up.** It worked out a
+  block's drops, spawned them, swept up the items around the block and only then broke it, so anything the
+  block let go of as it broke - a chest's contents, a machine's inventory - was left lying there. Silk touch
+  built the item from how the block is stored rather than what it drops, which gave leaves, logs and
+  sideways quartz pillars items that do not exist, and destroyed a lit redstone lamp or lit redstone ore
+  outright. The block is broken now as a player holding a diamond pickaxe with the plane's enchantments would
+  break it, and everything it drops is caught before it reaches the world; only what the network has no room
+  for is dropped. It asks first as that player would, so a claim or protection mod now decides whether a
+  plane may break a block where it stands. Reported in
+  [AE2 Unofficial Extended Life #587](https://github.com/AE2-UEL/Applied-Energistics-2/issues/587);
+  [AE2 Unofficial Extended Life #596](https://github.com/AE2-UEL/Applied-Energistics-2/pull/596) takes the item's
+  damage from the block's usual drop instead, which fixes leaves and logs but not the lamp.
+
 - **A storage bus went on showing a chest whose chunk had unloaded, and anything taken out of it was
   duplicated.** A chunk unloading tells nothing next to it, so a bus in a loaded chunk kept talking to the
   inventory it had found, which the world had already saved and let go: its items stayed in the terminal, and

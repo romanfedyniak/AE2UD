@@ -33,8 +33,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Enchantments;
 import net.minecraft.init.Items;
@@ -42,12 +44,15 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.event.world.BlockEvent;
 
 import appeng.api.behaviors.PickupSink;
 import appeng.api.behaviors.PickupStrategy;
@@ -55,6 +60,7 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.stacks.AEItemKey;
+import appeng.hooks.ItemSpawnCapture;
 import appeng.util.Platform;
 
 /**
@@ -118,6 +124,8 @@ class ItemPickupStrategy implements PickupStrategy {
             return Result.CANT_PICKUP;
         }
 
+        // An estimate, for the power it costs and whether the network has room. What really drops is caught
+        // while the block is broken.
         List<ItemStack> items = this.obtainBlockDrops(w, this.pos);
         float requiredPower = this.calculateEnergyUsage(w, this.pos, items);
 
@@ -129,8 +137,19 @@ class ItemPickupStrategy implements PickupStrategy {
             return Result.CANT_STORE;
         }
 
-        energySource.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
-        this.breakBlockAndStoreItems(sink, w, this.pos, items);
+        EntityPlayer player = Platform.getPlayer(w);
+        player.setHeldItem(EnumHand.MAIN_HAND, this.createTool());
+        try {
+            // Asked as for a player breaking it, so a claim decides whether the plane may. The event reads the tool.
+            if (MinecraftForge.EVENT_BUS.post(new BlockEvent.BreakEvent(w, this.pos, w.getBlockState(this.pos), player))) {
+                return Result.CANT_PICKUP;
+            }
+
+            energySource.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            this.breakBlockAndStoreItems(sink, w, this.pos, player);
+        } finally {
+            player.setHeldItem(EnumHand.MAIN_HAND, ItemStack.EMPTY);
+        }
         return Result.PICKED_UP;
     }
 
@@ -194,7 +213,8 @@ class ItemPickupStrategy implements PickupStrategy {
             if (item != Items.AIR) {
                 int meta = 0;
                 if (item.getHasSubtypes()) {
-                    meta = state.getBlock().getMetaFromState(state);
+                    // Not the stored state, whose bits also say which way a log lies or whether leaves decay.
+                    meta = state.getBlock().damageDropped(state);
                 }
                 out.add(new ItemStack(item, 1, meta));
             }
@@ -264,16 +284,46 @@ class ItemPickupStrategy implements PickupStrategy {
         return canStore;
     }
 
-    private void breakBlockAndStoreItems(PickupSink sink, WorldServer w, BlockPos pos, List<ItemStack> items) {
-        for (ItemStack item : items) {
-            Block.spawnAsEntity(w, pos, item);
+    /**
+     * Broken the way a player breaks a block, so silk touch, fortune and a container's contents come out as they
+     * would for one, and each item caught as it spawns instead of being picked back up off the ground.
+     */
+    private void breakBlockAndStoreItems(PickupSink sink, WorldServer w, BlockPos pos, EntityPlayer player) {
+        IBlockState state = w.getBlockState(pos);
+        Block block = state.getBlock();
+        TileEntity tile = w.getTileEntity(pos);
+        ItemStack tool = player.getHeldItemMainhand();
+
+        boolean removed;
+        List<ItemStack> drops;
+        ItemSpawnCapture.start(w);
+        try {
+            removed = block.removedByPlayer(state, w, pos, player, true);
+            if (removed) {
+                block.onPlayerDestroy(w, pos, state);
+                block.harvestBlock(w, player, pos, state, tile, tool);
+            }
+        } finally {
+            drops = ItemSpawnCapture.stop();
         }
 
-        AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.2);
-        for (EntityItem entityItem : w.getEntitiesWithinAABB(EntityItem.class, box)) {
-            this.storeEntityItem(sink, entityItem);
+        if (removed) {
+            w.playEvent(Constants.WorldEvents.BREAK_BLOCK_EFFECTS, pos, Block.getStateId(state));
         }
 
-        w.destroyBlock(pos, false);
+        for (ItemStack drop : drops) {
+            ItemStack leftover = this.storeItemStack(sink, drop);
+            if (!leftover.isEmpty()) {
+                // More came out than the estimate had room for, from a fortune roll or a container.
+                Block.spawnAsEntity(w, pos, leftover);
+            }
+        }
+    }
+
+    /** Diamond, so a block that drops nothing to a lesser tool still drops; with the plane's enchantments. */
+    private ItemStack createTool() {
+        ItemStack tool = new ItemStack(Items.DIAMOND_PICKAXE);
+        EnchantmentHelper.setEnchantments(this.enchantments, tool);
+        return tool;
     }
 }
