@@ -38,6 +38,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -75,6 +76,7 @@ public class TileCableBus extends AEBaseTile implements AEMultiTile, ICustomColl
     protected boolean readFromStream(final ByteBuf data) throws IOException {
         final boolean c = super.readFromStream(data);
         boolean ret = this.getCableBus().readFromStream(data);
+        this.resetNeighbourCollision();
 
         final int newLV = this.getCableBus().getLightValue();
         if (newLV != this.oldLV) {
@@ -124,6 +126,24 @@ public class TileCableBus extends AEBaseTile implements AEMultiTile, ICustomColl
     public void invalidate() {
         super.invalidate();
         this.getCableBus().removeFromWorld();
+        this.resetNeighbourCollision();
+    }
+
+    // A dense cable or a plane takes its shape from the bus beside it, and the client hears of that bus only through its packet.
+    private void resetNeighbourCollision() {
+        if (this.world == null || !this.world.isRemote) {
+            return;
+        }
+
+        for (final EnumFacing side : EnumFacing.VALUES) {
+            final BlockPos neighbour = this.pos.offset(side);
+            if (this.world.isBlockLoaded(neighbour)) {
+                final TileEntity te = this.world.getTileEntity(neighbour);
+                if (te instanceof TileCableBus) {
+                    ((TileCableBus) te).getCableBus().resetCollisionCache();
+                }
+            }
+        }
     }
 
     @Override

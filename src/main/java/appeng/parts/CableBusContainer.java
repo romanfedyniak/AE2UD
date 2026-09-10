@@ -67,7 +67,11 @@ import java.util.*;
 public class CableBusContainer extends CableBusStorage implements AEMultiTile, ICableBusContainer {
 
     private static final ThreadLocal<Boolean> IS_LOADING = new ThreadLocal<>();
+    private static final AEPartLocation[] LOCATIONS = AEPartLocation.values();
     private YesNo hasRedstone = YesNo.UNDECIDED;
+    // Client collision shapes; a facade is shaped differently for a living entity.
+    private List<AxisAlignedBB> collisionBoxes;
+    private List<AxisAlignedBB> livingCollisionBoxes;
     private IPartHost tcb;
     // TODO 1.10.2-R - does somebody seriously want to make parts TESR??? Hope not.
     private boolean requiresDynamicRender = false;
@@ -88,6 +92,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
     }
 
     public void rotateLeft() {
+        this.resetCollisionCache();
         final IPart[] newSides = new IPart[6];
 
         newSides[AEPartLocation.UP.ordinal()] = this.getSide(AEPartLocation.UP);
@@ -152,6 +157,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     @Override
     public AEPartLocation addPart(ItemStack is, final AEPartLocation side, final @Nullable EntityPlayer player, final @Nullable EnumHand hand) {
+        this.resetCollisionCache();
         if (this.canAddPart(is, side)) {
             if (is.getItem() instanceof IPartItem) {
                 final IPartItem bi = (IPartItem) is.getItem();
@@ -274,6 +280,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     @Override
     public void removePart(final AEPartLocation side, final boolean suppressUpdate) {
+        this.resetCollisionCache();
         if (side == AEPartLocation.INTERNAL) {
             if (this.getCenter() != null) {
                 this.getCenter().removeFromWorld();
@@ -591,10 +598,44 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
     }
 
     public Iterable<AxisAlignedBB> getSelectedBoundingBoxesFromPool(final boolean ignoreConnections, final boolean includeFacades, final Entity e, final boolean visual) {
+        // Every particle asks this each tick, so the client keeps the shape until the bus changes.
+        if (!visual && !ignoreConnections && includeFacades && this.isClientWorld()) {
+            final boolean living = e instanceof EntityLivingBase;
+            List<AxisAlignedBB> boxes = living ? this.livingCollisionBoxes : this.collisionBoxes;
+            if (boxes == null) {
+                boxes = Collections.unmodifiableList(this.computeBoxes(false, true, e, false));
+                if (living) {
+                    this.livingCollisionBoxes = boxes;
+                } else {
+                    this.collisionBoxes = boxes;
+                }
+            }
+            return boxes;
+        }
+
+        return this.computeBoxes(ignoreConnections, includeFacades, e, visual);
+    }
+
+    /**
+     * Forgets the client collision shapes. A shape also depends on the buses beside this one.
+     */
+    public void resetCollisionCache() {
+        this.collisionBoxes = null;
+        this.livingCollisionBoxes = null;
+    }
+
+    private boolean isClientWorld() {
+        final TileEntity te = this.getTile();
+        return te != null && te.getWorld() != null && te.getWorld().isRemote;
+    }
+
+    private List<AxisAlignedBB> computeBoxes(final boolean ignoreConnections, final boolean includeFacades, final Entity e, final boolean visual) {
         final List<AxisAlignedBB> boxes = new ArrayList<>();
+        // Only a visual box cares about the render mode, and reading it scans the player's hotbar.
+        final boolean facades = includeFacades && (!visual || AEApi.instance().partHelper().getCableRenderMode().opaqueFacades);
 
         final IFacadeContainer fc = this.getFacadeContainer();
-        for (final AEPartLocation s : AEPartLocation.values()) {
+        for (final AEPartLocation s : LOCATIONS) {
             final IPartCollisionHelper bch = new BusCollisionHelper(boxes, s, e, visual);
 
             final IPart part = this.getPart(s);
@@ -606,12 +647,10 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
                 }
             }
 
-            if (AEApi.instance().partHelper().getCableRenderMode().opaqueFacades || !visual) {
-                if (includeFacades && s != null && s != AEPartLocation.INTERNAL) {
-                    final IFacadePart fp = fc.getFacade(s);
-                    if (fp != null) {
-                        fp.getBoxes(bch, e);
-                    }
+            if (facades && s != AEPartLocation.INTERNAL) {
+                final IFacadePart fp = fc.getFacade(s);
+                if (fp != null) {
+                    fp.getBoxes(bch, e);
                 }
             }
         }
@@ -773,6 +812,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
     }
 
     public boolean readFromStream(final ByteBuf data) throws IOException {
+        this.resetCollisionCache();
         final byte sides = data.readByte();
 
         boolean updateBlock = false;
