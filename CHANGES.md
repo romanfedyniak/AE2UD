@@ -742,6 +742,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Gradle itself now runs on Java 21. RetroFuturaGradle deprecated running it on anything older and its next major version drops that support outright, so the three workflows moved off Java 17 - the build workflow to Temurin as well, since the `adopt` distribution it asked for has no build past Java 16. Building locally needs a JDK 21 for the Gradle process too. Nothing about the mod changed: it is still compiled through a Java 17 toolchain with Jabel and still ships Java 8 bytecode.
 - The development client carries the Flare profiler and Chunk Pregenerator, with the two libraries they need to start, so a profile of a world being generated can be taken without building a jar and assembling a pack around it. All four are declared as non-publishable, so they stay out of what the released jar says it depends on.
 
+### Translations
+
+- Added a Ukrainian translation.
+- Removed the Russian translation.
+- The 128³ spatial storage cell's name had two spaces before "Spatial Storage Cell".
+
 ## 1.5.0 - 2026-08-23
 
 ### Pattern terminal
