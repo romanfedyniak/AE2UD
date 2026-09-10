@@ -44,6 +44,8 @@ public class PartStorageMonitor extends AbstractPartMonitor {
     public static final ResourceLocation MODEL_LOCKED_OFF = new ResourceLocation(AppEng.MOD_ID, "part/storage_monitor_locked_off");
     @PartModels
     public static final ResourceLocation MODEL_LOCKED_ON = new ResourceLocation(AppEng.MOD_ID, "part/storage_monitor_locked_on");
+    @PartModels
+    public static final ResourceLocation MODEL_LOCKED_METERING_ON = new ResourceLocation(AppEng.MOD_ID, "part/storage_monitor_locked_metering_on");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
@@ -52,6 +54,7 @@ public class PartStorageMonitor extends AbstractPartMonitor {
     public static final IPartModel MODELS_LOCKED_OFF = new PartModel(MODEL_BASE, MODEL_LOCKED_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_LOCKED_ON = new PartModel(MODEL_BASE, MODEL_LOCKED_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_LOCKED_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_LOCKED_ON, MODEL_STATUS_HAS_CHANNEL);
+    public static final IPartModel MODELS_LOCKED_METERING_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_LOCKED_METERING_ON, MODEL_STATUS_HAS_CHANNEL);
 
     @Reflected
     public PartStorageMonitor(final ItemStack is) {
@@ -61,6 +64,6 @@ public class PartStorageMonitor extends AbstractPartMonitor {
     @Override
     public IPartModel getStaticModels() {
         return this.selectModel(MODELS_OFF, MODELS_ON, MODELS_HAS_CHANNEL,
-                MODELS_LOCKED_OFF, MODELS_LOCKED_ON, MODELS_LOCKED_HAS_CHANNEL);
+                MODELS_LOCKED_OFF, MODELS_LOCKED_ON, MODELS_LOCKED_HAS_CHANNEL, MODELS_LOCKED_METERING_HAS_CHANNEL);
     }
 }

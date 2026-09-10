@@ -154,6 +154,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
     @Override
     public boolean readFromStream(final ByteBuf data) throws IOException {
         boolean needRedraw = super.readFromStream(data);
+        final boolean showedRate = this.showsRate();
 
         final boolean isLocked = data.readBoolean();
         needRedraw |= this.isLocked != isLocked;
@@ -168,6 +169,9 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         this.figure = ThroughputFigure.byOrdinal(data.readByte());
         this.rateIn = data.readFloat();
         this.rateOut = data.readFloat();
+
+        // A locked face has a model of its own while the rate line is drawn.
+        needRedraw |= showedRate != this.showsRate();
 
         return needRedraw;
     }
@@ -415,6 +419,11 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
 
     }
 
+    /** Whether the face carries a line under the amount. */
+    public boolean showsRate() {
+        return this.unit != ThroughputUnit.OFF && this.configuredKey != null;
+    }
+
     /** What this monitor is showing per its chosen span, in the direction asked for. */
     public double rateOf(final ThroughputFigure which) {
         return which.valueOf(this.rateIn, this.rateOut) * this.unit.getTicks();
@@ -428,7 +437,7 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
     @Nullable
     @SideOnly(Side.CLIENT)
     public String formatRate(final ThroughputFigure which) {
-        if (this.unit == ThroughputUnit.OFF || this.configuredKey == null) {
+        if (!this.showsRate()) {
             return null;
         }
 
@@ -518,9 +527,18 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
     }
 
     protected IPartModel selectModel(IPartModel off, IPartModel on, IPartModel hasChannel, IPartModel lockedOff, IPartModel lockedOn, IPartModel lockedHasChannel) {
+        return this.selectModel(off, on, hasChannel, lockedOff, lockedOn, lockedHasChannel, lockedHasChannel);
+    }
+
+    /**
+     * @param lockedMeteringHasChannel a locked face without the lock's lower corner marks, which the rate line
+     *                                 runs across. Only a monitor with a channel draws that line at all.
+     */
+    protected IPartModel selectModel(IPartModel off, IPartModel on, IPartModel hasChannel, IPartModel lockedOff,
+            IPartModel lockedOn, IPartModel lockedHasChannel, IPartModel lockedMeteringHasChannel) {
         if (this.isActive()) {
             if (this.isLocked()) {
-                return lockedHasChannel;
+                return this.showsRate() ? lockedMeteringHasChannel : lockedHasChannel;
             } else {
                 return hasChannel;
             }

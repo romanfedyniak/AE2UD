@@ -48,6 +48,10 @@ With the span set, a line appears under the amount on the monitor's face:
 Green means the network is gaining, red that it is losing, grey that nothing is moving - grey rather than the
 black the stock above is drawn in, so a still line is told apart at a glance.
 
+The line runs across the lower corners of the screen, where a locked monitor draws two of its four lock marks.
+While it is shown those two are left off - a separate model, `*_locked_metering_on`, picked only by a locked
+monitor with a channel and a line to draw - and the upper two still say the monitor is locked.
+
 Look at a monitor with Waila installed and all three numbers are there at once, which is the only place they
 can be read against each other without clicking through the modes.
 
