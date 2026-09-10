@@ -218,6 +218,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   powered tools. They read in that unit now. Reported in
   [AE2 Unofficial Extended Life #568](https://github.com/AE2-UEL/Applied-Energistics-2/issues/568).
 
+- **Clicking a P2P tunnel with an empty hand could retune it by whatever was in the off hand.** With nothing
+  in the main hand the tunnel read the off hand instead, for a memory card and for every attunement item
+  alike, so a jetpack or a travel staff carried there turned the tunnel into an FE one. Only a memory card
+  is read from the off hand now, where it still pastes the tunnel as an input. Reported in
+  [AE2 Unofficial Extended Life #599](https://github.com/AE2-UEL/Applied-Energistics-2/issues/599); the fix in
+  [AE2 Unofficial Extended Life #604](https://github.com/AE2-UEL/Applied-Energistics-2/pull/604) stops reading
+  the off hand at all, and a memory card's paste as an input with it.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

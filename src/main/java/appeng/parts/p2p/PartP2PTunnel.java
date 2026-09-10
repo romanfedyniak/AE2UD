@@ -162,7 +162,9 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
 
         boolean pasteAsOutput = true;
         ItemStack is = player.getHeldItem(hand);
-        if (is.isEmpty()) {
+        // Only a memory card is read from the off hand, where it pastes an input. Anything else carried there
+        // would retune the tunnel on every click with an empty hand.
+        if (is.isEmpty() && player.getHeldItemOffhand().getItem() instanceof IMemoryCard) {
             pasteAsOutput = false;
             is = player.getHeldItemOffhand();
         }
