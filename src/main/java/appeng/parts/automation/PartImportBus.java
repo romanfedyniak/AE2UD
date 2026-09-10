@@ -149,12 +149,7 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
 
     @Override
     public TickingRequest getTickingRequest(final IGridNode node) {
-        return new TickingRequest(TickRates.ImportBus.getMin(), TickRates.ImportBus.getMax(), this.isSleeping(), false);
-    }
-
-    @Override
-    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
-        return this.doBusWork();
+        return new TickingRequest(TickRates.ImportBus.getMin(), TickRates.ImportBus.getMax(), this.isSleeping(), true);
     }
 
     @Override

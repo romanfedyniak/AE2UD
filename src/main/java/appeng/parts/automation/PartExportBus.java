@@ -266,17 +266,12 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
 
     @Override
     public TickingRequest getTickingRequest(final IGridNode node) {
-        return new TickingRequest(TickRates.ExportBus.getMin(), TickRates.ExportBus.getMax(), this.isSleeping(), false);
+        return new TickingRequest(TickRates.ExportBus.getMin(), TickRates.ExportBus.getMax(), this.isSleeping(), true);
     }
 
     @Override
     public RedstoneMode getRSMode() {
         return (RedstoneMode) this.getConfigManager().getSetting(Settings.REDSTONE_CONTROLLED);
-    }
-
-    @Override
-    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
-        return this.doBusWork();
     }
 
     @Override

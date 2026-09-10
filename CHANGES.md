@@ -226,6 +226,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #604](https://github.com/AE2-UEL/Applied-Energistics-2/pull/604) stops reading
   the off hand at all, and a memory card's paste as an input with it.
 
+- **An import or export bus ignored a change of its redstone mode.** The mode was saved, but nothing woke the
+  bus or put it to sleep, so it went on as the old mode had it until something next to it changed. In pulse
+  mode it did its work in the middle of the block update that carried the pulse, and a bus that had slowed
+  down while idle often noticed a short signal only after it was over. A new mode takes effect at once now, a
+  pulse is acted on at the next tick and survives a save, and a signal that lets a bus work sets it to its
+  fastest rate straight away. The mode and pulse handling come from
+  [AE2 Unofficial Extended Life #595](https://github.com/AE2-UEL/Applied-Energistics-2/pull/595), which brings
+  them over from Applied Energistics 2; the missed short signal was reported in
+  [AE2 Unofficial Extended Life #290](https://github.com/AE2-UEL/Applied-Energistics-2/issues/290).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
