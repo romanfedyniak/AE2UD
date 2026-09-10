@@ -48,7 +48,9 @@ public enum TheOneProbeText {
 
     STORED_ENERGY,
 
-    SUPPRESSED;
+    SUPPRESSED,
+
+    ENCHANTED_WITH;
 
     private final String root;
 

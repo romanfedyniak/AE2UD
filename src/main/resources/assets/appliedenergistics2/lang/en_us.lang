@@ -754,6 +754,7 @@ theoneprobe.appliedenergistics2.p2p_output=Linked (Output Side)
 theoneprobe.appliedenergistics2.p2p_frequency=Frequency: §5%1$s§r
 theoneprobe.appliedenergistics2.stored_energy=§2%1$s§r / §4%2$s§r
 theoneprobe.appliedenergistics2.suppressed=Suppressed by another generator
+theoneprobe.appliedenergistics2.enchanted_with=Enchanted with:
 
 // Items
 item.appliedenergistics2.storage_cell_1k.name=§61k§r ME Storage Cell
