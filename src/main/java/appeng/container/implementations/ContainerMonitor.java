@@ -82,8 +82,13 @@ public class ContainerMonitor extends AEBaseContainer {
      * disabled is not drawn at all, and a locked monitor must still show what it is watching.
      */
     @Override
+    public boolean canChangeSlot(final int slot) {
+        return slot != this.configSlot || !this.monitor.isLocked();
+    }
+
+    @Override
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slot, final long id) {
-        if (slot == this.configSlot && this.monitor.isLocked()) {
+        if (!this.canChangeSlot(slot)) {
             return;
         }
 

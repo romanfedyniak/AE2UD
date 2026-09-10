@@ -24,21 +24,27 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.widgets.GuiSmallButton;
 import appeng.client.gui.widgets.GuiToggleButton;
 import appeng.container.implementations.ContainerMonitor;
+import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.parts.reporting.AbstractPartMonitor;
 import appeng.parts.reporting.ThroughputUnit;
+import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
  * The window behind every monitor: what it watches, and whether that can still be changed.
  */
-public class GuiMonitor extends AEBaseGui {
+public class GuiMonitor extends AEBaseGui implements IJEIGhostIngredients {
 
     private static final int BUTTON_ROW = 48;
     private static final int BUTTON_HEIGHT = 16;
@@ -54,6 +60,7 @@ public class GuiMonitor extends AEBaseGui {
 
     private final ContainerMonitor container;
     private final AbstractPartMonitor monitor;
+    private final Map<Target<?>, Object> targetSlots = new HashMap<>();
 
     private GuiToggleButton lock;
     private GuiSmallButton unit;
@@ -115,6 +122,22 @@ public class GuiMonitor extends AEBaseGui {
 
         this.fontRenderer.drawString(this.monitor.getItemStack(PartItemStack.NETWORK).getDisplayName(), 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
+    }
+
+    @Override
+    public List<Target<?>> getPhantomTargets(final Object ingredient) {
+        // A locked monitor keeps its key, so there is nothing to highlight a drop onto.
+        if (this.container.isLocked()) {
+            this.targetSlots.clear();
+            return Collections.emptyList();
+        }
+
+        return this.fakeSlotTargets(ingredient, this.targetSlots);
+    }
+
+    @Override
+    public Map<Target<?>, Object> getFakeSlotTargetMap() {
+        return this.targetSlots;
     }
 
     /**

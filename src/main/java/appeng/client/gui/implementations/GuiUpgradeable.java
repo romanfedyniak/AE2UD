@@ -23,7 +23,6 @@ import appeng.api.upgrades.CardTraits;
 
 import appeng.api.config.*;
 import appeng.api.implementations.IUpgradeableHost;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
@@ -31,13 +30,10 @@ import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerUpgradeable;
 import appeng.container.interfaces.IJEIGhostIngredients;
-import appeng.container.slot.IJEITargetSlot;
 import appeng.container.slot.SlotFake;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
-import appeng.core.sync.packets.PacketInventoryAction;
-import appeng.helpers.InventoryAction;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.util.ITooltipFlag;
@@ -45,11 +41,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.awt.*;
 import java.io.IOException;
@@ -260,89 +253,7 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
 
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
-        mapTargetSlot.clear();
-
-        FluidStack fluidStack = null;
-        ItemStack itemStack = ItemStack.EMPTY;
-
-        if (ingredient instanceof ItemStack) {
-            itemStack = (ItemStack) ingredient;
-            fluidStack = FluidUtil.getFluidContained(itemStack);
-        } else if (ingredient instanceof FluidStack) {
-            fluidStack = (FluidStack) ingredient;
-        }
-
-        if (!(ingredient instanceof ItemStack) && !(ingredient instanceof FluidStack)) {
-            return Collections.emptyList();
-        }
-
-        List<Target<?>> targets = new ArrayList<>();
-
-        List<IJEITargetSlot> slots = new ArrayList<>();
-        if (!this.inventorySlots.inventorySlots.isEmpty()) {
-            for (Slot slot : this.inventorySlots.inventorySlots) {
-                // A filter slot is a valid drop target for a fluid too, not just for an item. This used to
-                // be allowed only in the cell workbench, because that was the one screen whose filter could
-                // express a fluid at all; every other filter silently offered no target, so a dragged fluid
-                // simply did nothing. Config inventories hold any key now, so the exception is the rule.
-                if (slot instanceof SlotFake && (!itemStack.isEmpty() || fluidStack != null)) {
-                    slots.add((IJEITargetSlot) slot);
-                }
-            }
-        }
-        for (IJEITargetSlot slot : slots) {
-            ItemStack finalItemStack = itemStack;
-            FluidStack finalFluidStack = fluidStack;
-            Target<Object> targetItem = new Target<>() {
-                @Nonnull
-                @Override
-                public Rectangle getArea() {
-                    if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                        return new Rectangle(getGuiLeft() + ((SlotFake) slot).xPos, getGuiTop() + ((SlotFake) slot).yPos, 16, 16);
-                    }
-                    return new Rectangle();
-                }
-
-                @Override
-                public void accept(@Nonnull Object ingredient) {
-                    PacketInventoryAction p = null;
-                    try {
-                        if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                            // Same rule as clicking a filter slot by hand: left button takes what the
-                            // container HOLDS, right button takes the container itself. A dragged fluid
-                            // has no container to fall back to, so it goes in either way.
-                            //
-                            // Both used to end up as a filled bucket, because a filter slot could only
-                            // ever express an item - and a bucket filter is a different thing, matching a
-                            // bucket in a chest rather than water in a tank, so it looked right and
-                            // quietly matched nothing.
-                            if (finalFluidStack != null && !(dropsContainerItself() && !finalItemStack.isEmpty())) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
-                            } else if (!finalItemStack.isEmpty()) {
-                                // Resolve rather than read, per CONTRACT.md §9.1d. No path today hands HEI a
-                                // placeholder to drag - the ingredient list cannot contain one - so this is
-                                // the canonical reader as a default, not a fix for a known symptom.
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.resolveItemStack(finalItemStack));
-                            }
-                        } else {
-                            if (finalFluidStack == null) {
-                                return;
-                            }
-                            // The fluid key travels directly in the packet now - no more smuggling it
-                            // through a dummy item's NBT (AEFluidStack.fromFluidStack(...).asItemStackRepresentation()).
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
-                        }
-                        NetworkHandler.instance().sendToServer(p);
-
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
-            targets.add(targetItem);
-            mapTargetSlot.putIfAbsent(targetItem, slot);
-        }
-        return targets;
+        return this.fakeSlotTargets(ingredient, this.mapTargetSlot);
     }
 
     @Override

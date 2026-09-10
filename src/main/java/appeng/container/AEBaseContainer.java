@@ -566,6 +566,14 @@ public abstract class AEBaseContainer extends Container {
         return null;
     }
 
+    /**
+     * Whether a player may change what a slot holds right now. An ingredient dropped from HEI is placed without
+     * passing through {@link #doAction}, so a container refusing clicks on a slot has to say so here as well.
+     */
+    public boolean canChangeSlot(final int slot) {
+        return true;
+    }
+
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slot, final long id) {
         if (slot >= 0 && slot < this.inventorySlots.size()) {
             final Slot s = this.getSlot(slot);

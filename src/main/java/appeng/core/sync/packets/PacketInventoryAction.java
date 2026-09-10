@@ -219,7 +219,7 @@ public class PacketInventoryAction extends AppEngPacket {
 
                 } else if (this.slot < sender.openContainer.inventorySlots.size()) {
                     Slot senderSlot = sender.openContainer.inventorySlots.get(this.slot);
-                    if (senderSlot instanceof SlotFake) {
+                    if (senderSlot instanceof SlotFake && baseContainer.canChangeSlot(this.slot)) {
                         if (this.slotItem != null) {
                             senderSlot.putStack(GenericStack.wrapInItemStack(this.slotItem));
                             if (senderSlot.getStack().isEmpty() && this.slotItem.what() instanceof AEFluidKey) {
