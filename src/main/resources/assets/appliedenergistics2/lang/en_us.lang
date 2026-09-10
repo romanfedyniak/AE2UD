@@ -211,6 +211,7 @@ gui.appliedenergistics2.NetworkTool=Network Tool
 gui.appliedenergistics2.PowerUsageRate=Energy Usage
 gui.appliedenergistics2.PowerInputRate=Energy Generation
 gui.appliedenergistics2.PortableCell=Portable Cell
+gui.appliedenergistics2.PortableCells=Portable Cells
 gui.appliedenergistics2.Security=Security Term
 gui.appliedenergistics2.WirelessTerminalModeName=%s - %s
 gui.appliedenergistics2.WirelessModeTerminal=Storage

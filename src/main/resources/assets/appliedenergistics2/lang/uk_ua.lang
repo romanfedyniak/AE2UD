@@ -211,6 +211,7 @@ gui.appliedenergistics2.NetworkTool=Мережевий інструмент
 gui.appliedenergistics2.PowerUsageRate=Використання енергії
 gui.appliedenergistics2.PowerInputRate=Генерація енергії
 gui.appliedenergistics2.PortableCell=Переносна комірка
+gui.appliedenergistics2.PortableCells=Portable Cells
 gui.appliedenergistics2.Security=Термінал безпеки
 gui.appliedenergistics2.WirelessTerminalModeName=%s - %s
 gui.appliedenergistics2.WirelessModeTerminal=Сховище

@@ -96,6 +96,7 @@ public enum GuiText {
     Types,
     QuantumLinkChamber,
     PortableCell,
+    PortableCells,
 
     NetworkTool,
     PowerUsageRate,

@@ -123,7 +123,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public String getUnlocalizedGroupName(final Set<ItemStack> others, final ItemStack is) {
-        return GuiText.StorageCells.getUnlocalized();
+        return GuiText.PortableCells.getUnlocalized();
     }
 
     @Override

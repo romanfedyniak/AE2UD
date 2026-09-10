@@ -22,7 +22,6 @@ package appeng.items.tools.powered;
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
-import appeng.api.implementations.items.IItemGroup;
 import appeng.api.implementations.tiles.IColorableTile;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -74,7 +73,7 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 
-public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCellItem, IItemGroup, IBlockTool, IMouseWheelItem {
+public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCellItem, IBlockTool, IMouseWheelItem {
 
     private static final double POWER_PER_USE = 100;
     private static final Map<Integer, AEColor> ORE_TO_COLOR = new HashMap<>();
@@ -474,11 +473,6 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
     @Override
     public Set<AEKeyType> getKeyTypes() {
         return Collections.singleton(AEKeyType.items());
-    }
-
-    @Override
-    public String getUnlocalizedGroupName(final Set<ItemStack> others, final ItemStack is) {
-        return GuiText.StorageCells.getUnlocalized();
     }
 
     @Override
