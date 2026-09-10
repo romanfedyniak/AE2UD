@@ -887,6 +887,11 @@ item.appliedenergistics2.wireless_pattern_terminal.name=Wireless Pattern Termina
 item.appliedenergistics2.biometric_card.name=Biometric Card
 
 tile.appliedenergistics2.debug_crafting_test_rig.name=Dev.CraftingTestRig
+tile.appliedenergistics2.debug_item_gen.name=Dev.ItemGen
+tile.appliedenergistics2.debug_chunk_loader.name=Dev.ChunkLoader
+tile.appliedenergistics2.debug_phantom_node.name=Dev.PhantomNode
+tile.appliedenergistics2.debug_cube_gen.name=Dev.CubeGenerator
+tile.appliedenergistics2.debug_energy_gen.name=Dev.EnergyGenerator
 item.appliedenergistics2.debug_card.name=Dev.DebugCard
 item.appliedenergistics2.debug_eraser.name=Dev.Eraser
 item.appliedenergistics2.debug_meteorite_placer.name=Dev.MeteoritePlacer
