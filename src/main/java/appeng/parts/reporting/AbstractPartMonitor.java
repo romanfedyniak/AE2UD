@@ -457,7 +457,8 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
             return 0x808080;
         }
 
-        return which == ThroughputFigure.OUT || value < 0 ? 0xD03030 : 0x17B66C;
+        // The green as dark as the red: a brighter one washed out against the lit face.
+        return which == ThroughputFigure.OUT || value < 0 ? 0xD03030 : 0x13803F;
     }
 
     @Override
