@@ -868,6 +868,13 @@ item.appliedenergistics2.nether_quartz_wrench.name=Гайковий ключ з 
 
 item.appliedenergistics2.paint_ball.name=Кулька з фарбою
 item.appliedenergistics2.portable_cell.name=Переносна комірка
+item.appliedenergistics2.portable_cell_4k.name=§e4k§r Portable Cell
+item.appliedenergistics2.portable_cell_16k.name=§a16k§r Portable Cell
+item.appliedenergistics2.portable_cell_64k.name=§b64k§r Portable Cell
+item.appliedenergistics2.portable_cell_256k.name=§b256k§r Portable Cell
+item.appliedenergistics2.portable_cell_1024k.name=§b1024k§r Portable Cell
+item.appliedenergistics2.portable_cell_4096k.name=§b4096k§r Portable Cell
+item.appliedenergistics2.portable_cell_16384k.name=§b16384k§r Portable Cell
 item.appliedenergistics2.network_tool.name=Мережевий інструмент
 item.appliedenergistics2.network_visualiser.name=Візуалізатор мережі
 item.appliedenergistics2.network_visualiser.mode=Режим: %s

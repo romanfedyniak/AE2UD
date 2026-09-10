@@ -55,8 +55,16 @@ import java.util.Set;
 
 
 public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellItem, IGuiItem, IItemGroup {
-    public ToolPortableCell() {
+
+    private final int kilobytes;
+
+    /**
+     * @param kilobytes the tier of the storage component it is crafted from. It holds half of what a storage
+     *                  cell of that tier holds, as the 1k one always has.
+     */
+    public ToolPortableCell(final int kilobytes) {
         super(AEConfig.instance().getPortableCellBattery());
+        this.kilobytes = kilobytes;
     }
 
     @Override
@@ -83,12 +91,12 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public int getBytes(final ItemStack cellItem) {
-        return 512;
+        return this.kilobytes * 512;
     }
 
     @Override
     public int getBytesPerType(final ItemStack cellItem) {
-        return 8;
+        return this.kilobytes * 8;
     }
 
     @Override

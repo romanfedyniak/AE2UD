@@ -867,7 +867,14 @@ item.appliedenergistics2.nether_quartz_sword.name=Nether Quartz Sword
 item.appliedenergistics2.nether_quartz_wrench.name=Nether Quartz Wrench
 
 item.appliedenergistics2.paint_ball.name=Paint Ball
-item.appliedenergistics2.portable_cell.name=Portable Cell
+item.appliedenergistics2.portable_cell.name=§61k§r Portable Cell
+item.appliedenergistics2.portable_cell_4k.name=§e4k§r Portable Cell
+item.appliedenergistics2.portable_cell_16k.name=§a16k§r Portable Cell
+item.appliedenergistics2.portable_cell_64k.name=§b64k§r Portable Cell
+item.appliedenergistics2.portable_cell_256k.name=§b256k§r Portable Cell
+item.appliedenergistics2.portable_cell_1024k.name=§b1024k§r Portable Cell
+item.appliedenergistics2.portable_cell_4096k.name=§b4096k§r Portable Cell
+item.appliedenergistics2.portable_cell_16384k.name=§b16384k§r Portable Cell
 item.appliedenergistics2.network_tool.name=Network Tool
 item.appliedenergistics2.network_visualiser.name=Network Visualiser
 item.appliedenergistics2.network_visualiser.mode=Mode: %s

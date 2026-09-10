@@ -2409,6 +2409,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     nobody asks. Metering is deliberately not part of watching: a terminal watches every key in the network,
     and inheriting a meter from that would meter the lot.
 
+53. **`IItems.portableCell4k`…`portableCell16384k`** - additive. Portable cells for the tiers above 1k, shaped
+    like `portableCell()`, which is the 1k tier. Nothing existing changed. Upstream has portable cells up to
+    256k under ids of its own (`portable_item_cell_1k`…); this fork keeps `portable_cell` as its 1k, so a
+    cell already in a world stays valid.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

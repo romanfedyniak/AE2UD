@@ -142,6 +142,7 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -509,6 +510,12 @@ final class Registration {
         }
     }
 
+    private static List<IItemDefinition> portableCells(final IItems items) {
+        return Arrays.asList(items.portableCell(), items.portableCell4k(), items.portableCell16k(),
+                items.portableCell64k(), items.portableCell256k(), items.portableCell1024k(),
+                items.portableCell4096k(), items.portableCell16384k());
+    }
+
     /**
      * Registers a host as taking a trait from any card carrying it, with how many of them fit read from the
      * config. Zero there means the host does not take the card at all, which the registry itself refuses to
@@ -683,12 +690,14 @@ final class Registration {
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell16384k(), 1);
         support(upgrades, CardTraits.VOID, items.cell16384k(), 1);
 
-        support(upgrades, CardTraits.FUZZY, items.portableCell(), 1);
-        support(upgrades, CardTraits.INVERTER, items.portableCell(), 1);
-        support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.portableCell(), 1);
-        support(upgrades, CardTraits.ENERGY, items.portableCell(), 2);
-        limit(upgrades, CardTraits.ENERGY, items.portableCell());
-        support(upgrades, CardTraits.VOID, items.portableCell(), 1);
+        for (final IItemDefinition portableCell : portableCells(items)) {
+            support(upgrades, CardTraits.FUZZY, portableCell, 1);
+            support(upgrades, CardTraits.INVERTER, portableCell, 1);
+            support(upgrades, CardTraits.EQUAL_DISTRIBUTION, portableCell, 1);
+            support(upgrades, CardTraits.ENERGY, portableCell, 2);
+            limit(upgrades, CardTraits.ENERGY, portableCell);
+            support(upgrades, CardTraits.VOID, portableCell, 1);
+        }
 
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.colorApplicator(), 1);
         support(upgrades, CardTraits.VOID, items.colorApplicator(), 1);
@@ -806,7 +815,9 @@ final class Registration {
 
         // Charge Rates
         items.chargedStaff().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 320d));
-        items.portableCell().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 800d));
+        for (final IItemDefinition portableCell : portableCells(items)) {
+            portableCell.maybeItem().ifPresent(cell -> registries.charger().addChargeRate(cell, 800d));
+        }
         items.colorApplicator().maybeItem().ifPresent(colorApplicator -> registries.charger().addChargeRate(colorApplicator, 800d));
         items.wirelessTerminal().maybeItem().ifPresent(terminal -> registries.charger().addChargeRate(terminal, 8000d));
         items.entropyManipulator().maybeItem().ifPresent(entropyManipulator -> registries.charger().addChargeRate(entropyManipulator, 8000d));

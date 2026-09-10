@@ -80,6 +80,20 @@ public interface IItems {
 
 	IItemDefinition portableCell();
 
+	IItemDefinition portableCell4k();
+
+	IItemDefinition portableCell16k();
+
+	IItemDefinition portableCell64k();
+
+	IItemDefinition portableCell256k();
+
+	IItemDefinition portableCell1024k();
+
+	IItemDefinition portableCell4096k();
+
+	IItemDefinition portableCell16384k();
+
 	IItemDefinition cellCreative();
 
 	IItemDefinition viewCell();
