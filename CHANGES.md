@@ -206,6 +206,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #606](https://github.com/AE2-UEL/Applied-Energistics-2/issues/606) and
   [AE2 Unofficial Extended Life #567](https://github.com/AE2-UEL/Applied-Energistics-2/issues/567).
 
+- **The One Probe never showed how much power a controller or an energy cell held.** The line's format asked
+  for whole numbers and was handed text, so formatting it threw, and The One Probe swallows the error and
+  drops the line. Reported in
+  [AE2 Unofficial Extended Life #575](https://github.com/AE2-UEL/Applied-Energistics-2/pull/575), whose fix
+  writes the line in code instead of reading it from the language file; here the format itself is corrected,
+  so a translation can still word it.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

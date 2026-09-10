@@ -752,7 +752,7 @@ theoneprobe.appliedenergistics2.p2p_output_one_input=Linked (Output Side) - 1 In
 theoneprobe.appliedenergistics2.p2p_output_many_inputs=Linked (Output Side) - §2%d§r Inputs
 theoneprobe.appliedenergistics2.p2p_output=Linked (Output Side)
 theoneprobe.appliedenergistics2.p2p_frequency=Frequency: §5%1$s§r
-theoneprobe.appliedenergistics2.stored_energy=§2%1$d§к / §4%2$d§r
+theoneprobe.appliedenergistics2.stored_energy=§2%1$s§r / §4%2$s§r
 theoneprobe.appliedenergistics2.suppressed=Suppressed by another generator
 
 // Items
