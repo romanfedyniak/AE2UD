@@ -52,19 +52,23 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 
 public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellItem, IGuiItem, IItemGroup {
 
     private final int kilobytes;
+    // A supplier because the built-in key types are registered after the items are.
+    private final Supplier<AEKeyType> keyType;
 
     /**
      * @param kilobytes the tier of the storage component it is crafted from. It holds half of what a storage
      *                  cell of that tier holds, as the 1k one always has.
      */
-    public ToolPortableCell(final int kilobytes) {
+    public ToolPortableCell(final int kilobytes, final Supplier<AEKeyType> keyType) {
         super(AEConfig.instance().getPortableCellBattery());
         this.kilobytes = kilobytes;
+        this.keyType = keyType;
     }
 
     @Override
@@ -101,7 +105,8 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public int getTotalTypes(final ItemStack cellItem) {
-        return 27;
+        // A fluid storage cell holds five types, and its portable one holds no more.
+        return this.holdsItems() ? 27 : 5;
     }
 
     @Override
@@ -126,7 +131,7 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public Set<AEKeyType> getKeyTypes() {
-        return Collections.singleton(AEKeyType.items());
+        return Collections.singleton(this.keyType.get());
     }
 
     @Override
@@ -141,7 +146,8 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public IItemHandler getUpgradesInventory(final ItemStack is) {
-        return this.upgradesWithEnergyCards(is, 4, AEConfig.instance().getEnergyCardPortableCell());
+        // One slot fewer for fluids, which are never offered the fuzzy card.
+        return this.upgradesWithEnergyCards(is, this.holdsItems() ? 4 : 3, AEConfig.instance().getEnergyCardPortableCell());
     }
 
     @Override
@@ -172,5 +178,9 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
     @Override
     public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
         return slotChanged;
+    }
+
+    private boolean holdsItems() {
+        return this.keyType.get() == AEKeyType.items();
     }
 }

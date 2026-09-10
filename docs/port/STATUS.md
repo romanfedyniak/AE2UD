@@ -2414,6 +2414,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     256k under ids of its own (`portable_item_cell_1k`…); this fork keeps `portable_cell` as its 1k, so a
     cell already in a world stays valid.
 
+54. **`IItems.portableFluidCell1k`…`portableFluidCell16384k`** - additive. Portable fluid cells for the same
+    eight tiers as amendment 53. Upstream has them up to 256k, under the same ids used here
+    (`portable_fluid_cell_1k`…).
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

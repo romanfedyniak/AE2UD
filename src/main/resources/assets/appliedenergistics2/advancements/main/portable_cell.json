@@ -142,6 +142,86 @@
                     }
                 ]
             }
+        },
+        "portable_fluid_cell_1k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_1k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_4k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_4k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_16k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_16k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_64k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_64k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_256k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_256k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_1024k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_1024k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_4096k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_4096k"
+                    }
+                ]
+            }
+        },
+        "portable_fluid_cell_16384k": {
+            "trigger": "minecraft:inventory_changed",
+            "conditions": {
+                "items": [
+                    {
+                        "item": "appliedenergistics2:portable_fluid_cell_16384k"
+                    }
+                ]
+            }
         }
     },
     "requirements": [
@@ -153,7 +233,15 @@
             "portable_cell_256k",
             "portable_cell_1024k",
             "portable_cell_4096k",
-            "portable_cell_16384k"
+            "portable_cell_16384k",
+            "portable_fluid_cell_1k",
+            "portable_fluid_cell_4k",
+            "portable_fluid_cell_16k",
+            "portable_fluid_cell_64k",
+            "portable_fluid_cell_256k",
+            "portable_fluid_cell_1024k",
+            "portable_fluid_cell_4096k",
+            "portable_fluid_cell_16384k"
         ]
     ]
 }

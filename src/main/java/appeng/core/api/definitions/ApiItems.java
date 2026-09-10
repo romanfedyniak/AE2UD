@@ -19,6 +19,7 @@
 package appeng.core.api.definitions;
 
 
+import appeng.api.stacks.AEKeyType;
 import appeng.api.definitions.IItemDefinition;
 import appeng.api.definitions.IItems;
 import appeng.api.util.AEColoredItemDefinition;
@@ -92,6 +93,14 @@ public final class ApiItems implements IItems {
     private final IItemDefinition portableCell1024k;
     private final IItemDefinition portableCell4096k;
     private final IItemDefinition portableCell16384k;
+    private final IItemDefinition portableFluidCell1k;
+    private final IItemDefinition portableFluidCell4k;
+    private final IItemDefinition portableFluidCell16k;
+    private final IItemDefinition portableFluidCell64k;
+    private final IItemDefinition portableFluidCell256k;
+    private final IItemDefinition portableFluidCell1024k;
+    private final IItemDefinition portableFluidCell4096k;
+    private final IItemDefinition portableFluidCell16384k;
 
     private final IItemDefinition cellCreative;
     private final IItemDefinition viewCell;
@@ -205,14 +214,22 @@ public final class ApiItems implements IItems {
                 .addFeatures(AEFeature.MATTER_CANNON)
                 .dispenserBehavior(DispenserMatterCannon::new)
                 .build();
-        this.portableCell = powerTools.item("portable_cell", () -> new ToolPortableCell(1)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
-        this.portableCell4k = powerTools.item("portable_cell_4k", () -> new ToolPortableCell(4)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
-        this.portableCell16k = powerTools.item("portable_cell_16k", () -> new ToolPortableCell(16)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
-        this.portableCell64k = powerTools.item("portable_cell_64k", () -> new ToolPortableCell(64)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
-        this.portableCell256k = powerTools.item("portable_cell_256k", () -> new ToolPortableCell(256)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
-        this.portableCell1024k = powerTools.item("portable_cell_1024k", () -> new ToolPortableCell(1024)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
-        this.portableCell4096k = powerTools.item("portable_cell_4096k", () -> new ToolPortableCell(4096)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
-        this.portableCell16384k = powerTools.item("portable_cell_16384k", () -> new ToolPortableCell(16384)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableCell = powerTools.item("portable_cell", () -> new ToolPortableCell(1, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableCell4k = powerTools.item("portable_cell_4k", () -> new ToolPortableCell(4, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableCell16k = powerTools.item("portable_cell_16k", () -> new ToolPortableCell(16, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableCell64k = powerTools.item("portable_cell_64k", () -> new ToolPortableCell(64, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableCell256k = powerTools.item("portable_cell_256k", () -> new ToolPortableCell(256, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableCell1024k = powerTools.item("portable_cell_1024k", () -> new ToolPortableCell(1024, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableCell4096k = powerTools.item("portable_cell_4096k", () -> new ToolPortableCell(4096, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableCell16384k = powerTools.item("portable_cell_16384k", () -> new ToolPortableCell(16384, AEKeyType::items)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableFluidCell1k = powerTools.item("portable_fluid_cell_1k", () -> new ToolPortableCell(1, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableFluidCell4k = powerTools.item("portable_fluid_cell_4k", () -> new ToolPortableCell(4, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableFluidCell16k = powerTools.item("portable_fluid_cell_16k", () -> new ToolPortableCell(16, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableFluidCell64k = powerTools.item("portable_fluid_cell_64k", () -> new ToolPortableCell(64, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS).build();
+        this.portableFluidCell256k = powerTools.item("portable_fluid_cell_256k", () -> new ToolPortableCell(256, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableFluidCell1024k = powerTools.item("portable_fluid_cell_1024k", () -> new ToolPortableCell(1024, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableFluidCell4096k = powerTools.item("portable_fluid_cell_4096k", () -> new ToolPortableCell(4096, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
+        this.portableFluidCell16384k = powerTools.item("portable_fluid_cell_16384k", () -> new ToolPortableCell(16384, AEKeyType::fluids)).addFeatures(AEFeature.PORTABLE_CELL, AEFeature.STORAGE_CELLS, AEFeature.HIGH_CAPACITY_STORAGE).build();
         this.colorApplicator = powerTools.item("color_applicator", ToolColorApplicator::new)
                 .addFeatures(AEFeature.COLOR_APPLICATOR)
                 .dispenserBehavior(DispenserBlockTool::new)
@@ -470,6 +487,46 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition portableCell16384k() {
         return this.portableCell16384k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell1k() {
+        return this.portableFluidCell1k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell4k() {
+        return this.portableFluidCell4k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell16k() {
+        return this.portableFluidCell16k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell64k() {
+        return this.portableFluidCell64k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell256k() {
+        return this.portableFluidCell256k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell1024k() {
+        return this.portableFluidCell1024k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell4096k() {
+        return this.portableFluidCell4096k;
+    }
+
+    @Override
+    public IItemDefinition portableFluidCell16384k() {
+        return this.portableFluidCell16384k;
     }
 
     @Override

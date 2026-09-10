@@ -94,6 +94,22 @@ public interface IItems {
 
 	IItemDefinition portableCell16384k();
 
+	IItemDefinition portableFluidCell1k();
+
+	IItemDefinition portableFluidCell4k();
+
+	IItemDefinition portableFluidCell16k();
+
+	IItemDefinition portableFluidCell64k();
+
+	IItemDefinition portableFluidCell256k();
+
+	IItemDefinition portableFluidCell1024k();
+
+	IItemDefinition portableFluidCell4096k();
+
+	IItemDefinition portableFluidCell16384k();
+
 	IItemDefinition cellCreative();
 
 	IItemDefinition viewCell();

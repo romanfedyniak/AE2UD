@@ -510,6 +510,12 @@ final class Registration {
         }
     }
 
+    private static List<IItemDefinition> portableFluidCells(final IItems items) {
+        return Arrays.asList(items.portableFluidCell1k(), items.portableFluidCell4k(), items.portableFluidCell16k(),
+                items.portableFluidCell64k(), items.portableFluidCell256k(), items.portableFluidCell1024k(),
+                items.portableFluidCell4096k(), items.portableFluidCell16384k());
+    }
+
     private static List<IItemDefinition> portableCells(final IItems items) {
         return Arrays.asList(items.portableCell(), items.portableCell4k(), items.portableCell16k(),
                 items.portableCell64k(), items.portableCell256k(), items.portableCell1024k(),
@@ -699,6 +705,14 @@ final class Registration {
             support(upgrades, CardTraits.VOID, portableCell, 1);
         }
 
+        for (final IItemDefinition portableCell : portableFluidCells(items)) {
+            support(upgrades, CardTraits.INVERTER, portableCell, 1);
+            support(upgrades, CardTraits.EQUAL_DISTRIBUTION, portableCell, 1);
+            support(upgrades, CardTraits.ENERGY, portableCell, 2);
+            limit(upgrades, CardTraits.ENERGY, portableCell);
+            support(upgrades, CardTraits.VOID, portableCell, 1);
+        }
+
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.colorApplicator(), 1);
         support(upgrades, CardTraits.VOID, items.colorApplicator(), 1);
         support(upgrades, CardTraits.ENERGY, items.colorApplicator(), 2);
@@ -816,6 +830,9 @@ final class Registration {
         // Charge Rates
         items.chargedStaff().maybeItem().ifPresent(chargedStaff -> registries.charger().addChargeRate(chargedStaff, 320d));
         for (final IItemDefinition portableCell : portableCells(items)) {
+            portableCell.maybeItem().ifPresent(cell -> registries.charger().addChargeRate(cell, 800d));
+        }
+        for (final IItemDefinition portableCell : portableFluidCells(items)) {
             portableCell.maybeItem().ifPresent(cell -> registries.charger().addChargeRate(cell, 800d));
         }
         items.colorApplicator().maybeItem().ifPresent(colorApplicator -> registries.charger().addChargeRate(colorApplicator, 800d));
