@@ -22,6 +22,7 @@ package appeng.items.tools.powered.powersink;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.implementations.items.IAEItemPowerStorage;
+import appeng.core.AEClientConfig;
 import appeng.core.localization.Tooltips;
 import appeng.api.upgrades.CardTraits;
 import appeng.items.AEBaseItem;
@@ -67,7 +68,8 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
         }
 
         lines.add(
-                Tooltips.energyStorageComponent(internalCurrentPower, internalMaxPower).getFormattedText());
+                Tooltips.energyStorageComponent(internalCurrentPower, internalMaxPower,
+                        AEClientConfig.instance().selectedPowerUnit()).getFormattedText());
     }
 
     @Override

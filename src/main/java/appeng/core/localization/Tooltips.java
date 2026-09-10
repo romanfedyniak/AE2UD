@@ -194,13 +194,14 @@ public final class Tooltips {
         }
     }
 
-    public static ITextComponent energyStorageComponent(double energy, double max) {
+    /** Energy and max are in AE, as the item stores them; they are shown in the unit given. */
+    public static ITextComponent energyStorageComponent(double energy, double max, PowerUnits unit) {
         return Tooltips.of(
                 Tooltips.of(GuiText.StoredEnergy),
                 Tooltips.of(": ").setStyle(NORMAL_TOOLTIP_TEXT),
-                Tooltips.ofNumber(energy, max),
+                Tooltips.ofNumber(PowerUnits.AE.convertTo(unit, energy), PowerUnits.AE.convertTo(unit, max)),
                 Tooltips.of(" ").setStyle(NORMAL_TOOLTIP_TEXT),
-                Tooltips.of(PowerUnits.AE),
+                Tooltips.of(unit),
                 Tooltips.of(" (").setStyle(NORMAL_TOOLTIP_TEXT),
                 Tooltips.ofPercent(energy / max),
                 Tooltips.of(")").setStyle(NORMAL_TOOLTIP_TEXT));

@@ -23,6 +23,7 @@ import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.definitions.IBlockDefinition;
 import appeng.api.implementations.items.IAEItemPowerStorage;
+import appeng.core.AEClientConfig;
 import appeng.core.Api;
 import appeng.core.localization.Tooltips;
 import appeng.util.Platform;
@@ -55,7 +56,8 @@ public class AEBaseItemBlockChargeable extends AEBaseItemBlock implements IAEIte
                 internalCurrentPower = tag.getDouble("internalCurrentPower");
             }
 
-            lines.add(Tooltips.energyStorageComponent(internalCurrentPower, internalMaxPower).getFormattedText());
+            lines.add(Tooltips.energyStorageComponent(internalCurrentPower, internalMaxPower,
+                    AEClientConfig.instance().selectedPowerUnit()).getFormattedText());
         }
     }
 

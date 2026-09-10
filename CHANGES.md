@@ -213,6 +213,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   writes the line in code instead of reading it from the language file; here the format itself is corrected,
   so a translation can still word it.
 
+- **A powered item's "Stored Energy" line was always in AE.** The power unit picked in the Network Status,
+  Wireless and Spatial IO Port windows applied to those windows, but not to the tooltips of energy cells and
+  powered tools. They read in that unit now. Reported in
+  [AE2 Unofficial Extended Life #568](https://github.com/AE2-UEL/Applied-Energistics-2/issues/568).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
