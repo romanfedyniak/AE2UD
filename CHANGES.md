@@ -253,6 +253,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #583](https://github.com/AE2-UEL/Applied-Energistics-2/pull/583) frees it in one
   packet only.
 
+- **A storage bus went on showing a chest whose chunk had unloaded, and anything taken out of it was
+  duplicated.** A chunk unloading tells nothing next to it, so a bus in a loaded chunk kept talking to the
+  inventory it had found, which the world had already saved and let go: its items stayed in the terminal, and
+  taking them left them in the chest as well. After the chunk loaded again the bus kept that old inventory
+  and never saw the real one. The bus now checks that the block it mounted is still loaded and still the
+  same before anything is stored in or taken from it, mounts nothing while the chunk is away, and finds the
+  inventory again when it comes back. It never loads the chunk to look. Items and fluids alike. Reported in
+  [AE2 Unofficial Extended Life #389](https://github.com/AE2-UEL/Applied-Energistics-2/issues/389).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

@@ -86,6 +86,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityInject;
 import net.minecraftforge.items.CapabilityItemHandler;
@@ -133,6 +134,11 @@ public class PartStorageBus extends PartUpgradeable
     protected int handlerHash = 0;
     private boolean wasActive = false;
     private byte resetCacheLogic = 0;
+    /** The tile the mounted storage was taken from, so its chunk unloading is noticed. */
+    @Nullable
+    private TileEntity mountedTile;
+    /** The block in front is in a chunk that is not loaded; kept ticking to see it come back. */
+    private boolean awaitingChunk = false;
     @Nullable
     private Map<AEKeyType, ExternalStorageStrategy> externalStorageStrategies;
     private final KeyTypeSelection keyTypeSelection;
@@ -321,11 +327,15 @@ public class PartStorageBus extends PartUpgradeable
 
     @Override
     public TickingRequest getTickingRequest(final IGridNode node) {
-        return new TickingRequest(TickRates.StorageBus.getMin(), TickRates.StorageBus.getMax(), this.monitor == null, true);
+        return new TickingRequest(TickRates.StorageBus.getMin(), TickRates.StorageBus.getMax(), this.isIdle(), true);
     }
 
     @Override
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
+        if (this.awaitingChunk ? this.isTargetLoaded() : this.isMountedTileGone()) {
+            this.resetCacheLogic = 2;
+        }
+
         if (this.resetCacheLogic != 0) {
             this.resetCache();
         }
@@ -334,7 +344,34 @@ public class PartStorageBus extends PartUpgradeable
             return this.monitor.onTick();
         }
 
-        return TickRateModulation.SLEEP;
+        return this.awaitingChunk ? TickRateModulation.SLOWER : TickRateModulation.SLEEP;
+    }
+
+    private boolean isIdle() {
+        return this.monitor == null && !this.awaitingChunk;
+    }
+
+    private BlockPos targetPos() {
+        return this.getHost().getTile().getPos().offset(this.getSide().getFacing());
+    }
+
+    private boolean isTargetLoaded() {
+        return this.getHost().getTile().getWorld().isBlockLoaded(this.targetPos());
+    }
+
+    /**
+     * A chunk unloading tells nothing next to it. The storage its tile left behind would go on answering with
+     * contents the world has already saved, so anything taken from it would be duplicated.
+     */
+    private boolean isMountedTileGone() {
+        // A bus just taken off can still be asked once before the network lets go of it.
+        if (this.mountedTile == null || this.getHost() == null || this.getHost().getTile() == null) {
+            return false;
+        }
+
+        final World world = this.getHost().getTile().getWorld();
+        final BlockPos at = this.targetPos();
+        return this.mountedTile.isInvalid() || !world.isBlockLoaded(at) || world.getTileEntity(at) != this.mountedTile;
     }
 
     protected void resetCache() {
@@ -471,12 +508,13 @@ public class PartStorageBus extends PartUpgradeable
             return this.handler;
         }
 
-        final boolean wasSleeping = this.monitor == null;
+        final boolean wasSleeping = this.isIdle();
         final boolean wasRegistered = this.hasRegisteredCellToNetwork();
 
         this.cached = true;
-        final TileEntity self = this.getHost().getTile();
-        final TileEntity target = self.getWorld().getTileEntity(self.getPos().offset(this.getSide().getFacing()));
+        // Asking an unloaded chunk for its tile would load it.
+        this.awaitingChunk = !this.isTargetLoaded();
+        final TileEntity target = this.awaitingChunk ? null : this.getHost().getTile().getWorld().getTileEntity(this.targetPos());
         final int newHandlerHash = this.createHandlerHash(target);
 
         if (newHandlerHash != 0 && newHandlerHash == this.handlerHash) {
@@ -484,6 +522,7 @@ public class PartStorageBus extends PartUpgradeable
         }
 
         this.handlerHash = newHandlerHash;
+        this.mountedTile = target;
         this.monitor = null;
 
         MEStorage newDelegate = NullInventory.of();
@@ -517,10 +556,10 @@ public class PartStorageBus extends PartUpgradeable
         this.handler.setSticky(this.isInstalled(CardTraits.STICKY));
 
         // update sleep state...
-        if (wasSleeping != (this.monitor == null)) {
+        if (wasSleeping != this.isIdle()) {
             try {
                 final ITickManager tm = this.getProxy().getTick();
-                if (this.monitor == null) {
+                if (this.isIdle()) {
                     tm.sleepDevice(this.getProxy().getNode());
                 } else {
                     tm.wakeDevice(this.getProxy().getNode());
@@ -612,9 +651,39 @@ public class PartStorageBus extends PartUpgradeable
      * on {@link MEInventoryHandler}) is what makes them callable from {@link PartStorageBus} despite being
      * `protected`: the override moves their declaring class into this package, see the outer class's uses.
      */
-    private static final class StorageBusHandler extends MEInventoryHandler {
+    /**
+     * Refuses everything from the moment the mounted tile is gone. The bus only notices on its next tick, and the
+     * network can store into or take from it many times before that.
+     */
+    private final class StorageBusHandler extends MEInventoryHandler {
         StorageBusHandler(final MEStorage delegate) {
             super(delegate);
+        }
+
+        @Override
+        public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            return this.isStale() ? 0 : super.insert(what, amount, mode, source);
+        }
+
+        @Override
+        public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
+            return this.isStale() ? 0 : super.extract(what, amount, mode, source);
+        }
+
+        @Override
+        public void getAvailableStacks(final KeyCounter out) {
+            if (!this.isStale()) {
+                super.getAvailableStacks(out);
+            }
+        }
+
+        private boolean isStale() {
+            if (!PartStorageBus.this.isMountedTileGone()) {
+                return false;
+            }
+
+            PartStorageBus.this.resetCache(true);
+            return true;
         }
 
         @Override
