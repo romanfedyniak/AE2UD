@@ -89,7 +89,7 @@ public abstract class AEBaseMEGui extends AEBaseGui {
                     final String formattedAmount = myStack.getWhat().formatAmount(myStack.getRequestableAmount(), amountFormat);
                     final String format = String.format(local, formattedAmount);
 
-                    currentToolTip.add(format);
+                    currentToolTip.add(TextFormatting.GRAY + format);
                 }
 
                 if (myStack.isFakeCraftable()) {

@@ -968,7 +968,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                 && !this.ordersCraftInstead(slot) && (carried.isEmpty() || accepts(carried, stored));
 
         if (fills) {
-            hints.add(line(ButtonToolTips.ExtractAction, Tooltips.click(0), Tooltips.nameOf(stored.what())));
+            hints.add(line(ButtonToolTips.ExtractAction, Tooltips.click(0), nameOf(stored.what())));
 
             if (wholeStack) {
                 hints.add(line(ButtonToolTips.ExtractAllAction, named(ButtonToolTips.CtrlLeftClick)));
@@ -976,12 +976,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         } else if (held != null && slot instanceof SlotME) {
             // Nothing here to fill it from, so left stores the container itself. Worth saying only because
             // the right click on the same slot does something else entirely with the same item.
-            hints.add(line(ButtonToolTips.StoreAction, Tooltips.click(0), Tooltips.nameOf(carried)));
+            hints.add(line(ButtonToolTips.StoreAction, Tooltips.click(0), nameOf(carried)));
         }
 
         // Right pours what is held into the network whatever the slot itself holds, empty row included.
         if (held != null && (slot instanceof SlotME || slot instanceof SlotGenericStorage)) {
-            hints.add(line(ButtonToolTips.DepositAction, Tooltips.click(1), Tooltips.nameOf(held.what())));
+            hints.add(line(ButtonToolTips.DepositAction, Tooltips.click(1), nameOf(held.what())));
 
             if (wholeStack) {
                 hints.add(line(ButtonToolTips.DepositAllAction, named(ButtonToolTips.CtrlRightClick)));
@@ -1004,8 +1004,8 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             // different things with the same item. Where the slot will not take the contents both buttons
             // place the container, and that is the ordinary visible action a filter slot never explains.
             if (this.setsToHeldContents(slot)) {
-                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(0), Tooltips.nameOf(held.what())));
-                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), Tooltips.nameOf(carried)));
+                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(0), nameOf(held.what())));
+                hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), nameOf(carried)));
             }
 
             if (this.allowsTypedAmount(slot)) {
@@ -1019,7 +1019,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             final GenericStack inSlot = ContainerItemStrategies.getContainedStack(slot.getStack());
             if (inSlot != null) {
                 hints.add(line(ButtonToolTips.DepositAction, named(ButtonToolTips.ShiftRightClick),
-                        Tooltips.nameOf(inSlot.what())));
+                        nameOf(inSlot.what())));
 
                 if (slot.getStack().getCount() > 1) {
                     hints.add(line(ButtonToolTips.DepositAllAction, named(ButtonToolTips.CtrlShiftRightClick)));
@@ -1036,7 +1036,16 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
     /** A button chord the mouse-button vocabulary has no number for. */
     private static ITextComponent named(final ButtonToolTips chord) {
-        return Tooltips.muted(new TextComponentString(chord.getLocal()));
+        return new TextComponentString(chord.getLocal());
+    }
+
+    /** Plain text, so that it takes the colour of the line it is written into. */
+    private static String nameOf(final AEKey what) {
+        return what.getDisplayName().getUnformattedText();
+    }
+
+    private static String nameOf(final ItemStack stack) {
+        return stack.getDisplayName();
     }
 
     /** What the slot holds in the network's own terms, for the slots that stand for stored contents. */

@@ -189,6 +189,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #550](https://github.com/AE2-UEL/Applied-Energistics-2/pull/550), which shows
   only the shut one.
 
+- **The lines under a slot's name came in three colours.** "Items Stored" was grey, "Items Requestable" white,
+  and a click hint was a dark grey button, a white action and an item in the colour of its rarity - the button
+  dark enough against the tooltip's background that it could hardly be read. Every line describing the slot
+  is the tooltip's ordinary grey now, and so are the two network shortcuts written under an ingredient in
+  HEI's list; only the lines reporting a state keep a colour, "Fake Craft" and a crafting pin's progress. A
+  powered item's "Stored Energy" line had the same seam, the label grey and the colon after it white, and its
+  brackets with it. The colon was fixed first in
+  [AE2 Unofficial Extended Life #547](https://github.com/AE2-UEL/Applied-Energistics-2/pull/547).
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through

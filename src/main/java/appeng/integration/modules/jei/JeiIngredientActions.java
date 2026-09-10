@@ -21,6 +21,7 @@ import org.lwjgl.input.Keyboard;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
@@ -159,7 +160,7 @@ public final class JeiIngredientActions {
         final String name = AppEng.proxy.getActionKeyName(key);
 
         if (name != null) {
-            tooltip.add(line.getLocal(name));
+            tooltip.add(TextFormatting.GRAY + line.getLocal(name));
         }
     }
 
