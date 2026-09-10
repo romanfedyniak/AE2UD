@@ -62,6 +62,10 @@ public final class AppEngServerPacketHandler extends AppEngPacketHandlerBase imp
             AELog.debug(e);
         } catch (final InvocationTargetException e) {
             AELog.debug(e);
+        } finally {
+            // Forge hands an event channel the payload and never frees it. Every packet reads it whole in its
+            // constructor, so it is done with here even when the handling itself was queued for the main thread.
+            stream.release();
         }
     }
 }

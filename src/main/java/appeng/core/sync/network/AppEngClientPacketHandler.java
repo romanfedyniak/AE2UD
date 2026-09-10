@@ -62,6 +62,9 @@ public class AppEngClientPacketHandler extends AppEngPacketHandlerBase implement
             AELog.debug(e);
         } catch (final InvocationTargetException e) {
             AELog.debug(e);
+        } finally {
+            // See AppEngServerPacketHandler: nothing else frees it.
+            stream.release();
         }
     }
 }

@@ -245,6 +245,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   [AE2 Unofficial Extended Life #572](https://github.com/AE2-UEL/Applied-Energistics-2/pull/572) fixes it by
   writing every count in a different format, which ModularUI does not expect.
 
+- **Every AE2 packet leaked the buffer it arrived in.** Forge gives a channel like AE2's the raw payload and
+  never frees it, and nor did AE2, so a busy server's network buffers were never handed back, and with
+  Netty's leak detector on it logged leaks from terminal clicks and crafting requests. The payload is freed as
+  soon as the packet has been read. Reported in
+  [AE2 Unofficial Extended Life #598](https://github.com/AE2-UEL/Applied-Energistics-2/issues/598);
+  [AE2 Unofficial Extended Life #583](https://github.com/AE2-UEL/Applied-Energistics-2/pull/583) frees it in one
+  packet only.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
