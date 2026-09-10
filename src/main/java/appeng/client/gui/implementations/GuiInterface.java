@@ -99,7 +99,10 @@ public class GuiInterface extends GuiUpgradeable {
         if (lockReason != null) {
             labelList.remove(this.lockReason);
         }
-        this.lockReason = new GuiImgLabel(this.fontRenderer, guiLeft + 40, guiTop + 12, Settings.UNLOCK, LockCraftingMode.NONE);
+        // Beside the title, where it covers nothing the window draws. Three down, below the frame: the open
+        // padlock's shackle starts in the top row of its cell.
+        final int titleWidth = this.fontRenderer.getStringWidth(this.getGuiDisplayName(GuiText.Interface.getLocal()));
+        this.lockReason = new GuiImgLabel(this.fontRenderer, guiLeft + 8 + titleWidth + 2, guiTop + 3, Settings.UNLOCK, LockCraftingMode.NONE);
         this.lockReason.setVisibility(false);
         labelList.add(lockReason);
     }

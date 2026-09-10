@@ -14,27 +14,30 @@ import net.minecraft.util.text.translation.I18n;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * A state shown as an icon, with what it means in the tooltip. It used to write its title beside the icon too,
+ * which put a line of text over whatever the window had there.
+ */
 public class GuiImgLabel extends GuiLabel implements ITooltip {
     public GuiImgLabel(FontRenderer fontRendererObj, final int x, final int y, final Enum idx, final Enum val) {
         super(fontRendererObj, 0, x, y, 16, 16, 0);
         this.currentValue = val;
         this.labelSetting = idx;
-        this.fontRenderer = fontRendererObj;
 
         if (appearances == null) {
             appearances = new HashMap<>();
-            registerApp(10, Settings.UNLOCK, LockCraftingMode.NONE, GuiText.NoneLock, null, 0x00FF00);
-            registerApp(9, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_LOW, GuiText.CraftingLock, GuiText.LowRedstoneLock, 0xFF0000);
-            registerApp(9, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_HIGH, GuiText.CraftingLock, GuiText.HighRedstoneLock, 0xFF0000);
-            registerApp(9, Settings.UNLOCK, LockCraftingMode.LOCK_UNTIL_PULSE, GuiText.CraftingLock, GuiText.UntilPulseUnlock, 0xFF0000);
-            registerApp(9, Settings.UNLOCK, LockCraftingMode.LOCK_UNTIL_RESULT, GuiText.CraftingLock, GuiText.ResultLock, 0xFF0000);
+            // The open and shut padlocks the monitor's lock wears.
+            registerApp(16 * 2 + 7, Settings.UNLOCK, LockCraftingMode.NONE, GuiText.NoneLock, null);
+            registerApp(16 * 2 + 8, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_LOW, GuiText.CraftingLock, GuiText.LowRedstoneLock);
+            registerApp(16 * 2 + 8, Settings.UNLOCK, LockCraftingMode.LOCK_WHILE_HIGH, GuiText.CraftingLock, GuiText.HighRedstoneLock);
+            registerApp(16 * 2 + 8, Settings.UNLOCK, LockCraftingMode.LOCK_UNTIL_PULSE, GuiText.CraftingLock, GuiText.UntilPulseUnlock);
+            registerApp(16 * 2 + 8, Settings.UNLOCK, LockCraftingMode.LOCK_UNTIL_RESULT, GuiText.CraftingLock, GuiText.ResultLock);
         }
     }
 
     private final Enum labelSetting;
     private Enum currentValue;
     private static Map<GuiImgButton.EnumPair, LabelAppearance> appearances;
-    private final FontRenderer fontRenderer;
 
     public void setVisibility(final boolean vis) {
         this.visible = vis;
@@ -42,72 +45,45 @@ public class GuiImgLabel extends GuiLabel implements ITooltip {
 
     @Override
     public void drawLabel(Minecraft mc, int mouseX, int mouseY) {
-        if (this.visible) {
-            final int iconIndex = this.getIconIndex();
-            if (iconIndex == -1) {
-                return;
-            }
-            AEBaseGui.enableSpriteBlending();
-            mc.renderEngine.bindTexture(new ResourceLocation("appliedenergistics2", "textures/guis/states.png"));
-            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-            final int uv_y = (int) Math.floor(iconIndex / 16);
-            final int uv_x = iconIndex - uv_y * 16;
-
-
-            this.drawTexturedModalRect(this.x, this.y, uv_x * 16, uv_y * 16, 16, 16);
-
-            if (labelSetting != null && currentValue != null) {
-                LabelAppearance labelAppearance = appearances.get(new GuiImgButton.EnumPair(this.labelSetting, this.currentValue));
-                String translated = I18n.translateToLocal(labelAppearance.displayLabel);
-                fontRenderer.drawString(translated, x + 16, y + 5, labelAppearance.color);
-                width = 16 + fontRenderer.getStringWidth(translated);
-            }
+        final LabelAppearance appearance = this.getAppearance();
+        if (!this.visible || appearance == null) {
+            return;
         }
+
+        AEBaseGui.enableSpriteBlending();
+        mc.renderEngine.bindTexture(new ResourceLocation("appliedenergistics2", "textures/guis/states.png"));
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+        this.drawTexturedModalRect(this.x, this.y, appearance.index % 16 * 16, appearance.index / 16 * 16, 16, 16);
     }
 
-    private int getIconIndex() {
-        if (this.labelSetting != null && this.currentValue != null) {
-            final LabelAppearance app = appearances.get(new GuiImgButton.EnumPair(this.labelSetting, this.currentValue));
-            if (app == null) {
-                return -1;
-            }
-            return app.index;
+    private LabelAppearance getAppearance() {
+        if (this.labelSetting == null || this.currentValue == null) {
+            return null;
         }
-        return -1;
+        return appearances.get(new GuiImgButton.EnumPair(this.labelSetting, this.currentValue));
     }
 
-    private void registerApp(final int iconIndex, final Settings setting, final Enum val, final GuiText label, final Object hint, int color) {
+    private void registerApp(final int iconIndex, final Settings setting, final Enum val, final GuiText title, final GuiText hint) {
         final LabelAppearance a = new LabelAppearance();
-        if (hint != null) {
-            a.hiddenValue = (String) (hint instanceof String ? hint : ((GuiText) hint).getUnlocalized());
-        } else {
-            a.hiddenValue = null;
-        }
         a.index = iconIndex;
-        a.displayLabel = label.getUnlocalized();
-        a.color = color;
+        a.title = title.getUnlocalized();
+        a.hint = hint == null ? null : hint.getUnlocalized();
         appearances.put(new GuiImgButton.EnumPair(setting, val), a);
     }
 
     @Override
     public String getMessage() {
-        if (labelSetting != null && this.currentValue != null) {
-            LabelAppearance labelAppearance = appearances.get(new GuiImgButton.EnumPair(this.labelSetting, this.currentValue));
-            if (labelAppearance == null) {
-                return "No Such Message";
-            }
-
-            if (labelAppearance.hiddenValue != null) {
-                return I18n.translateToLocal(labelAppearance.hiddenValue);
-            }
+        final LabelAppearance appearance = this.getAppearance();
+        if (appearance == null) {
+            return null;
         }
-        return null;
+
+        final String title = I18n.translateToLocal(appearance.title);
+        return appearance.hint == null ? title : title + "\n" + I18n.translateToLocal(appearance.hint);
     }
 
     public void set(final Enum e) {
-        if (this.currentValue != e) {
-            this.currentValue = e;
-        }
+        this.currentValue = e;
     }
 
     @Override
@@ -137,8 +113,7 @@ public class GuiImgLabel extends GuiLabel implements ITooltip {
 
     private static class LabelAppearance {
         public int index;
-        public String displayLabel;
-        public String hiddenValue;
-        public int color;
+        public String title;
+        public String hint;
     }
 }

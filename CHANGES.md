@@ -182,6 +182,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   emitter add flags of their own that no network event announces, and they would have kept showing a stale
   state.
 
+- **An interface with a crafting lock set wrote "Crafting is locked" across its own window.** The line sat
+  under the title whether or not anything was locked, reading "Crafting is unlocked" in green the rest of the
+  time. It is a padlock beside the title now - shut while crafting is locked, open while it is not, the same
+  pair the monitor's lock wears - and what keeps it shut is in its tooltip. The idea is from
+  [AE2 Unofficial Extended Life #550](https://github.com/AE2-UEL/Applied-Energistics-2/pull/550), which shows
+  only the shut one.
+
 ### Amount entry
 
 - **A number typed into an amount field is read as the number it is.** Everything typed there went through
