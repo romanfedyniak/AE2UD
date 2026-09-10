@@ -31,6 +31,7 @@ import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AEConfig;
+import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.items.contents.CellConfig;
@@ -44,6 +45,9 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -56,6 +60,8 @@ import java.util.function.Supplier;
 
 
 public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellItem, IGuiItem, IItemGroup {
+
+    private static final String AUTO_PICKUP_TAG = "autoPickup";
 
     private final int kilobytes;
     // A supplier because the built-in key types are registered after the items are.
@@ -71,10 +77,33 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
         this.keyType = keyType;
     }
 
+    /** Whether this is an item portable cell with auto pickup switched on. See {@link PortableCellPickup}. */
+    public static boolean isAutoPickupEnabled(final ItemStack stack) {
+        return stack.getItem() instanceof ToolPortableCell cell && cell.holdsItems()
+                && stack.hasTagCompound() && stack.getTagCompound().getBoolean(AUTO_PICKUP_TAG);
+    }
+
     @Override
     public ActionResult<ItemStack> onItemRightClick(final World w, final EntityPlayer player, final EnumHand hand) {
+        final ItemStack stack = player.getHeldItem(hand);
+        if (player.isSneaking() && this.holdsItems()) {
+            if (!w.isRemote) {
+                final boolean enabled = !isAutoPickupEnabled(stack);
+                Platform.openNbtData(stack).setBoolean(AUTO_PICKUP_TAG, enabled);
+                player.sendStatusMessage(ButtonToolTips.AutoPickup.getLocalizedWithArgs(stateText(enabled)), true);
+            }
+            return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+        }
+
         Platform.openGUI(player, null, AEPartLocation.INTERNAL, GuiBridge.GUI_PORTABLE_CELL);
-        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
+        return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+    }
+
+    private static ITextComponent stateText(final boolean enabled) {
+        final ITextComponent text = new TextComponentTranslation(
+                (enabled ? ButtonToolTips.Enable : ButtonToolTips.Disabled).getUnlocalized());
+        text.getStyle().setColor(enabled ? TextFormatting.GREEN : TextFormatting.RED);
+        return text;
     }
 
     @SideOnly(Side.CLIENT)
@@ -87,6 +116,14 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
     @SideOnly(Side.CLIENT)
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        if (this.holdsItems()) {
+            final String state = isAutoPickupEnabled(stack)
+                    ? TextFormatting.GREEN + ButtonToolTips.Enable.getLocal()
+                    : TextFormatting.RED + ButtonToolTips.Disabled.getLocal();
+            lines.add(String.format(ButtonToolTips.AutoPickup.getLocal(), state + TextFormatting.RESET));
+            lines.add(TextFormatting.GRAY + ButtonToolTips.AutoPickupUsage.getLocal());
+        }
 
         final StorageCell cdi = StorageCells.getCellInventory(stack, null);
 

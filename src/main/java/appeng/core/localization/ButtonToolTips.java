@@ -97,6 +97,8 @@ public enum ButtonToolTips {
     Disabled,
     HideStored,
     Enable,
+    AutoPickup,
+    AutoPickupUsage,
 
     Blocking,
     NonBlocking,

@@ -77,6 +77,7 @@ import appeng.hooks.WrenchClickHook;
 import appeng.items.materials.ItemMaterial;
 import appeng.items.parts.ItemFacade;
 import appeng.items.parts.ItemPart;
+import appeng.items.tools.powered.PortableCellPickup;
 import appeng.loot.CheckTally;
 import appeng.loot.ChestLoot;
 import appeng.loot.FeatureEnabled;
@@ -344,6 +345,10 @@ final class Registration {
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
 
         MinecraftForge.EVENT_BUS.register(ItemSpawnCapture.INSTANCE);
+
+        if (AEConfig.instance().isFeatureEnabled(AEFeature.PORTABLE_CELL)) {
+            MinecraftForge.EVENT_BUS.register(new PortableCellPickup());
+        }
 
         // The conditions and functions AE2's own loot tables are written with. Registered whatever else is
         // switched on: one nothing uses costs nothing, while registering one twice throws.
