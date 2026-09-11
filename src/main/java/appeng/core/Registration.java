@@ -65,6 +65,7 @@ import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.parts.automation.InitStackWorldBehaviors;
 import appeng.parts.misc.InitExternalStorageStrategies;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.ChannelTierSync;
 import appeng.core.sync.GuiBridge;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.stats.AdvancementTriggers;
@@ -341,6 +342,8 @@ final class Registration {
         definitions.getRegistry().getBootstrapComponents(IInitComponent.class).forEachRemaining(b -> b.initialize(event.getSide()));
 
         MinecraftForge.EVENT_BUS.register(TickHandler.INSTANCE);
+
+        MinecraftForge.EVENT_BUS.register(new ChannelTierSync());
 
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
 

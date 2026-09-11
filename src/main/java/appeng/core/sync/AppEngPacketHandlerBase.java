@@ -117,6 +117,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CELL_VIEW_CONTENTS(PacketCellViewContents.class),
 
+        PACKET_CHANNEL_TIERS(PacketChannelTiers.class),
+
         ;
 
 

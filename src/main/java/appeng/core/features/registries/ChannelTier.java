@@ -17,11 +17,33 @@ import appeng.api.networking.pathing.IChannelTier;
 public final class ChannelTier implements IChannelTier {
 
     private final ResourceLocation id;
-    private final int capacity;
+    /** What this side's config file says. */
+    private final int localCapacity;
+    /** What is in force: the local number, or the server's while connected to one. */
+    private int capacity;
 
     ChannelTier(final ResourceLocation id, final int capacity) {
         this.id = id;
+        this.localCapacity = capacity;
         this.capacity = capacity;
+    }
+
+    /**
+     * @return whether the number in force changed
+     */
+    boolean override(final int serverCapacity) {
+        if (this.capacity == serverCapacity) {
+            return false;
+        }
+        this.capacity = serverCapacity;
+        return true;
+    }
+
+    /**
+     * @return whether the number in force changed
+     */
+    boolean restore() {
+        return this.override(this.localCapacity);
     }
 
     @Override

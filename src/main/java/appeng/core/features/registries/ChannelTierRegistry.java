@@ -59,4 +59,34 @@ public final class ChannelTierRegistry implements IChannelTierRegistry {
     public Collection<IChannelTier> getTiers() {
         return Collections.unmodifiableCollection(this.tiers.values());
     }
+
+    /**
+     * Puts the server's numbers in force on the client. A tier only one side registered keeps what it had.
+     *
+     * @return whether any number changed
+     */
+    public boolean applyServerCapacities(final Map<ResourceLocation, Integer> capacities) {
+        boolean changed = false;
+        for (final Map.Entry<ResourceLocation, Integer> entry : capacities.entrySet()) {
+            if (this.tiers.get(entry.getKey()) instanceof ChannelTier tier) {
+                changed |= tier.override(entry.getValue());
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Back to this side's own config, once the server whose numbers were in force is left.
+     *
+     * @return whether any number changed
+     */
+    public boolean restoreLocalCapacities() {
+        boolean changed = false;
+        for (final IChannelTier tier : this.tiers.values()) {
+            if (tier instanceof ChannelTier channelTier) {
+                changed |= channelTier.restore();
+            }
+        }
+        return changed;
+    }
 }

@@ -81,6 +81,8 @@ import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import appeng.core.features.registries.ChannelTierRegistry;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
@@ -110,6 +112,13 @@ public class ClientHelper extends ServerHelper {
 
         RenderingRegistry.registerEntityRenderingHandler(EntityTinyTNTPrimed.class, manager -> new RenderTinyTNTPrimed(manager));
         RenderingRegistry.registerEntityRenderingHandler(EntityFloatingItem.class, manager -> new RenderFloatingItem(manager));
+    }
+
+    @SubscribeEvent
+    public void onDisconnect(final FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        // Fired on the network thread, while the tiers are read on the main one
+        Minecraft.getMinecraft().addScheduledTask(
+                () -> ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities());
     }
 
     @Override
