@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
 
+import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
@@ -35,6 +36,11 @@ public final class CreativeCellHandler implements ICellHandler {
     @Override
     public boolean isCell(final ItemStack is) {
         return !is.isEmpty() && is.getItem() instanceof ItemCreativeStorageCell;
+    }
+
+    @Override
+    public boolean isCell(final AEItemKey key) {
+        return key.getItem() instanceof ItemCreativeStorageCell;
     }
 
     @Override

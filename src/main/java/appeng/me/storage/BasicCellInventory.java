@@ -484,8 +484,9 @@ public class BasicCellInventory implements StorageCell {
         // A non-empty storage cell may not be stored recursively inside this one. Kept above the void
         // card with the three refusals before it: all four say "this cell will never hold this", which is
         // not the overflow the card is there to destroy. Upstream voids this one; a player's full cell
-        // vanishing because it was pushed at a carded one is not worth mirroring.
-        if (what instanceof AEItemKey itemKey) {
+        // vanishing because it was pushed at a carded one is not worth mirroring. The key is asked first, so a
+        // stack is only built for an item that is a cell and not for everything a network moves.
+        if (what instanceof AEItemKey itemKey && StorageCells.isCellHandled(itemKey)) {
             final StorageCell nested = StorageCells.getCellInventory(itemKey.toStack(), null);
             if (nested != null && !nested.canFitInsideCell()) {
                 return 0;

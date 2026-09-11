@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
 
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.ISaveProvider;
@@ -63,6 +64,16 @@ public final class StorageCells {
         }
         for (ICellHandler handler : handlers) {
             if (handler.isCell(is)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@link #isCellHandled(ItemStack)} for an item key, which the handlers AE2 ships answer without a stack. */
+    public static synchronized boolean isCellHandled(AEItemKey key) {
+        for (ICellHandler handler : handlers) {
+            if (handler.isCell(key)) {
                 return true;
             }
         }

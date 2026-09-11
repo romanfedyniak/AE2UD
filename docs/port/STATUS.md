@@ -2425,6 +2425,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     gets them. Less than one still counts as one. The type count in the item's summary (`it`) is written as an
     int so it cannot wrap. A cell's partition is unchanged: `CellConfig` and the Cell Workbench keep 63 slots.
 
+56. **`ICellHandler.isCell(AEItemKey)` and `StorageCells.isCellHandled(AEItemKey)`** - additive, defaulted. A
+    cell refuses another cell that still holds something, and to find out it asked the handlers about a stack
+    built from the key: an item stack, capabilities gathered and tag copied, for every item any network put
+    into any cell. The key form lets a handler answer from the item alone, which both handlers AE2 ships do; a
+    handler that does not override it is asked with a read-only stack, as before. Upstream builds the stack
+    too (`itemKey.toStack()`), where making one costs far less than it does on 1.12.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

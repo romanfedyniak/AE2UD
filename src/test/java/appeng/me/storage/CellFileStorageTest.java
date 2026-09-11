@@ -58,9 +58,11 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.StorageCell;
 import appeng.core.api.AEItemKeyType;
+import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.me.helpers.BaseActionSource;
 
 
@@ -307,6 +309,26 @@ public final class CellFileStorageTest {
 
         assertTrue(this.store.getOrLoad(id).isEmpty());
         assertTrue(new File(file.getPath() + ".corrupt").isFile());
+    }
+
+    @Test
+    public void aCellWithSomethingInItIsNotPutInsideAnother() throws Throwable {
+        if (!StorageCells.isCellHandled(newCell())) {
+            StorageCells.addCellHandler(new BasicCellHandler());
+        }
+
+        final ItemStack full = newCell();
+        final ItemStack empty = newCell();
+        final ItemStack outer = newCell();
+        onServer(() -> {
+            open(full).insert(apple, 1, Actionable.MODULATE, SOURCE);
+
+            final BasicCellInventory inventory = open(outer);
+            assertTrue(StorageCells.isCellHandled(AEItemKey.of(full)));
+            assertFalse(StorageCells.isCellHandled(apple));
+            assertEquals(0, inventory.insert(AEItemKey.of(full), 1, Actionable.MODULATE, SOURCE));
+            assertEquals(1, inventory.insert(AEItemKey.of(empty), 1, Actionable.MODULATE, SOURCE));
+        });
     }
 
     @Test

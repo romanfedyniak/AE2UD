@@ -28,6 +28,8 @@ import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
 
+import appeng.api.stacks.AEItemKey;
+
 /**
  * Turns an item into a {@link StorageCell}. Register with
  * {@link appeng.api.storage.StorageCells#addCellHandler(ICellHandler)}.
@@ -38,6 +40,14 @@ public interface ICellHandler {
      * @return true if this handler can turn the given item into a cell.
      */
     boolean isCell(ItemStack is);
+
+    /**
+     * {@link #isCell(ItemStack)} for an item key. Every item put into a cell is asked this, to keep a full cell
+     * out of another one, so override it when the item alone answers: the default builds a stack to ask with.
+     */
+    default boolean isCell(AEItemKey key) {
+        return this.isCell(key.getReadOnlyStack());
+    }
 
     /**
      * @param host may be null when the cell is inspected outside of a machine, for a tooltip.
