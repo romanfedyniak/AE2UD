@@ -32,7 +32,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.romanfedyniak:AE2UD:<commit or tag>'
+    implementation rfg.deobf('com.github.romanfedyniak:AE2UD:<commit or tag>')
 }
 ```
 
