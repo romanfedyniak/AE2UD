@@ -91,7 +91,6 @@ import appeng.util.prioritylist.IPartitionList;
  * with no server running - a cell that has no id still reads and writes that list, as it always did.
  */
 public class BasicCellInventory implements StorageCell {
-    private static final int MAX_ITEM_TYPES = 63;
     /** How many of its entries a cell's item names by itself. */
     public static final int PREVIEW_SIZE = 5;
     /** A previewed key whose own NBT is bigger than this is named by its item alone. */
@@ -135,14 +134,7 @@ public class BasicCellInventory implements StorageCell {
         this.i = o;
         this.cellType = cellType;
         this.keyTypes = cellType.getKeyTypes();
-        this.maxItemTypes = cellType.getTotalTypes(o);
-
-        if (this.maxItemTypes > MAX_ITEM_TYPES) {
-            this.maxItemTypes = MAX_ITEM_TYPES;
-        }
-        if (this.maxItemTypes < 1) {
-            this.maxItemTypes = 1;
-        }
+        this.maxItemTypes = Math.max(1, cellType.getTotalTypes(o));
 
         this.container = container;
         this.tagCompound = Platform.openNbtData(o);
@@ -450,7 +442,7 @@ public class BasicCellInventory implements StorageCell {
         if (this.cellType.storableInStorageCell()) {
             return true;
         }
-        return this.contents != null ? this.contents.isEmpty() : this.tagCompound.getShort(ITEM_TYPE_TAG) == 0;
+        return this.contents != null ? this.contents.isEmpty() : this.tagCompound.getInteger(ITEM_TYPE_TAG) == 0;
     }
 
     @Override
@@ -629,7 +621,7 @@ public class BasicCellInventory implements StorageCell {
             this.tagCompound.removeTag(ITEM_TYPE_TAG);
         } else {
             this.tagCompound.setTag(ITEMS_TAG, list);
-            this.tagCompound.setShort(ITEM_TYPE_TAG, (short) list.tagCount());
+            this.tagCompound.setInteger(ITEM_TYPE_TAG, list.tagCount());
         }
 
         if (stored.getTotal() == 0) {
@@ -658,7 +650,7 @@ public class BasicCellInventory implements StorageCell {
             this.writeId(stored.getId());
         }
 
-        this.tagCompound.setShort(ITEM_TYPE_TAG, (short) stored.getTypes());
+        this.tagCompound.setInteger(ITEM_TYPE_TAG, stored.getTypes());
         this.tagCompound.setLong(ITEM_COUNT_TAG, stored.getTotal());
 
         // One key type leaves nothing to split the count between.
@@ -819,7 +811,7 @@ public class BasicCellInventory implements StorageCell {
             byType.put(this.keyTypes.iterator().next(), this.tagCompound.getLong(ITEM_COUNT_TAG));
         }
 
-        return CellContents.summary(shown, this.tagCompound.getShort(ITEM_TYPE_TAG), byType);
+        return CellContents.summary(shown, this.tagCompound.getInteger(ITEM_TYPE_TAG), byType);
     }
 
     /**

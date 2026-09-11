@@ -309,6 +309,21 @@ public final class CellFileStorageTest {
         assertTrue(new File(file.getPath() + ".corrupt").isFile());
     }
 
+    @Test
+    public void aCellHoldsAsManyTypesAsItsItemSays() throws Throwable {
+        final ItemStack cell = new ItemStack(TestCellItem.THOUSAND_TYPES);
+        onServer(() -> {
+            final BasicCellInventory inventory = open(cell);
+            for (int n = 0; n < 1000; n++) {
+                assertEquals(1, inventory.insert(AEItemKey.of(Items.PAPER, n), 1, Actionable.MODULATE, SOURCE));
+            }
+            assertEquals(0, inventory.insert(stick, 1, Actionable.MODULATE, SOURCE));
+        });
+
+        assertEquals(1000, cell.getTagCompound().getInteger("it"));
+        assertEquals(1000, open(cell.copy()).getStoredItemTypes());
+    }
+
     // ------------------------------------------------------------------------------------------------
     // Plumbing
     // ------------------------------------------------------------------------------------------------
@@ -362,7 +377,14 @@ public final class CellFileStorageTest {
 
     /** One key type, plenty of bytes, no upgrades, no config. */
     private static final class TestCellItem extends Item implements IBasicCellItem {
-        private static final TestCellItem INSTANCE = new TestCellItem();
+        private static final TestCellItem INSTANCE = new TestCellItem(63);
+        private static final TestCellItem THOUSAND_TYPES = new TestCellItem(1000);
+
+        private final int types;
+
+        private TestCellItem(final int types) {
+            this.types = types;
+        }
 
         @Override
         public Set<AEKeyType> getKeyTypes() {
@@ -381,7 +403,7 @@ public final class CellFileStorageTest {
 
         @Override
         public int getTotalTypes(@Nonnull final ItemStack cellItem) {
-            return 63;
+            return this.types;
         }
 
         @Override

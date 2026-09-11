@@ -54,6 +54,10 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
 
     int getBytesPerType(@Nonnull ItemStack cellItem);
 
+    /**
+     * How many different keys the cell may hold. Any number is taken as it is, and less than one as one; what
+     * bounds a big cell is that every type also spends {@link #getBytesPerType} of its bytes.
+     */
     int getTotalTypes(@Nonnull ItemStack cellItem);
 
     double getIdleDrain();

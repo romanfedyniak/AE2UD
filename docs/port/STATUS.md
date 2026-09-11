@@ -2418,6 +2418,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     eight tiers as amendment 53. Upstream has them up to 256k, under the same ids used here
     (`portable_fluid_cell_1k`…).
 
+55. **`IBasicCellItem.getTotalTypes` is taken as given** - a change of behaviour, not of signature, and a
+    departure from upstream. Upstream's `BasicCellInventory` still cuts the number off at 63, a limit left over
+    from the numbered NBT slots a cell's contents were once written into; here the contents are a list in a
+    file of their own (`CellContentsStore`), so nothing depends on it, and an addon cell declaring more types
+    gets them. Less than one still counts as one. The type count in the item's summary (`it`) is written as an
+    int so it cannot wrap. A cell's partition is unchanged: `CellConfig` and the Cell Workbench keep 63 slots.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

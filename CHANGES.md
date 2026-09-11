@@ -315,6 +315,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A cell holds as many types as its item says.** `IBasicCellItem.getTotalTypes` was cut off at 63 whatever it returned, so an addon cell that declared more was held to sixty-three with nothing saying so. The number is taken as given now, and less than one still counts as one; every type still spends the cell's bytes per type, which is what bounds a big cell. A cell's partition keeps its 63 slots. Registered as amendment 55.
+
 - **A pattern's input slots answer as one thing instead of three.** `getSubstituteInputs(slot)`,
   `isContainerFabricated(slot)` and `getCondensedInputs()` are gone, replaced by `getPatternInputs()`:
   `get(slot)` hands back everything about that slot - what may stand in for the encoded ingredient, most
