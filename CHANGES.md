@@ -22,6 +22,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Spreading a stack across slots by dragging crashed an AE2 screen unless GregTech CE Unofficial was installed.** The screen keeps count of what is left of the stack in a field of the vanilla container screen that AE2's own access transformer never opened. GregTech's transformer opens it, so with GregTech installed it worked. AE2's transformer opens it now, together with the slot under the cursor, which the empty-slot hints read.
+
 - **Waila showed a linked P2P tunnel as a raw key.** The four lines saying which side a tunnel is linked on, and how many tunnels are on the other end, asked for keys spelled one way while the language file spelled them another, so a tunnel with one output read `waila.appliedenergistics2.P2P_INPUT_ONE_OUTPUT`. They are named like the rest of Waila's lines now, which is also the spelling three of the translations were already using. Two more lines were broken the same way: Waila's line for what a charger holds printed the name of a constant rather than its translation, and a wireless terminal that had never been linked showed `AppEng.GuiITooltip.Unlinked`, a key no language file has - it says "Unlinked" in red now, like one whose link was cleared.
 
 - The One Probe printed a P2P tunnel's frequency as bare digits with nothing to say what they were. The "Frequency:" label it was meant to go with had been sitting in the language file unused; the line uses it now.
