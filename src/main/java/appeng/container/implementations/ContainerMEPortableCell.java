@@ -86,8 +86,4 @@ public class ContainerMEPortableCell extends ContainerMEMonitorable implements I
     public int getInventorySlot() {
         return this.slot;
     }
-
-    public IPortableCell getPortableCell() {
-        return this.portableCell;
-    }
 }

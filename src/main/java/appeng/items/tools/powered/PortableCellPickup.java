@@ -21,7 +21,6 @@ package appeng.items.tools.powered;
 
 import appeng.api.implementations.guiobjects.IPortableCell;
 import appeng.api.stacks.AEItemKey;
-import appeng.container.implementations.ContainerMEPortableCell;
 import appeng.items.contents.PortableCellViewer;
 import appeng.me.helpers.PlayerSource;
 import appeng.util.Platform;
@@ -31,6 +30,7 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.item.ItemStack;
 import net.minecraft.stats.StatList;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.SoundCategory;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
@@ -41,6 +41,8 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 
 /**
@@ -48,6 +50,9 @@ import java.util.List;
  * with auto pickup on. The idea is NAE2's.
  */
 public final class PortableCellPickup {
+
+    /** Each player's cells as found this tick: a mining tool breaks a whole area in one tick, an event per block. */
+    private final Map<EntityPlayer, FoundCells> found = new WeakHashMap<>();
 
     @SubscribeEvent
     public void onItemPickup(final EntityItemPickupEvent event) {
@@ -66,7 +71,7 @@ public final class PortableCellPickup {
         }
 
         final int count = stack.getCount();
-        final int stored = store(player, stack);
+        final int stored = this.store(player, stack);
         if (stored <= 0) {
             return;
         }
@@ -102,7 +107,7 @@ public final class PortableCellPickup {
         boolean tookAny = false;
         for (final ItemStack drop : event.getDrops()) {
             if (!drop.isEmpty()) {
-                final int stored = store(player, drop);
+                final int stored = this.store(player, drop);
                 // An emptied stack stays in the list; the block skips empty stacks when it spawns the drops.
                 drop.shrink(stored);
                 tookAny |= stored > 0;
@@ -122,13 +127,13 @@ public final class PortableCellPickup {
      *
      * @return how many of it went in
      */
-    private static int store(final EntityPlayer player, final ItemStack stack) {
+    private int store(final EntityPlayer player, final ItemStack stack) {
         final AEItemKey key = AEItemKey.of(stack);
         if (key == null) {
             return 0;
         }
 
-        final List<IPortableCell> cells = findCells(player);
+        final List<IPortableCell> cells = this.findCells(player);
         if (cells.isEmpty()) {
             return 0;
         }
@@ -146,31 +151,60 @@ public final class PortableCellPickup {
         return (int) (stack.getCount() - remaining);
     }
 
-    /** The hotbar, then the rest of the inventory, then the offhand. */
-    private static List<IPortableCell> findCells(final EntityPlayer player) {
+    /**
+     * The hotbar, then the rest of the inventory, then the offhand. Reading a cell's cards and partition builds
+     * an item for every entry, so this is done once a tick, not once a block. Every inventory on a cell shares
+     * its contents, so a window open on one of them sees what goes in.
+     */
+    private List<IPortableCell> findCells(final EntityPlayer player) {
+        final long tick = player.world.getTotalWorldTime();
+        final FoundCells cached = this.found.get(player);
+        if (cached != null && cached.tick == tick && cached.isStillInPlace()) {
+            return cached.cells;
+        }
+
         final InventoryPlayer inventory = player.inventory;
-        final List<IPortableCell> cells = new ArrayList<>();
+        final FoundCells fresh = new FoundCells(tick);
         for (int slot = 0; slot < inventory.mainInventory.size(); slot++) {
-            addCell(cells, player, inventory.mainInventory.get(slot), slot);
+            fresh.add(inventory.mainInventory, slot, slot);
         }
-        for (final ItemStack offhand : inventory.offHandInventory) {
-            addCell(cells, player, offhand, -1);
+        for (int slot = 0; slot < inventory.offHandInventory.size(); slot++) {
+            fresh.add(inventory.offHandInventory, slot, -1);
         }
-        return cells;
+
+        this.found.put(player, fresh);
+        return fresh.cells;
     }
 
-    private static void addCell(final List<IPortableCell> cells, final EntityPlayer player, final ItemStack stack,
-            final int slot) {
-        if (!ToolPortableCell.isAutoPickupEnabled(stack)) {
-            return;
+    private static final class FoundCells {
+        private final long tick;
+        private final List<IPortableCell> cells = new ArrayList<>();
+        private final List<NonNullList<ItemStack>> lists = new ArrayList<>();
+        private final List<ItemStack> stacks = new ArrayList<>();
+        private final List<Integer> indices = new ArrayList<>();
+
+        private FoundCells(final long tick) {
+            this.tick = tick;
         }
 
-        // An open cell holds its contents in memory and would write them back over anything put in beside it.
-        if (player.openContainer instanceof ContainerMEPortableCell container
-                && container.getPortableCell() != null && container.getPortableCell().getItemStack() == stack) {
-            cells.add(container.getPortableCell());
-        } else {
-            cells.add(new PortableCellViewer(stack, slot));
+        private void add(final NonNullList<ItemStack> list, final int index, final int viewerSlot) {
+            final ItemStack stack = list.get(index);
+            if (ToolPortableCell.isAutoPickupEnabled(stack)) {
+                this.cells.add(new PortableCellViewer(stack, viewerSlot));
+                this.lists.add(list);
+                this.stacks.add(stack);
+                this.indices.add(index);
+            }
+        }
+
+        /** A cell moved within the tick would otherwise go on taking items from wherever it went. */
+        private boolean isStillInPlace() {
+            for (int i = 0; i < this.stacks.size(); i++) {
+                if (this.lists.get(i).get(this.indices.get(i)) != this.stacks.get(i)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }
