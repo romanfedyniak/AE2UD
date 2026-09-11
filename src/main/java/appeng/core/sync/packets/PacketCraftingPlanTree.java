@@ -22,6 +22,7 @@ package appeng.core.sync.packets;
 import appeng.client.gui.implementations.GuiCraftingTree;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.PacketCompression;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.crafting.tree.CraftingPlanTree;
 import io.netty.buffer.ByteBuf;
@@ -31,11 +32,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.EntityPlayer;
 
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 
 /**
@@ -54,7 +51,8 @@ public class PacketCraftingPlanTree extends AppEngPacket {
         try {
             final byte[] compressed = new byte[stream.readInt()];
             stream.readBytes(compressed);
-            read = CraftingPlanTree.read(Unpooled.wrappedBuffer(decompress(compressed)));
+            read = CraftingPlanTree.read(Unpooled.wrappedBuffer(
+                    PacketCompression.decompress(compressed, MAX_DECOMPRESSED_BYTES)));
         } catch (final IOException | RuntimeException e) {
             AELog.debug(e);
         }
@@ -68,7 +66,7 @@ public class PacketCraftingPlanTree extends AppEngPacket {
         final byte[] compressed;
         try {
             tree.write(body);
-            compressed = compress(body);
+            compressed = PacketCompression.compress(body);
         } finally {
             body.release();
         }
@@ -78,34 +76,6 @@ public class PacketCraftingPlanTree extends AppEngPacket {
         data.writeInt(compressed.length);
         data.writeBytes(compressed);
         this.configureWrite(data);
-    }
-
-    private static byte[] compress(final ByteBuf body) throws IOException {
-        final byte[] raw = new byte[body.readableBytes()];
-        body.getBytes(body.readerIndex(), raw);
-
-        final ByteArrayOutputStream bytes = new ByteArrayOutputStream(raw.length / 2 + 32);
-        try (GZIPOutputStream out = new GZIPOutputStream(bytes)) {
-            out.write(raw);
-        }
-        return bytes.toByteArray();
-    }
-
-    private static byte[] decompress(final byte[] compressed) throws IOException {
-        final ByteArrayOutputStream bytes = new ByteArrayOutputStream(compressed.length * 4);
-        final byte[] chunk = new byte[8192];
-
-        try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(compressed))) {
-            int read;
-            while ((read = in.read(chunk)) > 0) {
-                if (bytes.size() + read > MAX_DECOMPRESSED_BYTES) {
-                    throw new IOException("Crafting plan tree expands past " + MAX_DECOMPRESSED_BYTES + " bytes");
-                }
-                bytes.write(chunk, 0, read);
-            }
-        }
-
-        return bytes.toByteArray();
     }
 
     @Override

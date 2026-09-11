@@ -19,14 +19,10 @@
 package appeng.core.sync.packets;
 
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import javax.annotation.Nullable;
 
@@ -48,6 +44,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.client.gui.implementations.GuiCellView;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.PacketCompression;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.me.storage.CellContents;
 
@@ -122,13 +119,13 @@ public class PacketCellViewContents extends AppEngPacket {
             for (final Object2LongMap.Entry<AEKey> entry : amounts.object2LongEntrySet()) {
                 GenericStack.writeBuffer(new GenericStack(entry.getKey(), entry.getLongValue()), body);
                 if (body.readableBytes() >= PART_BYTES) {
-                    parts.add(compress(body));
+                    parts.add(PacketCompression.compress(body));
                     body.clear();
                 }
             }
 
             if (body.readableBytes() > 0 || parts.isEmpty()) {
-                parts.add(compress(body));
+                parts.add(PacketCompression.compress(body));
             }
         } finally {
             body.release();
@@ -138,7 +135,7 @@ public class PacketCellViewContents extends AppEngPacket {
     }
 
     static KeyCounter decodePart(final byte[] part) throws IOException {
-        final ByteBuf body = Unpooled.wrappedBuffer(decompress(part));
+        final ByteBuf body = Unpooled.wrappedBuffer(PacketCompression.decompress(part, MAX_DECOMPRESSED_BYTES));
         final KeyCounter out = new KeyCounter();
 
         while (body.readableBytes() > 0) {
@@ -149,34 +146,6 @@ public class PacketCellViewContents extends AppEngPacket {
         }
 
         return out;
-    }
-
-    private static byte[] compress(final ByteBuf body) throws IOException {
-        final byte[] raw = new byte[body.readableBytes()];
-        body.getBytes(body.readerIndex(), raw);
-
-        final ByteArrayOutputStream bytes = new ByteArrayOutputStream(raw.length / 2 + 32);
-        try (GZIPOutputStream out = new GZIPOutputStream(bytes)) {
-            out.write(raw);
-        }
-        return bytes.toByteArray();
-    }
-
-    private static byte[] decompress(final byte[] compressed) throws IOException {
-        final ByteArrayOutputStream bytes = new ByteArrayOutputStream(compressed.length * 4);
-        final byte[] chunk = new byte[8192];
-
-        try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(compressed))) {
-            int read;
-            while ((read = in.read(chunk)) > 0) {
-                if (bytes.size() + read > MAX_DECOMPRESSED_BYTES) {
-                    throw new IOException("Cell contents expand past " + MAX_DECOMPRESSED_BYTES + " bytes");
-                }
-                bytes.write(chunk, 0, read);
-            }
-        }
-
-        return bytes.toByteArray();
     }
 
     @Override
