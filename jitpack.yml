@@ -1,0 +1,6 @@
+# JitPack builds a pushed commit or tag on request, so an addon can depend on AE2UD without a release.
+# The coordinates are JitPack's own, com.github.romanfedyniak:AE2UD:<commit or tag>.
+jdk:
+  - openjdk21
+install:
+  - ARTIFACT_GROUP_ID=$GROUP ARTIFACT_ID=$ARTIFACT RELEASE_VERSION=$VERSION ./gradlew publishToMavenLocal -x test

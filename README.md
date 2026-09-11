@@ -20,6 +20,22 @@ Addon authors can find the new extension points in the [upgrade-card API](docs/U
 the [loot table notes](docs/LOOT_TABLES.md). Contributors touching the mod integrations should
 read the [mixin notes](docs/MIXINS.md).
 
+An addon can depend on any pushed commit or tag through [JitPack](https://jitpack.io), with no local
+build of AE2UD:
+
+```groovy
+repositories {
+    maven {
+        url 'https://jitpack.io'
+        content { includeGroup 'com.github.romanfedyniak' }
+    }
+}
+
+dependencies {
+    implementation 'com.github.romanfedyniak:AE2UD:<commit or tag>'
+}
+```
+
 ## Requirements
 
 * Minecraft 1.12.2 with Minecraft Forge.
