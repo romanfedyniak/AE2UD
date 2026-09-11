@@ -21,15 +21,24 @@ package appeng.me.storage;
 
 import javax.annotation.Nullable;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CountingOutputStream;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.util.Constants;
@@ -45,6 +54,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.tile.inventory.AppEngInternalAEInventory;
@@ -53,7 +63,6 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
-import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import appeng.util.prioritylist.FuzzyPriorityList;
@@ -75,14 +84,27 @@ import appeng.util.prioritylist.IPartitionList;
  * whitelist/priority wrapping that {@code BasicCellInventoryHandler} used to add is now just an ordinary
  * {@link MEInventoryHandler} (or {@link DriveWatcher}) built by whoever mounts this cell.
  * <p/>
- * Storage format: rather than the old fixed 63 numbered NBT slots, contents are kept in an NBT list of
- * {@link GenericStack} tags - old-world save compatibility is deliberately not preserved by this migration.
+ * Storage format: on a server, what a cell holds is in a file of its own ({@link CellContentsStore}), and the item
+ * carries its id and a summary - how many types, how much of each key type, and the {@value #PREVIEW_SIZE}
+ * largest entries for its tooltip. Cells written by an older version keep a list of {@link GenericStack} tags in
+ * their NBT, which moves to a file the first time the server opens the cell. Without a store - on the client, or
+ * with no server running - a cell that has no id still reads and writes that list, as it always did.
  */
 public class BasicCellInventory implements StorageCell {
     private static final int MAX_ITEM_TYPES = 63;
+    /** How many of its entries a cell's item names by itself. */
+    public static final int PREVIEW_SIZE = 5;
+    /** A previewed key whose own NBT is bigger than this is named by its item alone. */
+    private static final int PREVIEW_TAG_LIMIT = 1024;
+
     private static final String ITEMS_TAG = "Items";
     private static final String ITEM_TYPE_TAG = "it";
     private static final String ITEM_COUNT_TAG = "ic";
+    private static final String CELL_ID_TAG = "cellId";
+    private static final String CELL_ID_MOST_TAG = CELL_ID_TAG + "Most";
+    private static final String CELL_ID_LEAST_TAG = CELL_ID_TAG + "Least";
+    private static final String AMOUNT_BY_TYPE_TAG = "ta";
+    private static final String PREVIEW_TAG = "pv";
 
     private final NBTTagCompound tagCompound;
     @Nullable
@@ -94,14 +116,14 @@ public class BasicCellInventory implements StorageCell {
     private final IncludeExclude partitionListMode;
     private final boolean sticky;
     private int maxItemTypes;
-    private int storedItemTypes;
-    private long storedItemCount;
     @Nullable
-    private Object2LongMap<AEKey> storedAmounts;
-    // How much of each type is stored, which is what the byte count is built from. Derived from
-    // storedAmounts, never saved: ITEM_COUNT_TAG stays the plain total it has always been.
+    private CellContents contents;
+    /**
+     * The id tag this inventory last saw on its item, compared by identity: writing the tag makes a new one, so
+     * a different object is how another inventory on the same item is noticed without reading the id each time.
+     */
     @Nullable
-    private Object2LongMap<AEKeyType> storedAmountsByType;
+    private NBTBase followedIdTag;
     private boolean isPersisted = true;
     private final boolean equalDistribution;
     private final boolean voidOverflow;
@@ -124,8 +146,6 @@ public class BasicCellInventory implements StorageCell {
 
         this.container = container;
         this.tagCompound = Platform.openNbtData(o);
-        this.storedItemTypes = this.tagCompound.getShort(ITEM_TYPE_TAG);
-        this.storedItemCount = this.tagCompound.getLong(ITEM_COUNT_TAG);
 
         final IItemHandler upgrades = cellType.getUpgradesInventory(o);
         final IItemHandler config = cellType.getConfigInventory(o);
@@ -368,7 +388,7 @@ public class BasicCellInventory implements StorageCell {
     }
 
     public long getStoredItemCount() {
-        return this.storedItemCount;
+        return this.contents().getTotal();
     }
 
     /**
@@ -376,11 +396,11 @@ public class BasicCellInventory implements StorageCell {
      * and millibuckets counts two things that are not the same size.
      */
     public long getStoredItemCount(final AEKeyType type) {
-        return this.getStoredAmountsByType().getLong(type);
+        return this.contents().getTotal(type);
     }
 
     public long getStoredItemTypes() {
-        return this.storedItemTypes;
+        return this.contents().getTypes();
     }
 
     public long getRemainingItemTypes() {
@@ -390,14 +410,15 @@ public class BasicCellInventory implements StorageCell {
     }
 
     public long getUsedBytes() {
+        final CellContents stored = this.contents();
         long bytesForItemCount = 0;
-        for (final Object2LongMap.Entry<AEKeyType> entry : this.getStoredAmountsByType().object2LongEntrySet()) {
-            final int amountPerByte = entry.getKey().getAmountPerByte();
+        for (final AEKeyType type : this.keyTypes) {
+            final int amountPerByte = type.getAmountPerByte();
             // Rounded up, per type: a byte holding part of a bucket is spent whole, and cannot be shared
             // with the items stored beside it.
-            bytesForItemCount += (entry.getLongValue() + amountPerByte - 1) / amountPerByte;
+            bytesForItemCount += (stored.getTotal(type) + amountPerByte - 1) / amountPerByte;
         }
-        return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
+        return stored.getTypes() * (long) this.getBytesPerType() + bytesForItemCount;
     }
 
     /**
@@ -420,9 +441,16 @@ public class BasicCellInventory implements StorageCell {
         return amountPerByte - div;
     }
 
+    /**
+     * Read off the item when nothing has opened the contents yet. This is asked of a copy of every cell pushed
+     * into another cell, and opening the contents of a copy would load - or migrate - a cell nobody is holding.
+     */
     @Override
     public boolean canFitInsideCell() {
-        return this.cellType.storableInStorageCell() || this.getCellItems().isEmpty();
+        if (this.cellType.storableInStorageCell()) {
+            return true;
+        }
+        return this.contents != null ? this.contents.isEmpty() : this.tagCompound.getShort(ITEM_TYPE_TAG) == 0;
     }
 
     @Override
@@ -472,6 +500,7 @@ public class BasicCellInventory implements StorageCell {
             }
         }
 
+        this.followTag();
         final long inserted = this.innerInsert(what, amount, mode, type);
 
         if (!this.voidOverflow) {
@@ -480,7 +509,7 @@ public class BasicCellInventory implements StorageCell {
 
         // An unformatted cell that can take no new type would otherwise swallow everything the network
         // offers it, including things it never held and could not have started holding.
-        if (!this.isPreformatted() && !this.canHoldNewItem(type) && !this.getCellItems().containsKey(what)) {
+        if (!this.isPreformatted() && !this.canHoldNewItem(type) && this.contents().get(what) <= 0) {
             return inserted;
         }
 
@@ -489,7 +518,8 @@ public class BasicCellInventory implements StorageCell {
 
     /** What would really fit, before the void card is allowed to say otherwise. */
     private long innerInsert(final AEKey what, final long amount, final Actionable mode, final AEKeyType type) {
-        final long currentAmount = this.getCellItems().getLong(what);
+        final CellContents stored = this.contents();
+        final long currentAmount = stored.get(what);
         long remainingItemCount = this.getRemainingItemCount(type);
 
         if (this.equalDistribution) {
@@ -517,8 +547,8 @@ public class BasicCellInventory implements StorageCell {
         }
 
         if (mode == Actionable.MODULATE) {
-            this.getCellItems().put(what, currentAmount + toInsert);
-            this.saveChanges(what, toInsert);
+            stored.set(what, currentAmount + toInsert);
+            this.saveChanges();
         }
 
         return toInsert;
@@ -526,7 +556,9 @@ public class BasicCellInventory implements StorageCell {
 
     @Override
     public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
-        final long currentAmount = this.getCellItems().getLong(what);
+        this.followTag();
+        final CellContents stored = this.contents();
+        final long currentAmount = stored.get(what);
         if (currentAmount <= 0) {
             return 0;
         }
@@ -534,22 +566,30 @@ public class BasicCellInventory implements StorageCell {
         final long extracted = Math.min(amount, currentAmount);
 
         if (mode == Actionable.MODULATE) {
-            if (extracted >= currentAmount) {
-                this.getCellItems().removeLong(what);
-            } else {
-                this.getCellItems().put(what, currentAmount - extracted);
-            }
-            this.saveChanges(what, -extracted);
+            stored.set(what, currentAmount - extracted);
+            this.saveChanges();
         }
 
         return extracted;
     }
 
+    /**
+     * On the client, a cell whose contents are in a file answers with the few entries its item names - enough to
+     * tell an empty cell from a full one, and to preview it, but not the whole list. {@link #getUnloadedContentsId}
+     * says when that is the case.
+     */
     @Override
     public void getAvailableStacks(final KeyCounter out) {
-        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
+        this.followTag();
+        for (final Object2LongMap.Entry<AEKey> entry : this.contents().amounts().object2LongEntrySet()) {
             out.add(entry.getKey(), entry.getLongValue());
         }
+    }
+
+    /** The id to ask the server for, when all that is known here of this cell is its summary. */
+    @Nullable
+    public UUID getUnloadedContentsId() {
+        return this.contents().isSummary() ? this.readId() : null;
     }
 
     @Override
@@ -563,138 +603,305 @@ public class BasicCellInventory implements StorageCell {
             return;
         }
 
+        final CellContents stored = this.contents();
+        if (stored.isAttached()) {
+            this.writeSummary(stored);
+        } else if (!stored.isSummary() && CellContentsStore.current() == null) {
+            this.writeList(stored);
+        }
+        // A detached cell on the server has never been written to, so there is nothing to write.
+
+        this.isPersisted = true;
+    }
+
+    /** The list an older version keeps in the item, which is also what a cell without a store still uses. */
+    private void writeList(final CellContents stored) {
         final NBTTagList list = new NBTTagList();
-        long itemCount = 0;
 
-        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
-            final long amount = entry.getLongValue();
-            if (amount <= 0) {
-                continue;
-            }
-            itemCount += amount;
-
+        for (final Object2LongMap.Entry<AEKey> entry : stored.amounts().object2LongEntrySet()) {
             final NBTTagCompound entryTag = new NBTTagCompound();
-            GenericStack.writeTag(entryTag, new GenericStack(entry.getKey(), amount));
+            GenericStack.writeTag(entryTag, new GenericStack(entry.getKey(), entry.getLongValue()));
             list.appendTag(entryTag);
         }
 
-        this.storedItemTypes = list.tagCount();
         if (list.tagCount() == 0) {
             this.tagCompound.removeTag(ITEMS_TAG);
             this.tagCompound.removeTag(ITEM_TYPE_TAG);
         } else {
             this.tagCompound.setTag(ITEMS_TAG, list);
-            this.tagCompound.setShort(ITEM_TYPE_TAG, (short) this.storedItemTypes);
+            this.tagCompound.setShort(ITEM_TYPE_TAG, (short) list.tagCount());
         }
 
-        this.storedItemCount = itemCount;
-        if (itemCount == 0) {
+        if (stored.getTotal() == 0) {
             this.tagCompound.removeTag(ITEM_COUNT_TAG);
         } else {
-            this.tagCompound.setLong(ITEM_COUNT_TAG, itemCount);
+            this.tagCompound.setLong(ITEM_COUNT_TAG, stored.getTotal());
         }
-
-        this.isPersisted = true;
     }
 
-    private Object2LongMap<AEKey> getCellItems() {
-        if (this.storedAmounts == null) {
-            this.storedAmounts = new Object2LongOpenHashMap<>();
-            this.loadCellItems();
+    private void writeSummary(final CellContents stored) {
+        this.tagCompound.removeTag(ITEMS_TAG);
+
+        if (stored.isEmpty()) {
+            // An empty cell carries no id, so every empty cell of a kind is the same item again.
+            this.tagCompound.removeTag(CELL_ID_MOST_TAG);
+            this.tagCompound.removeTag(CELL_ID_LEAST_TAG);
+            this.tagCompound.removeTag(ITEM_TYPE_TAG);
+            this.tagCompound.removeTag(ITEM_COUNT_TAG);
+            this.tagCompound.removeTag(AMOUNT_BY_TYPE_TAG);
+            this.tagCompound.removeTag(PREVIEW_TAG);
+            this.followedIdTag = null;
+            return;
         }
 
-        return this.storedAmounts;
-    }
-
-    /**
-     * Recomputed from the contents rather than saved, which is why this change needs no migration: the cell's
-     * NBT has always held the keys themselves, and the totals beside them are a cache.
-     * <p>
-     * It does mean asking a cell for its byte usage loads its contents, where the plain total was read
-     * straight off the tag. That is one pass over a list already in memory, and the alternative - trusting a
-     * total that mixes items with millibuckets - cannot answer the question at all.
-     */
-    private Object2LongMap<AEKeyType> getStoredAmountsByType() {
-        if (this.storedAmountsByType == null) {
-            final Object2LongMap<AEKeyType> byType = new Object2LongOpenHashMap<>();
-            for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
-                final AEKeyType type = entry.getKey().getType();
-                byType.put(type, byType.getLong(type) + entry.getLongValue());
-            }
-            this.storedAmountsByType = byType;
+        if (!stored.getId().equals(this.readId())) {
+            this.writeId(stored.getId());
         }
 
-        return this.storedAmountsByType;
-    }
+        this.tagCompound.setShort(ITEM_TYPE_TAG, (short) stored.getTypes());
+        this.tagCompound.setLong(ITEM_COUNT_TAG, stored.getTotal());
 
-    private void loadCellItems() {
-        final NBTTagList list = this.tagCompound.getTagList(ITEMS_TAG, Constants.NBT.TAG_COMPOUND);
-        boolean needsUpdate = false;
-
-        for (int idx = 0; idx < list.tagCount(); idx++) {
-            final NBTTagCompound entryTag = list.getCompoundTagAt(idx);
-
-            GenericStack stack;
-            try {
-                stack = GenericStack.readTag(entryTag);
-            } catch (final Throwable ex) {
-                if (AEConfig.instance().isRemoveCrashingItemsOnLoad()) {
-                    AELog.warn(ex, "Removing an item from storage cell " + this.i + " because loading it crashed.");
-                    needsUpdate = true;
-                    continue;
+        // One key type leaves nothing to split the count between.
+        if (this.keyTypes.size() > 1) {
+            final NBTTagCompound byType = new NBTTagCompound();
+            for (final AEKeyType type : this.keyTypes) {
+                if (stored.getTotal(type) > 0) {
+                    byType.setLong(type.getId().toString(), stored.getTotal(type));
                 }
-                throw ex;
             }
+            this.tagCompound.setTag(AMOUNT_BY_TYPE_TAG, byType);
+        } else {
+            this.tagCompound.removeTag(AMOUNT_BY_TYPE_TAG);
+        }
 
-            if (stack == null) {
-                AELog.warn("Removing an item from storage cell " + this.i + " because its type could not be found.");
-                needsUpdate = true;
+        this.tagCompound.setTag(PREVIEW_TAG, writePreview(stored));
+    }
+
+    /** The largest entries, largest first. */
+    private static NBTTagList writePreview(final CellContents stored) {
+        final AEKey[] keys = new AEKey[PREVIEW_SIZE];
+        final long[] amounts = new long[PREVIEW_SIZE];
+        int size = 0;
+
+        for (final Object2LongMap.Entry<AEKey> entry : stored.amounts().object2LongEntrySet()) {
+            final long amount = entry.getLongValue();
+            if (size == PREVIEW_SIZE && amount <= amounts[PREVIEW_SIZE - 1]) {
                 continue;
             }
 
-            if (stack.amount() > 0) {
-                this.storedAmounts.put(stack.what(), stack.amount());
+            int at = size < PREVIEW_SIZE ? size++ : PREVIEW_SIZE - 1;
+            while (at > 0 && amounts[at - 1] < amount) {
+                keys[at] = keys[at - 1];
+                amounts[at] = amounts[at - 1];
+                at--;
+            }
+            keys[at] = entry.getKey();
+            amounts[at] = amount;
+        }
+
+        final NBTTagList list = new NBTTagList();
+        for (int n = 0; n < size; n++) {
+            final NBTTagCompound entryTag = new NBTTagCompound();
+            GenericStack.writeTag(entryTag, new GenericStack(previewKey(keys[n]), amounts[n]));
+            list.appendTag(entryTag);
+        }
+        return list;
+    }
+
+    /** Anything that is a storage of its own, say, would bring its whole contents back onto this item. */
+    private static AEKey previewKey(final AEKey key) {
+        if (key instanceof AEItemKey itemKey && itemKey.getTag() != null
+                && sizeOf(itemKey.getTag()) > PREVIEW_TAG_LIMIT) {
+            return itemKey.dropSecondary();
+        }
+        return key;
+    }
+
+    private static long sizeOf(final NBTTagCompound tag) {
+        final CountingOutputStream counter = new CountingOutputStream(ByteStreams.nullOutputStream());
+        try {
+            CompressedStreamTools.write(tag, new DataOutputStream(counter));
+        } catch (final IOException e) {
+            return Long.MAX_VALUE;
+        }
+        return counter.getCount();
+    }
+
+    private CellContents contents() {
+        if (this.contents == null) {
+            this.contents = this.resolveContents();
+            this.followedIdTag = this.tagCompound.getTag(CELL_ID_MOST_TAG);
+
+            // Resolving had to change the item: an old list moved to a file, or something unreadable in it dropped.
+            if (!this.isPersisted) {
+                this.notifyChanged();
             }
         }
 
-        if (needsUpdate) {
-            this.saveChanges();
+        return this.contents;
+    }
+
+    private CellContents resolveContents() {
+        final CellContentsStore store = CellContentsStore.current();
+        final UUID id = this.readId();
+        final boolean hasList = this.tagCompound.hasKey(ITEMS_TAG, Constants.NBT.TAG_LIST);
+
+        if (store == null) {
+            if (id != null) {
+                return this.readSummary();
+            }
+
+            final CellContents local = CellContents.detached();
+            if (hasList && this.readList(local)) {
+                this.isPersisted = false;
+            }
+            return local;
         }
+
+        if (id != null) {
+            final CellContents shared = store.getOrLoad(id);
+            if (hasList) {
+                // Both at once means the item went back to a version that keeps contents in the item, and was
+                // filled there. Neither half is out of date, so they are added together.
+                AELog.info("Storage cell %s had contents in its item as well as in its file; they were added together", id);
+                this.readList(shared);
+                this.tagCompound.removeTag(ITEMS_TAG);
+                shared.markDirty();
+                this.isPersisted = false;
+            }
+            return shared;
+        }
+
+        if (hasList) {
+            final CellContents migrated = CellContents.detached();
+            this.readList(migrated);
+            store.attach(migrated);
+            this.tagCompound.removeTag(ITEMS_TAG);
+            this.writeId(migrated.getId());
+            migrated.markDirty();
+            this.isPersisted = false;
+            return migrated;
+        }
+
+        // Given an id by the first thing put in, so a cell nothing was ever put into stays a plain item.
+        return CellContents.detached();
+    }
+
+    private boolean readList(final CellContents into) {
+        return CellContentsStore.readList(this.tagCompound.getTagList(ITEMS_TAG, Constants.NBT.TAG_COMPOUND), into,
+                String.valueOf(this.i));
+    }
+
+    private CellContents readSummary() {
+        final Object2LongMap<AEKey> shown = new Object2LongOpenHashMap<>();
+        final NBTTagList preview = this.tagCompound.getTagList(PREVIEW_TAG, Constants.NBT.TAG_COMPOUND);
+        for (int idx = 0; idx < preview.tagCount(); idx++) {
+            try {
+                final GenericStack stack = GenericStack.readTag(preview.getCompoundTagAt(idx));
+                if (stack != null) {
+                    shown.put(stack.what(), stack.amount());
+                }
+            } catch (final RuntimeException e) {
+                // Only a preview; the server decides what happens to an entry that cannot be read.
+            }
+        }
+
+        final Object2LongMap<AEKeyType> byType = new Object2LongOpenHashMap<>();
+        if (this.tagCompound.hasKey(AMOUNT_BY_TYPE_TAG, Constants.NBT.TAG_COMPOUND)) {
+            final NBTTagCompound amounts = this.tagCompound.getCompoundTag(AMOUNT_BY_TYPE_TAG);
+            for (final String typeId : amounts.getKeySet()) {
+                final AEKeyType type = AEKeyTypes.get(new ResourceLocation(typeId));
+                if (type != null) {
+                    byType.put(type, amounts.getLong(typeId));
+                }
+            }
+        } else if (this.keyTypes.size() == 1) {
+            byType.put(this.keyTypes.iterator().next(), this.tagCompound.getLong(ITEM_COUNT_TAG));
+        }
+
+        return CellContents.summary(shown, this.tagCompound.getShort(ITEM_TYPE_TAG), byType);
     }
 
     /**
-     * One key moved by a known amount, which is every change but a reload: the totals are adjusted rather than
-     * added up again. Counting the whole cell to learn what one insertion did costs a pass over sixty-three
-     * entries per item moved, and a busy network moves a great many.
+     * Follows the item to the contents another inventory on the same item gave it: the first thing put into an
+     * empty cell, while this one was already open on it. If both put something in at once - the cell was emptied,
+     * which takes its id away, and each gave it a new one - what this one put in goes along.
      */
-    private void saveChanges(final AEKey what, final long delta) {
-        this.storedItemTypes = this.getCellItems().size();
-        this.storedItemCount += delta;
-
-        if (this.storedAmountsByType != null) {
-            final AEKeyType type = what.getType();
-            this.storedAmountsByType.put(type, this.storedAmountsByType.getLong(type) + delta);
+    private void followTag() {
+        final CellContents current = this.contents;
+        if (current == null || current.isSummary()) {
+            return;
         }
 
-        this.markDirty();
+        final NBTBase idTag = this.tagCompound.getTag(CELL_ID_MOST_TAG);
+        if (idTag == this.followedIdTag) {
+            return;
+        }
+        this.followedIdTag = idTag;
+
+        final UUID id = this.readId();
+        final CellContentsStore store = CellContentsStore.current();
+        if (id == null || id.equals(current.getId()) || store == null) {
+            return;
+        }
+
+        final boolean carried = !current.isEmpty();
+        final CellContents moved = store.getOrLoad(id);
+        moved.takeAll(current);
+        this.contents = moved;
+
+        if (carried) {
+            current.markDirty();
+            this.markDirty();
+        }
     }
 
-    /** When what changed is not one known amount, and the totals have to be built from the contents. */
-    private void saveChanges() {
-        this.storedItemTypes = this.getCellItems().size();
-        this.storedAmountsByType = null;
-
-        long count = 0;
-        for (final Object2LongMap.Entry<AEKey> entry : this.getCellItems().object2LongEntrySet()) {
-            count += entry.getLongValue();
+    /** The first thing put into a cell gives it an id - or joins the one another inventory on it just gave it. */
+    private void attachIfDetached() {
+        final CellContents detached = this.contents();
+        if (detached.isAttached() || detached.isSummary()) {
+            return;
         }
-        this.storedItemCount = count;
 
+        final CellContentsStore store = CellContentsStore.current();
+        if (store == null) {
+            return;
+        }
+
+        final UUID id = this.readId();
+        if (id != null) {
+            final CellContents shared = store.getOrLoad(id);
+            shared.takeAll(detached);
+            this.contents = shared;
+            this.followedIdTag = this.tagCompound.getTag(CELL_ID_MOST_TAG);
+        } else {
+            store.attach(detached);
+            this.writeId(detached.getId());
+        }
+    }
+
+    @Nullable
+    private UUID readId() {
+        return this.tagCompound.hasUniqueId(CELL_ID_TAG) ? this.tagCompound.getUniqueId(CELL_ID_TAG) : null;
+    }
+
+    private void writeId(final UUID id) {
+        this.tagCompound.setUniqueId(CELL_ID_TAG, id);
+        this.followedIdTag = this.tagCompound.getTag(CELL_ID_MOST_TAG);
+    }
+
+    private void saveChanges() {
+        this.attachIfDetached();
         this.markDirty();
     }
 
     private void markDirty() {
         this.isPersisted = false;
+        this.contents().markDirty();
+        this.notifyChanged();
+    }
+
+    private void notifyChanged() {
         if (this.container != null) {
             this.container.saveChanges();
         } else {

@@ -20,12 +20,14 @@ package appeng.core.worlddata;
 
 
 import appeng.core.AEConfig;
+import appeng.me.storage.CellContentsStore;
 import appeng.services.compass.converter.CompassDataConverter;
 import appeng.worldgen.meteorite.converter.MeteoriteDataConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 
 import javax.annotation.Nonnull;
@@ -50,6 +52,7 @@ public final class WorldData implements IWorldData {
     private static final String SETTING_FILE_NAME = "settings.cfg";
     private static final String SPAWNDATA_DIR_NAME = "spawndata";
     private static final String COMPASS_DIR_NAME = "compass";
+    private static final String CELLS_DIR_NAME = "cells";
 
     @Nullable
     private static IWorldData instance;
@@ -63,8 +66,12 @@ public final class WorldData implements IWorldData {
     private final File ae2directory;
     private final File spawnDirectory;
     private final File compassDirectory;
+    private final File cellsDirectory;
 
     private final Configuration sharedConfig;
+
+    @Nullable
+    private CellContentsStore cellStore;
 
     private WorldData(@Nonnull final File worldDirectory) {
         Preconditions.checkNotNull(worldDirectory);
@@ -73,6 +80,7 @@ public final class WorldData implements IWorldData {
         this.ae2directory = new File(worldDirectory, AE2_DIRECTORY_NAME);
         this.spawnDirectory = new File(this.ae2directory, SPAWNDATA_DIR_NAME);
         this.compassDirectory = new File(this.ae2directory, COMPASS_DIR_NAME);
+        this.cellsDirectory = new File(this.ae2directory, CELLS_DIR_NAME);
 
         final File settingsFile = new File(this.ae2directory, SETTING_FILE_NAME);
         this.sharedConfig = new Configuration(settingsFile, AEConfig.VERSION);
@@ -141,6 +149,9 @@ public final class WorldData implements IWorldData {
         }
 
         this.startables.clear();
+
+        this.cellStore = CellContentsStore.start(this.cellsDirectory);
+        MinecraftForge.EVENT_BUS.register(this.cellStore);
     }
 
     @Override
@@ -153,6 +164,13 @@ public final class WorldData implements IWorldData {
     @Override
     public void onServerStoppped() {
         Preconditions.checkNotNull(instance);
+
+        // Not while stopping: the world's last save comes after that, and it is what queues the last writes.
+        if (this.cellStore != null) {
+            MinecraftForge.EVENT_BUS.unregister(this.cellStore);
+            CellContentsStore.stop();
+            this.cellStore = null;
+        }
 
         this.stoppables.clear();
         instance = null;

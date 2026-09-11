@@ -15,6 +15,9 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -50,6 +53,8 @@ import appeng.client.me.Repo;
 import appeng.container.implementations.ContainerCellView;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.localization.GuiText;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.PacketCellViewRequest;
 import appeng.me.storage.BasicCellInventory;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
@@ -58,8 +63,9 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
  * filter is changed at a Cell Workbench and its contents through a network.
  *
  * <p>Summoned over whichever screen the player was already in and puts that one back when it closes, the way
- * {@link GuiPatternView} is, and like it reaches no server: a cell carries its contents in its own NBT, and
- * the stack is the one under the cursor.</p>
+ * {@link GuiPatternView} is, and like it opens nothing on the server. What a cell holds lives on the server, so
+ * the window asks for it once and says it is waiting until the answer arrives; only a cell written by an older
+ * version still carries its whole list in the stack under the cursor.</p>
  *
  * <p>The grid, the sorting, the scrolling and the search are the ME terminal's own {@link Repo} and its ME
  * slots, handed a list that came out of a cell rather than off a network. That is why this screen is short.</p>
@@ -95,6 +101,15 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
     private final Repo repo;
     private final List<ItemStack> cards;
 
+    /** The cell whose contents were asked for, or null when the stack already had them. */
+    @Nullable
+    private final UUID awaitedId;
+    @Nullable
+    private KeyCounter received;
+    /** The parts of the answer that are in so far. */
+    @Nullable
+    private KeyCounter arriving;
+
     private MEGuiTextField searchField;
     private GuiTabButton modeButton;
     private GuiImgButton searchKeepBtn;
@@ -116,6 +131,11 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         this.repo = new Repo(scrollbar, this);
         this.repo.setPower(true);
         this.repo.setRowSize(COLUMNS);
+
+        this.awaitedId = cell instanceof BasicCellInventory ? ((BasicCellInventory) cell).getUnloadedContentsId() : null;
+        if (this.awaitedId != null) {
+            NetworkHandler.instance().sendToServer(new PacketCellViewRequest(this.awaitedId));
+        }
     }
 
     @Override
@@ -180,11 +200,40 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         this.buttonList.add(this.modeButton);
     }
 
+    /** One part of the server's answer, if it is for this window. Shown once the last part is in. */
+    public void postContents(final UUID cellId, final KeyCounter part, final boolean last) {
+        if (!cellId.equals(this.awaitedId) || this.received != null) {
+            return;
+        }
+
+        if (this.arriving == null) {
+            this.arriving = new KeyCounter();
+        }
+        for (final Object2LongMap.Entry<AEKey> entry : part) {
+            this.arriving.add(entry.getKey(), entry.getLongValue());
+        }
+
+        if (last) {
+            this.received = this.arriving;
+            this.arriving = null;
+            this.fill();
+        }
+    }
+
+    private boolean isWaiting() {
+        return this.awaitedId != null && this.received == null;
+    }
+
     /** The rows the grid shows: what the cell holds, or what it is set to accept. */
     private void fill() {
         this.repo.reset();
 
-        final KeyCounter stored = this.cell.getAvailableStacks();
+        final KeyCounter stored;
+        if (this.awaitedId == null) {
+            stored = this.cell.getAvailableStacks();
+        } else {
+            stored = this.received != null ? this.received : new KeyCounter();
+        }
 
         if (this.showingFilter) {
             final IItemHandler config = ((ICellWorkbenchItem) this.stack.getItem()).getConfigInventory(this.stack);
@@ -296,6 +345,13 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         for (int i = 0; i < this.cards.size(); i++) {
             this.drawItem(this.xSize - PLATE_OVERLAP + PLATE_SLOT_INSET,
                     GRID_TOP + PLATE_EDGE + i * SLOT + 1, this.cards.get(i));
+        }
+
+        if (this.isWaiting()) {
+            final String waiting = GuiText.CellLoading.getLocal();
+            this.fontRenderer.drawString(waiting,
+                    MARGIN + (COLUMNS * SLOT - this.fontRenderer.getStringWidth(waiting)) / 2,
+                    GRID_TOP + (ROWS * SLOT - this.fontRenderer.FONT_HEIGHT) / 2, 0x404040);
         }
     }
 

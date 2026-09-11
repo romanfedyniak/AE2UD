@@ -113,6 +113,10 @@ public class AppEngPacketHandlerBase {
 
         PACKET_NETWORK_VISUALISER(PacketNetworkVisualiser.class),
 
+        PACKET_CELL_VIEW_REQUEST(PacketCellViewRequest.class),
+
+        PACKET_CELL_VIEW_CONTENTS(PacketCellViewContents.class),
+
         ;
 
 

@@ -188,6 +188,7 @@ gui.appliedenergistics2.CraftPriorityHintNotProcessor=Це ніколи не о�
 gui.appliedenergistics2.AndMoreTypes=і ще %d
 gui.appliedenergistics2.CellContents=Зберігається в цій комірці
 gui.appliedenergistics2.CellFilter=Що приймає ця комірка
+gui.appliedenergistics2.CellLoading=Запит до сервера...
 gui.appliedenergistics2.SearchHintTitle=Пошук
 gui.appliedenergistics2.SearchHintName=Звичайне слово шукає за назвою
 gui.appliedenergistics2.SearchHintTerms=Кілька слів - збіг за всіма

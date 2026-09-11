@@ -48,7 +48,7 @@ import appeng.me.storage.BasicCellInventory;
 public class ApiClientHelper implements IClientHelper {
 
     /** How many of a cell's contents a tooltip names before it says how many more there are. */
-    public static final int PREVIEW_ROWS = 5;
+    public static final int PREVIEW_ROWS = BasicCellInventory.PREVIEW_SIZE;
 
     @Override
     public void addCellInformation(final StorageCell handler, final List<String> lines) {
@@ -120,6 +120,9 @@ public class ApiClientHelper implements IClientHelper {
      * The few keys there is most of, largest first. What a partitioned cell is set to accept is deliberately
      * not listed here instead: the filter is a setting, and this line answers what is in the cell - which
      * used to be silently replaced by the filter, with nothing on screen saying which of the two was shown.
+     * <p/>
+     * On the client a cell may know no more than those few, so how many are left over is counted from its
+     * type total and not from the list.
      */
     private static void addContents(final BasicCellInventory cell, final List<String> lines) {
         final List<Object2LongMap.Entry<AEKey>> stored = new ArrayList<>();
@@ -130,7 +133,8 @@ public class ApiClientHelper implements IClientHelper {
 
         stored.sort(Comparator.comparingLong(Object2LongMap.Entry<AEKey>::getLongValue).reversed());
 
-        for (int i = 0; i < Math.min(PREVIEW_ROWS, stored.size()); i++) {
+        final int shown = Math.min(PREVIEW_ROWS, stored.size());
+        for (int i = 0; i < shown; i++) {
             final AEKey what = stored.get(i).getKey();
 
             // Unformatted: see WrappedGenericStack.getItemStackDisplayName - the trailing RESET that
@@ -139,9 +143,9 @@ public class ApiClientHelper implements IClientHelper {
                     + what.formatAmount(stored.get(i).getLongValue(), AmountFormat.FULL));
         }
 
-        if (stored.size() > PREVIEW_ROWS) {
-            lines.add(TextFormatting.DARK_GRAY
-                    + I18n.format(GuiText.AndMoreTypes.getUnlocalized(), stored.size() - PREVIEW_ROWS));
+        final long more = cell.getStoredItemTypes() - shown;
+        if (more > 0) {
+            lines.add(TextFormatting.DARK_GRAY + I18n.format(GuiText.AndMoreTypes.getUnlocalized(), more));
         }
     }
 }

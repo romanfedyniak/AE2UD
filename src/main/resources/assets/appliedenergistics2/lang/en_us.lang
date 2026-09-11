@@ -188,6 +188,7 @@ gui.appliedenergistics2.CraftPriorityHintNotProcessor=It never picks where a job
 gui.appliedenergistics2.AndMoreTypes=and %d more
 gui.appliedenergistics2.CellContents=Stored in this cell
 gui.appliedenergistics2.CellFilter=What this cell accepts
+gui.appliedenergistics2.CellLoading=Asking the server...
 gui.appliedenergistics2.SearchHintTitle=Search
 gui.appliedenergistics2.SearchHintName=A plain word searches the name
 gui.appliedenergistics2.SearchHintTerms=Several words all have to match

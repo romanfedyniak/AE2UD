@@ -29,6 +29,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
@@ -536,6 +537,10 @@ public final class StorageThroughputTest {
 
     /** The registry is normally created during mod construction, which does not happen here. */
     private static void registerItemKeyType() {
+        // Another test class in the same run may have made it already.
+        if (GameRegistry.findRegistry(AEKeyType.class) != null) {
+            return;
+        }
         new RegistryBuilder<AEKeyType>()
                 .setName(AEKeyTypes.REGISTRY_NAME)
                 .setType(AEKeyType.class)

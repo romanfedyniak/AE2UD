@@ -312,6 +312,7 @@ public enum GuiText {
     AndMoreTypes,
     CellContents,
     CellFilter,
+    CellLoading,
 
     SearchHintTitle,
     SearchHintName,

@@ -21,8 +21,8 @@ import appeng.container.slot.SlotFake;
 /**
  * The read-only view of one storage cell, opened over whatever screen the player was already in.
  * <p>
- * It never reaches a server, for the same reason {@link ContainerPatternView} does not: a cell carries its
- * whole contents in its own NBT, and the stack under the cursor is one the client already has. The
+ * It is never opened on a server, as {@link ContainerPatternView} is not: the stack under the cursor is one the
+ * client already has, and what the cell holds is asked for by the screen itself. The
  * container exists so the screen can hang the mod's ordinary ME slots off something - the rows are drawn,
  * measured and given tooltips by machinery that expects a container - and for nothing else.
  */
