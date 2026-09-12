@@ -931,7 +931,7 @@ commands.ae2.Supporters=Відображає список тих, хто під�
 // Achievements
 achievement.ae2.Root=Applied Energistics
 achievement.ae2.Root.desc=Коли скрині вже не вистачає...
-achievement.ae2.Compass=Мистивець за метеоритами
+achievement.ae2.Compass=Мисливець за метеоритами
 achievement.ae2.Compass.desc=Створіть метеоритний компас
 achievement.ae2.Presses=Невідома технологія
 achievement.ae2.Presses.desc=Знайдіть обчислювальний прес
