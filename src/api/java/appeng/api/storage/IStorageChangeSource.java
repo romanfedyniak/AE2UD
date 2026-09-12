@@ -33,7 +33,9 @@ import appeng.api.stacks.AEKey;
  * implements this nor calls {@link appeng.api.networking.storage.IStorageService#invalidateCache()} after
  * changing behind the network's back will be shown with stale contents in terminals - it will not correct itself.
  * The one case needing no work is a storage that only ever changes because the network itself inserted into or
- * extracted from it: the network sees those and counts them without being told.
+ * extracted from it: the network sees those and counts them without being told. A storage that takes what the
+ * network gives it and keeps none of it is the opposite case and needs {@link IStorageSink}, which is this
+ * interface saying nothing at all.
  * <p/>
  * AE2UD-specific; upstream recounts unconditionally and has no equivalent.
  */

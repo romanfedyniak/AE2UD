@@ -2432,6 +2432,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     handler that does not override it is asked with a read-only stack, as before. Upstream builds the stack
     too (`itemKey.toStack()`), where making one costs far less than it does on 1.12.
 
+57. **`IStorageSink`** - additive, no upstream equivalent, and the other half of amendment 50. A network
+    reports on behalf of a mount that does not report for itself, and reports what it handed over; that is
+    right for a storage and wrong for a mount which keeps none of what it takes. Upstream needs no such thing
+    because it recounts and never reports. Two mounts in the mod are sinks - the crafting service, mounted at
+    maximum priority to catch the item a job is waiting for, and every formation plane - and a creative cell
+    is one from the other side, unchanged by anything put in or taken out. An addon mounting a void, a
+    furnace or anything else that swallows what it is given needs this too, or its network's totals climb
+    with every insertion until something forces a recount.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

@@ -43,6 +43,11 @@ happened. What follows is a return to that, and it is recorded as a deliberate d
 - **A nested network** - a storage bus pointed at another network through
   `STORAGE_MONITORABLE_ACCESSOR` - chains, because `NetworkStorage` is itself a change source and the
   wrappers between forward what they are told.
+- **A mount that keeps nothing it is given** - a formation plane, the crafting service claiming the item a job
+  is waiting for - implements `IStorageSink` and so reports nothing. This is the one case where the network
+  reporting on a mount's behalf is wrong rather than merely unnecessary: what it handed over is not there, and
+  counting it means counting the same stack twice, once here and once wherever it really ends up. A creative
+  cell is in the same position from the other side, its contents being the same before and after.
 
 `reportsChanges()` is the part that is easy to get wrong. `DelegatingMEInventory` is a change source
 whether or not it has anything to say, so asking `instanceof` alone would let a wrapper over a silent storage

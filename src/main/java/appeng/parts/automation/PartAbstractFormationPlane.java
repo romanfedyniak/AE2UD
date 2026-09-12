@@ -50,6 +50,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.IStorageSink;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AECableType;
 import appeng.api.util.KeyTypeSelection;
@@ -80,8 +81,8 @@ import appeng.util.prioritylist.IPartitionList;
  * put per-type behaviour on the part instead of on the key type.
  */
 public abstract class PartAbstractFormationPlane extends PartUpgradeable
-        implements IStorageProvider, IPriorityHost, MEStorage, KeyTypeSelectionHost, IGridTickable,
-        ICraftingRequester, ICraftPriorityTarget {
+        implements IStorageProvider, IPriorityHost, MEStorage, IStorageSink, KeyTypeSelectionHost,
+        IGridTickable, ICraftingRequester, ICraftPriorityTarget {
 
     private boolean wasActive = false;
     private int priority = 0;
@@ -559,7 +560,8 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        // The plane doesn't stock anything of its own -- nothing to report.
+        // The plane doesn't stock anything of its own -- nothing to report. What it accepts goes into the
+        // world, which is why it is an IStorageSink: the network must not count it as stored here.
     }
 
     @Override

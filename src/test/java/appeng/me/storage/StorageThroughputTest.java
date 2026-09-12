@@ -54,6 +54,7 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.IStorageSink;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ISaveProvider;
@@ -247,6 +248,28 @@ public final class StorageThroughputTest {
         }
     }
 
+    /**
+     * The trap the crafting service and every formation plane sit in: a mount can accept a stack and keep none
+     * of it. What it took is not on the network, and counting it as stored leaves a total that grows with every
+     * insertion and comes right only when the network is made to count itself again.
+     */
+    @Test
+    public void aMountThatKeepsNothingIsNotCounted() {
+        // The ordinary mount is full, so nothing but the sink can have taken anything.
+        final Fixture fixture = new Fixture(1, true, true);
+        final GridStorageCache cache = cache(fixture, Watch.ONE_KEY);
+        final SinkStorage sink = new SinkStorage();
+        cache.addGlobalStorageProvider(mounts -> mounts.mount(sink, Integer.MAX_VALUE));
+
+        final AEKey what = keyPool.get(0);
+        final long before = cache.getCachedInventory().get(what);
+
+        assertThat("the sink took it", cache.getInventory().insert(what, 64, Actionable.MODULATE, SOURCE), is(64L));
+        cache.onUpdateTick();
+
+        assertThat("what the network holds of it", cache.getCachedInventory().get(what), is(before));
+    }
+
     private enum Watch {
         NONE, ONE_KEY, EVERYTHING
     }
@@ -355,6 +378,20 @@ public final class StorageThroughputTest {
 
         int distinctKeys() {
             return this.unique ? this.mounts.size() * TYPES_PER_MOUNT : TYPES_PER_MOUNT;
+        }
+    }
+
+    /** A mount that swallows whatever it is given - a formation plane, or a crafting job claiming its output. */
+    private static final class SinkStorage implements MEStorage, IStorageSink {
+
+        @Override
+        public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource src) {
+            return amount;
+        }
+
+        @Override
+        public ITextComponent getDescription() {
+            return new TextComponentString("sink");
         }
     }
 

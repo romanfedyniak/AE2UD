@@ -24,6 +24,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A storage mounted on a network can say it keeps nothing it is given.** `IStorageSink` marks a mount that
+  accepts a stack and passes it out of the storage system altogether - a formation plane placing it in the
+  world, a crafting job carrying it off to whoever ordered it - or one whose contents stand still whatever
+  moves through it, as a creative cell's do. Without it the network counts what it handed such a mount as
+  stored there; see the fix below. It is `IStorageChangeSource` saying nothing at all, so an addon needs to
+  implement nothing beyond naming it.
+
 - **An addon's window can take the amount screen too.** Typing an amount into a filter slot - the middle
   click that opens the number pad - needed the server to work out which screen the click came from, and it
   did that by looking up the container's class among the mod's own screens. An addon's window is registered
@@ -32,6 +39,20 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
 
 ### Fixes
+
+- **A terminal could show more of something than the network holds.** A network keeps a running total of
+  everything mounted on it and is told what moved instead of counting the lot every tick; a mount that says
+  nothing for itself has the network report on its behalf, and what the network reports is what it handed
+  over. That is right for a cell and wrong for a mount that keeps none of it - and two of them keep none of
+  it. The crafting service claims an item a waiting job needs before any cell can swallow it, and then hands
+  it to whoever ordered the craft; a formation plane puts what it takes into the world. So an autocrafted
+  item was counted once where it really ended up and once more where it never was, and an arrangement that
+  crafts round in a circle - an export bus with a crafting card feeding an interface on its own network -
+  grew that phantom every cycle without limit. Nothing could be done with the excess, because nothing held
+  it: it could not be extracted by a bus or taken in a terminal, and it went away only when a cell was pulled
+  out of a drive and put back, which makes the network count itself from scratch. Both mounts say what they
+  are now. A creative cell is quiet for the same reason - it holds exactly what it held however much is put
+  in or taken out.
 
 - **A short recipe category left HEI's buttons hanging above it.** HEI stacks an entry's three buttons - transfer, favourite and bookmark - upwards from the bottom edge of the category, so a category shorter than the three of them together puts the top two outside its own entry, beside the entry above. The six in-world categories are as tall as whatever they have to say, and one with a short note or none at all was short enough for it. A category is never shorter than that column of buttons now, and what it holds stays centred in it.
 

@@ -39,6 +39,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.IStorageSink;
 import appeng.api.storage.MEStorage;
 import appeng.crafting.CraftingJob;
 import appeng.crafting.CraftingLink;
@@ -79,7 +80,8 @@ import java.util.stream.StreamSupport;
  * {@link IStorageProvider}/{@link IStorageMounts}, and forwards inserts to whichever
  * {@link CraftingCPUCluster} is waiting for that key.
  */
-public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper, IStorageProvider, MEStorage {
+public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper, IStorageProvider, MEStorage,
+        IStorageSink {
 
     private static final ExecutorService CRAFTING_POOL;
     /**
@@ -146,6 +148,10 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     /**
      * Gives every waiting {@link CraftingCPUCluster} a chance to claim (part of) an insertion before
      * it lands in regular storage. See the class javadoc for why this exists.
+     * <p>
+     * What a cpu claims does not stay here - it is held by the job and then handed to whoever ordered it -
+     * which is why this cache is an {@link IStorageSink}: were the network to count the claim as stored,
+     * every crafted item would be counted twice, once here and once where it really ends up.
      */
     @Override
     public long insert(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {

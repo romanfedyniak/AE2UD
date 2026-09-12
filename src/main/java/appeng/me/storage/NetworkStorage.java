@@ -94,7 +94,9 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
 
     /**
      * Moves a stack and says so. A mount that reports for itself is left to do it - it knows about changes this
-     * network never asked for, and counting the same insert here as well would double it.
+     * network never asked for, and counting the same insert here as well would double it. The same goes for a
+     * mount that keeps nothing it takes ({@link appeng.api.storage.IStorageSink}): what it accepted is not
+     * there to be counted.
      */
     private long insertInto(final MEStorage inv, final AEKey what, final long amount, final Actionable type,
             final IActionSource src) {

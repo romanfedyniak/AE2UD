@@ -32,6 +32,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageSink;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.storage.ItemCreativeStorageCell;
@@ -47,7 +48,7 @@ import appeng.items.storage.ItemCreativeStorageCell;
  * drive, out of this package's scope) applies priority/whitelisting the same way it does for
  * {@link BasicCellInventory}.
  */
-public class CreativeCellInventory implements StorageCell {
+public class CreativeCellInventory implements StorageCell, IStorageSink {
 
     private static final long STORED_AMOUNT = (1L << 52) - 1;
 
