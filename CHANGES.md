@@ -22,6 +22,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - **The arrow in the Inscriber opens its recipes.** Clicking the arrow between what goes in and what comes out shows what the Inscriber makes, the way a machine's window does in most mods, and the arrow says so when hovered - in HEI's own words, so it is already translated. The arrow rather than the thin progress bar at the edge of the window, which is where nobody looks. Only with a recipe viewer installed.
 
+### API
+
+- **An addon's window can take the amount screen too.** Typing an amount into a filter slot - the middle
+  click that opens the number pad - needed the server to work out which screen the click came from, and it
+  did that by looking up the container's class among the mod's own screens. An addon's window is registered
+  through `GuiWrapper` and has no class to find, so the click did nothing there. The container says where it
+  came from now, through `AEBaseContainer.getOriginGui()`, which answers with that same lookup by default
+  and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
+
 ### Fixes
 
 - **A short recipe category left HEI's buttons hanging above it.** HEI stacks an entry's three buttons - transfer, favourite and bookmark - upwards from the bottom edge of the category, so a category shorter than the three of them together puts the top two outside its own entry, beside the entry above. The six in-world categories are as tall as whatever they have to say, and one with a short note or none at all was short enough for it. A category is never shorter than that column of buttons now, and what it holds stays centred in it.

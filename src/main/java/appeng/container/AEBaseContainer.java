@@ -1125,6 +1125,17 @@ public abstract class AEBaseContainer extends Container {
      * @return null where there is nothing to set - an empty slot, for a screen whose slots hold their own
      *         amounts.
      */
+    /**
+     * Which screen opens this container, so a flow that leaves it - typing an amount, for one - can send the
+     * player back afterwards. Looked up by class, which finds every screen of the mod itself; an addon whose
+     * screen is a {@link appeng.core.sync.GuiWrapper} bridge answers with that bridge instead, because no
+     * lookup by class can find one.
+     */
+    @Nullable
+    public GuiBridge getOriginGui() {
+        return GuiBridge.openerOf(this.getClass());
+    }
+
     @Nullable
     public IAmountTarget amountTargetFor(final GuiBridge origin, final int slot) {
         final Slot s = this.inventorySlots.get(slot);

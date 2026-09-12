@@ -257,7 +257,7 @@ public class PacketInventoryAction extends AppEngPacket {
             return;
         }
 
-        final GuiBridge originGui = GuiBridge.openerOf(from.getClass());
+        final GuiBridge originGui = from.getOriginGui();
         if (originGui == null) {
             return;
         }
