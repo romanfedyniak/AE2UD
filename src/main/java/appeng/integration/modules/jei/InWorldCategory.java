@@ -40,6 +40,12 @@ abstract class InWorldCategory implements IRecipeCategory<InWorldRecipe> {
     /** Where the item sits inside that square, which a fluid has to be placed at by hand. */
     static final int SLOT_INSET = 1;
 
+    /**
+     * The shortest a category may be. JEI stacks its three per-entry buttons upwards from an entry's bottom
+     * edge, so a shorter category leaves them hanging above the entry they belong to.
+     */
+    private static final int BUTTON_COLUMN = 13 * 3 + 4;
+
     private final String uid;
     private final String title;
     private final IDrawable icon;
@@ -53,7 +59,7 @@ abstract class InWorldCategory implements IRecipeCategory<InWorldRecipe> {
         this.title = I18n.format(titleKey);
         this.icon = icon.isEmpty() ? null : helper.createDrawableIngredient(icon);
 
-        int tallest = SLOT;
+        int tallest = Math.max(SLOT, BUTTON_COLUMN);
         for (final String caption : captions) {
             tallest = Math.max(tallest, InWorldRecipe.contentHeight(caption, WIDTH));
         }
