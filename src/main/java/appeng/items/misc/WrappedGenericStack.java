@@ -72,6 +72,8 @@ import appeng.items.AEBaseItem;
  */
 public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrapper {
 
+    private static final CreativeTabs[] NO_TABS = new CreativeTabs[0];
+
     public WrappedGenericStack() {
         this.setMaxStackSize(1);
     }
@@ -132,6 +134,15 @@ public class WrappedGenericStack extends AEBaseItem implements GenericStack.Wrap
     @Override
     protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
         // Never obtainable through creative search or HEI cheat mode.
+    }
+
+    /**
+     * An item on no creative tab answers this with an array holding one null, and HEI takes that as leave to
+     * list the bare item without ever asking {@link #getCheckedSubItems}. Nothing to list is the honest answer.
+     */
+    @Override
+    public CreativeTabs[] getCreativeTabs() {
+        return NO_TABS;
     }
 
     /**

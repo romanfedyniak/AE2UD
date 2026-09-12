@@ -744,6 +744,7 @@ item.appliedenergistics2.fluid_storage_cell_4096k.name=§b4096к§r МЕ Рід�
 item.appliedenergistics2.fluid_storage_cell_16384k.name=§b16384к§r МЕ Рідинна комірка зберігання
 item.appliedenergistics2.creative_storage_cell.name=Творча МЕ комірка зберігання
 item.appliedenergistics2.encoded_pattern.name=Закодований шаблон
+item.appliedenergistics2.wrapped_generic_stack.name=Узагальнений стек
 item.appliedenergistics2.view_cell.name=Комірка огляду
 item.appliedenergistics2.facade.name=Кабельний фасад
 
