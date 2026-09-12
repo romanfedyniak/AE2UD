@@ -127,6 +127,8 @@ import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -425,8 +427,17 @@ final class Registration {
                 .setType(AEKeyType.class)
                 .create();
 
-        registry.register(new AEItemKeyType());
-        registry.register(new AEFluidKeyType());
+        // NewRegistry fires with no mod of its own, so a registry name of ours reads as an override of
+        // Minecraft's and FML warns about a broken mod. Say who we are while the two names are set.
+        final Loader loader = Loader.instance();
+        final ModContainer opener = loader.activeModContainer();
+        loader.setActiveModContainer(loader.getIndexedModList().get(AppEng.MOD_ID));
+        try {
+            registry.register(new AEItemKeyType());
+            registry.register(new AEFluidKeyType());
+        } finally {
+            loader.setActiveModContainer(opener);
+        }
     }
 
     @SubscribeEvent
