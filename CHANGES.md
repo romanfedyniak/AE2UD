@@ -20,6 +20,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - **What is left as plain text is only what a recipe cannot say.** Charged certus quartz still explains that it turns up in caves and sparkles, and the crafting presses still explain that they lie at the centre of a meteorite and that a compass finds one. Neither is a recipe, and drawing them as one would be a lie. The half of the charged quartz note that described the Charger is gone: the Charger draws itself now.
 
+- **The arrow in the Inscriber opens its recipes.** Clicking the arrow between what goes in and what comes out shows what the Inscriber makes, the way a machine's window does in most mods, and the arrow says so when hovered - in HEI's own words, so it is already translated. The arrow rather than the thin progress bar at the edge of the window, which is where nobody looks. Only with a recipe viewer installed.
+
 ### Fixes
 
 - **A short recipe category left HEI's buttons hanging above it.** HEI stacks an entry's three buttons - transfer, favourite and bookmark - upwards from the bottom edge of the category, so a category shorter than the three of them together puts the top two outside its own entry, beside the entry above. The six in-world categories are as tall as whatever they have to say, and one with a short note or none at all was short enough for it. A category is never shorter than that column of buttons now, and what it holds stays centred in it.

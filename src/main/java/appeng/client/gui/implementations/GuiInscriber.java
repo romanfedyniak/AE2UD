@@ -31,14 +31,30 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
 import appeng.tile.misc.TileInscriber;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraftforge.fml.common.Loader;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collections;
 
 
 public class GuiInscriber extends GuiUpgradeable {
+
+    /**
+     * The arrow between what goes in and what comes out. JEI opens the inscriber's recipes from there, which
+     * is where the eye looks for them - not the thin progress bar at the edge of the window.
+     */
+    public static final int RECIPE_LEFT = 82;
+    public static final int RECIPE_TOP = 39;
+    public static final int RECIPE_WIDTH = 26;
+    public static final int RECIPE_HEIGHT = 16;
+
+    /** Whether a recipe viewer is there to open, which is the only reason the arrow answers the mouse. */
+    private static final boolean RECIPE_VIEWER = Loader.isModLoaded("jei");
+
 
     private final ContainerInscriber cvc;
     private GuiProgressBar pb;
@@ -90,6 +106,17 @@ public class GuiInscriber extends GuiUpgradeable {
         this.separateSides.set(this.cvc.getSeparateSides());
         this.autoExport.set(this.cvc.getAutoExport());
         this.bufferSize.set(this.cvc.getBufferSize());
+    }
+
+    @Override
+    public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
+        super.drawScreen(mouseX, mouseY, partialTicks);
+
+        // The line is JEI's own, so whoever has it installed already has it translated
+        if (RECIPE_VIEWER && mouseX >= this.guiLeft + RECIPE_LEFT && mouseX < this.guiLeft + RECIPE_LEFT + RECIPE_WIDTH
+                && mouseY >= this.guiTop + RECIPE_TOP && mouseY < this.guiTop + RECIPE_TOP + RECIPE_HEIGHT) {
+            this.drawHoveringText(Collections.singletonList(I18n.format("jei.tooltip.show.recipes")), mouseX, mouseY);
+        }
     }
 
     @Override

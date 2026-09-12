@@ -20,6 +20,7 @@ package appeng.integration.modules.jei;
 
 
 import appeng.api.AEApi;
+import appeng.client.gui.implementations.GuiInscriber;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.implementations.items.IAEItemPowerStorage;
@@ -488,6 +489,9 @@ public class JEIPlugin implements IModPlugin {
         {
             registry.addRecipeCatalyst(inscriber, InscriberRecipeCategory.UID);
         });
+
+        registry.addRecipeClickArea(GuiInscriber.class, GuiInscriber.RECIPE_LEFT, GuiInscriber.RECIPE_TOP,
+                GuiInscriber.RECIPE_WIDTH, GuiInscriber.RECIPE_HEIGHT, InscriberRecipeCategory.UID);
 
         List<IInscriberRecipe> inscriberRecipes = new ArrayList<>(AEApi.instance().registries().inscriber().getRecipes());
         registry.addRecipes(inscriberRecipes, InscriberRecipeCategory.UID);
