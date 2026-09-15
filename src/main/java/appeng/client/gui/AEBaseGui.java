@@ -104,6 +104,12 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
     private boolean ignoreGhostDropClick;
+
+    /**
+     * What HEI is dragging as a ghost right now, or empty. One drag at a time, one screen at a time, and
+     * only ever the client's - so the whole game has room for exactly one of these.
+     */
+    private static ItemStack ghostDragged = ItemStack.EMPTY;
     protected final StackSizeRenderer stackSizeRenderer = new StackSizeRenderer();
 
     /**
@@ -148,6 +154,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     @Override
     public void initGui() {
         super.initGui();
+
+        // Nothing can still be mid-drag on a screen that is only now being laid out
+        ghostDragEnded();
 
         // Held keys repeat on every screen of the mod's, rather than on the ones that remembered to ask.
         // A screen without a text field is unaffected: nothing it reads in keyTyped cares about repeats.
@@ -344,6 +353,15 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
     }
 
+    /** A drag has begun. Only an item is remembered: a bare fluid has no container to tell it apart from. */
+    static void ghostDragBegan(final Object ingredient) {
+        ghostDragged = ingredient instanceof ItemStack ? (ItemStack) ingredient : ItemStack.EMPTY;
+    }
+
+    static void ghostDragEnded() {
+        ghostDragged = ItemStack.EMPTY;
+    }
+
     /**
      * The hints for the hovered slot, drawn on their own. Only while the cursor is carrying something:
      * vanilla shows no tooltip at all then, so nothing is being covered up, and that is exactly when the
@@ -351,7 +369,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * to the item's own tooltip instead, by {@link #getItemToolTip}.
      */
     private void drawCarriedSlotTooltip(final int mouseX, final int mouseY) {
-        if (this.mc.player.inventory.getItemStack().isEmpty()) {
+        if (this.mc.player.inventory.getItemStack().isEmpty() && ghostDragged.isEmpty()) {
+            return;
+        }
+
+        // A ghost is dragged with an empty hand, so vanilla does draw the hovered item's own tooltip and
+        // the hints belong on the end of that instead of over it
+        if (!ghostDragged.isEmpty() && this.hoveredSlot != null && this.hoveredSlot.getHasStack()) {
             return;
         }
 
@@ -1046,6 +1070,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             return hints;
         }
 
+        if (!ghostDragged.isEmpty()) {
+            return ghostHints(slot);
+        }
+
         final ItemStack carried = this.mc.player.inventory.getItemStack();
         final GenericStack held = this.heldContents();
 
@@ -1120,6 +1148,40 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             }
         }
 
+        return hints;
+    }
+
+    /**
+     * What the two buttons would do with the ingredient HEI is dragging, which nothing else says: dropped
+     * with the left button a filter slot takes what the container holds, with the right the container
+     * itself. Worth a line only for a container the slot would take the contents of - everything else lands
+     * the same whichever button ends the drag, and a hint for a difference that is not there is worse than
+     * none.
+     */
+    private static List<String> ghostHints(final Slot slot) {
+        final List<String> hints = new ArrayList<>();
+
+        // Both kinds of filter slot, as everywhere else the two clicks are told apart: a terminal reaching
+        // an inventory elsewhere takes a ghost exactly as the slot in front of the player does
+        if (!(slot instanceof SlotFake || slot instanceof SlotDisconnected)
+                || !((AppEngSlot) slot).isSlotEnabled()) {
+            return hints;
+        }
+
+        final FluidStack contents = FluidUtil.getFluidContained(ghostDragged);
+        if (contents == null) {
+            return hints;
+        }
+
+        // Only a slot of this window can be asked what it would take; one standing for a remote inventory
+        // answers for whatever is on the other end of it
+        final AEFluidKey what = AEFluidKey.of(contents);
+        if (slot instanceof SlotFake && !((SlotFake) slot).acceptedKeys().matches(what)) {
+            return hints;
+        }
+
+        hints.add(line(ButtonToolTips.SetAction, Tooltips.click(0), nameOf(what)));
+        hints.add(line(ButtonToolTips.SetAction, Tooltips.click(1), nameOf(ghostDragged)));
         return hints;
     }
 

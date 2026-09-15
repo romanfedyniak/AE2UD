@@ -200,6 +200,7 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
         }
 
         this.landed = false;
+        AEBaseGui.ghostDragBegan(ingredient);
 
         final List<Target<I>> watched = new ArrayList<>(targets.size());
         for (final Target<I> target : targets) {
@@ -261,6 +262,8 @@ public class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui>, IGhostIngre
      */
     @Override
     public void onComplete() {
+        AEBaseGui.ghostDragEnded();
+
         final GuiScreen screen = Minecraft.getMinecraft().currentScreen;
 
         if (!this.landed && screen instanceof AEBaseGui gui && gui.getSlotUnderMouse() != null) {
