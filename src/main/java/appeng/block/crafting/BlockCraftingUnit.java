@@ -20,6 +20,7 @@ package appeng.block.crafting;
 
 
 import appeng.api.util.AEPartLocation;
+import appeng.core.MultiblockLimits;
 import appeng.block.AEBaseTileBlock;
 import appeng.client.UnlistedProperty;
 import appeng.client.render.crafting.CraftingCubeState;
@@ -46,8 +47,13 @@ import net.minecraftforge.common.property.ExtendedBlockState;
 import net.minecraftforge.common.property.IExtendedBlockState;
 import net.minecraftforge.common.property.IUnlistedProperty;
 
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
 import javax.annotation.Nonnull;
 import java.util.EnumSet;
+import java.util.List;
 
 
 public class BlockCraftingUnit extends AEBaseTileBlock {
@@ -160,6 +166,17 @@ public class BlockCraftingUnit extends AEBaseTileBlock {
         }
 
         return super.onBlockActivated(w, pos, state, p, hand, side, hitX, hitY, hitZ);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public void addInformation(final ItemStack is, final World world, final List<String> lines, final ITooltipFlag advancedItemTooltips) {
+        super.addInformation(is, world, lines, advancedItemTooltips);
+
+        final MultiblockLimits.Limit limit = MultiblockLimits.get(MultiblockLimits.CRAFTING_CPU);
+        if (limit != null) {
+            limit.addTooltip(lines);
+        }
     }
 
     public enum CraftingUnitType {

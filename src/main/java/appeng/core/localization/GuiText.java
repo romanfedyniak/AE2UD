@@ -328,7 +328,9 @@ public enum GuiText {
     Back,
     SearchHintMore,
     JeiRetrieveHint,
-    JeiCraftHint;
+    JeiCraftHint,
+    MaxMultiblockSize,
+    MultiblockSingleChunk;
 
     private final String root;
 

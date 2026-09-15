@@ -119,6 +119,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_CHANNEL_TIERS(PacketChannelTiers.class),
 
+        PACKET_MULTIBLOCK_LIMITS(PacketMultiblockLimits.class),
+
         ;
 
 

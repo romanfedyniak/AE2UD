@@ -66,6 +66,7 @@ import appeng.parts.automation.InitStackWorldBehaviors;
 import appeng.parts.misc.InitExternalStorageStrategies;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.ChannelTierSync;
+import appeng.core.sync.MultiblockLimitSync;
 import appeng.core.sync.GuiBridge;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.stats.AdvancementTriggers;
@@ -347,6 +348,10 @@ final class Registration {
 
         MinecraftForge.EVENT_BUS.register(new ChannelTierSync());
 
+        MinecraftForge.EVENT_BUS.register(new MultiblockLimitSync());
+
+        registerMultiblockLimits();
+
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
 
         MinecraftForge.EVENT_BUS.register(ItemSpawnCapture.INSTANCE);
@@ -527,6 +532,19 @@ final class Registration {
                 .isFeatureEnabled(AEFeature.SPATIAL_IO) && event.getObject() == DimensionManager.getWorld(AEConfig.instance().getStorageDimensionID())) {
             event.addCapability(new ResourceLocation("appliedenergistics2:spatial_dimension_manager"), new SpatialDimensionManager(event.getObject()));
         }
+    }
+
+    /** What every block of these two says in its tooltip, and what a joining client is told. */
+    private static void registerMultiblockLimits() {
+        final AEConfig config = AEConfig.instance();
+
+        MultiblockLimits.register(MultiblockLimits.CONTROLLER,
+                config::getMaxControllerSizeX, config::getMaxControllerSizeY, config::getMaxControllerSizeZ,
+                () -> false);
+
+        MultiblockLimits.register(MultiblockLimits.CRAFTING_CPU,
+                config::getCraftingCPUMaxSizeX, config::getCraftingCPUMaxSizeY, config::getCraftingCPUMaxSizeZ,
+                config::craftingCPURequiresSingleChunk);
     }
 
     private static List<IItemDefinition> portableFluidCells(final IItems items) {

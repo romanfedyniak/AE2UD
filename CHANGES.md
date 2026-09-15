@@ -38,6 +38,18 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   came from now, through `AEBaseContainer.getOriginGui()`, which answers with that same lookup by default
   and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
 
+### Multiblocks
+
+- **A block says how large the multiblock it belongs to may be built.** The controller and every block a
+  crafting CPU is made of now carry the limit in their tooltip, so it is read before the eighteenth block is
+  placed rather than after. The CPU already named its limit, but only in the refusal that came once the CPU
+  was too big; the controller named it nowhere at all. Both numbers come from the config, and a crafting CPU
+  that must stay inside one chunk says that too, on a line that appears only where the option is on. The
+  limits a player is shown are the server's: they are sent as the player joins and put back on disconnect,
+  because the tooltip is drawn from the client's own config file and nothing made that file agree with the
+  server it is playing on. An addon with a multiblock of its own registers its limits the same way and gets
+  both the line and the sync.
+
 ### Fixes
 
 - **A terminal could show more of something than the network holds.** A network keeps a running total of

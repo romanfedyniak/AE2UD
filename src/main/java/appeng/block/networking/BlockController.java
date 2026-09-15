@@ -20,6 +20,7 @@ package appeng.block.networking;
 
 
 import appeng.block.AEBaseTileBlock;
+import appeng.core.MultiblockLimits;
 import appeng.tile.networking.TileController;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
@@ -33,7 +34,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
 import javax.annotation.Nonnull;
+import java.util.List;
 
 
 public class BlockController extends AEBaseTileBlock {
@@ -148,6 +155,17 @@ public class BlockController extends AEBaseTileBlock {
     @Override
     public BlockRenderLayer getRenderLayer() {
         return BlockRenderLayer.CUTOUT;
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public void addInformation(final ItemStack is, final World world, final List<String> lines, final ITooltipFlag advancedItemTooltips) {
+        super.addInformation(is, world, lines, advancedItemTooltips);
+
+        final MultiblockLimits.Limit limit = MultiblockLimits.get(MultiblockLimits.CONTROLLER);
+        if (limit != null) {
+            limit.addTooltip(lines);
+        }
     }
 
     @Override

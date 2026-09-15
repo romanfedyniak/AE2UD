@@ -35,6 +35,7 @@ import appeng.client.render.keytypes.FluidKeyRenderHandler;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.core.MultiblockLimits;
 import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketAssemblerAnimation;
@@ -117,8 +118,10 @@ public class ClientHelper extends ServerHelper {
     @SubscribeEvent
     public void onDisconnect(final FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         // Fired on the network thread, while the tiers are read on the main one
-        Minecraft.getMinecraft().addScheduledTask(
-                () -> ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities());
+        Minecraft.getMinecraft().addScheduledTask(() -> {
+            ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities();
+            MultiblockLimits.restoreLocal();
+        });
     }
 
     @Override
