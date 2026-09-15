@@ -38,6 +38,19 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   came from now, through `AEBaseContainer.getOriginGui()`, which answers with that same lookup by default
   and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
 
+### Autocrafting
+
+- **A pattern is not decoded from scratch every time the chunk holding it loads.** Reading an encoded
+  crafting pattern means offering its grid to every recipe in the game until one matches, and that happened
+  anew for each pattern each time the machine holding it came back: a player flying home paid one full scan
+  of the recipe registry per pattern in every interface, assembler and pattern provider in the chunks
+  loading around them, all in the tick they loaded. What a pattern encodes never changes - re-encoding makes
+  a different item - so the recipe found for it is remembered, misses included, since a pattern whose recipe
+  has gone is the most expensive to read and the least likely to be thrown away. Measured over vanilla's
+  recipes alone, reading a pattern falls from 82 to 14 microseconds; the part removed is the scan, which
+  grows with the number of recipes installed, while the part left does not - so a pack with thousands of
+  them saves far more than this. What is remembered is dropped whenever recipes are registered again.
+
 ### Multiblocks
 
 - **A block says how large the multiblock it belongs to may be built.** The controller and every block a

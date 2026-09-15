@@ -45,7 +45,10 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.crafting.IShapedRecipe;
 import net.minecraftforge.items.IItemHandler;
 
+import javax.annotation.Nullable;
+
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
@@ -102,6 +105,40 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final AEItemKey pattern;
     private int priority = 0;
 
+    /**
+     * The recipe a crafting pattern encodes, remembered by the pattern it was read from.
+     * <p>
+     * Finding it means offering the grid to every registered recipe in turn, and a pattern is read again
+     * from scratch every time the machine holding it loads - so a chunk with a few interfaces in it pays
+     * that scan hundreds of times, in one tick, while the player is flying back home. What a pattern
+     * encodes never changes, since re-encoding makes a different item, so the answer is kept; misses
+     * included, because a pattern whose recipe has gone is the most expensive kind to read and the one a
+     * player is least likely to throw away.
+     * <p>
+     * The world the lookup is given is not part of the key. No recipe in practice answers differently in
+     * one world than another, and the alternative is to keep the scan.
+     */
+    private static final Map<AEItemKey, Optional<IRecipe>> RECIPE_CACHE = new ConcurrentHashMap<>();
+
+    @Nullable
+    private static IRecipe recipeFor(final AEItemKey pattern, final InventoryCrafting grid, final World w) {
+        final Optional<IRecipe> known = RECIPE_CACHE.get(pattern);
+
+        if (known != null) {
+            return known.orElse(null);
+        }
+
+        final IRecipe found = CraftingManager.findMatchingRecipe(grid, w);
+        RECIPE_CACHE.put(pattern, Optional.ofNullable(found));
+
+        return found;
+    }
+
+    /** Recipes have been registered again, so nothing remembered about them still holds. */
+    public static void clearRecipeCache() {
+        RECIPE_CACHE.clear();
+    }
+
     public PatternHelper(final ItemStack is, final World w) {
         final NBTTagCompound encodedValue = is.getTagCompound();
 
@@ -147,7 +184,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         }
 
         if (this.isCrafting) {
-            this.standardRecipe = CraftingManager.findMatchingRecipe(this.crafting, w);
+            this.standardRecipe = recipeFor(this.pattern, this.crafting, w);
 
             if (this.standardRecipe != null) {
                 this.correctOutput = this.standardRecipe.getCraftingResult(this.crafting);
