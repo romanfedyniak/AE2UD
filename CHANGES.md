@@ -86,6 +86,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **The Pattern Access Terminal crashed the game on a pattern holder larger than an interface.** It laid every
+  entry out as 36 slots, as an ME Interface has, so an addon's machine listed through `IPatternContainer` with
+  more - a multiblock assembler with two pattern modules has 72 - crashed the client the moment its 37th slot
+  was drawn. The terminal is told how many slots each entry has now, and **scrolls a row at a time** rather than
+  an entry at a time: one step used to jump a whole entry, which for a machine of hundreds of rows skipped all of
+  them. The button that points at a machine stays beside its top row while the rest of it scrolls past.
+
 - **A terminal could show more of something than the network holds.** A network keeps a running total of
   everything mounted on it and is told what moved instead of counting the lot every tick; a mount that says
   nothing for itself has the network report on its behalf, and what the network reports is what it handed

@@ -293,26 +293,20 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         final int currentScroll = this.getScrollBar().getCurrentScroll();
 
         int offset = 51;
-        int linesDraw = 0;
-        for (int x = 0; x < rows && linesDraw < rows && currentScroll + x < this.lines.size(); x++) {
+        for (int x = 0; x < rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
-            if (lineObj instanceof ClientDCInternalInv inv) {
-
-                final int extraLines = extraLinesMap.get(inv);
-                final boolean fake = this.fakeCrafting.contains(inv);
-                for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
-                    // The card sits in the interface, not in any one pattern, so the whole row carries it.
-                    if (fake) {
-                        drawRect(22, offset, 22 + 9 * 18, offset + 18, 0x30FF9000);
-                    }
-                    for (int z = 0; z < 9; z++) {
-                        if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (row * 9)))) {
-                            drawRect(z * 18 + 22, 1 + offset, z * 18 + 22 + 16, 1 + offset + 16, 0x2A00FF00);
-                        }
-                    }
-                    linesDraw++;
-                    offset += 18;
+            if (lineObj instanceof Row line) {
+                final ClientDCInternalInv inv = line.inv;
+                // The card sits in the interface, not in any one pattern, so the whole row carries it.
+                if (this.fakeCrafting.contains(inv)) {
+                    drawRect(22, offset, 22 + 9 * 18, offset + 18, 0x30FF9000);
                 }
+                for (int z = 0; z < 9; z++) {
+                    if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (line.row * 9)))) {
+                        drawRect(z * 18 + 22, 1 + offset, z * 18 + 22 + 16, 1 + offset + 16, 0x2A00FF00);
+                    }
+                }
+                offset += 18;
             } else if (lineObj instanceof Group group) {
                 final int rows = this.byName.get(group).size();
                 final ItemStack icon = group.icon;
@@ -328,7 +322,6 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                     this.drawItem(OFFSET_X + 3, 1 + offset, icon);
                 }
                 this.fontRenderer.drawString(name, nameX, 6 + offset, 4210752);
-                linesDraw++;
                 offset += 18;
             }
         }
@@ -354,29 +347,21 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
         int offset = 51;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
-        int linesDraw = 0;
 
-        for (int x = 0; x < rows && linesDraw < rows && currentScroll + x < this.lines.size(); x++) {
+        for (int x = 0; x < rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
-            if (lineObj instanceof ClientDCInternalInv inv) {
-
-                GuiButton guiButton = new GuiImgButton(guiLeft + 4, guiTop + offset + 1, Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
-                guiButtonHashMap.put(guiButton, inv);
-                this.buttonList.add(guiButton);
-
-                final int extraLines = extraLinesMap.get(inv);
-                for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
-                    for (int z = 0; z < 9; z++) {
-                        this.inventorySlots.inventorySlots.add(new SlotDisconnected(inv, z + (row * 9), z * 18 + 22, 1+ offset));
-                    }
-                    linesDraw++;
-                    offset += 18;
+            if (lineObj instanceof Row line) {
+                // Beside a container's first row, or beside the top one once that has scrolled away
+                if (line.row == 0 || x == 0) {
+                    GuiButton guiButton = new GuiImgButton(guiLeft + 4, guiTop + offset + 1, Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
+                    guiButtonHashMap.put(guiButton, line.inv);
+                    this.buttonList.add(guiButton);
                 }
-
-            } else if (lineObj instanceof Group) {
-                linesDraw++;
-                offset += 18;
+                for (int z = 0; z < 9; z++) {
+                    this.inventorySlots.inventorySlots.add(new SlotDisconnected(line.inv, z + (line.row * 9), z * 18 + 22, 1 + offset));
+                }
             }
+            offset += 18;
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
@@ -465,26 +450,13 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
         int offset = 51;
         final int ex = this.getScrollBar().getCurrentScroll();
-        int linesDraw = 0;
-        for (int x = 0; x < this.rows && linesDraw < rows && ex + x < this.lines.size(); x++) {
-            final Object lineObj = this.lines.get(ex + x);
-            if (lineObj instanceof ClientDCInternalInv) {
+        for (int x = 0; x < this.rows && ex + x < this.lines.size(); x++) {
+            if (this.lines.get(ex + x) instanceof Row) {
                 GlStateManager.color(1, 1, 1, 1);
-
-                final int width = 9 * 18;
-                final int extraLines = extraLinesMap.get(lineObj);
-
                 // draw the slot backgrounds
-                for (int row = 0; row < 1 + extraLines && linesDraw < rows; ++row) {
-                    this.drawTexturedModalRect(offsetX + 20, offsetY + offset, 20, 173, width, 18);
-
-                    offset += 18;
-                    linesDraw++;
-                }
-            } else {
-                offset += 18;
-                linesDraw++;
+                this.drawTexturedModalRect(offsetX + 20, offsetY + offset, 20, 173, 9 * 18, 18);
             }
+            offset += 18;
         }
 
         // draw the background below the interface list
@@ -563,7 +535,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 try {
                     final long id = Long.parseLong(key.substring(1), Character.MAX_RADIX);
                     final NBTTagCompound invData = in.getCompoundTag(key);
-                    final ClientDCInternalInv current = this.getById(id, invData.getLong("sortBy"), invData.getString("un"));
+                    final ClientDCInternalInv current = this.getById(id, invData.getLong("sortBy"), invData.getString("un"),
+                            invData.hasKey("size") ? invData.getInteger("size") : DualityInterface.NUMBER_OF_PATTERN_SLOTS);
                     current.setIcon(invData.hasKey("icon")
                             ? new ItemStack(invData.getCompoundTag("icon"))
                             : ItemStack.EMPTY);
@@ -690,7 +663,11 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             this.lines.add(n);
             final ArrayList<ClientDCInternalInv> clientInventories = new ArrayList<>(this.byName.get(n));
             Collections.sort(clientInventories);
-            this.lines.addAll(clientInventories);
+            for (final ClientDCInternalInv inv : clientInventories) {
+                for (int row = 0; row <= this.extraLinesMap.get(inv); row++) {
+                    this.lines.add(new Row(inv, row));
+                }
+            }
         }
 
         this.setScrollBar();
@@ -747,15 +724,34 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         return keys;
     }
 
-    private ClientDCInternalInv getById(final long id, final long sortBy, final String string) {
+    /**
+     * @param size how many slots the container has: an interface has 36, but a machine of an addon that keeps its
+     *             own patterns - a multiblock assembler with several modules - has as many as it likes.
+     */
+    private ClientDCInternalInv getById(final long id, final long sortBy, final String string, final int size) {
         ClientDCInternalInv o = this.byId.get(id);
 
-        if (o == null) {
-            this.byId.put(id, o = new ClientDCInternalInv(DualityInterface.NUMBER_OF_PATTERN_SLOTS, id, sortBy, string));
+        if (o == null || o.getInventory().getSlots() != size) {
+            this.byId.put(id, o = new ClientDCInternalInv(size, id, sortBy, string));
             this.refreshList = true;
         }
 
         return o;
+    }
+
+    /**
+     * One row of nine slots of a container. The list scrolls by these rather than by container: a machine of an
+     * addon can hold hundreds of rows, and a step of one container jumped over all of them at once.
+     */
+    private static final class Row {
+
+        private final ClientDCInternalInv inv;
+        private final int row;
+
+        private Row(final ClientDCInternalInv inv, final int row) {
+            this.inv = inv;
+            this.row = row;
+        }
     }
 
     /**

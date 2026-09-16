@@ -341,6 +341,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
             tag.setTag("pos", NBTUtil.createPosTag(inv.pos));
             tag.setInteger("dim", inv.dim);
             tag.setInteger("extraLines", inv.extraLines());
+            tag.setInteger("size", inv.server.getSlots());
             tag.setBoolean("fake", inv.fake);
             if (!inv.icon.isEmpty()) {
                 tag.setTag("icon", inv.icon.writeToNBT(new NBTTagCompound()));
