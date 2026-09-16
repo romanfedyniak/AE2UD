@@ -796,6 +796,38 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         continue;
                     }
 
+                    final int copies = this.batchSize(details, m, e.getValue().value);
+                    if (copies < 1) {
+                        continue;
+                    }
+
+                    if (copies > 1) {
+                        // A table laid out for one copy on an earlier medium is no use to a batch.
+                        if (ic != null) {
+                            this.putBack(details, ic, Arrays.asList(extras), Arrays.asList(fabricated));
+                            ic = null;
+                            extras = EMPTY_EXTRAS;
+                            fabricated = EMPTY_EXTRAS;
+                        }
+
+                        final int pushed = this.pushBatch(eg, details, m, copies);
+                        if (pushed < 0) {
+                            break;
+                        }
+                        if (pushed == 0) {
+                            continue;
+                        }
+
+                        e.getValue().value -= pushed;
+                        if (e.getValue().value <= 0) {
+                            continue;
+                        }
+                        if (this.remainingOperations == 0) {
+                            return;
+                        }
+                        continue;
+                    }
+
                     if (ic == null) {
                         final GenericStack[] input = details.getInputs();
                         double sum = 0;
@@ -1021,6 +1053,99 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 i.remove();
             }
         }
+    }
+
+    /**
+     * How many copies of a pattern go to this medium in one push: what it will take, capped by the
+     * operations left this tick and by what the task still needs. A medium that settles jobs itself only
+     * ever gets one, since it is handed the last craft of a job and nothing after it.
+     */
+    private int batchSize(final ICraftingPatternDetails details, final ICraftingMedium medium, final long remaining) {
+        if (medium.isFakeCrafting() || details instanceof VirtualPatternDetails) {
+            return 1;
+        }
+        final int offered = medium.maxCopies(details);
+        if (offered <= 1) {
+            return offered;
+        }
+        return (int) Math.max(1, Math.min(Math.min(offered, this.remainingOperations), remaining));
+    }
+
+    /**
+     * Pushes up to {@code wanted} copies of a pattern in one call. One copy is one operation, as it is for a
+     * single push; what is saved is doing the drawing, the power and the bookkeeping once instead of
+     * {@code wanted} times.
+     *
+     * @return how many copies went, 0 if the medium or the power refused them, or -1 if the CPU does not
+     *         hold the ingredients for even one.
+     */
+    private int pushBatch(final IEnergyGrid eg, final ICraftingPatternDetails details, final ICraftingMedium medium,
+            final int wanted) {
+        final BatchPlan plan = BatchPlan.of(details, this.inventory.getItemList(), wanted, this.getWorld());
+        if (plan == null) {
+            return -1;
+        }
+
+        double powerPerCopy = 0;
+        for (final GenericStack input : details.getInputs()) {
+            if (input != null) {
+                powerPerCopy += input.amount();
+            }
+        }
+
+        int copies = plan.getCopies();
+        if (powerPerCopy > 0) {
+            final double affordable = eg.extractAEPower(powerPerCopy * copies, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+            copies = (int) Math.min(copies, Math.floor((affordable + 0.01) / powerPerCopy));
+            if (copies < 1) {
+                return 0;
+            }
+        }
+
+        if (!plan.draw(this.inventory, copies, this.machineSrc)) {
+            return -1;
+        }
+        eg.extractAEPower(powerPerCopy * copies, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        for (final AEKey drawn : plan.getDrawnKeys()) {
+            this.postChange(drawn, this.machineSrc);
+        }
+
+        final InventoryCrafting table = plan.getTable();
+        final boolean pushed = medium.pushPattern(details, table, plan.getExtras(), copies);
+        this.recordPush(details, medium, pushed);
+
+        if (!pushed) {
+            plan.putBack(this.inventory, copies, this.machineSrc);
+            return 0;
+        }
+
+        this.somethingChanged = true;
+        this.remainingOperations -= copies;
+
+        for (final GenericStack out : details.getCondensedOutputs()) {
+            if (out != null) {
+                this.expect(out.what(), out.amount() * copies);
+            }
+        }
+
+        if (details.isCraftable()) {
+            for (int x = 0; x < table.getSizeInventory(); x++) {
+                final ItemStack left = Platform.getRemainingItem(details, x, table.getStackInSlot(x), true);
+                final AEItemKey key = left.isEmpty() ? null : AEItemKey.of(left);
+                if (key != null) {
+                    this.expect(key, (long) left.getCount() * copies);
+                }
+            }
+        }
+
+        this.markDirty();
+        return copies;
+    }
+
+    private void expect(final AEKey what, final long amount) {
+        this.postChange(what, this.machineSrc);
+        this.waitingFor.add(what, amount);
+        this.postCraftingStatusChange(what);
     }
 
     /**

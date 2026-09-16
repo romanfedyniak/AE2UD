@@ -83,6 +83,38 @@ public interface ICraftingMedium
 	}
 
 	/**
+	 * How many copies of this pattern the medium would take in one go right now - for a machine that runs
+	 * many identical crafts side by side, so a crafting CPU can hand it a thousand of them in one call instead
+	 * of a thousand calls.
+	 * <p>
+	 * Asked only once {@link #isBusy()} and {@link #acceptsWhileBusy} have let the pattern through, and has to
+	 * be as cheap. A batch still costs the CPU one operation per copy: this changes how many calls a job
+	 * takes, never how fast it runs. Answering less than one skips the medium for this pattern.
+	 * <p>
+	 * Defaults to one, which keeps a medium on {@link #pushPattern(ICraftingPatternDetails, InventoryCrafting,
+	 * appeng.api.stacks.GenericStack[])} and never calls the batch version.
+	 */
+	default int maxCopies( ICraftingPatternDetails patternDetails )
+	{
+		return 1;
+	}
+
+	/**
+	 * Pushes {@code copies} identical copies of a pattern at once. {@code table} and {@code extraInputs} hold
+	 * <em>one</em> copy's ingredients, and every copy is made of exactly those; the CPU has taken
+	 * {@code copies} times as much out of the network.
+	 * <p>
+	 * All-or-nothing, like the single push: accept every copy or none. Called only with
+	 * {@code 1 < copies <= maxCopies(patternDetails)}, and never for a medium that
+	 * {@link #isFakeCrafting() settles jobs itself}.
+	 */
+	default boolean pushPattern( ICraftingPatternDetails patternDetails, InventoryCrafting table,
+			appeng.api.stacks.GenericStack[] extraInputs, int copies )
+	{
+		return copies == 1 && this.pushPattern( patternDetails, table, extraInputs );
+	}
+
+	/**
 	 * @return if this is false, the crafting engine will refuse to send new jobs to this medium.
 	 */
 	boolean isBusy();

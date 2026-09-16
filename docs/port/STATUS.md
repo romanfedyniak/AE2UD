@@ -2440,6 +2440,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     is one from the other side, unchanged by anything put in or taken out. An addon mounting a void, a
     furnace or anything else that swallows what it is given needs this too, or its network's totals climb
     with every insertion until something forces a recount.
+58. **`ICraftingMedium.maxCopies` and the four-argument `pushPattern(..., copies)`** - additive, defaulted,
+    no upstream equivalent. A medium that runs many identical crafts side by side takes several copies of a
+    pattern in one call: it says up front how many, the CPU draws that many times one table's ingredients,
+    and the push is all-or-nothing like the single one. Stated up front rather than offered and trimmed,
+    because trimming would send every partial acceptance through the CPU's put-back path. A batch still
+    spends one operation per copy, so co-processors mean what they meant; only the number of calls falls.
+    The CPU never batches a medium that settles jobs itself. The default of one keeps every existing medium
+    on the single push, untouched.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

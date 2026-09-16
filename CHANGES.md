@@ -51,6 +51,19 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   grows with the number of recipes installed, while the part left does not - so a pack with thousands of
   them saves far more than this. What is remembered is dropped whenever recipes are registered again.
 
+- **A machine that runs many crafts at once can be handed them at once.** A crafting CPU sends a machine
+  one craft per call, and each call draws the ingredients, charges the power and records what is owed all
+  over again - fine for an assembler that holds one craft, and a thousand repetitions a tick for a machine
+  holding a thousand. Such a machine can now say how many copies of a pattern it will take, and gets them in
+  one call: the ingredients for every copy are drawn together and everything is booked once. Every copy
+  shares one table, so each slot is given one ingredient for the whole batch - a substitute that runs short
+  makes a smaller batch, and the next one takes the other option - and a batch is worked out before
+  anything is drawn, so it never has to be handed back halfway. A batch still uses one of the CPU's
+  operations per copy, so crafting co-processors mean exactly what they did; what falls is the work of
+  handing the crafts over, measured at 6.6 milliseconds for a thousand copies one by one against 0.008 as
+  one batch. Nothing in AE2 itself takes batches - a molecular assembler holds one craft - so this is for
+  addons, through `ICraftingMedium.maxCopies`.
+
 ### Multiblocks
 
 - **A block says how large the multiblock it belongs to may be built.** The controller and every block a
