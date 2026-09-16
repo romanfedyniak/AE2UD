@@ -25,6 +25,7 @@ import appeng.api.networking.IGridBlock;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
@@ -103,7 +104,7 @@ public class ContainerNetworkStatus extends AEBaseContainer {
 
                 for (final Class<? extends IGridHost> machineClass : this.network.getMachinesClasses()) {
                     // Reuses the ME-update packet for machines, not items: a machine count goes into
-                    // storedAmount and that machine's idle power drain (x100) into requestableAmount - see
+                    // storedAmount and that machine's power drain (x100), idle and active, into requestableAmount - see
                     // CONTRACT.md §10/§9's wave 4 prerequisites. Matching representations are merged the
                     // same way the old IItemList.add() merge did: counts and power both summed per key.
                     final KeyCounter counts = new KeyCounter();
@@ -115,7 +116,11 @@ public class ContainerNetworkStatus extends AEBaseContainer {
                             final AEItemKey key = AEItemKey.of(is);
                             if (key != null) {
                                 counts.add(key, 1);
-                                power.add(key, (long) (blk.getIdlePowerUsage() * 100.0));
+                                // What a machine takes while it works, on top of what it declares idle
+                                final double active = machine.getMachine() instanceof IPowerUsageReporter
+                                        ? ((IPowerUsageReporter) machine.getMachine()).getActivePowerUsage()
+                                        : 0;
+                                power.add(key, (long) ((blk.getIdlePowerUsage() + active) * 100.0));
                             }
                         }
                     }

@@ -28,6 +28,7 @@ import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.tiles.ICraftingMachine;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
@@ -51,6 +52,7 @@ import appeng.core.sync.packets.PacketAssemblerAnimation;
 import appeng.items.misc.ItemEncodedPattern;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
+import appeng.me.helpers.PowerUsageMeter;
 import appeng.parts.automation.DefinitionUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.grid.AENetworkInvTile;
@@ -86,7 +88,10 @@ import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 
-public class TileMolecularAssembler extends AENetworkInvTile implements IUpgradeableHost, IConfigManagerHost, IGridTickable, ICraftingMachine, IPowerChannelState {
+public class TileMolecularAssembler extends AENetworkInvTile implements IUpgradeableHost, IConfigManagerHost, IGridTickable, ICraftingMachine, IPowerChannelState,
+        IPowerUsageReporter {
+
+    private final PowerUsageMeter powerUsage = new PowerUsageMeter();
     private final InventoryCrafting craftingInv;
     private final AppEngInternalInventory gridInv = new AppEngInternalInventory(this, 9 + 1, 1);
     private final AppEngInternalInventory patternInv = new AppEngInternalInventory(this, 1, 1);
@@ -550,11 +555,18 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     private int userPower(final int ticksPassed, final int bonusValue, final double acceleratorTax) {
         try {
             final double requestedPower = (double) ticksPassed * bonusValue * acceleratorTax;
-            return (int) (this.getProxy().getEnergy()
-                    .extractAEPower(requestedPower, Actionable.MODULATE, PowerMultiplier.CONFIG) / acceleratorTax);
+            final double extracted = this.getProxy().getEnergy()
+                    .extractAEPower(requestedPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            this.powerUsage.record(this.world, extracted, PowerMultiplier.CONFIG);
+            return (int) (extracted / acceleratorTax);
         } catch (final GridAccessException e) {
             return 0;
         }
+    }
+
+    @Override
+    public double getActivePowerUsage() {
+        return this.powerUsage.average(this.world);
     }
 
     private void pushOut(ItemStack output) {

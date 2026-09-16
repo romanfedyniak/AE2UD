@@ -2448,6 +2448,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     spends one operation per copy, so co-processors mean what they meant; only the number of calls falls.
     The CPU never batches a medium that settles jobs itself. The default of one keeps every existing medium
     on the single push, untouched.
+59. **`IPowerUsageReporter`** - additive, no upstream equivalent. A grid host says what it has drawn from
+    its network lately, and the Network Tool adds that to the idle drain its node declares. The network
+    itself only knows idle drain per node and a total for everything, so a machine that takes power as it
+    works showed nothing against its name. `PowerUsageMeter` in `appeng.me.helpers` is the one-second
+    window a machine records into; the Molecular Assembler, Inscriber and Charger use it.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

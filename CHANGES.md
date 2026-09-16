@@ -38,6 +38,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   came from now, through `AEBaseContainer.getOriginGui()`, which answers with that same lookup by default
   and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
 
+### Network Tool
+
+- **A machine's drain includes what it uses while it works.** The Network Tool listed each machine's idle drain
+  and nothing more, so a Molecular Assembler, an Inscriber or a Charger read 0 AE/t however hard it worked,
+  while the network's total, which is counted separately, was right - there was no telling what the power went
+  on. Those three now report what they drew over the last second, and the tool adds it to the idle figure. An
+  addon's machine does the same through `IPowerUsageReporter`.
+
 ### Autocrafting
 
 - **A pattern is not decoded from scratch every time the chunk holding it loads.** Reading an encoded

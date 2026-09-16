@@ -36,6 +36,7 @@ import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
+import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -48,6 +49,7 @@ import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.core.settings.TickRates;
 import appeng.me.GridAccessException;
+import appeng.me.helpers.PowerUsageMeter;
 import appeng.parts.automation.DefinitionUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.tile.grid.AENetworkPowerTile;
@@ -86,7 +88,11 @@ import java.util.List;
  * @version rv2
  * @since rv0
  */
-public class TileInscriber extends AENetworkPowerTile implements IGridTickable, IUpgradeableHost, IConfigManagerHost {
+public class TileInscriber extends AENetworkPowerTile implements IGridTickable, IUpgradeableHost, IConfigManagerHost,
+        IPowerUsageReporter {
+
+    private final PowerUsageMeter powerUsage = new PowerUsageMeter();
+
     private final int maxProcessingTime = 100;
 
     private final IConfigManager settings;
@@ -388,7 +394,9 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
                 }
 
                 if (powerReq > powerThreshold) {
-                    src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    // Counted from either source: the machine's own buffer is filled from the network too
+                    final double extracted = src.extractAEPower(powerConsumption, Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    this.powerUsage.record(this.world, extracted, PowerMultiplier.CONFIG);
 
                     final int increment = this.getProcessingTime() == 0 ? speedFactor
                             : IntMath.saturatedMultiply(ticksSinceLastCall, speedFactor);
@@ -619,6 +627,11 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
      * reset the progress if there's already an item in a slot. Previously, the progress of the inscriber was reset when
      * another mod attempted insertion of items when there were already items in the slot.
      */
+    @Override
+    public double getActivePowerUsage() {
+        return this.powerUsage.average(this.world);
+    }
+
     private class ItemHandlerFilter implements IAEItemFilter {
         @Override
         public boolean allowExtract(IItemHandler inv, int slot, int amount) {

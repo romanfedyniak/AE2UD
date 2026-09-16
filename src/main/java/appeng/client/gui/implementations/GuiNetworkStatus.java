@@ -204,7 +204,7 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
                 final int posY = y * 18 + yo;
 
                 if (this.tooltip == z - viewStart) {
-                    // NOTE: getRequestableAmount() here is a machine's idle power drain (x100), not an
+                    // NOTE: getRequestableAmount() here is a machine's power drain (x100), not an
                     // item count - see AbstractPartMonitor / GridInventoryEntry javadoc and CONTRACT.md
                     // §10 ("GuiNetworkStatus reuses the same data for machines, not items").
                     toolTip = Platform.getItemDisplayName(refStack.getWhat());

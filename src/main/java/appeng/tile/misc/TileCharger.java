@@ -27,6 +27,7 @@ import appeng.api.definitions.IMaterials;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.implementations.tiles.ICrankable;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -39,6 +40,7 @@ import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.settings.TickRates;
 import appeng.me.GridAccessException;
+import appeng.me.helpers.PowerUsageMeter;
 import appeng.tile.grid.AENetworkPowerTile;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
@@ -57,7 +59,10 @@ import java.util.EnumSet;
 import java.util.List;
 
 
-public class TileCharger extends AENetworkPowerTile implements ICrankable, IGridTickable {
+public class TileCharger extends AENetworkPowerTile implements ICrankable, IGridTickable, IPowerUsageReporter {
+
+    private final PowerUsageMeter powerUsage = new PowerUsageMeter();
+
     private static final int POWER_MAXIMUM_AMOUNT = 1600;
     private static final int POWER_THRESHOLD = POWER_MAXIMUM_AMOUNT - 1;
     private static final int POWER_PER_CRANK_TURN = 160;
@@ -212,6 +217,8 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
                     }
 
                     if (extractedAmount > 0) {
+                        // What went into the item, from the charger's own buffer and the network alike
+                        this.powerUsage.record(this.world, extractedAmount, PowerMultiplier.ONE);
                         final double adjustment = ps.injectAEPower(myItem, extractedAmount, Actionable.MODULATE);
 
                         this.setInternalCurrentPower(this.getInternalCurrentPower() + adjustment);
@@ -222,7 +229,9 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
             } else if (this.getInternalCurrentPower() > POWER_THRESHOLD && (materials.certusQuartzCrystal().isSameAs(myItem) || OreHelper.INSTANCE.sameOre(AEItemKey.of(myItem), materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY)))) {
                 if (Platform.getRandomFloat() > 0.8f) // simulate wait
                 {
-                    this.extractAEPower(this.getInternalMaxPower(), Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    this.powerUsage.record(this.world,
+                            this.extractAEPower(this.getInternalMaxPower(), Actionable.MODULATE, PowerMultiplier.CONFIG),
+                            PowerMultiplier.CONFIG);
 
                     materials.certusQuartzCrystalCharged().maybeStack(myItem.getCount()).ifPresent(charged -> this.inv.setStackInSlot(0, charged));
 
@@ -250,6 +259,11 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
         }
 
         return true;
+    }
+
+    @Override
+    public double getActivePowerUsage() {
+        return this.powerUsage.average(this.world);
     }
 
     private class ChargerInvFilter implements IAEItemFilter {
