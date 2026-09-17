@@ -123,6 +123,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A storage bus mounted nothing until the block in front of it changed.** It asked whether it had anything
+  to offer the network before it had ever looked at what it faces, so on placing one - and on every world
+  load - it offered nothing; and with nothing mounted it counted as idle, went to sleep, and never got
+  another tick in which to look. Only a neighbouring block changing woke it, which is why one placed against
+  a full chest showed the chest at once but one loaded with the world showed nothing until something was put
+  in or taken out.
 - **The Pattern Access Terminal crashed the game on a pattern holder larger than an interface.** It laid every
   entry out as 36 slots, as an ME Interface has, so an addon's machine listed through `IPatternContainer` with
   more - a multiblock assembler with two pattern modules has 72 - crashed the client the moment its 37th slot

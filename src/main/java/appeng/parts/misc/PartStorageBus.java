@@ -139,6 +139,8 @@ public class PartStorageBus extends PartUpgradeable
     private TileEntity mountedTile;
     /** The block in front is in a chunk that is not loaded; kept ticking to see it come back. */
     private boolean awaitingChunk = false;
+    /** Set while the network is mounting this bus. */
+    private boolean mounting = false;
     @Nullable
     private Map<AEKeyType, ExternalStorageStrategy> externalStorageStrategies;
     private final KeyTypeSelection keyTypeSelection;
@@ -569,7 +571,8 @@ public class PartStorageBus extends PartUpgradeable
             }
         }
 
-        if (wasRegistered != this.hasRegisteredCellToNetwork()) {
+        // Never while this bus is being mounted: asking to mount again from in there mounts it twice.
+        if (wasRegistered != this.hasRegisteredCellToNetwork() && !this.mounting) {
             IStorageProvider.requestUpdate(this.getProxy().getNode());
         }
 
@@ -604,8 +607,17 @@ public class PartStorageBus extends PartUpgradeable
 
     @Override
     public void mountInventories(final IStorageMounts mounts) {
+        // Looked at first: the question below reads what was found last time, and a bus that has never
+        // looked mounts nothing and then sleeps, with no tick left to come back and look.
+        final MEInventoryHandler resolved;
+        this.mounting = true;
+        try {
+            resolved = this.getInternalHandler();
+        } finally {
+            this.mounting = false;
+        }
         if (this.hasRegisteredCellToNetwork()) {
-            mounts.mount(this.getInternalHandler(), this.priority);
+            mounts.mount(resolved, this.priority);
         }
     }
 
