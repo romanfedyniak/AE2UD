@@ -32,6 +32,7 @@ import appeng.api.definitions.ITileDefinition;
 import appeng.api.features.IInscriberRecipe;
 import appeng.api.features.IInscriberRecipeBuilder;
 import appeng.api.features.InscriberProcessType;
+import appeng.api.implementations.IAutoExportHost;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
@@ -41,12 +42,16 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.upgrades.CardTrait;
 import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
+import appeng.api.util.AutoExport;
 import appeng.api.util.IConfigManager;
+import appeng.api.util.RelativeSide;
+import appeng.core.localization.ButtonToolTips;
 import appeng.core.settings.TickRates;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.PowerUsageMeter;
@@ -56,7 +61,6 @@ import appeng.tile.grid.AENetworkPowerTile;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
-import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.inv.InvOperation;
@@ -67,7 +71,6 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -80,6 +83,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 
 /**
@@ -89,13 +93,14 @@ import java.util.List;
  * @since rv0
  */
 public class TileInscriber extends AENetworkPowerTile implements IGridTickable, IUpgradeableHost, IConfigManagerHost,
-        IPowerUsageReporter {
+        IPowerUsageReporter, IAutoExportHost {
 
     private final PowerUsageMeter powerUsage = new PowerUsageMeter();
 
     private final int maxProcessingTime = 100;
 
     private final IConfigManager settings;
+    private final AutoExport autoExport = new AutoExport(this, this::onAutoExportChanged);
     private final UpgradeInventory upgrades;
     private int processingTime = 0;
     // cycles from 0 - 16, at 8 it preforms the action, at 16 it re-enables the normal routine.
@@ -121,7 +126,6 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         this.getProxy().setIdlePowerUsage(0);
         this.settings = new ConfigManager(this);
         this.settings.registerSetting(Settings.INSCRIBER_SEPARATE_SIDES, YesNo.NO);
-        this.settings.registerSetting(Settings.AUTO_EXPORT, YesNo.NO);
         this.settings.registerSetting(Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.SIXTY_FOUR);
 
         final ITileDefinition inscriberDefinition = AEApi.instance().definitions().blocks().inscriber();
@@ -140,8 +144,38 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         return this.settings.getSetting(Settings.INSCRIBER_SEPARATE_SIDES) == YesNo.YES;
     }
 
-    private boolean isAutoExport() {
-        return this.settings.getSetting(Settings.AUTO_EXPORT) == YesNo.YES;
+    @Override
+    public AutoExport getAutoExport() {
+        return this.autoExport;
+    }
+
+    @Override
+    public Set<AEKeyType> getAutoExportTypes() {
+        return Collections.singleton(AEKeyType.items());
+    }
+
+    /** While the sides are kept separate, top and bottom reach the plates, and the result is not theirs. */
+    @Override
+    public boolean canAutoExportTo(final RelativeSide side) {
+        return !this.isSeparateSides() || side != RelativeSide.TOP && side != RelativeSide.BOTTOM;
+    }
+
+    @Override
+    public String getAutoExportRefusal(final RelativeSide side) {
+        return ButtonToolTips.InscriberPlateFace.getUnlocalized();
+    }
+
+    private void onAutoExportChanged() {
+        this.saveChanges();
+        this.wake();
+    }
+
+    private void wake() {
+        try {
+            this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            // :P
+        }
     }
 
     /**
@@ -169,6 +203,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         super.writeToNBT(data);
         this.upgrades.writeToNBT(data, "upgrades");
         this.settings.writeToNBT(data);
+        this.autoExport.writeToNBT(data);
         return data;
     }
 
@@ -177,6 +212,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
         super.readFromNBT(data);
         this.upgrades.readFromNBT(data, "upgrades");
         this.settings.readFromNBT(data);
+        this.autoExport.readFromNBT(data);
     }
 
     @Override
@@ -297,7 +333,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     }
 
     private boolean hasAutoExportWork() {
-        return this.isAutoExport() && !this.sideItemHandler.getStackInSlot(1).isEmpty();
+        return this.autoExport.isEnabled() && !this.sideItemHandler.getStackInSlot(1).isEmpty();
     }
 
     @Nullable
@@ -429,7 +465,7 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
     }
 
     /**
-     * Hands the finished item to whatever sits against the machine, a face at a time.
+     * Hands the finished item to whatever sits against the chosen faces.
      *
      * @return true if anything moved
      */
@@ -438,44 +474,15 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
             return false;
         }
 
-        final EnumSet<EnumFacing> pushSides = EnumSet.allOf(EnumFacing.class);
-        if (this.isSeparateSides()) {
-            // Those two faces belong to the plates, and the result is not theirs to hand out.
-            pushSides.remove(this.getUp());
-            pushSides.remove(this.getUp().getOpposite());
+        // Pushed before anything is taken out, so a push that goes nowhere changes nothing to tell the client
+        final ItemStack result = this.sideItemHandler.getStackInSlot(1);
+        final long moved = this.autoExport.push(AEItemKey.of(result), result.getCount());
+        if (moved <= 0) {
+            return false;
         }
 
-        for (final EnumFacing dir : pushSides) {
-            final TileEntity neighbour = this.world.getTileEntity(this.pos.offset(dir));
-            if (neighbour == null) {
-                continue;
-            }
-
-            final InventoryAdaptor target = InventoryAdaptor.getAdaptor(neighbour, dir.getOpposite());
-            if (target == null) {
-                continue;
-            }
-
-            // Asked before anything is taken out: an extraction that comes straight back is still an
-            // inventory change, and one per face per tick would have the machine telling the whole client
-            // about itself for nothing.
-            final ItemStack result = this.sideItemHandler.getStackInSlot(1);
-            final ItemStack refused = target.simulateAdd(result.copy());
-            final int movable = result.getCount() - (refused.isEmpty() ? 0 : refused.getCount());
-
-            if (movable <= 0) {
-                continue;
-            }
-
-            final ItemStack leftOver = target.addItems(this.sideItemHandler.extractItem(1, movable, false));
-            if (!leftOver.isEmpty()) {
-                this.sideItemHandler.insertItem(1, leftOver, false);
-            }
-
-            return true;
-        }
-
-        return false;
+        this.sideItemHandler.extractItem(1, (int) moved, false);
+        return true;
     }
 
     @Override
@@ -527,12 +534,9 @@ public class TileInscriber extends AENetworkPowerTile implements IGridTickable, 
             this.applyInputCapacity();
         }
 
-        if (settingName == Settings.AUTO_EXPORT) {
-            try {
-                this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
-            } catch (final GridAccessException e) {
-                // :P
-            }
+        // Which faces may take the result changes with it
+        if (settingName == Settings.INSCRIBER_SEPARATE_SIDES) {
+            this.wake();
         }
 
         // Which face reaches which slot just changed, so anyone holding our handler has to ask again. Not

@@ -37,6 +37,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   through `GuiWrapper` and has no class to find, so the click did nothing there. The container says where it
   came from now, through `AEBaseContainer.getOriginGui()`, which answers with that same lookup by default
   and which an addon overrides with its own bridge. Nothing in the mod behaves differently.
+- **A machine can push what it makes through chosen faces, of any kind of stack.** `IAutoExportHost` names what a machine exports by key type and may refuse a face; `AutoExport` keeps the faces, saves them, reads the old on/off setting, and pushes through `StackExportStrategy`, so a machine making fluids or an addon's keys needs no code of its own to move them. `GuiAutoExportPanel` is the button and the panel a screen attaches, and `RelativeSide` names a face from the block's point of view. The Inscriber is built on it.
 
 ### Network Tool
 
@@ -653,6 +654,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Two things follow from a buffered input slot, and both are fixed here rather than left to bite: a recipe is matched by what is in the slots and no longer by how many, and a press consumes one item from each slot rather than emptying them, so a stack is worked through one at a time. Renaming with a Name Press does the same - it used to build its recipe from the whole stack, which with a buffer would have handed back sixty-four renamed items for the one it consumed.
 - The machine only runs while the result would fit. A full output slot used to leave it grinding on with nowhere to put what it made, which cost nothing when the input held one item and would cost a great deal with sixty-four.
 - Progress is no longer thrown away when the input slot is topped up. It resets only when the item in a slot actually changes, so feeding a working machine does not send it back to the start.
+- **Auto-Export picks its faces.** The button no longer switches the export on and off: it opens a panel beside itself with the six faces of the machine laid out as a cross - top, then left, front and right, then bottom and back - named as a player standing in front of the machine sees them, so the choice turns with the machine when it is rotated. A face shows the block against it and is green when the result is pushed through it, red when it is not; a face with nothing there that could take the result is a plain grey button, and so are the top and bottom while the sides are kept separate, since those faces belong to the plates. Nothing chosen means nothing is exported. With several faces chosen the result goes to them in turn rather than filling the first one before the next is tried. A machine that exported before exports through all six faces, and one that did not, through none; a memory card carries the faces, and an older card's on or off is read the same way.
 
 ### Interfaces
 

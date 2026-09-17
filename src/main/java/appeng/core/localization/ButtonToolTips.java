@@ -245,6 +245,19 @@ public enum ButtonToolTips {
     SideBack,
     SideAny,
 
+    FaceTop,
+    FaceBottom,
+    FaceLeft,
+    FaceRight,
+    FaceFront,
+    FaceBack,
+    AutoExportTo,
+    AutoExportConfigure,
+    AutoExportFaceOn,
+    AutoExportFaceOff,
+    AutoExportFaceNothing,
+    InscriberPlateFace,
+
     // The wireless terminal's mode switch
     TerminalModeSwitch,
 

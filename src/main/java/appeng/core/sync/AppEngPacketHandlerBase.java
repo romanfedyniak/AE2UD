@@ -121,6 +121,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_MULTIBLOCK_LIMITS(PacketMultiblockLimits.class),
 
+        PACKET_AUTO_EXPORT_SIDE(PacketAutoExportSide.class),
+
         ;
 
 

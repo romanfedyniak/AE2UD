@@ -120,6 +120,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected static final int BUTTON_GAP = 2;
 
     /** The panel sheet, and the square of it each corner takes. */
+    private static final ResourceLocation PANEL = new ResourceLocation(AppEng.MOD_ID, "textures/guis/panel.png");
     private static final int PANEL_TEXTURE = 64;
     private static final int PANEL_CORNER = 8;
     protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
@@ -1653,10 +1654,10 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * cut out and put in a square: drawing the border with rectangles instead came out with square corners
      * against every other window's rounded ones.
      */
-    protected void drawPanel(final int x, final int y, final int width, final int height) {
+    public static void drawPanel(final int x, final int y, final int width, final int height) {
         enableSpriteBlending();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        this.bindTexture("guis/panel.png");
+        Minecraft.getMinecraft().getTextureManager().bindTexture(PANEL);
 
         final int c = PANEL_CORNER;
         final int far = PANEL_TEXTURE - c;

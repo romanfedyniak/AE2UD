@@ -71,8 +71,9 @@ public class ContainerInscriber extends ContainerUpgradeable implements IProgres
     @GuiSync(4)
     public YesNo separateSides = YesNo.NO;
 
+    /** The export faces as AutoExport packs them for a window: chosen, with a taker, refused. */
     @GuiSync(5)
-    public YesNo autoExport = YesNo.NO;
+    public int autoExport;
 
     @GuiSync(6)
     public InscriberInputCapacity bufferSize = InscriberInputCapacity.SIXTY_FOUR;
@@ -157,6 +158,7 @@ public class ContainerInscriber extends ContainerUpgradeable implements IProgres
             this.loadSettingsFromHost(this.ti.getConfigManager());
             this.maxProcessingTime = this.ti.getMaxProcessingTime();
             this.processingTime = this.ti.getProcessingTime();
+            this.autoExport = this.ti.getAutoExport().getSyncState();
         }
 
         this.standardDetectAndSendChanges();
@@ -167,7 +169,6 @@ public class ContainerInscriber extends ContainerUpgradeable implements IProgres
         // Not the base implementation: the inscriber takes neither a redstone nor a fuzzy card, so those
         // two settings were never registered and asking for them would throw.
         this.separateSides = (YesNo) cm.getSetting(Settings.INSCRIBER_SEPARATE_SIDES);
-        this.autoExport = (YesNo) cm.getSetting(Settings.AUTO_EXPORT);
         this.bufferSize = (InscriberInputCapacity) cm.getSetting(Settings.INSCRIBER_INPUT_CAPACITY);
     }
 
@@ -175,7 +176,7 @@ public class ContainerInscriber extends ContainerUpgradeable implements IProgres
         return this.separateSides;
     }
 
-    public YesNo getAutoExport() {
+    public int getAutoExport() {
         return this.autoExport;
     }
 

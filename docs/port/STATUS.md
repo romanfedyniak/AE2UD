@@ -2453,6 +2453,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     itself only knows idle drain per node and a total for everything, so a machine that takes power as it
     works showed nothing against its name. `PowerUsageMeter` in `appeng.me.helpers` is the one-second
     window a machine records into; the Molecular Assembler, Inscriber and Charger use it.
+60. **`IAutoExportHost`, `AutoExport` and `RelativeSide`** - additive, no upstream equivalent. A machine that
+    pushes its output into neighbours says which key types it pushes and may refuse a face; `AutoExport`
+    keeps the chosen faces relative to the block, saves them, migrates the old `AUTO_EXPORT` on/off setting,
+    and pushes through `StackExportStrategy` in turn across the faces. The window's side is
+    `GuiAutoExportPanel` and `PacketAutoExportSide` in `src/main`. `Settings.AUTO_EXPORT` stays for its icons
+    and for reading old saves and memory cards.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

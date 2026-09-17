@@ -19,6 +19,7 @@
 package appeng.tile;
 
 
+import appeng.api.implementations.IAutoExportHost;
 import appeng.api.implementations.tiles.ISegmentedInventory;
 import appeng.api.util.ICommonTile;
 import appeng.api.util.IConfigManager;
@@ -330,6 +331,11 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
             pHost.setPriority(compound.getInteger("priority"));
         }
 
+        // Also reads the on/off setting an older card carries, which the config manager no longer knows
+        if (this instanceof IAutoExportHost) {
+            ((IAutoExportHost) this).getAutoExport().readFromNBT(compound);
+        }
+
         // Guarded, unlike the priority above: a card written before machines carried this one says nothing
         // about it, and reading a missing tag would order every craft at zero.
         if (this instanceof ICraftPriorityTarget && compound.hasKey("craftPriority")) {
@@ -391,6 +397,10 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
         if (this instanceof IPriorityHost) {
             final IPriorityHost pHost = (IPriorityHost) this;
             output.setInteger("priority", pHost.getPriority());
+        }
+
+        if (this instanceof IAutoExportHost) {
+            ((IAutoExportHost) this).getAutoExport().writeToNBT(output);
         }
 
         if (this instanceof ICraftPriorityTarget) {

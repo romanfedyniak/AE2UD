@@ -22,6 +22,7 @@ package appeng.client.gui.implementations;
 import appeng.api.config.InscriberInputCapacity;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.client.gui.widgets.GuiAutoExportPanel;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiProgressBar;
 import appeng.client.gui.widgets.GuiProgressBar.Direction;
@@ -34,11 +35,14 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.fml.common.Loader;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
+import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 
 public class GuiInscriber extends GuiUpgradeable {
@@ -60,12 +64,13 @@ public class GuiInscriber extends GuiUpgradeable {
     private GuiProgressBar pb;
 
     private GuiImgButton separateSides;
-    private GuiImgButton autoExport;
+    private final GuiAutoExportPanel autoExport;
     private GuiImgButton bufferSize;
 
     public GuiInscriber(final InventoryPlayer inventoryPlayer, final TileInscriber te) {
         super(new ContainerInscriber(inventoryPlayer, te));
         this.cvc = (ContainerInscriber) this.inventorySlots;
+        this.autoExport = new GuiAutoExportPanel(te);
         this.ySize = 176;
     }
 
@@ -80,19 +85,22 @@ public class GuiInscriber extends GuiUpgradeable {
     @Override
     protected void addButtons() {
         this.separateSides = new GuiImgButton(this.guiLeft - 18, this.guiTop + 8, Settings.INSCRIBER_SEPARATE_SIDES, YesNo.NO);
-        this.autoExport = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.AUTO_EXPORT, YesNo.NO);
         this.bufferSize = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.INSCRIBER_INPUT_CAPACITY, InscriberInputCapacity.SIXTY_FOUR);
 
         this.buttonList.add(this.separateSides);
-        this.buttonList.add(this.autoExport);
+        this.autoExport.attach(this.buttonList, this.guiLeft - 18, this.guiTop + 28);
         this.buttonList.add(this.bufferSize);
     }
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.autoExport.actionPerformed(btn)) {
+            return;
+        }
+
         super.actionPerformed(btn);
 
-        if (btn == this.separateSides || btn == this.autoExport || btn == this.bufferSize) {
+        if (btn == this.separateSides || btn == this.bufferSize) {
             NetworkHandler.instance().sendToServer(new PacketConfigButton(((GuiImgButton) btn).getSetting(), Mouse.isButtonDown(1)));
         }
     }
@@ -104,8 +112,23 @@ public class GuiInscriber extends GuiUpgradeable {
         this.pb.setFullMsg(this.cvc.getCurrentProgress() * 100 / this.cvc.getMaxProgress() + "%");
 
         this.separateSides.set(this.cvc.getSeparateSides());
-        this.autoExport.set(this.cvc.getAutoExport());
+        this.autoExport.update(this.cvc.getAutoExport());
         this.bufferSize.set(this.cvc.getBufferSize());
+    }
+
+    @Override
+    protected void keyTyped(final char character, final int key) throws IOException {
+        if (key == Keyboard.KEY_ESCAPE && this.autoExport.close()) {
+            return;
+        }
+        super.keyTyped(character, key);
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = super.getJEIExclusionArea();
+        this.autoExport.addExclusionAreas(area);
+        return area;
     }
 
     @Override
