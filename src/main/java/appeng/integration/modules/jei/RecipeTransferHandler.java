@@ -22,7 +22,8 @@ package appeng.integration.modules.jei;
 import appeng.container.implementations.ContainerCraftingTerm;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerWirelessCraftingTerminal;
-import appeng.api.stacks.AEFluidKey;
+import appeng.api.integrations.hei.IngredientConverter;
+import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
@@ -47,7 +48,6 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -180,14 +180,14 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             slotIndex++;
         }
 
-        // Fluid ingredients live in their own IGuiIngredientGroup, which the item loop above never sees -
-        // which is why "Move Items" silently skipped every fluid in a recipe. Only the processing grid can
-        // take them: its slots are fake, so they can hold a wrapped key. A crafting recipe is matched
-        // against items, whether the grid it is typed into is real or fake, and `packed` is true for
-        // exactly the recipes bound for the other grid. The server writes this one through the inventory
-        // rather than through the slots, so the slot's own filter never sees it.
+        // Anything that is not an item lives in an IGuiIngredientGroup of its own, which the item loop
+        // above never sees - which is why "Move Items" silently skipped every fluid in a recipe. Only the
+        // processing grid can take them: its slots are fake, so they can hold a wrapped key. A crafting
+        // recipe is matched against items, whether the grid it is typed into is real or fake, and `packed`
+        // is true for exactly the recipes bound for the other grid. The server writes this one through the
+        // inventory rather than through the slots, so the slot's own filter never sees it.
         if (packed) {
-            this.transferFluids(container, recipeLayout, recipe, outputs);
+            this.transferOtherIngredients(container, recipeLayout, recipe, outputs);
         }
 
         // The grid the recipe is about to land in only reaches eight slots on its compact side, so a
@@ -237,12 +237,6 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
     }
 
     /**
-     * Writes the layout's fluid ingredients into the recipe alongside the items: inputs into whichever matrix
-     * slots the item pass left empty, outputs appended to the output list. Each one travels as the same
-     * wrapped placeholder {@code ItemStack} the pattern slots already store, so the server needs no new case -
-     * {@code AppEngInternalAEInventory} unwraps it back into a key on the way in.
-     */
-    /**
      * Puts the thing the player was actually looking up at the front of the outputs.
      * <p>
      * A recipe screen lists what a machine makes in whatever order the screen draws it, and a pattern's first
@@ -289,54 +283,76 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
     }
 
     /**
-     * @return what the object is, as the network names it, or null for something neither items nor fluids.
+     * @return what the object is, as the network names it, or null for an ingredient no converter speaks for.
      */
     @Nullable
     private static AEKey keyOf(@Nullable final Object what) {
-        if (what instanceof ItemStack stack) {
-            return stack.isEmpty() ? null : GenericStack.resolveItemStack(stack).what();
-        }
-
-        if (what instanceof FluidStack fluid) {
-            return AEFluidKey.of(fluid);
-        }
-
-        return null;
+        final GenericStack stack = IngredientConverters.toStack(what);
+        return stack == null ? null : stack.what();
     }
 
-    private void transferFluids(final T container, final IRecipeLayout recipeLayout, final NBTTagCompound recipe,
-            final NBTTagList outputs) {
-        final Map<Integer, ? extends IGuiIngredient<FluidStack>> fluids = recipeLayout.getFluidStacks().getGuiIngredients();
-        if (fluids.isEmpty()) {
+    /**
+     * Writes the layout's non-item ingredients into the recipe alongside the items: inputs into whichever
+     * matrix slots the item pass left empty, outputs appended to the output list. Each one travels as the
+     * same wrapped placeholder {@code ItemStack} the pattern slots already store, so the server needs no new
+     * case - {@code AppEngInternalAEInventory} unwraps it back into a key on the way in.
+     * <p>
+     * Which kinds there are comes from {@link IngredientConverters}, so an addon's key type is carried over
+     * as soon as it registers one.
+     */
+    private void transferOtherIngredients(final T container, final IRecipeLayout recipeLayout,
+            final NBTTagCompound recipe, final NBTTagList outputs) {
+        // Matrix slots the item pass did not claim, in slot order. A set, not a list: the crafting matrix
+        // and the processing grid are both made of the same slot class and both number from zero, so the
+        // low indices turn up twice and two ingredients would otherwise be handed the same one.
+        final List<Integer> freeSlots = new ArrayList<>(collectFreeSlots(container, recipe));
+        final int[] nextFree = { 0 };
+
+        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
+            // Items came through the loop above, where they are matched against the recipe's own shape.
+            if (converter.getIngredientClass() != ItemStack.class) {
+                this.transferIngredients(converter, recipeLayout, recipe, outputs, freeSlots, nextFree);
+            }
+        }
+    }
+
+    private <I> void transferIngredients(final IngredientConverter<I> converter, final IRecipeLayout recipeLayout,
+            final NBTTagCompound recipe, final NBTTagList outputs, final List<Integer> freeSlots,
+            final int[] nextFree) {
+        final Map<Integer, ? extends IGuiIngredient<I>> group;
+
+        try {
+            group = recipeLayout.getIngredientsGroup(converter.getIngredientClass()).getGuiIngredients();
+        } catch (final IllegalArgumentException e) {
+            // A converter for something the recipe viewer itself does not know; nothing to read.
             return;
         }
 
-        // Matrix slots the item pass did not claim, in slot order. A set, not a list: the crafting matrix
-        // and the processing grid are both made of the same slot class and both number from zero, so the
-        // low indices turn up twice and two fluids would otherwise be handed the same one.
-        final List<Integer> freeSlots = new ArrayList<>(collectFreeSlots(container, recipe));
-
-        int nextFree = 0;
-        for (final IGuiIngredient<FluidStack> ingredient : fluids.values()) {
-            final FluidStack displayed = ingredient.getDisplayedIngredient();
-            if (displayed == null || displayed.amount <= 0) {
+        for (final IGuiIngredient<I> ingredient : group.values()) {
+            final I displayed = ingredient.getDisplayedIngredient();
+            if (displayed == null) {
                 continue;
             }
 
-            final ItemStack wrapped = GenericStack.wrapInItemStack(AEFluidKey.of(displayed), displayed.amount);
+            final GenericStack stack = converter.getStackFromIngredient(displayed);
+            if (stack == null || stack.amount() <= 0) {
+                continue;
+            }
+
+            final ItemStack wrapped = GenericStack.wrapInItemStack(stack);
             if (wrapped.isEmpty()) {
                 continue;
             }
 
             if (ingredient.isInput()) {
-                if (nextFree >= freeSlots.size()) {
-                    // More fluid inputs than the pattern has room for; the rest are simply not transferred,
-                    // the same thing that happens to a recipe with more item inputs than slots.
+                if (nextFree[0] >= freeSlots.size()) {
+                    // More inputs than the pattern has room for; the rest are simply not transferred, the
+                    // same thing that happens to a recipe with more item inputs than slots.
                     continue;
                 }
                 final NBTTagList tags = new NBTTagList();
                 tags.appendTag(stackToNBT(wrapped));
-                recipe.setTag("#" + freeSlots.get(nextFree++), tags);
+                recipe.setTag("#" + freeSlots.get(nextFree[0]++), tags);
             } else {
                 outputs.appendTag(stackToNBT(wrapped));
             }

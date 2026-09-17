@@ -18,7 +18,7 @@
 
 package appeng.integration.modules.jei;
 
-
+import appeng.api.integrations.hei.IngredientConverters;
 import appeng.integration.abstraction.IJEI;
 
 
@@ -36,6 +36,9 @@ public class JEIModule implements IJEI {
 
     @Override
     public void init() {
+        // Before anything asks what an ingredient is; an addon registers its own types alongside these.
+        IngredientConverters.register(new ItemIngredientConverter());
+        IngredientConverters.register(new FluidIngredientConverter());
         JeiIngredientActions.register();
     }
 

@@ -2459,6 +2459,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     and pushes through `StackExportStrategy` in turn across the faces. The window's side is
     `GuiAutoExportPanel` and `PacketAutoExportSide` in `src/main`. `Settings.AUTO_EXPORT` stays for its icons
     and for reading old saves and memory cards.
+61. **`IngredientConverter` and `IngredientConverters`** - additive, upstream has the same pair for REI
+    (`appeng.api.integrations.rei`); here the ingredient is named by its class, because the recipe viewer's
+    own type object may not be loaded and nothing of its API belongs in `src/api`. A converter says what one
+    of the viewer's ingredients is as a `GenericStack` and the other way round, which is what recipe
+    transfer, the recipe keybinds over a slot or a row, and a ghost drag into a filter or a pattern all ask.
+    Items and fluids are registered by the mod itself in `JEIModule.init`, so a key type of an addon's is no
+    more of a special case than a built-in one.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

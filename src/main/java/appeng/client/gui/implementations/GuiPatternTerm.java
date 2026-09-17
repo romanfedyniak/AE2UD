@@ -19,6 +19,8 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.config.ActionItems;
 import appeng.api.config.FluidSubstitution;
 import appeng.api.config.ItemSubstitution;
@@ -53,7 +55,6 @@ import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketPatternUpload;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.api.stacks.GenericStack;
-import appeng.api.stacks.AEFluidKey;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
@@ -70,8 +71,6 @@ import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.util.text.TextFormatting;
 import java.text.NumberFormat;
 import java.util.Locale;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
 import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nullable;
@@ -563,10 +562,10 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     /**
      * @return the key and amount a dragged HEI ingredient stands for, or null if this grid cannot hold it.
      * <p>
-     * Only the processing grid can hold a fluid. The crafting matrix is item-only - a recipe there is
-     * matched against real items, and a wrapped key in it would encode an item that does not exist - so a
-     * dragged fluid is refused rather than converted, which leaves the slot unhighlighted while the drag
-     * is in flight.
+     * Only the processing grid can hold anything that is not an item. The crafting matrix is item-only - a
+     * recipe there is matched against real items, and a wrapped key in it would encode an item that does not
+     * exist - so a dragged fluid is refused rather than converted, which leaves the slot unhighlighted while
+     * the drag is in flight.
      * <p>
      * Must be called while the drop is being handled, never while merely listing targets: which of the two
      * things a filled container stands for is read off the mouse button, and HEI asks for targets on hover,
@@ -574,17 +573,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
      */
     @Nullable
     private static GenericStack ghostPayloadOf(final Object ingredient, final boolean processing) {
-        if (ingredient instanceof FluidStack fluid) {
-            return processing && fluid.amount > 0 ? new GenericStack(AEFluidKey.of(fluid), fluid.amount) : null;
+        if (!(ingredient instanceof ItemStack)) {
+            final GenericStack dragged = IngredientConverters.toStack(ingredient);
+            return processing ? dragged : null;
         }
         if (ingredient instanceof ItemStack stack && !stack.isEmpty()) {
             // Same rule as clicking a pattern slot with the container in hand: left button takes what it
             // HOLDS, right button takes the container itself. Dragging a bucket used to be the one way in
             // that ignored this and always left a bucket behind.
             if (processing && !dropsContainerItself()) {
-                final FluidStack contained = FluidUtil.getFluidContained(stack);
-                if (contained != null && contained.amount > 0) {
-                    return new GenericStack(AEFluidKey.of(contained), contained.amount);
+                final GenericStack contained = ContainerItemStrategies.getContainedStack(stack);
+                if (contained != null && contained.amount() > 0) {
+                    return contained;
                 }
             }
             return GenericStack.resolveItemStack(stack);

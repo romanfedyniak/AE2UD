@@ -24,6 +24,22 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's key type can be taught to the recipe viewer.** Everywhere the mod and HEI met, the mod asked
+  whether something was an item or a fluid and had no answer for anything else: a recipe with a third kind
+  of ingredient was moved into a pattern without it, the recipe keybinds did nothing over such a row, and it
+  could not be dragged into a filter, a pattern slot or a search box. `IngredientConverter` says what one of
+  the viewer's ingredients is as a `GenericStack` and what one of ours looks like to the viewer, and
+  `IngredientConverters` is where they are registered. Items and fluids are registered by the mod itself, so
+  a type of an addon's takes exactly the same path rather than being bolted on beside two built-in cases,
+  and a recipe's ingredients of every registered kind now go into a processing pattern in one pass. The
+  interface is named after the ingredient's class rather than the viewer's own type object, because nothing
+  of a recipe viewer's API belongs in `src/api`. Upstream AE2 has the same pair for REI.
+- **Dragging a container out of the viewer offers what it holds, whatever that is.** A bucket dropped on a
+  pattern slot or an interface's config was read through the fluid system alone; it goes through the
+  container-item strategies now, the same ones a click in the terminal uses, so a container an addon
+  registered gives up its contents the same way. The left and right button still mean the contents and the
+  container itself.
+
 - **A storage mounted on a network can say it keeps nothing it is given.** `IStorageSink` marks a mount that
   accepts a stack and passes it out of the storage system altogether - a formation plane placing it in the
   world, a crafting job carrying it off to whoever ordered it - or one whose contents stand still whatever
