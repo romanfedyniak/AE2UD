@@ -16,6 +16,7 @@ import javax.annotation.Nonnull;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
+import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
@@ -34,9 +35,9 @@ import appeng.api.stacks.GenericStack;
  */
 public class GenericStackItemHandler implements IItemHandlerModifiable {
 
-    private final GenericStackInv inv;
+    private final GenericInternalInventory inv;
 
-    public GenericStackItemHandler(GenericStackInv inv) {
+    public GenericStackItemHandler(GenericInternalInventory inv) {
         this.inv = inv;
     }
 

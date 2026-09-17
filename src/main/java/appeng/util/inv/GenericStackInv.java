@@ -18,6 +18,7 @@ import javax.annotation.Nullable;
 
 import net.minecraft.nbt.NBTTagCompound;
 
+import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
@@ -38,7 +39,7 @@ import appeng.api.stacks.GenericStack;
  * Per-slot capacity comes from {@link GenericSlotCapacities}, so a slot holds a stack of items or four
  * buckets of fluid without this class knowing which is which.
  */
-public class GenericStackInv implements Iterable<GenericStack> {
+public class GenericStackInv implements GenericInternalInventory, Iterable<GenericStack> {
 
     /**
      * Told whenever a slot changes, so a host can mark itself dirty and re-plan. Deliberately not
@@ -76,21 +77,25 @@ public class GenericStackInv implements Iterable<GenericStack> {
         this.slots = new GenericStack[size];
     }
 
+    @Override
     public int size() {
         return this.slots.length;
     }
 
     @Nullable
+    @Override
     public GenericStack getStack(int slot) {
         return this.slots[slot];
     }
 
     @Nullable
+    @Override
     public AEKey getKey(int slot) {
         final GenericStack stack = this.slots[slot];
         return stack == null ? null : stack.what();
     }
 
+    @Override
     public long getAmount(int slot) {
         final GenericStack stack = this.slots[slot];
         return stack == null ? 0 : stack.amount();
@@ -99,10 +104,12 @@ public class GenericStackInv implements Iterable<GenericStack> {
     /**
      * @return how much of {@code what} one slot can hold in total, regardless of what is in it now.
      */
+    @Override
     public long getCapacity(AEKey what) {
         return what == null ? 0 : Math.max(1, this.capacity.forKey(what));
     }
 
+    @Override
     public void setStack(int slot, @Nullable GenericStack stack) {
         // An amount of zero is not "a slot holding none of something", it is an empty slot. Storing it
         // would leave a key behind that every isEmpty()-style check would then have to know to ignore -
@@ -133,6 +140,7 @@ public class GenericStackInv implements Iterable<GenericStack> {
     /**
      * @return how much was accepted, which is zero when the slot holds a different key or is already full.
      */
+    @Override
     public long insert(int slot, AEKey what, long amount, Actionable mode) {
         if (what == null || amount <= 0) {
             return 0;
@@ -160,6 +168,7 @@ public class GenericStackInv implements Iterable<GenericStack> {
      * Inserts into the first slot that will take it, filling partially used slots before empty ones so stock
      * does not scatter across the inventory.
      */
+    @Override
     public long insert(AEKey what, long amount, Actionable mode) {
         long remaining = amount;
 
@@ -176,6 +185,7 @@ public class GenericStackInv implements Iterable<GenericStack> {
         return amount - remaining;
     }
 
+    @Override
     public long extract(int slot, AEKey what, long amount, Actionable mode) {
         if (what == null || amount <= 0) {
             return 0;
@@ -193,6 +203,7 @@ public class GenericStackInv implements Iterable<GenericStack> {
         return extracted;
     }
 
+    @Override
     public long extract(AEKey what, long amount, Actionable mode) {
         long remaining = amount;
         for (int slot = 0; slot < this.slots.length && remaining > 0; slot++) {

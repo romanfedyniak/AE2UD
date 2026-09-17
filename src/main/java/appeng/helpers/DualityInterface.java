@@ -48,6 +48,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.behaviors.StackExportStrategy;
+import appeng.api.behaviors.GenericInventoryAdapters;
 import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -102,7 +103,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
@@ -141,6 +141,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private final GenericStackInv storage;
     /** The item face of {@link #storage}, for the neighbours and GUIs that speak {@code IItemHandler}. */
     private final IItemHandlerModifiable storageItems;
+    private final GenericInventoryAdapters.Cache adapters;
     private final AppEngInternalInventory patterns = new AppEngInternalInventory(this, NUMBER_OF_PATTERN_SLOTS, 1);
     /** The network's storage, covering every registered key type. Swapped out as the grid connects/disconnects. */
     private MEStorage networkStorage = NullInventory.of();
@@ -191,6 +192,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.storage = new GenericStackInv(this::onStorageChanged, NUMBER_OF_STORAGE_SLOTS,
                 what -> SLOT_CAPACITY_MULTIPLE * GenericSlotCapacities.get(what));
         this.storageItems = new GenericStackItemHandler(this.storage);
+        this.adapters = new GenericInventoryAdapters.Cache(this.storage, this::getStorageGrid, this.mySource);
 
         this.interfaceRequestSource = new InterfaceRequestSource(this.iHost);
     }
@@ -713,7 +715,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public IItemHandler getInternalInventory() {
         // Network-first, exactly as the old AppEngNetworkInventory was: something pushed into an interface
         // belongs in the network, not in the interface's nine slots.
-        return new NetworkFirstItemHandler(this.storageItems, this::getStorageGrid, this.mySource);
+        return this.adapters.get(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY);
     }
 
     @Override
@@ -1986,26 +1988,19 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     public boolean hasCapability(Capability<?> capabilityClass, EnumFacing facing) {
-        return capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY
-                || capabilityClass == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY
+        return GenericInventoryAdapters.isRegistered(capabilityClass)
                 || capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR;
     }
 
     @SuppressWarnings("unchecked")
     public <T> T getCapability(Capability<T> capabilityClass, EnumFacing facing) {
-        if (capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
-            // The item *view*, never the inventory itself: a GenericStackInv is not an IItemHandler, and a
-            // vanilla hopper casts whatever this returns without asking.
-            return (T) this.getInternalInventory();
-        } else if (capabilityClass == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
-            // The same stock, seen as tanks. One interface serving both is what makes the separate fluid
-            // interface redundant.
-            return (T) new NetworkFirstFluidHandler(new GenericStackFluidHandler(this.storage),
-                    this::getStorageGrid, this.mySource);
-        } else if (capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
+        if (capabilityClass == Capabilities.STORAGE_MONITORABLE_ACCESSOR) {
             return (T) this.accessor;
         }
-        return null;
+        // One stock, seen as items, as tanks, or as whatever an addon registered a view for - which is what
+        // makes a separate interface per key type unnecessary. Each view is built once and kept: a pipe asks
+        // its neighbours for a handler every tick, on every side.
+        return this.adapters.get(capabilityClass);
     }
 
     public void updateRedstoneState() {

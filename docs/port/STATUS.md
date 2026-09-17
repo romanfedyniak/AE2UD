@@ -2466,6 +2466,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     transfer, the recipe keybinds over a slot or a row, and a ghost drag into a filter or a pattern all ask.
     Items and fluids are registered by the mod itself in `JEIModule.init`, so a key type of an addon's is no
     more of a special case than a built-in one.
+62. **`GenericInternalInventory` and `GenericInventoryAdapters`** - additive, and the same division upstream
+    makes: upstream exposes a machine's stock as one capability and registers item and fluid adapters over
+    every block that has it, which 1.12 cannot do because a capability is asked of the tile itself. So the
+    registry lives here instead: a factory per `Capability`, `Cache` holding one built handler per machine,
+    and `GenericStackInv` implementing the interface. `DualityInterface` answers `hasCapability` with
+    `isRegistered` and `getCapability` out of its cache; items and fluids are registered by
+    `InitGenericInventoryAdapters` beside the other behaviour registries. A factory's handler is shared, so
+    it must be a live view and hold no state - said in the javadoc.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

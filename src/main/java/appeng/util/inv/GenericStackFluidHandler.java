@@ -17,6 +17,7 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
+import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
@@ -34,9 +35,9 @@ import appeng.api.stacks.GenericStack;
  */
 public class GenericStackFluidHandler implements IFluidHandler {
 
-    private final GenericStackInv inv;
+    private final GenericInternalInventory inv;
 
-    public GenericStackFluidHandler(GenericStackInv inv) {
+    public GenericStackFluidHandler(GenericInternalInventory inv) {
         this.inv = inv;
     }
 

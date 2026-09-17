@@ -24,6 +24,19 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's key type can be handed to the pipes of other mods.** An ME Interface offered its stock as an
+  item handler and as a fluid handler, and those two were written into it by name, so a key type registered
+  by an addon had no way to reach a pipe, a tank or anything else that asks a block what it holds - the
+  addon had to patch the interface to be seen at all. A machine's slots are a `GenericInternalInventory`
+  now, and `GenericInventoryAdapters` is where a factory is registered that builds one of the platform's
+  handlers over it; items and fluids are registered by the mod itself through exactly that path. Modern AE2
+  splits it the same way, one capability for the stock and adapters registered over everything that has it.
+- **A machine builds each of those handlers once instead of once per question.** The interface made two new
+  objects every time anything asked it for a fluid handler, and pipes ask their six neighbours every tick -
+  Mekanism's tubes do it whether or not they are pulling from that side. Each handler is now built the first
+  time it is wanted and kept for as long as the machine lives, which is safe because a handler is a window
+  on the slots rather than a copy of them.
+
 - **An addon's key type can be taught to the recipe viewer.** Everywhere the mod and HEI met, the mod asked
   whether something was an item or a fluid and had no answer for anything else: a recipe with a third kind
   of ingredient was moved into a pattern without it, the recipe keybinds did nothing over such a row, and it
