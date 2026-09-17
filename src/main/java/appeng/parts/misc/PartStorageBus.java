@@ -43,6 +43,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.IStorageMonitorableAccessor;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -712,9 +713,9 @@ public class PartStorageBus extends PartUpgradeable
     /**
      * Combines one {@link MEStorage} per {@link AEKeyType} into a single view, so a single storage bus can serve
      * items, fluids and any type an addon registers through {@link ExternalStorageStrategy}, with no branching in
-     * the bus itself. Only relevant once more than one type answers (items today; fluids from wave 5 onward).
+     * the bus itself. It passes on what its parts report, or the network would only count what it moved itself.
      */
-    private static final class CompositeExternalStorage implements MEStorage, ITickingMonitor {
+    private static final class CompositeExternalStorage implements MEStorage, ITickingMonitor, IStorageChangeSource {
         private static final TickRateModulation[] URGENCY_ORDER = {
                 TickRateModulation.URGENT, TickRateModulation.FASTER, TickRateModulation.SAME,
                 TickRateModulation.SLOWER, TickRateModulation.IDLE, TickRateModulation.SLEEP,
@@ -724,6 +725,35 @@ public class PartStorageBus extends PartUpgradeable
 
         CompositeExternalStorage(final Map<AEKeyType, MEStorage> storages) {
             this.storages = storages;
+        }
+
+        /** Only when every part reports; one quiet part would have its changes missed altogether. */
+        @Override
+        public boolean reportsChanges() {
+            for (final MEStorage storage : this.storages.values()) {
+                if (!(storage instanceof IStorageChangeSource source) || !source.reportsChanges()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public void addChangeListener(final Listener listener) {
+            for (final MEStorage storage : this.storages.values()) {
+                if (storage instanceof IStorageChangeSource source) {
+                    source.addChangeListener(listener);
+                }
+            }
+        }
+
+        @Override
+        public void removeChangeListener(final Listener listener) {
+            for (final MEStorage storage : this.storages.values()) {
+                if (storage instanceof IStorageChangeSource source) {
+                    source.removeChangeListener(listener);
+                }
+            }
         }
 
         @Override

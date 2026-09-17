@@ -129,6 +129,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   another tick in which to look. Only a neighbouring block changing woke it, which is why one placed against
   a full chest showed the chest at once but one loaded with the world showed nothing until something was put
   in or taken out.
+- **A storage bus serving two kinds of content at once never told the network they changed.** A block that
+  offers both an item handler and a tank - most machines of Mekanism, Thermal and the like - is mounted as
+  one storage made of both, and that combined view passed none of its parts' reports on. So anything done to
+  such a block from the other side - a pipe filling it, a machine emptying it - left the terminal showing
+  what was there when the bus was last mounted.
 - **The Pattern Access Terminal crashed the game on a pattern holder larger than an interface.** It laid every
   entry out as 36 slots, as an ME Interface has, so an addon's machine listed through `IPatternContainer` with
   more - a multiblock assembler with two pattern modules has 72 - crashed the client the moment its 37th slot
