@@ -39,6 +39,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.registries.RegistryBuilder;
 
 import appeng.api.config.Actionable;
+import appeng.api.config.FuzzyMode;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.crafting.IPatternInput;
 import appeng.api.networking.crafting.IPatternInputs;
@@ -186,6 +187,21 @@ class BatchPlanTest {
         assertEquals(Collections.singletonList(clay), new ArrayList<>(plan.getDrawnKeys()));
         assertTrue(plan.draw(inv, 2, SRC));
         assertEquals(2, inv.getItemList().get(clay));
+    }
+
+    @Test
+    void anIngredientDrawnToTheLastLeavesNothingBehind() {
+        final MECraftingInventory inv = inventory(iron, 20, stick, 30);
+        final Pattern pick = Pattern.processing().slots(iron, iron, stick);
+
+        final BatchPlan plan = BatchPlan.of(pick, inv.getItemList(), 10, null);
+        assertNotNull(plan);
+        assertTrue(plan.draw(inv, 10, SRC));
+        assertEquals(Collections.singleton(stick), inv.getItemList().keySet());
+        assertTrue(inv.getItemList().findFuzzy(iron, FuzzyMode.IGNORE_ALL).isEmpty());
+
+        assertEquals(20, inv.extract(stick, 20, Actionable.MODULATE, SRC));
+        assertTrue(inv.getItemList().isEmpty());
     }
 
     @Test

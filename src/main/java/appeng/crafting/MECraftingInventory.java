@@ -138,7 +138,12 @@ public class MECraftingInventory implements MEStorage {
         final long extracted = Math.min(available, amount);
 
         if (mode == Actionable.MODULATE) {
-            this.localCache.remove(what, extracted);
+            // A key used up goes, so the live list never holds an empty entry
+            if (extracted == available) {
+                this.localCache.remove(what);
+            } else {
+                this.localCache.remove(what, extracted);
+            }
             if (this.logExtracted) {
                 this.extractedCache.add(what, extracted);
             }
@@ -154,6 +159,7 @@ public class MECraftingInventory implements MEStorage {
         }
     }
 
+    /** The live contents, not a copy: nothing in it is zero, and it must not be changed while walked. */
     public KeyCounter getItemList() {
         return this.localCache;
     }

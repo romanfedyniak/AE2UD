@@ -72,6 +72,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   one batch. Nothing in AE2 itself takes batches - a molecular assembler holds one craft - so this is for
   addons, through `ICraftingMedium.maxCopies`.
 
+- **A crafting CPU reads what it holds without copying it.** Checking whether a craft can go ahead, and
+  gathering its ingredients, copied the CPU's whole inventory once for every slot of the pattern, for every
+  pattern, every tick - so a large job holding thousands of kinds of items made thousands of full copies a
+  tick only to look one of them up. The status window did the same for every line it drew. They read the
+  inventory itself now. An ingredient used to the last is dropped from it rather than left behind at zero,
+  so a finished CPU still sees that it is empty and hands everything back as it did.
+
 ### Multiblocks
 
 - **A block says how large the multiblock it belongs to may be built.** The controller and every block a

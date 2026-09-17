@@ -575,7 +575,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     // the network asks for a bucket's worth and not for one millibucket.
                     final long needed = substitute.amount() * inputs[i].amount();
 
-                    for (final var entry : this.inventory.getAvailableStacks().findFuzzy(substitute.what(), FuzzyMode.IGNORE_ALL)) {
+                    for (final var entry : this.inventory.getItemList().findFuzzy(substitute.what(), FuzzyMode.IGNORE_ALL)) {
                         final AEKey fuzzKey = entry.getKey();
                         final long alreadyConsumed = consumedCount.getOrDefault(fuzzKey, 0L);
                         if (entry.getLongValue() - alreadyConsumed < needed) {
@@ -610,7 +610,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 boolean found = false;
                 long remaining = g.amount();
 
-                for (final var entry : this.inventory.getAvailableStacks().findFuzzy(g.what(), FuzzyMode.IGNORE_ALL)) {
+                for (final var entry : this.inventory.getItemList().findFuzzy(g.what(), FuzzyMode.IGNORE_ALL)) {
                     final long extracted = this.inventory.extract(entry.getKey(), remaining, Actionable.SIMULATE, this.machineSrc);
 
                     if (extracted >= remaining) {
@@ -689,7 +689,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
 
         if (this.isComplete) {
-            if (this.inventory.getAvailableStacks().isEmpty()) {
+            if (this.inventory.getItemList().isEmpty()) {
                 return;
             }
 
@@ -885,7 +885,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         itemList = new ArrayList<>();
 
                                         for (final GenericStack sub : substitutes) {
-                                            for (final var entry : this.inventory.getAvailableStacks().findFuzzy(sub.what(), FuzzyMode.IGNORE_ALL)) {
+                                            for (final var entry : this.inventory.getItemList().findFuzzy(sub.what(), FuzzyMode.IGNORE_ALL)) {
                                                 itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
                                             }
                                         }
@@ -893,11 +893,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         itemList = new ArrayList<>(1);
 
                                         final AEKey exactKey = input[x].what();
-                                        if (this.inventory.getAvailableStacks().get(exactKey) > 0) {
+                                        if (this.inventory.getItemList().get(exactKey) > 0) {
                                             itemList.add(new GenericStack(exactKey, input[x].amount()));
                                         } else if (exactKey instanceof AEItemKey itemKey
                                                 && (itemKey.getItem().isDamageable() || Platform.isGTDamageableItem(itemKey.getItem()))) {
-                                            for (final var entry : this.inventory.getAvailableStacks().findFuzzy(exactKey, FuzzyMode.IGNORE_ALL)) {
+                                            for (final var entry : this.inventory.getItemList().findFuzzy(exactKey, FuzzyMode.IGNORE_ALL)) {
                                                 itemList.add(new GenericStack(entry.getKey(), entry.getLongValue()));
                                             }
                                         }
@@ -1238,9 +1238,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         final IStorageService sg = g.getCache(IStorageService.class);
         final MEStorage networkStorage = sg.getInventory();
 
-        final KeyCounter snapshot = this.inventory.getAvailableStacks();
-        for (final AEKey what : new ArrayList<>(snapshot.keySet())) {
-            final long amount = snapshot.get(what);
+        final KeyCounter held = this.inventory.getItemList();
+        for (final AEKey what : new ArrayList<>(held.keySet())) {
+            final long amount = held.get(what);
             if (amount <= 0) {
                 continue;
             }
@@ -1256,7 +1256,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             }
         }
 
-        if (this.inventory.getAvailableStacks().isEmpty()) {
+        if (this.inventory.getItemList().isEmpty()) {
             this.inventory = new MECraftingInventory();
         }
 
@@ -1573,7 +1573,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         switch (storage2) {
             case STORAGE:
-                amount = this.inventory.getAvailableStacks().get(what);
+                amount = this.inventory.getItemList().get(what);
                 break;
             case ACTIVE:
                 amount = this.waitingFor.get(what);
@@ -1601,7 +1601,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         GenericStack.writeTag(finalOutputTag, this.finalOutput);
         data.setTag("finalOutput", finalOutputTag);
 
-        data.setTag("inventory", this.writeKeyCounter(this.inventory.getAvailableStacks()));
+        data.setTag("inventory", this.writeKeyCounter(this.inventory.getItemList()));
         data.setBoolean("waiting", this.waiting);
         data.setBoolean("isComplete", this.isComplete);
         data.setBoolean("suspended", this.suspended);
