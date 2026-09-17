@@ -134,6 +134,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   one storage made of both, and that combined view passed none of its parts' reports on. So anything done to
   such a block from the other side - a pipe filling it, a machine emptying it - left the terminal showing
   what was there when the bus was last mounted.
+- **A storage bus that looked again did not say what had changed.** When the block in front changes in a way
+  the bus cannot see through - a machine's side turned from input to output, a tank swapped for another - the
+  bus resolves what it is mounted on again, and the network was never told the difference between the old
+  contents and the new. It went on counting what was there before until something made it count everything
+  from scratch.
+
 - **The Pattern Access Terminal crashed the game on a pattern holder larger than an interface.** It laid every
   entry out as 36 slots, as an ME Interface has, so an addon's machine listed through `IPatternContainer` with
   more - a multiblock assembler with two pattern modules has 72 - crashed the client the moment its 37th slot

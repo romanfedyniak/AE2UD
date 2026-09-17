@@ -53,10 +53,25 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
         return this.delegate;
     }
 
+    /**
+     * Swaps what is underneath, and says what that did to this mount's contents. Without the difference, the
+     * network goes on counting what the old storage held and never learns of the new.
+     */
     protected void setDelegate(final MEStorage delegate) {
+        if (this.delegate == delegate) {
+            return;
+        }
+
+        final KeyCounter before = this.listeners.isEmpty() ? null : this.getAvailableStacks();
+
         this.listenToDelegate(false);
         this.delegate = delegate;
         this.listenToDelegate(true);
+
+        if (before != null) {
+            // Through this wrapper, so what is counted is what this mount shows, filters and all.
+            this.listeners.postDiff(before, this.getAvailableStacks());
+        }
     }
 
     @Override
