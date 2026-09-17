@@ -43,6 +43,7 @@ import appeng.items.parts.ItemFacade;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import appeng.recipes.game.WirelessTerminalModeRecipe;
+import appeng.recipes.game.WirelessTerminalModeRemovalRecipe;
 import mezz.jei.api.IGuiHelper;
 import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.IModPlugin;
@@ -173,6 +174,8 @@ public class JEIPlugin implements IModPlugin {
 
         // HEI has no wrapper for a recipe class it does not know, and drops it rather than drawing it.
         registry.handleRecipes(WirelessTerminalModeRecipe.class, WirelessTerminalModeRecipeWrapper::new,
+                VanillaRecipeCategoryUid.CRAFTING);
+        registry.handleRecipes(WirelessTerminalModeRemovalRecipe.class, WirelessTerminalModeRemovalRecipeWrapper::new,
                 VanillaRecipeCategoryUid.CRAFTING);
 
         aeGuiHandler = new AEGuiHandler();

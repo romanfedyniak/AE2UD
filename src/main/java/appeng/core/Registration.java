@@ -91,6 +91,7 @@ import appeng.recipes.AEItemResolver;
 import appeng.recipes.AERecipeLoader;
 import appeng.recipes.game.DisassembleRecipe;
 import appeng.recipes.game.WirelessTerminalModeRecipe;
+import appeng.recipes.game.WirelessTerminalModeRemovalRecipe;
 import appeng.recipes.game.FacadeRecipe;
 import appeng.recipes.ores.OreDictionaryHandler;
 import appeng.spatial.BiomeGenStorage;
@@ -517,6 +518,10 @@ final class Registration {
             final WirelessTerminalModeRecipe recipe = new WirelessTerminalModeRecipe(mode);
             registry.register(recipe.setRegistryName(AppEng.MOD_ID.toLowerCase(),
                     "wireless_terminal_mode_" + mode.getId().getNamespace() + '_' + mode.getId().getPath()));
+
+            final WirelessTerminalModeRemovalRecipe removal = new WirelessTerminalModeRemovalRecipe(mode);
+            registry.register(removal.setRegistryName(AppEng.MOD_ID.toLowerCase(),
+                    "wireless_terminal_mode_removal_" + mode.getId().getNamespace() + '_' + mode.getId().getPath()));
         }
 
         final AERecipeLoader ldr = new AERecipeLoader();

@@ -85,6 +85,8 @@ public enum GuiText {
     WirelessModePatternAccess,
     WirelessModeInterfaceConfig,
     UnknownWirelessMode,
+    WirelessModeTakeOut,
+    WirelessModeTakeOutRecipe,
 
     CellWorkbench,
     NetworkDetails,

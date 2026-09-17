@@ -73,6 +73,14 @@ public final class WirelessTerminalModes {
         Platform.openNbtData(terminal).setString(CURRENT, id.toString());
     }
 
+    /** Leaves the terminal showing the first mode it owns. */
+    public static void clearModeId(final ItemStack terminal) {
+        final NBTTagCompound tag = terminal.getTagCompound();
+        if (tag != null) {
+            tag.removeTag(CURRENT);
+        }
+    }
+
     /**
      * The modes this terminal owns. A terminal that says nothing owns the default mode alone - that is the
      * plain wireless terminal from before there were modes, and it must not come back with more than it had.
@@ -227,6 +235,22 @@ public final class WirelessTerminalModes {
         final NBTTagCompound perMode = tag.getCompoundTag(PER_MODE);
         perMode.setTag(id.toString(), data);
         tag.setTag(PER_MODE, perMode);
+    }
+
+    /** Forgets what a mode stored, under its current name and any name it had before. */
+    public static void removeModeData(final ItemStack terminal, final ResourceLocation id) {
+        final NBTTagCompound tag = terminal.getTagCompound();
+        if (tag == null || !tag.hasKey(PER_MODE, Constants.NBT.TAG_COMPOUND)) {
+            return;
+        }
+
+        final NBTTagCompound perMode = tag.getCompoundTag(PER_MODE);
+        perMode.removeTag(id.toString());
+        for (final Map.Entry<String, ResourceLocation> renamed : RENAMED.entrySet()) {
+            if (renamed.getValue().equals(id)) {
+                perMode.removeTag(renamed.getKey());
+            }
+        }
     }
 
     private static IWirelessTerminalModeRegistry registry() {

@@ -33,6 +33,7 @@ import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.WirelessTerminalMigration;
+import appeng.helpers.WirelessTerminalModeRemoval;
 import appeng.helpers.WirelessTerminalModes;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
@@ -138,6 +139,13 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
         for (final ResourceLocation unknown : WirelessTerminalModes.getUnknown(stack)) {
             lines.add(TextFormatting.DARK_GRAY + "- "
                     + I18n.translateToLocalFormatted(GuiText.UnknownWirelessMode.getUnlocalized(), unknown));
+        }
+
+        final IWirelessTerminalMode active = WirelessTerminalModes.getActiveMode(stack);
+        if (active != null && !active.getUnlockIngredient().isEmpty()
+                && WirelessTerminalModeRemoval.canTakeOut(stack, active.getId())) {
+            lines.add(TextFormatting.GRAY + I18n.translateToLocalFormatted(GuiText.WirelessModeTakeOut.getUnlocalized(),
+                    I18n.translateToLocal(active.getUnlocalizedName())));
         }
     }
 
