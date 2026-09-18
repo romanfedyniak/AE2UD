@@ -21,6 +21,7 @@ package appeng.client.render;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import javax.annotation.Nullable;
@@ -224,7 +225,9 @@ public class TesrRenderHelper {
             // out should still show what it is watching.
             TesrRenderHelper.renderFluid2d(fluidKey.toStack(1), scale);
         } else {
-            return;
+            // An addon's kind of content, drawn the way a terminal draws it: wrapped as an item, whose model
+            // asks the key type's registered renderer.
+            TesrRenderHelper.renderItem2d(GenericStack.wrapInItemStack(what, 1), scale);
         }
 
         // Two lines do not fit where one did. The lit panel of a display part is twelve pixels of the
