@@ -23,6 +23,7 @@ import appeng.api.AEApi;
 import appeng.api.definitions.*;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.StorageCell;
+import appeng.items.storage.AbstractStorageCell;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -41,7 +42,6 @@ import java.util.Optional;
 public final class DisassembleRecipe extends net.minecraftforge.registries.IForgeRegistryEntry.Impl<IRecipe> implements IRecipe {
     private static final ItemStack MISMATCHED_STACK = ItemStack.EMPTY;
 
-    private final Map<IItemDefinition, IItemDefinition> cellMappings;
     private final Map<IItemDefinition, IItemDefinition> nonCellMappings;
 
     public DisassembleRecipe() {
@@ -50,25 +50,7 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
         final IItems items = definitions.items();
         final IMaterials mats = definitions.materials();
 
-        this.cellMappings = new HashMap<>(16);
         this.nonCellMappings = new HashMap<>(9);
-
-        this.cellMappings.put(items.cell1k(), mats.cell1kPart());
-        this.cellMappings.put(items.cell4k(), mats.cell4kPart());
-        this.cellMappings.put(items.cell16k(), mats.cell16kPart());
-        this.cellMappings.put(items.cell64k(), mats.cell64kPart());
-        this.cellMappings.put(items.fluidCell1k(), mats.cell1kPart());
-        this.cellMappings.put(items.fluidCell4k(), mats.cell4kPart());
-        this.cellMappings.put(items.fluidCell16k(), mats.cell16kPart());
-        this.cellMappings.put(items.fluidCell64k(), mats.cell64kPart());
-        this.cellMappings.put(items.cell256k(), mats.cell256kPart());
-        this.cellMappings.put(items.cell1024k(), mats.cell1024kPart());
-        this.cellMappings.put(items.cell4096k(), mats.cell4096kPart());
-        this.cellMappings.put(items.cell16384k(), mats.cell16384kPart());
-        this.cellMappings.put(items.fluidCell256k(), mats.cell256kPart());
-        this.cellMappings.put(items.fluidCell1024k(), mats.cell1024kPart());
-        this.cellMappings.put(items.fluidCell4096k(), mats.cell4096kPart());
-        this.cellMappings.put(items.fluidCell16384k(), mats.cell16384kPart());
 
         this.nonCellMappings.put(items.encodedPattern(), mats.blankPattern());
         this.nonCellMappings.put(blocks.craftingStorage1k(), mats.cell1kPart());
@@ -121,14 +103,15 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
         return output;
     }
 
+    /**
+     * Any cell built on {@link AbstractStorageCell}, an addon's included, gives back its component; the housing
+     * comes back as its container item.
+     */
     @Nonnull
     private Optional<ItemStack> getCellOutput(final ItemStack compared) {
-        for (final Map.Entry<IItemDefinition, IItemDefinition> entry : this.cellMappings.entrySet()) {
-            if (entry.getKey().isSameAs(compared)) {
-                return entry.getValue().maybeStack(1);
-            }
+        if (compared.getItem() instanceof AbstractStorageCell) {
+            return Optional.of(((AbstractStorageCell) compared.getItem()).getComponent());
         }
-
         return Optional.empty();
     }
 

@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's storage cell comes apart in a crafting grid.** An empty cell placed alone in the grid gives back
+  its component and housing, but the recipe knew only the mod's own item and fluid cells by name, so a cell
+  from an addon could be taken apart only with Shift and right-click in hand. It now takes apart any cell built
+  on `AbstractStorageCell`, whose component is reachable through `getComponent()`.
+
 - **An addon's P2P tunnel no longer copies the mod's models.** `P2PTunnelModels` in `appeng.api.parts`
   holds what a tunnel looks like in each state, and `registerTunnelType(name, stack, models)` registers the
   type and those models in one call. The class behind the built-in tunnels was not visible outside the mod,

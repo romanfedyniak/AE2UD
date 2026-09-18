@@ -79,6 +79,13 @@ public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCe
                 .addCellInformation(StorageCells.getCellInventory(stack, null), lines);
     }
 
+    /**
+     * The universal component this cell is built around, as given back when it is taken apart.
+     */
+    public ItemStack getComponent() {
+        return this.component.stack(1);
+    }
+
     @Override
     public int getBytes(final ItemStack cellItem) {
         return this.totalBytes;
@@ -163,7 +170,7 @@ public abstract class AbstractStorageCell extends AEBaseItem implements IBasicCe
                     playerInventory.setInventorySlotContents(playerInventory.currentItem, ItemStack.EMPTY);
 
                     // drop core
-                    final ItemStack extraB = ia.addItems(this.component.stack(1));
+                    final ItemStack extraB = ia.addItems(this.getComponent());
                     if (!extraB.isEmpty()) {
                         player.dropItem(extraB, false);
                     }
