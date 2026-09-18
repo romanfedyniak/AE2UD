@@ -123,6 +123,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A storage bus counted everything twice after a world load.** Loading a world joins the network together
+  piece by piece, so a bus is let go by one piece and picked up by the next. Letting go never stopped it
+  listening to the block it faces, and being picked up started it listening again - so one item put into a
+  chest showed as two, until something made the network count from scratch. A bus now stops listening when
+  the network lets go of it.
 - **An interface's fluid slots gave their size as an eighth of what they hold.** Asked by a pipe or a probe,
   each said four buckets while holding thirty-two, because the answer was the standard size of a fluid slot
   rather than the interface's own. What actually went in was never limited by it; only the number shown was

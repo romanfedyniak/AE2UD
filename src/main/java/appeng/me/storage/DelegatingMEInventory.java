@@ -62,16 +62,19 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
             return;
         }
 
-        final KeyCounter before = this.listeners.isEmpty() ? null : this.getAvailableStacks();
+        if (this.listeners.isEmpty()) {
+            this.delegate = delegate;
+            return;
+        }
+
+        final KeyCounter before = this.getAvailableStacks();
 
         this.listenToDelegate(false);
         this.delegate = delegate;
         this.listenToDelegate(true);
 
-        if (before != null) {
-            // Through this wrapper, so what is counted is what this mount shows, filters and all.
-            this.listeners.postDiff(before, this.getAvailableStacks());
-        }
+        // Through this wrapper, so what is counted is what this mount shows, filters and all.
+        this.listeners.postDiff(before, this.getAvailableStacks());
     }
 
     @Override
@@ -112,8 +115,13 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
         this.listeners.post(what, delta);
     }
 
+    /**
+     * Not guarded by whether anyone is listening: the last listener leaving is exactly when this has to
+     * unsubscribe, and a subscription left behind then is a second one after the next mount - every change
+     * underneath counted twice.
+     */
     private void listenToDelegate(final boolean listen) {
-        if (this.listeners.isEmpty() || !(this.delegate instanceof IStorageChangeSource source)) {
+        if (!(this.delegate instanceof IStorageChangeSource source)) {
             return;
         }
 
