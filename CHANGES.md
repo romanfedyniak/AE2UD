@@ -123,6 +123,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A conversion monitor poured and filled only fluid containers.** Showing a gas, it took a Mekanism gas tank
+  for an ordinary item: right-clicking did not pour the tank in, and left-clicking did not fill it. It asks
+  the registered container kinds now, as a terminal does. Whatever the network or the container turns down
+  halfway goes back where it came from, instead of being logged as an error and lost.
 - **Clicking a filter slot with an addon's container set nothing.** Holding a tank of an addon's kind of
   content - a Mekanism gas tank - and left-clicking a filter slot should set the filter to what the tank
   holds, as a bucket sets it to water. The window asked every registered kind of container what it held, but

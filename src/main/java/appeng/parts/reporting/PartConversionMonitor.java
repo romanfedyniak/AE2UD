@@ -19,14 +19,15 @@
 package appeng.parts.reporting;
 
 
+import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.parts.IPartModel;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
-import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
@@ -41,10 +42,6 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 
@@ -93,11 +90,8 @@ public class PartConversionMonitor extends AbstractPartMonitor {
         }
 
         final ItemStack eq = player.getHeldItem(hand);
-        FluidStack fluidInTank = null;
-        if (eq.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
-            IFluidHandlerItem fluidHandlerItem = (eq.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null));
-            fluidInTank = fluidHandlerItem.drain(Integer.MAX_VALUE, false);
-        }
+        // A bucket, a gas tank - whatever a registered container strategy says the held item holds.
+        final GenericStack contained = ContainerItemStrategies.getContainedStack(eq);
 
         final AEKey configuredKey = this.getConfiguredKey();
 
@@ -107,23 +101,23 @@ public class PartConversionMonitor extends AbstractPartMonitor {
             } else if (Platform.isWrench(player, eq, this.getLocation().getPos()) && !(configuredKey instanceof AEItemKey itemKey && itemKey.matches(eq))) {
                 // wrench it
                 return super.onPartActivate(player, hand, pos);
-            } else if (fluidInTank != null && fluidInTank.amount > 0) {
-                if (configuredKey instanceof AEFluidKey fluidKey && fluidKey.matches(fluidInTank)) {
-                    this.drainFluidContainer(player, hand);
+            } else if (contained != null) {
+                if (contained.what().equals(configuredKey)) {
+                    this.drainContainer(player, hand);
                 }
             } else {
                 this.insertItem(player, hand, false);
             }
         }
 
-        //If its a fluid container, grab its fluidstack. if its empty pass its itemstack;
-
-        if (fluidInTank != null && fluidInTank.amount > 0) {
+        // A container holding something is poured in while the monitor shows what it holds; an empty one is
+        // just an item.
+        if (contained != null) {
             if (configuredKey == null || configuredKey instanceof AEItemKey) {
                 return super.onPartActivate(player, hand, pos);
             }
-            if (configuredKey instanceof AEFluidKey fluidKey && fluidKey.matches(fluidInTank)) {
-                this.drainFluidContainer(player, hand);
+            if (contained.what().equals(configuredKey)) {
+                this.drainContainer(player, hand);
             } else {
                 return super.onPartActivate(player, hand, pos);
             }
@@ -150,8 +144,8 @@ public class PartConversionMonitor extends AbstractPartMonitor {
         final AEKey configuredKey = this.getConfiguredKey();
         if (configuredKey instanceof AEItemKey itemKey) {
             this.extractItem(player, itemKey.getMaxStackSize());
-        } else if (configuredKey instanceof AEFluidKey) {
-            this.fillFluidContainer(player, hand);
+        } else if (ContainerItemStrategies.isKeySupported(configuredKey)) {
+            this.fillContainer(player, hand, configuredKey);
         }
 
         return true;
@@ -251,7 +245,11 @@ public class PartConversionMonitor extends AbstractPartMonitor {
         }
     }
 
-    private void drainFluidContainer(final EntityPlayer player, final EnumHand hand) {
+    /**
+     * Pours what the held container holds into the network, as much as the network takes; anything the
+     * network turns down after all goes back into the container.
+     */
+    private void drainContainer(final EntityPlayer player, final EnumHand hand) {
         try {
             final ItemStack held = player.getHeldItem(hand);
             if (held.getCount() != 1) {
@@ -259,51 +257,43 @@ public class PartConversionMonitor extends AbstractPartMonitor {
                 return;
             }
 
-            final IFluidHandlerItem fh = FluidUtil.getFluidHandler(held);
-            if (fh == null) {
-                // only fluid handlers items
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, null);
+            final GenericStack content = ctx == null ? null : ctx.getExtractableContent();
+            if (content == null) {
                 return;
             }
 
-            // See how much we can drain from the item
-            final FluidStack extract = fh.drain(Integer.MAX_VALUE, false);
-            if (extract == null || extract.amount < 1) {
-                return;
-            }
-
-            // Check if we can push into the system
+            final AEKey what = content.what();
             final IEnergySource energy = this.getProxy().getEnergy();
             final MEStorage cell = this.getProxy().getStorage().getInventory();
-            final long canInsert = Platform.poweredInsert(energy, cell, AEFluidKey.of(extract), extract.amount, new PlayerSource(player, this), Actionable.SIMULATE);
+            final PlayerSource source = new PlayerSource(player, this);
 
-            if (canInsert < extract.amount) {
-                final int toStore = (int) canInsert;
-                final FluidStack storable = fh.drain(toStore, false);
-
-                if (storable == null || storable.amount == 0) {
-                    return;
-                } else {
-                    extract.amount = storable.amount;
-                }
+            final long canInsert = Platform.poweredInsert(energy, cell, what, content.amount(), source, Actionable.SIMULATE);
+            if (canInsert <= 0) {
+                return;
             }
 
-            // Actually drain
-            final FluidStack drained = fh.drain(extract, true);
-            extract.amount = drained.amount;
-
-            final long inserted = Platform.poweredInsert(energy, cell, AEFluidKey.of(extract), extract.amount, new PlayerSource(player, this));
-
-            if (inserted < extract.amount) {
-                AELog.error("Fluid item [%s] reported a different possible amount to drain than it actually provided.", held.getDisplayName());
+            final long drained = ctx.extract(what, canInsert, Actionable.MODULATE);
+            if (drained <= 0) {
+                return;
             }
 
-            player.setHeldItem(hand, fh.getContainer());
+            final long inserted = Platform.poweredInsert(energy, cell, what, drained, source);
+            if (inserted < drained) {
+                ctx.insert(what, drained - inserted, Actionable.MODULATE);
+            }
+
+            player.setHeldItem(hand, ctx.getContainer());
         } catch (GridAccessException e) {
-            e.printStackTrace();
+            // :P
         }
     }
 
-    private void fillFluidContainer(final EntityPlayer player, final EnumHand hand) {
+    /**
+     * Fills the held container with what the monitor shows, as much as both the container and the network
+     * allow; anything the container turns down after all goes back into the network.
+     */
+    private void fillContainer(final EntityPlayer player, final EnumHand hand, final AEKey what) {
         try {
             final ItemStack held = player.getHeldItem(hand);
             if (held.getCount() != 1) {
@@ -311,53 +301,33 @@ public class PartConversionMonitor extends AbstractPartMonitor {
                 return;
             }
 
-            final IFluidHandlerItem fh = FluidUtil.getFluidHandler(held);
-            if (fh == null) {
-                // only fluid handlers items
+            final ContainerItemStrategy.Context ctx = ContainerItemStrategies.openContext(held, what.getType());
+            if (ctx == null) {
                 return;
             }
 
-            if (!(this.getConfiguredKey() instanceof AEFluidKey configuredFluidKey)) {
+            final long room = ctx.insert(what, Integer.MAX_VALUE, Actionable.SIMULATE);
+            if (room <= 0) {
                 return;
             }
 
-            // Check how much we can store in the item
-            final int amountAllowed = fh.fill(configuredFluidKey.toStack(Integer.MAX_VALUE), false);
-            if (amountAllowed <= 0) {
-                return;
-            }
-
-            // Check if we can pull out of the system
             final IEnergySource energy = this.getProxy().getEnergy();
             final MEStorage cell = this.getProxy().getStorage().getInventory();
-            final long canPull = Platform.poweredExtraction(energy, cell, configuredFluidKey, amountAllowed, new PlayerSource(player, this), Actionable.SIMULATE);
-            if (canPull < 1) {
+            final PlayerSource source = new PlayerSource(player, this);
+
+            final long pulled = Platform.poweredExtraction(energy, cell, what, room, source);
+            if (pulled <= 0) {
                 return;
             }
 
-            // How much could fit into the container
-            final int canFill = fh.fill(configuredFluidKey.toStack((int) canPull), false);
-            if (canFill == 0) {
-                return;
+            final long used = ctx.insert(what, pulled, Actionable.MODULATE);
+            if (used < pulled) {
+                Platform.poweredInsert(energy, cell, what, pulled - used, source);
             }
 
-            // Now actually pull out of the system
-            final long pulled = Platform.poweredExtraction(energy, cell, configuredFluidKey, canFill, new PlayerSource(player, this));
-            if (pulled < 1) {
-                // Something went wrong
-                AELog.error("Unable to pull fluid out of the ME system even though the simulation said yes ");
-                return;
-            }
-
-            // Actually fill
-            final int used = fh.fill(configuredFluidKey.toStack((int) pulled), true);
-
-            if (used != pulled) {
-                AELog.error("Fluid item [%s] reported a different possible amount than it actually accepted.", held.getDisplayName());
-            }
-            player.setHeldItem(hand, fh.getContainer());
+            player.setHeldItem(hand, ctx.getContainer());
         } catch (GridAccessException e) {
-            e.printStackTrace();
+            // :P
         }
     }
 
