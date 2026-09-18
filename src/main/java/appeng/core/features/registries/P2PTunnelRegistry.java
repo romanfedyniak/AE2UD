@@ -140,7 +140,7 @@ public final class P2PTunnelRegistry implements IP2PTunnelRegistry {
         this.addNewAttunement(new ItemStack(Blocks.CHEST), TunnelType.ITEM);
         this.addNewAttunement(new ItemStack(Blocks.TRAPPED_CHEST), TunnelType.ITEM);
         this.addNewAttunement(this.getModItem("extrautilities", "extractor_base", 0), TunnelType.ITEM);
-        this.addNewAttunement(this.getModItem("mekanism", "parttransmitter", 9), TunnelType.ITEM);
+        this.addNewAttunement(this.getModItem("mekanism", "transmitter", 3), TunnelType.ITEM); // logistical transporter
         this.addNewAttunement(this.getModItem("enderio", "itemitemconduit", OreDictionary.WILDCARD_VALUE), TunnelType.ITEM);
         this.addNewAttunement(this.getModItem("thermaldynamics", "duct_32", 0), TunnelType.ITEM); // itemduct
         this.addNewAttunement(this.getModItem("thermaldynamics", "duct_32", 1), TunnelType.ITEM); // itemduct
@@ -159,7 +159,7 @@ public final class P2PTunnelRegistry implements IP2PTunnelRegistry {
         this.addNewAttunement(new ItemStack(Items.MILK_BUCKET), TunnelType.FLUID);
         this.addNewAttunement(new ItemStack(Items.WATER_BUCKET), TunnelType.FLUID);
         this.addNewAttunement(this.getModItem("mekanism", "machineblock2", 11), TunnelType.FLUID);
-        this.addNewAttunement(this.getModItem("mekanism", "parttransmitter", 4), TunnelType.FLUID);
+        this.addNewAttunement(this.getModItem("mekanism", "transmitter", 1), TunnelType.FLUID); // mechanical pipe, any tier
         this.addNewAttunement(this.getModItem("extrautilities", "extractor_base", 6), TunnelType.FLUID);
         this.addNewAttunement(this.getModItem("extrautilities", "drum", OreDictionary.WILDCARD_VALUE), TunnelType.FLUID);
         this.addNewAttunement(this.getModItem("enderio", "itemliquidconduit", OreDictionary.WILDCARD_VALUE), TunnelType.FLUID);

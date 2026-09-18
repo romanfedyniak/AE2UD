@@ -128,6 +128,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A Mekanism pipe or transporter did not attune a P2P tunnel.** A mechanical pipe should turn a tunnel into
+  a fluid tunnel and a logistical transporter into an item tunnel, but both were registered under the item
+  name Mekanism used before 1.12, which no longer exists, so nothing was registered at all.
 - **A conversion monitor poured and filled only fluid containers.** Showing a gas, it took a Mekanism gas tank
   for an ordinary item: right-clicking did not pour the tank in, and left-clicking did not fill it. It asks
   the registered container kinds now, as a terminal does. Whatever the network or the container turns down
