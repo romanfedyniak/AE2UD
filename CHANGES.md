@@ -123,6 +123,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Clicking a filter slot with an addon's container set nothing.** Holding a tank of an addon's kind of
+  content - a Mekanism gas tank - and left-clicking a filter slot should set the filter to what the tank
+  holds, as a bucket sets it to water. The window asked every registered kind of container what it held, but
+  the server only knew fluids, so the click was sent and then did nothing. Both sides ask the same now.
+- **A monitor watching an addon's kind of content showed nothing.** A storage or conversion monitor set to a
+  gas drew neither its picture nor its amount, because the face knew how to draw an item and a fluid and
+  stopped there. It draws any other kind the way a terminal does now.
 - **A storage bus counted everything twice after a world load.** Loading a world joins the network together
   piece by piece, so a bus is let go by one piece and picked up by the next. Letting go never stopped it
   listening to the block it faces, and being picked up started it listening again - so one item put into a
