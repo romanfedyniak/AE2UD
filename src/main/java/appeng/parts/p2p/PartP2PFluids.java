@@ -20,10 +20,13 @@ package appeng.parts.p2p;
 
 
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
+import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.capabilities.Capability;
@@ -39,7 +42,7 @@ import java.util.*;
 
 public class PartP2PFluids extends PartP2PTunnel<PartP2PFluids> implements IFluidHandler {
 
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_fluids");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_fluids"));
 
     private static final ThreadLocal<Deque<PartP2PFluids>> DEPTH = new ThreadLocal<>();
     private static final FluidTankProperties[] ACTIVE_TANK = {new FluidTankProperties(null, 10000, true, false)};

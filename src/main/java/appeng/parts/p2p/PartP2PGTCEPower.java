@@ -1,6 +1,8 @@
 package appeng.parts.p2p;
 
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
+import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import gregtech.api.capability.GregtechCapabilities;
@@ -8,6 +10,7 @@ import gregtech.api.capability.IEnergyContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.capabilities.Capability;
 
 import javax.annotation.Nonnull;
@@ -17,7 +20,7 @@ import java.util.List;
 import java.util.Queue;
 
 public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_gteu");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_gteu"));
     private static final IEnergyContainer NULL_ENERGY_STORAGE = new NullEnergyStorage();
     private final IEnergyContainer inputHandler = new InputEnergyStorage();
     private final Queue<PartP2PGTCEPower> outputs = new ArrayDeque<>();

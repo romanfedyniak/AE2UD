@@ -2474,6 +2474,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `isRegistered` and `getCapability` out of its cache; items and fluids are registered by
     `InitGenericInventoryAdapters` beside the other behaviour registries. A factory's handler is shared, so
     it must be a live view and hold no state - said in the javadoc.
+63. **`P2PTunnelModels` and `IP2PTunnelRegistry.registerTunnelType(name, stack, models)`** - additive.
+    Upstream keeps its tunnel models in the part classes' own package too; here `P2PModels` was
+    package-private, so an addon's tunnel had to copy it. It moves to `appeng.api.parts` under a name that says
+    what it is, every built-in tunnel uses it, and the new default method registers a type and its models in
+    one call - a part model that is never registered is never drawn. A base class for tunnels was deliberately
+    left out: the next two tunnels planned (Botania mana, Thaumcraft essentia) are not capabilities, so the
+    right shape is decided with them.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

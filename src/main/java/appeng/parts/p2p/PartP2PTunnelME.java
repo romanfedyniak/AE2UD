@@ -29,9 +29,11 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AELog;
+import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.hooks.TickHandler;
 import appeng.items.parts.PartModels;
@@ -49,11 +51,12 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
+import net.minecraft.util.ResourceLocation;
 
 
 public class PartP2PTunnelME extends PartP2PTunnel<PartP2PTunnelME> implements IGridTickable {
 
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_me");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_me"));
 
     @PartModels
     public static List<IPartModel> getModels() {

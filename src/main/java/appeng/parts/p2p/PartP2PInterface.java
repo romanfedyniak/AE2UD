@@ -30,6 +30,8 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
+import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
@@ -43,6 +45,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.util.Constants;
@@ -62,7 +65,7 @@ import java.util.List;
  */
 public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements ICraftingMachine, IGridTickable {
 
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_interface");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_interface"));
     private static final float POWER_DRAIN = 2.0f;
 
     /** How many tunnels a chain may be followed back before the interface at its head is given up on. */

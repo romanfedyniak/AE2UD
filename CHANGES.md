@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's P2P tunnel no longer copies the mod's models.** `P2PTunnelModels` in `appeng.api.parts`
+  holds what a tunnel looks like in each state, and `registerTunnelType(name, stack, models)` registers the
+  type and those models in one call. The class behind the built-in tunnels was not visible outside the mod,
+  so the gas tunnel of Mekanism Energistics carried a copy of it.
+
 - **An addon's key type can be handed to the pipes of other mods.** An ME Interface offered its stock as an
   item handler and as a fluid handler, and those two were written into it by name, so a key type registered
   by an addon had no way to reach a pipe, a tank or anything else that asks a block what it holds - the

@@ -21,11 +21,14 @@ package appeng.parts.p2p;
 
 import appeng.api.config.PowerUnits;
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
 import appeng.capabilities.Capabilities;
+import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.energy.IEnergyStorage;
 
@@ -37,7 +40,7 @@ import java.util.Queue;
 
 
 public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_fe");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_fe"));
     private static final IEnergyStorage NULL_ENERGY_STORAGE = new NullEnergyStorage();
     private final IEnergyStorage inputHandler = new InputEnergyStorage();
     private final IEnergyStorage outputHandler = new OutputEnergyStorage();

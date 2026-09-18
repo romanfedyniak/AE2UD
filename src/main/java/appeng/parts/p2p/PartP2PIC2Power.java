@@ -21,6 +21,8 @@ package appeng.parts.p2p;
 
 import appeng.api.config.PowerUnits;
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
+import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.cache.helpers.TunnelCollection;
@@ -31,6 +33,7 @@ import ic2.api.energy.tile.IEnergyEmitter;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -45,7 +48,7 @@ public class PartP2PIC2Power extends PartP2PTunnel<PartP2PIC2Power> {
     private static final String TAG_BUFFERED_VOLTAGE_1 = "outputPacket1";
     private static final String TAG_BUFFERED_VOLTAGE_2 = "outputPacket2";
 
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_ic2");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_ic2"));
 
     // Buffer the energy + voltage for two IC2 ENET packets
     private double bufferedEnergy1;

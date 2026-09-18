@@ -24,6 +24,8 @@ import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.P2PTunnelModels;
+import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
@@ -33,6 +35,7 @@ import appeng.util.inv.WrapperChainedItemHandler;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.capabilities.Capability;
@@ -46,7 +49,7 @@ import java.util.List;
 
 public class PartP2PItems extends PartP2PTunnel<PartP2PItems> implements IItemHandler, IGridTickable {
     private static final float POWER_DRAIN = 2.0f;
-    private static final P2PModels MODELS = new P2PModels("part/p2p/p2p_tunnel_items");
+    private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_items"));
     private boolean partVisited = false;
     private int depth;
 

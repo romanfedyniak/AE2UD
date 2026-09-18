@@ -24,7 +24,9 @@
 package appeng.api.features;
 
 
+import appeng.api.AEApi;
 import appeng.api.config.TunnelType;
+import appeng.api.parts.P2PTunnelModels;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.capabilities.Capability;
 
@@ -62,4 +64,15 @@ public interface IP2PTunnelRegistry
 	TunnelType getTunnelTypeByItem( ItemStack trigger );
 
 	TunnelType registerTunnelType( @Nonnull String enumName, @Nonnull ItemStack partStack );
+
+	/**
+	 * Registers a tunnel type together with the models its part is drawn with, which a tunnel of an addon's
+	 * otherwise has to remember to register separately. Call it during pre-initialisation: part models
+	 * registered later are never baked. Attunements are still added with {@link #addNewAttunement}.
+	 */
+	default TunnelType registerTunnelType( @Nonnull String enumName, @Nonnull ItemStack partStack, @Nonnull P2PTunnelModels models )
+	{
+		AEApi.instance().registries().partModels().registerModels( models.getModelLocations() );
+		return this.registerTunnelType( enumName, partStack );
+	}
 }
