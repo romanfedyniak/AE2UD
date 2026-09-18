@@ -35,7 +35,6 @@ import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.client.me.SlotME;
@@ -70,8 +69,6 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import org.jetbrains.annotations.NotNull;
 
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -548,25 +545,6 @@ public abstract class AEBaseContainer extends Container {
     }
 
     /**
-     * @return what the given stack holds, as a key and an amount, or null if it holds nothing this mod can
-     *         name. A fluid container reports its fluid; everything else reports nothing, including an
-     *         already-wrapped placeholder, which is handled by the ordinary path.
-     */
-    @Nullable
-    private static GenericStack containedStackOf(final ItemStack stack) {
-        if (stack.isEmpty()) {
-            return null;
-        }
-
-        final FluidStack fluid = FluidUtil.getFluidContained(stack);
-        if (fluid != null && fluid.amount > 0) {
-            return new GenericStack(AEFluidKey.of(fluid), fluid.amount);
-        }
-
-        return null;
-    }
-
-    /**
      * Whether a player may change what a slot holds right now. An ingredient dropped from HEI is placed without
      * passing through {@link #doAction}, so a container refusing clicks on a slot has to say so here as well.
      */
@@ -696,10 +674,9 @@ public abstract class AEBaseContainer extends Container {
                     case EMPTY_ITEM: {
                         // Set the filter to what the held item *contains* rather than to the item.
                         // Backported from upstream's InventoryAction.EMPTY_ITEM on fake slots; it is the
-                        // only way to express a fluid filter by hand, since a bucket dropped into a slot
-                        // is otherwise just a bucket. Fluids are the only container type this fork knows;
-                        // a future key type would extend the lookup here rather than the slot.
-                        final GenericStack contained = containedStackOf(hand);
+                        // only way to express a fluid or an addon's kind of content by hand, since a bucket
+                        // dropped into a slot is otherwise just a bucket.
+                        final GenericStack contained = ContainerItemStrategies.getContainedStack(hand);
                         if (contained != null) {
                             // Clicking the same contents again adds another helping, like clicking the same
                             // item again does.
