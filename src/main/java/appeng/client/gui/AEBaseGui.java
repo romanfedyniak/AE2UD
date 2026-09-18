@@ -22,7 +22,7 @@ package appeng.client.gui;
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.behaviors.ContainerItemStrategy;
 import appeng.api.config.Actionable;
-import appeng.api.stacks.AEFluidKey;
+import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.widgets.GuiCustomSlot;
@@ -80,8 +80,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fml.client.config.GuiUtils;
 import net.minecraftforge.fml.common.Optional;
 import org.lwjgl.input.Keyboard;
@@ -470,77 +468,35 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             final Map<IGhostIngredientHandler.Target<?>, Object> targetSlots) {
         targetSlots.clear();
 
-        FluidStack fluidStack = null;
-        ItemStack itemStack = ItemStack.EMPTY;
-
-        if (ingredient instanceof ItemStack) {
-            itemStack = (ItemStack) ingredient;
-            fluidStack = FluidUtil.getFluidContained(itemStack);
-        } else if (ingredient instanceof FluidStack) {
-            fluidStack = (FluidStack) ingredient;
-        }
-
-        if (!(ingredient instanceof ItemStack) && !(ingredient instanceof FluidStack)) {
+        // Whether a filter can take this at all; which value goes in waits for the button that ends the drag.
+        if (filterPayloadOf(ingredient) == null) {
             return Collections.emptyList();
         }
 
         List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
-
-        List<IJEITargetSlot> slots = new ArrayList<>();
-        if (!this.inventorySlots.inventorySlots.isEmpty()) {
-            for (Slot slot : this.inventorySlots.inventorySlots) {
-                // A filter slot is a valid drop target for a fluid too, not just for an item. This used to
-                // be allowed only in the cell workbench, because that was the one screen whose filter could
-                // express a fluid at all; every other filter silently offered no target, so a dragged fluid
-                // simply did nothing. Config inventories hold any key now, so the exception is the rule.
-                if (slot instanceof SlotFake && (!itemStack.isEmpty() || fluidStack != null)) {
-                    slots.add((IJEITargetSlot) slot);
-                }
+        for (Slot inventorySlot : this.inventorySlots.inventorySlots) {
+            // A filter slot takes any kind of content, not only an item: config inventories hold any key.
+            if (!(inventorySlot instanceof SlotFake slot)) {
+                continue;
             }
-        }
-        for (IJEITargetSlot slot : slots) {
-            ItemStack finalItemStack = itemStack;
-            FluidStack finalFluidStack = fluidStack;
             IGhostIngredientHandler.Target<Object> targetItem = new IGhostIngredientHandler.Target<>() {
                 @Override
                 public Rectangle getArea() {
-                    if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                        return new Rectangle(getGuiLeft() + ((SlotFake) slot).xPos, getGuiTop() + ((SlotFake) slot).yPos, 16, 16);
+                    if (slot.isSlotEnabled()) {
+                        return new Rectangle(getGuiLeft() + slot.xPos, getGuiTop() + slot.yPos, 16, 16);
                     }
                     return new Rectangle();
                 }
 
                 @Override
                 public void accept(Object ingredient) {
-                    PacketInventoryAction p = null;
+                    final GenericStack payload = filterPayloadOf(ingredient);
+                    if (payload == null || !slot.isSlotEnabled()) {
+                        return;
+                    }
                     try {
-                        if (slot instanceof SlotFake && ((SlotFake) slot).isSlotEnabled()) {
-                            // Same rule as clicking a filter slot by hand: left button takes what the
-                            // container HOLDS, right button takes the container itself. A dragged fluid
-                            // has no container to fall back to, so it goes in either way.
-                            //
-                            // Both used to end up as a filled bucket, because a filter slot could only
-                            // ever express an item - and a bucket filter is a different thing, matching a
-                            // bucket in a chest rather than water in a tank, so it looked right and
-                            // quietly matched nothing.
-                            if (finalFluidStack != null && !(dropsContainerItself() && !finalItemStack.isEmpty())) {
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
-                            } else if (!finalItemStack.isEmpty()) {
-                                // Resolve rather than read, per CONTRACT.md §9.1d. No path today hands HEI a
-                                // placeholder to drag - the ingredient list cannot contain one - so this is
-                                // the canonical reader as a default, not a fix for a known symptom.
-                                p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, GenericStack.resolveItemStack(finalItemStack));
-                            }
-                        } else {
-                            if (finalFluidStack == null) {
-                                return;
-                            }
-                            // The fluid key travels directly in the packet now - no more smuggling it
-                            // through a dummy item's NBT (AEFluidStack.fromFluidStack(...).asItemStackRepresentation()).
-                            p = new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, new GenericStack(AEFluidKey.of(finalFluidStack), finalFluidStack.amount));
-                        }
-                        NetworkHandler.instance().sendToServer(p);
-
+                        NetworkHandler.instance().sendToServer(
+                                new PacketInventoryAction(InventoryAction.PLACE_JEI_GHOST_ITEM, slot, payload));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -550,6 +506,29 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             targetSlots.putIfAbsent(targetItem, slot);
         }
         return targets;
+    }
+
+    /**
+     * What dropping an ingredient on a filter slot puts there. Same rule as clicking the slot by hand: left
+     * button takes what a container HOLDS, right button the container itself - a bucket filter matches a
+     * bucket in a chest, not water in a tank. Anything that is not an item goes in as itself.
+     */
+    @Nullable
+    private static GenericStack filterPayloadOf(final Object ingredient) {
+        if (!(ingredient instanceof ItemStack stack)) {
+            return IngredientConverters.toStack(ingredient);
+        }
+        if (stack.isEmpty()) {
+            return null;
+        }
+        if (!dropsContainerItself()) {
+            final GenericStack contained = ContainerItemStrategies.getContainedStack(stack);
+            if (contained != null && contained.amount() > 0) {
+                return contained;
+            }
+        }
+        // Resolve rather than read, per CONTRACT.md §9.1d.
+        return GenericStack.resolveItemStack(stack);
     }
 
     protected void drawGuiSlot(GuiCustomSlot slot, int mouseX, int mouseY, float partialTicks) {
@@ -1169,14 +1148,14 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             return hints;
         }
 
-        final FluidStack contents = FluidUtil.getFluidContained(ghostDragged);
+        final GenericStack contents = ContainerItemStrategies.getContainedStack(ghostDragged);
         if (contents == null) {
             return hints;
         }
 
         // Only a slot of this window can be asked what it would take; one standing for a remote inventory
         // answers for whatever is on the other end of it
-        final AEFluidKey what = AEFluidKey.of(contents);
+        final AEKey what = contents.what();
         if (slot instanceof SlotFake && !((SlotFake) slot).acceptedKeys().matches(what)) {
             return hints;
         }

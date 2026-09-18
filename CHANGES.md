@@ -48,7 +48,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   interface is named after the ingredient's class rather than the viewer's own type object, because nothing
   of a recipe viewer's API belongs in `src/api`. Upstream AE2 has the same pair for REI.
 - **Dragging a container out of the viewer offers what it holds, whatever that is.** A bucket dropped on a
-  pattern slot or an interface's config was read through the fluid system alone; it goes through the
+  pattern slot or any filter slot was read through the fluid system alone; it goes through the
   container-item strategies now, the same ones a click in the terminal uses, so a container an addon
   registered gives up its contents the same way. The left and right button still mean the contents and the
   container itself.
