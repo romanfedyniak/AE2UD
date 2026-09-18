@@ -123,6 +123,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **An interface's fluid slots gave their size as an eighth of what they hold.** Asked by a pipe or a probe,
+  each said four buckets while holding thirty-two, because the answer was the standard size of a fluid slot
+  rather than the interface's own. What actually went in was never limited by it; only the number shown was
+  wrong.
 - **A storage bus mounted nothing until the block in front of it changed.** It asked whether it had anything
   to offer the network before it had ever looked at what it faces, so on placing one - and on every world
   load - it offered nothing; and with nothing mounted it counted as idle, went to sleep, and never got

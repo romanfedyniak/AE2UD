@@ -13,16 +13,15 @@ package appeng.util.inv;
 
 import javax.annotation.Nullable;
 
+import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
 import appeng.api.behaviors.GenericInternalInventory;
-import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 
 
@@ -34,6 +33,8 @@ import appeng.api.stacks.GenericStack;
  * item slot.
  */
 public class GenericStackFluidHandler implements IFluidHandler {
+
+    private static final AEFluidKey ANY_FLUID = AEFluidKey.of(FluidRegistry.WATER);
 
     private final GenericInternalInventory inv;
 
@@ -131,9 +132,15 @@ public class GenericStackFluidHandler implements IFluidHandler {
             return key.toStack((int) Math.min(stack.amount(), Integer.MAX_VALUE));
         }
 
+        /**
+         * What the slot really holds, which a machine may size above the per-type standard - an interface
+         * holds eight times it. A machine sizes a slot by key type, so any fluid stands in for an empty one.
+         */
         @Override
         public int getCapacity() {
-            return (int) Math.min(GenericSlotCapacities.get(AEKeyType.fluids()), Integer.MAX_VALUE);
+            final AEKey key = GenericStackFluidHandler.this.inv.getKey(this.slot) instanceof AEFluidKey held
+                    ? held : ANY_FLUID;
+            return (int) Math.min(GenericStackFluidHandler.this.inv.getCapacity(key), Integer.MAX_VALUE);
         }
 
         @Override
