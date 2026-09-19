@@ -2481,6 +2481,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     one call - a part model that is never registered is never drawn. A base class for tunnels was deliberately
     left out: the next two tunnels planned (Botania mana, Thaumcraft essentia) are not capabilities, so the
     right shape is decided with them.
+64. **`ExtraInputProvider` and `ExtraInputProviders`** - additive. A recipe screen
+    may draw a cost it does not list as an ingredient, such as Botania's mana bar, and recipe transfer read
+    only ingredient groups. Providers are keyed by category uid and handed the shown inputs and outputs as
+    `GenericStack`s, since `IRecipeLayout` does not expose the recipe wrapper and nothing of the viewer's API
+    belongs in `src/api`; what they return fills the processing grid's free slots after the listed ingredients.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

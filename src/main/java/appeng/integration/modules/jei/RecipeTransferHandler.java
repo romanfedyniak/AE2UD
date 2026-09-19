@@ -22,6 +22,7 @@ package appeng.integration.modules.jei;
 import appeng.container.implementations.ContainerCraftingTerm;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerWirelessCraftingTerminal;
+import appeng.api.integrations.hei.ExtraInputProviders;
 import appeng.api.integrations.hei.IngredientConverter;
 import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.stacks.AEKey;
@@ -312,6 +313,41 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             // Items came through the loop above, where they are matched against the recipe's own shape.
             if (converter.getIngredientClass() != ItemStack.class) {
                 this.transferIngredients(converter, recipeLayout, recipe, outputs, freeSlots, nextFree);
+            }
+        }
+
+        // What the screen draws but does not list, such as a machine's mana bar, goes in after everything listed.
+        final List<GenericStack> shownInputs = new ArrayList<>();
+        final List<GenericStack> shownOutputs = new ArrayList<>();
+        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
+            collectShown(converter, recipeLayout, shownInputs, shownOutputs);
+        }
+        final List<GenericStack> extra = ExtraInputProviders.getExtraInputs(
+                recipeLayout.getRecipeCategory().getUid(), shownInputs, shownOutputs);
+        for (final GenericStack stack : extra) {
+            final ItemStack wrapped = stack.amount() > 0 ? GenericStack.wrapInItemStack(stack) : ItemStack.EMPTY;
+            if (wrapped.isEmpty() || nextFree[0] >= freeSlots.size()) {
+                continue;
+            }
+            final NBTTagList tags = new NBTTagList();
+            tags.appendTag(stackToNBT(wrapped));
+            recipe.setTag("#" + freeSlots.get(nextFree[0]++), tags);
+        }
+    }
+
+    private static <I> void collectShown(final IngredientConverter<I> converter, final IRecipeLayout recipeLayout,
+            final List<GenericStack> inputs, final List<GenericStack> outputs) {
+        final Map<Integer, ? extends IGuiIngredient<I>> group;
+        try {
+            group = recipeLayout.getIngredientsGroup(converter.getIngredientClass()).getGuiIngredients();
+        } catch (final IllegalArgumentException e) {
+            return;
+        }
+        for (final IGuiIngredient<I> ingredient : group.values()) {
+            final I displayed = ingredient.getDisplayedIngredient();
+            final GenericStack stack = displayed == null ? null : converter.getStackFromIngredient(displayed);
+            if (stack != null && stack.amount() > 0) {
+                (ingredient.isInput() ? inputs : outputs).add(stack);
             }
         }
     }

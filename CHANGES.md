@@ -24,6 +24,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A recipe's mana, energy or anything else drawn beside it goes into a pattern with the recipe.** Moving a
+  recipe from HEI into a processing pattern took what the recipe screen lists as ingredients, and a machine
+  that draws what it costs as a bar - Botania's runic altar and its mana - lost it on the way. An
+  `ExtraInputProvider`, registered in `ExtraInputProviders` under the uid of a recipe category, is handed the
+  recipe's inputs and outputs as the screen shows them and says what else it takes; that goes into the free
+  slots after the listed ingredients. The recipe is found again by what it shows because a recipe layout does
+  not give out the recipe behind it.
+
 - **An addon's storage cell comes apart in a crafting grid.** An empty cell placed alone in the grid gives back
   its component and housing, but the recipe knew only the mod's own item and fluid cells by name, so a cell
   from an addon could be taken apart only with Shift and right-click in hand. It now takes apart any cell built
