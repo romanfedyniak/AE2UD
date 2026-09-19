@@ -265,6 +265,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             return;
         }
 
+        if (btn instanceof GuiWirelessToggleButton toggle) {
+            toggle.press();
+            return;
+        }
+
         if (btn == this.craftingStatusBtn) {
             NetworkHandler.instance().sendToServer(new PacketSwitchGuis(GuiBridge.GUI_CRAFTING_STATUS));
         }
@@ -441,6 +446,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         if (this.isWirelessTerminal()) {
             this.buttonList.add(this.settings.take(this.pickBlockBtn = new GuiImgButton(0, 0,
                     Settings.PICK_BLOCK, this.configSrc.getSetting(Settings.PICK_BLOCK))));
+        }
+
+        // Addons' switches ride on the terminal item, next to pick block.
+        for (final GuiWirelessToggleButton toggle : GuiWirelessToggleButton.forScreen(this.inventorySlots)) {
+            this.buttonList.add(this.settings.take(toggle));
         }
 
         if (this.supportsTerminalStyle()) {

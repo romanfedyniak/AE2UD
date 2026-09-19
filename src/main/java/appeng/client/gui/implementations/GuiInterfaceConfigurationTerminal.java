@@ -31,6 +31,7 @@ import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiSettingsDrawer;
+import appeng.client.gui.widgets.GuiWirelessToggleButton;
 import appeng.client.gui.widgets.MEGuiTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
@@ -153,6 +154,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.settings.take(this.terminalStyleBox = new GuiImgButton(0, 0, Settings.TERMINAL_STYLE, style));
         this.settings.take(this.searchKeepBtn = new GuiImgButton(0, 0, Settings.SEARCH_KEEP,
                 AEClientConfig.instance().getConfigManager().getSetting(Settings.SEARCH_KEEP)));
+        GuiWirelessToggleButton.forScreen(this.inventorySlots).forEach(this.settings::take);
 
         for (final Object obj : this.inventorySlots.inventorySlots) {
             if (obj instanceof appeng.container.slot.AppEngSlot slot) {
@@ -329,6 +331,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
         if (this.settings.actionPerformed(btn)) {
+            return;
+        }
+
+        if (btn instanceof GuiWirelessToggleButton toggle) {
+            toggle.press();
             return;
         }
 

@@ -26,6 +26,7 @@ import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiSettingsDrawer;
+import appeng.client.gui.widgets.GuiWirelessToggleButton;
 import appeng.client.gui.widgets.MEGuiTooltipTextField;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
@@ -242,6 +243,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
         this.settings.take(terminalStyleBox);
         this.settings.take(searchKeepBtn);
+        GuiWirelessToggleButton.forScreen(this.inventorySlots).forEach(this.settings::take);
 
         this.setScrollBar();
         this.repositionSlots();
@@ -405,6 +407,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             mc.player.closeScreen();
         } else if (this.settings.actionPerformed(btn)) {
             return;
+        } else if (btn instanceof GuiWirelessToggleButton toggle) {
+            toggle.press();
         } else if (btn == guiButtonHideFull) {
             onlyShowWithSpace = !onlyShowWithSpace;
             this.refreshList();

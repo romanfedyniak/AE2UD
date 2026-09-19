@@ -123,6 +123,8 @@ public class AppEngPacketHandlerBase {
 
         PACKET_AUTO_EXPORT_SIDE(PacketAutoExportSide.class),
 
+        PACKET_WIRELESS_TOGGLE(PacketWirelessToggle.class),
+
         ;
 
 

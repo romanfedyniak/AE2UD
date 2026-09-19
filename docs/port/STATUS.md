@@ -2486,6 +2486,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     only ingredient groups. Providers are keyed by category uid and handed the shown inputs and outputs as
     `GenericStack`s, since `IRecipeLayout` does not expose the recipe wrapper and nothing of the viewer's API
     belongs in `src/api`; what they return fills the processing grid's free slots after the listed ingredients.
+65. **`WirelessTerminalToggle` and `WirelessTerminalToggles`** - additive. An addon's per-terminal switch:
+    stored in the terminal's NBT under `toggles`, shown by `GuiWirelessToggleButton` in the settings drawer of
+    every screen whose container is an `IWirelessTerminalContainer`, set on the server by
+    `PacketWirelessToggle`. `Settings` is an enum, so an addon's switch cannot be one the way `PICK_BLOCK` is.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

@@ -24,6 +24,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon can put a switch on every wireless terminal.** A `WirelessTerminalToggle` - an id, whether it
+  starts on, two icons from the addon's own texture and a tooltip - registered in `WirelessTerminalToggles`
+  appears as a button in the settings drawer of every wireless screen: the terminal, the crafting and pattern
+  terminals, and the wireless interface and pattern access terminals. What it is set to lives in the terminal
+  item, the way pick block does, so a terminal on the belt can be on while a spare in a chest is off; the mod
+  only stores and shows it, and the addon reads it with `isOn(terminal)`. The pick block switch is an enum
+  setting of the mod's own and an addon cannot add to that enum, which is why this is a registry.
+
 - **A recipe's mana, energy or anything else drawn beside it goes into a pattern with the recipe.** Moving a
   recipe from HEI into a processing pattern took what the recipe screen lists as ingredients, and a machine
   that draws what it costs as a bar - Botania's runic altar and its mana - lost it on the way. An
