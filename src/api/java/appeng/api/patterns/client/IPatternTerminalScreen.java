@@ -1,0 +1,81 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2026 AE2UD contributors
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
+package appeng.api.patterns.client;
+
+import java.util.List;
+
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+
+import appeng.api.patterns.IPatternEncodingHost;
+
+/**
+ * The pattern terminal as a {@link PatternModePanel} sees it. Coordinates are relative to the window, with x
+ * from its left edge and y from its top, the way a slot's position is written.
+ */
+public interface IPatternTerminalScreen {
+
+    /** The terminal's own buttons, which every mode needs somewhere. */
+    enum TerminalButton {
+        ENCODE,
+        CLEAR,
+        UPLOAD
+    }
+
+    IPatternEncodingHost getHost();
+
+    /** The ghost slots of one of the active mode's grids, in slot order. */
+    List<Slot> getGridSlots(String grid);
+
+    int getGuiLeft();
+
+    int getGuiTop();
+
+    int getXSize();
+
+    int getYSize();
+
+    /** The top of the room set aside for the panel; the player's inventory begins below it. */
+    int getPanelTop();
+
+    /** Places one of the mode's ghost slots. */
+    void placeSlot(Slot slot, int x, int y);
+
+    void placeButton(TerminalButton button, int x, int y);
+
+    void setButtonVisible(TerminalButton button, boolean visible);
+
+    /** Tells the server the player did something on this panel; the mode is handed it in onAction. */
+    void sendModeAction(String action);
+
+    /** Lays the screen out again once the current mouse event is over, e.g. when the panel changes height. */
+    void refreshPanelLayout();
+
+    FontRenderer getFontRenderer();
+
+    void drawPanelBackground(int x, int y, int width, int height);
+
+    /** The sunken square a ghost slot sits in, for a panel that draws itself rather than wearing a texture. */
+    void drawSlotBackground(int x, int y);
+
+    void drawItemStack(int x, int y, ItemStack stack);
+
+    void drawText(String text, int x, int y, int colour);
+
+    void drawTooltip(List<String> lines, int x, int y);
+
+    /** Binds a texture of any mod, given as modid and the path under {@code textures/}. */
+    void bindTexture(String modId, String path);
+
+    /** Draws from the bound texture, sized in pixels of a 256x256 sheet. */
+    void drawTexture(int x, int y, int u, int v, int width, int height);
+}

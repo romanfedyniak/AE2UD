@@ -29,6 +29,8 @@ import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
 import appeng.core.AEClientConfig;
 import appeng.api.AEApi;
+import appeng.api.patterns.PatternEncodingModes;
+import appeng.api.patterns.client.PatternModePanels;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.client.render.keytypes.FluidKeyRenderHandler;
@@ -47,6 +49,8 @@ import appeng.entity.RenderFloatingItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.StorageCell;
+import appeng.client.gui.implementations.pattern.CraftingModePanel;
+import appeng.client.gui.implementations.pattern.ProcessingModePanel;
 import appeng.client.gui.implementations.GuiCellView;
 import appeng.client.gui.implementations.GuiPatternView;
 import appeng.entity.RenderTinyTNTPrimed;
@@ -110,6 +114,9 @@ public class ClientHelper extends ServerHelper {
         if (!FMLClientHandler.instance().hasOptifine() && ForgeModContainer.forgeLightPipelineEnabled) {
             ModelLoaderRegistry.registerLoader(UVLModelLoader.INSTANCE);
         }
+
+        PatternModePanels.register(PatternEncodingModes.CRAFTING, CraftingModePanel::new);
+        PatternModePanels.register(PatternEncodingModes.PROCESSING, ProcessingModePanel::new);
 
         RenderingRegistry.registerEntityRenderingHandler(EntityTinyTNTPrimed.class, manager -> new RenderTinyTNTPrimed(manager));
         RenderingRegistry.registerEntityRenderingHandler(EntityFloatingItem.class, manager -> new RenderFloatingItem(manager));

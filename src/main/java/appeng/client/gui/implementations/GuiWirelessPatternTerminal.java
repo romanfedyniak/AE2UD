@@ -28,8 +28,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 public class GuiWirelessPatternTerminal extends GuiPatternTerm {
 
     public GuiWirelessPatternTerminal(final InventoryPlayer inventoryPlayer, final WirelessTerminalGuiObject te) {
+        // The room the panel needs is the panel's to say, and the terminal above it has already been told.
         super(inventoryPlayer, te, new ContainerWirelessPatternTerminal(inventoryPlayer, te));
-        this.setReservedSpace(81);
     }
 
     @Override

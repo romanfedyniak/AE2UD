@@ -23,11 +23,13 @@ import appeng.api.AEApi;
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.config.ActionItems;
-import appeng.api.config.FluidSubstitution;
-import appeng.api.config.ItemSubstitution;
 import appeng.api.config.Settings;
+import appeng.api.patterns.IPatternEncodingHost;
 import appeng.api.patterns.PatternEncodingMode;
 import appeng.api.patterns.PatternEncodingModes;
+import appeng.api.patterns.client.IPatternTerminalScreen;
+import appeng.api.patterns.client.PatternModePanel;
+import appeng.api.patterns.client.PatternModePanels;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
@@ -35,20 +37,14 @@ import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.IKeyUnderMouse;
 import appeng.container.me.GridInventoryEntry;
 import appeng.core.localization.ButtonToolTips;
-import appeng.api.config.PatternSlotConfig;
 import appeng.client.gui.widgets.GuiImgButton;
-import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiTabButton;
-import appeng.core.AppEng;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
-import appeng.container.ContainerNull;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFake;
-import appeng.container.slot.SlotFakeCraftingMatrix;
-import appeng.helpers.PatternHelper;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.features.AEFeature;
@@ -61,16 +57,14 @@ import appeng.api.stacks.GenericStack;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
-import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
 import java.text.NumberFormat;
@@ -85,16 +79,9 @@ import java.util.List;
 import java.util.*;
 
 
-public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients, IKeyUnderMouse {
+public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients, IKeyUnderMouse, IPatternTerminalScreen {
 
-    private static final String BACKGROUND_CRAFTING_MODE = "guis/pattern.png";
-    private static final String BACKGROUND_PROCESSING_MODE = "guis/pattern3.png";
-    private static final String BACKGROUND_PROCESSING_INVERTED_MODE = "guis/pattern4.png";
-
-    private static final String SUBSITUTION_DISABLE = "0";
-    private static final String SUBSITUTION_ENABLE = "1";
-
-    private static final int FABRICATED_SLOT_TINT = 0x8032CD32;
+    private static final String BACKGROUND_NO_PANEL = "guis/pattern.png";
 
     /** Where the mode tab sits, the button below it, and the picker they open. */
     private static final int MODE_TAB_X = 173;
@@ -104,17 +91,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private static final int PICKER_PADDING = 4;
     private static final int PICKER_HOVER_TINT = 0x80FFFFFF;
 
-    /**
-     * The button cluster lives in the gap between the two processing grids, and inverting moves that gap
-     * three slots to the left.
-     */
-    private static final int BUTTONS_LEFT = 88;
-    private static final int BUTTONS_INVERTED_SHIFT = -18 * 3;
-
     private final ContainerPatternEncoder container;
 
-    private final GuiScrollbar pageScrollBar = new GuiScrollbar();
-    private GuiImgButton invertBtn;
+    /** What the mode on screen looks like; rebuilt whenever the terminal changes mode. */
+    private PatternModePanel panel;
+    private ResourceLocation panelMode;
     private int seenPatternLoads = Integer.MIN_VALUE;
 
     /**
@@ -125,49 +106,31 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     /** Shown only where an addon has registered a mode: the two built-in ones need no list. */
     private GuiTabButton modesBtn;
     private boolean pickerOpen;
-    private GuiImgButton substitutionsEnabledBtn;
-    private GuiImgButton substitutionsDisabledBtn;
-    private GuiImgButton fluidSubstitutionsEnabledBtn;
-    private GuiImgButton fluidSubstitutionsDisabledBtn;
-    private List<Slot> craftingGrid;
-    private GenericStack[] fabricatedSlots;
-    private int fabricatedFrom;
     private GuiImgButton encodeBtn;
     private GuiImgButton uploadBtn;
     private GuiImgButton clearBtn;
-    private GuiImgButton x2Btn;
-    private GuiImgButton x3Btn;
-    private GuiImgButton plusOneBtn;
-    private GuiImgButton divTwoBtn;
-    private GuiImgButton divThreeBtn;
-    private GuiImgButton minusOneBtn;
     public Map<Target<?>, Object> mapTargetSlot = new HashMap<>();
 
     public GuiPatternTerm(final InventoryPlayer inventoryPlayer, final ITerminalHost te) {
         super(inventoryPlayer, te, new ContainerPatternTerm(inventoryPlayer, te));
         this.container = (ContainerPatternTerm) this.inventorySlots;
-        this.setUpPages();
+        this.buildPanel();
     }
 
     public GuiPatternTerm(final InventoryPlayer inventoryPlayer, WirelessTerminalGuiObject te, final ContainerWirelessPatternTerminal wpt) {
         super(inventoryPlayer, te, wpt);
         this.container = (ContainerWirelessPatternTerminal) this.inventorySlots;
-        this.setUpPages();
+        this.buildPanel();
     }
 
     /**
-     * Sends the grid back to its first page. A recipe always fills the grid from the start, so arriving on
-     * the second page shows empty slots and reads as a transfer that did nothing.
+     * Builds the panel of the mode the terminal is in. The panel decides how much room the screen sets aside for
+     * it, so this runs before the screen is laid out, and again whenever the mode changes.
      */
-    public void showFirstPage() {
-        this.pageScrollBar.setCurrentScroll(0);
-    }
-
-    private void setUpPages() {
-        this.setReservedSpace(81);
-        this.pageScrollBar.setLeft(6).setWidth(7).setHeight(18 * PatternHelper.PROCESSING_GRID_DIMENSION - 2);
-        this.pageScrollBar.setRange(0, PatternHelper.PROCESSING_PAGES - 1, 1);
-        this.pageScrollBar.setTexture(AppEng.MOD_ID, BACKGROUND_PROCESSING_MODE, 243, 0);
+    private void buildPanel() {
+        this.panelMode = this.container.getEncodingMode();
+        this.panel = PatternModePanels.create(this.container.getMode(), this);
+        this.setReservedSpace(this.panel == null ? 0 : this.panel.getHeight());
     }
 
     @Override
@@ -191,11 +154,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 }
             }
 
-            if (this.invertBtn == btn) {
-                NetworkHandler.instance()
-                        .sendToServer(new PacketValueConfig("PatternTerminal.Invert", this.container.isInverted() ? "0" : "1"));
-            }
-
             if (this.encodeBtn == btn) {
                 if (isShiftKeyDown()) {
                     NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Encode", "2"));
@@ -208,44 +166,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Clear", "1"));
             }
 
-            if (this.x2Btn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.MultiplyByTwo", "1"));
-            }
-
-            if (this.x3Btn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.MultiplyByThree", "1"));
-            }
-
-            if (this.divTwoBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DivideByTwo", "1"));
-            }
-
-            if (this.divThreeBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DivideByThree", "1"));
-            }
-
             if (this.uploadBtn == btn) {
                 NetworkHandler.instance().sendToServer(PacketPatternUpload.button(isShiftKeyDown()));
             }
 
-            if (this.plusOneBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.IncreaseByOne", "1"));
-            }
-
-            if (this.minusOneBtn == btn) {
-                NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.DecreaseByOne", "1"));
-            }
-
-            if (this.substitutionsEnabledBtn == btn || this.substitutionsDisabledBtn == btn) {
-                NetworkHandler.instance()
-                        .sendToServer(
-                                new PacketValueConfig("PatternTerminal.Substitute", this.substitutionsEnabledBtn == btn ? SUBSITUTION_DISABLE : SUBSITUTION_ENABLE));
-            }
-
-            if (this.fluidSubstitutionsEnabledBtn == btn || this.fluidSubstitutionsDisabledBtn == btn) {
-                NetworkHandler.instance()
-                        .sendToServer(
-                                new PacketValueConfig("PatternTerminal.SubstituteFluids", this.fluidSubstitutionsEnabledBtn == btn ? SUBSITUTION_DISABLE : SUBSITUTION_ENABLE));
+            if (this.panel != null && this.panel.actionPerformed(btn)) {
+                return;
             }
         } catch (final IOException e) {
             AELog.error(e);
@@ -272,49 +198,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.buttonList.add(this.modesBtn);
         }
 
-        this.substitutionsEnabledBtn = new GuiImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, Settings.ACTIONS, ItemSubstitution.ENABLED);
-        this.substitutionsEnabledBtn.setHalfSize(true);
-        this.buttonList.add(this.substitutionsEnabledBtn);
-
-        this.substitutionsDisabledBtn = new GuiImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, Settings.ACTIONS, ItemSubstitution.DISABLED);
-        this.substitutionsDisabledBtn.setHalfSize(true);
-        this.buttonList.add(this.substitutionsDisabledBtn);
-
-        this.fluidSubstitutionsEnabledBtn = new GuiImgButton(this.guiLeft + 94, this.guiTop + this.ySize - 163, Settings.ACTIONS, FluidSubstitution.ENABLED);
-        this.fluidSubstitutionsEnabledBtn.setHalfSize(true);
-        this.buttonList.add(this.fluidSubstitutionsEnabledBtn);
-
-        this.fluidSubstitutionsDisabledBtn = new GuiImgButton(this.guiLeft + 94, this.guiTop + this.ySize - 163, Settings.ACTIONS, FluidSubstitution.DISABLED);
-        this.fluidSubstitutionsDisabledBtn.setHalfSize(true);
-        this.buttonList.add(this.fluidSubstitutionsDisabledBtn);
-
         this.clearBtn = new GuiImgButton(this.guiLeft + 74, this.guiTop + this.ySize - 163, Settings.ACTIONS, ActionItems.CLOSE);
         this.clearBtn.setHalfSize(true);
         this.buttonList.add(this.clearBtn);
-
-        this.x3Btn = new GuiImgButton(this.guiLeft + 128, this.guiTop + this.ySize - 158, Settings.ACTIONS, ActionItems.MULTIPLY_BY_THREE);
-        this.x3Btn.setHalfSize(true);
-        this.buttonList.add(this.x3Btn);
-
-        this.x2Btn = new GuiImgButton(this.guiLeft + 128, this.guiTop + this.ySize - 148, Settings.ACTIONS, ActionItems.MULTIPLY_BY_TWO);
-        this.x2Btn.setHalfSize(true);
-        this.buttonList.add(this.x2Btn);
-
-        this.plusOneBtn = new GuiImgButton(this.guiLeft + 128, this.guiTop + this.ySize - 138, Settings.ACTIONS, ActionItems.INCREASE_BY_ONE);
-        this.plusOneBtn.setHalfSize(true);
-        this.buttonList.add(this.plusOneBtn);
-
-        this.divThreeBtn = new GuiImgButton(this.guiLeft + 100, this.guiTop + this.ySize - 158, Settings.ACTIONS, ActionItems.DIVIDE_BY_THREE);
-        this.divThreeBtn.setHalfSize(true);
-        this.buttonList.add(this.divThreeBtn);
-
-        this.divTwoBtn = new GuiImgButton(this.guiLeft + 100, this.guiTop + this.ySize - 148, Settings.ACTIONS, ActionItems.DIVIDE_BY_TWO);
-        this.divTwoBtn.setHalfSize(true);
-        this.buttonList.add(this.divTwoBtn);
-
-        this.minusOneBtn = new GuiImgButton(this.guiLeft + 100, this.guiTop + this.ySize - 138, Settings.ACTIONS, ActionItems.DECREASE_BY_ONE);
-        this.minusOneBtn.setHalfSize(true);
-        this.buttonList.add(this.minusOneBtn);
 
         this.encodeBtn = new GuiImgButton(this.guiLeft + 147, this.guiTop + this.ySize - 142, Settings.ACTIONS, ActionItems.ENCODE);
         this.buttonList.add(this.encodeBtn);
@@ -327,36 +213,41 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.buttonList.add(this.uploadBtn);
         }
 
-        this.invertBtn = new GuiImgButton(this.guiLeft + BUTTONS_LEFT, this.guiTop + this.ySize - 165, Settings.ACTIONS, PatternSlotConfig.C_32_8);
-        this.invertBtn.setHalfSize(true);
-        this.buttonList.add(this.invertBtn);
-
-        this.pageScrollBar.setTop(this.ySize - 164);
+        if (this.panel != null) {
+            this.panel.addButtons(this.buttonList);
+        }
     }
 
     /**
-     * The processing grids move with the page and the orientation, so their positions are re-derived every
-     * frame before anything is drawn from them. The container owns the arithmetic; the screen only feeds
-     * it the page it is showing and reapplies its own offsets to whatever moved.
+     * The panel's slots and buttons move with whatever it is showing, so their positions are re-derived every
+     * frame before anything is drawn from them.
      */
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        if (!this.container.getEncodingMode().equals(this.panelMode)) {
+            this.buildPanel();
+            this.refreshLayout();
+        }
+
         if (this.seenPatternLoads != this.container.patternLoads) {
             // The first reading only records where the count already stood - the terminal opens on the
             // first page anyway, and the initial sync is not a pattern being laid out.
-            if (this.seenPatternLoads != Integer.MIN_VALUE) {
-                this.showFirstPage();
+            if (this.seenPatternLoads != Integer.MIN_VALUE && this.panel != null) {
+                this.panel.onPatternLoaded();
             }
             this.seenPatternLoads = this.container.patternLoads;
         }
 
-        this.container.setActivePage(this.pageScrollBar.getCurrentScroll());
         this.container.refreshOutputIfDirty();
         this.container.updateSlotVisibility();
         // Buttons are drawn between the background and the foreground layer, so which ones show and
         // where they sit have to be decided here; from drawFG they would always be a frame behind.
         this.handleButtonVisibility();
-        this.layOutButtons();
+
+        if (this.panel != null) {
+            this.panel.layOut();
+            this.panel.updateButtons();
+        }
 
         for (final Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
@@ -366,16 +257,19 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         }
 
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
+
+        if (this.panel != null) {
+            this.panel.drawBackground(mouseX - this.guiLeft, mouseY - this.guiTop);
+        }
     }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
         this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
-        this.drawFluidSubstitutionHint();
 
-        if (this.isProcessingMode()) {
-            this.pageScrollBar.draw(this);
+        if (this.panel != null) {
+            this.panel.drawForeground(mouseX - this.guiLeft, mouseY - this.guiTop);
         }
 
         if (this.pickerOpen) {
@@ -465,8 +359,13 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         }
     }
 
-    /** Which half of the button cluster belongs to the mode on screen. */
+    /** The terminal's own buttons; the panel decides where they sit and what else is on screen. */
     private void handleButtonVisibility() {
+        final ResourceLocation mode = this.container.getEncodingMode();
+        for (final Map.Entry<ResourceLocation, GuiTabButton> tab : this.modeTabs.entrySet()) {
+            tab.getValue().visible = tab.getKey().equals(mode);
+        }
+
         if (this.uploadBtn != null) {
             final boolean send = this.container.patternSlotOUT.getHasStack();
             // The same button both ways round: up while there is a pattern to send, down while the last one
@@ -477,166 +376,43 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.uploadBtn.enabled = send || undo;
             this.uploadBtn.set(undo ? ActionItems.UPLOAD_UNDO : ActionItems.UPLOAD);
         }
+    }
 
-        final ResourceLocation mode = this.container.getEncodingMode();
-        for (final Map.Entry<ResourceLocation, GuiTabButton> tab : this.modeTabs.entrySet()) {
-            tab.getValue().visible = tab.getKey().equals(mode);
-        }
-
-        if (this.container.isCraftingMode()) {
-            this.x2Btn.visible = false;
-            this.x3Btn.visible = false;
-            this.divTwoBtn.visible = false;
-            this.divThreeBtn.visible = false;
-            this.plusOneBtn.visible = false;
-            this.minusOneBtn.visible = false;
-            this.invertBtn.visible = false;
-
-            if (this.container.substitute) {
-                this.substitutionsEnabledBtn.visible = true;
-                this.substitutionsDisabledBtn.visible = false;
-            } else {
-                this.substitutionsEnabledBtn.visible = false;
-                this.substitutionsDisabledBtn.visible = true;
-            }
-
-            if (this.container.substituteFluids) {
-                this.fluidSubstitutionsEnabledBtn.visible = true;
-                this.fluidSubstitutionsDisabledBtn.visible = false;
-            } else {
-                this.fluidSubstitutionsEnabledBtn.visible = false;
-                this.fluidSubstitutionsDisabledBtn.visible = true;
-            }
-        } else {
-            final boolean processing = this.isProcessingMode();
-            this.substitutionsEnabledBtn.visible = false;
-            this.substitutionsDisabledBtn.visible = false;
-            this.fluidSubstitutionsEnabledBtn.visible = false;
-            this.fluidSubstitutionsDisabledBtn.visible = false;
-            this.x2Btn.visible = processing;
-            this.x3Btn.visible = processing;
-            this.divTwoBtn.visible = processing;
-            this.divThreeBtn.visible = processing;
-            this.plusOneBtn.visible = processing;
-            this.minusOneBtn.visible = processing;
-            this.invertBtn.visible = processing;
+    @Override
+    public void placeButton(final TerminalButton which, final int x, final int y) {
+        final GuiImgButton button = this.terminalButton(which);
+        if (button != null) {
+            button.x = this.guiLeft + x;
+            button.y = this.guiTop + y;
         }
     }
 
-    /**
-     * Crafting mode keeps the row of toggles it always had, above a three-by-three grid. Processing mode
-     * has no room there and stacks them in the gap between its two grids instead, which inverting moves.
-     */
-    private void layOutButtons() {
-        if (this.container.isCraftingMode()) {
-            this.clearBtn.x = this.guiLeft + 74;
-            this.clearBtn.y = this.guiTop + this.ySize - 163;
-            return;
+    @Override
+    public void setButtonVisible(final TerminalButton which, final boolean visible) {
+        final GuiImgButton button = this.terminalButton(which);
+        if (button != null) {
+            button.visible = visible;
         }
-
-        final int left = this.guiLeft + BUTTONS_LEFT + (this.container.isInverted() ? BUTTONS_INVERTED_SHIFT : 0);
-        final int right = left + 10;
-        final int top = this.guiTop + this.ySize - 165;
-
-        this.clearBtn.x = left;
-        this.clearBtn.y = top;
-        this.invertBtn.x = right;
-        this.invertBtn.y = top;
-
-        this.divTwoBtn.x = left;
-        this.divTwoBtn.y = top + 10;
-        this.x2Btn.x = right;
-        this.x2Btn.y = top + 10;
-
-        this.divThreeBtn.x = left;
-        this.divThreeBtn.y = top + 20;
-        this.x3Btn.x = right;
-        this.x3Btn.y = top + 20;
-
-        this.minusOneBtn.x = left;
-        this.minusOneBtn.y = top + 30;
-        this.plusOneBtn.x = right;
-        this.plusOneBtn.y = top + 30;
-
-        this.invertBtn.set(this.container.isInverted() ? PatternSlotConfig.C_8_32 : PatternSlotConfig.C_32_8);
     }
 
-    /**
-     * Tints the ingredients the network would fill in for, while the fluid-substitution button is under the
-     * cursor. Decided by {@link PatternHelper#findFabricatedSlots}, the same rule the pattern itself will
-     * use once encoded - so what lights up green here is exactly what the toggle will act on, and a
-     * container the recipe does not simply empty stays dark instead of promising something.
-     */
-    private void drawFluidSubstitutionHint() {
-        final GuiImgButton button = this.fluidSubstitutionsEnabledBtn.visible
-                ? this.fluidSubstitutionsEnabledBtn
-                : this.fluidSubstitutionsDisabledBtn;
-
-        if (!button.visible || !button.isMouseOver()) {
-            this.fabricatedSlots = null;
-            return;
+    @Nullable
+    private GuiImgButton terminalButton(final TerminalButton which) {
+        switch (which) {
+            case ENCODE:
+                return this.encodeBtn;
+            case CLEAR:
+                return this.clearBtn;
+            case UPLOAD:
+                return this.uploadBtn;
+            default:
+                return null;
         }
-
-        if (this.craftingGrid == null) {
-            this.craftingGrid = new ArrayList<>(9);
-            for (final Slot slot : this.inventorySlots.inventorySlots) {
-                if (slot instanceof SlotFakeCraftingMatrix) {
-                    this.craftingGrid.add(slot);
-                }
-            }
-        }
-
-        // Finding the recipe is a scan of every one registered, so it is redone only when the grid actually
-        // changed - hovering a still grid costs nothing after the first frame.
-        final int contents = this.gridContents();
-        if (this.fabricatedSlots == null || contents != this.fabricatedFrom) {
-            this.fabricatedSlots = this.findFabricated();
-            this.fabricatedFrom = contents;
-        }
-
-        GlStateManager.disableLighting();
-        GlStateManager.disableDepth();
-
-        for (int i = 0; i < this.craftingGrid.size() && i < this.fabricatedSlots.length; i++) {
-            if (this.fabricatedSlots[i] != null) {
-                final Slot slot = this.craftingGrid.get(i);
-                drawRect(slot.xPos, slot.yPos, slot.xPos + 16, slot.yPos + 16, FABRICATED_SLOT_TINT);
-            }
-        }
-
-        GlStateManager.enableDepth();
-        GlStateManager.enableLighting();
-        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-    }
-
-    private GenericStack[] findFabricated() {
-        final InventoryCrafting grid = new InventoryCrafting(new ContainerNull(), 3, 3);
-
-        for (int i = 0; i < this.craftingGrid.size() && i < 9; i++) {
-            grid.setInventorySlotContents(i, this.craftingGrid.get(i).getStack().copy());
-        }
-
-        return PatternHelper.findFabricatedSlots(grid, CraftingManager.findMatchingRecipe(grid, this.mc.world));
-    }
-
-    private int gridContents() {
-        int hash = 1;
-
-        for (final Slot slot : this.craftingGrid) {
-            final ItemStack is = slot.getStack();
-            hash = hash * 31 + (is.isEmpty() ? 0 : Item.getIdFromItem(is.getItem()) * 31 + is.getItemDamage());
-        }
-
-        return hash;
     }
 
     @Override
     protected String getBackground() {
-        if (this.container.isCraftingMode()) {
-            return BACKGROUND_CRAFTING_MODE;
-        }
-
-        return this.container.isInverted() ? BACKGROUND_PROCESSING_INVERTED_MODE : BACKGROUND_PROCESSING_MODE;
+        final String background = this.panel == null ? null : this.panel.getBackground();
+        return background == null ? BACKGROUND_NO_PANEL : background;
     }
 
     @Override
@@ -646,7 +422,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             if (picked != null) {
                 this.pickerOpen = false;
                 if (!picked.getId().equals(this.container.getEncodingMode())) {
-                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Mode", picked.getId().toString()));
+                    this.switchTo(picked.getId());
                 }
                 return;
             }
@@ -656,8 +432,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 this.pickerOpen = false;
             }
         }
-        if (this.isProcessingMode()) {
-            this.pageScrollBar.click(this, xCoord - this.guiLeft, yCoord - this.guiTop);
+        if (this.panel != null && this.panel.mouseClicked(xCoord - this.guiLeft, yCoord - this.guiTop, btn)) {
+            return;
         }
         super.mouseClicked(xCoord, yCoord, btn);
     }
@@ -665,8 +441,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     protected void mouseClickMove(final int x, final int y, final int c, final long d) {
         super.mouseClickMove(x, y, c, d);
-        if (this.isProcessingMode()) {
-            this.pageScrollBar.click(this, x - this.guiLeft, y - this.guiTop);
+        if (this.panel != null) {
+            this.panel.mouseDragged(x - this.guiLeft, y - this.guiTop, c);
         }
     }
 
@@ -674,12 +450,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     public void handleMouseInput() throws IOException {
         final int wheel = Mouse.getEventDWheel();
 
-        if (wheel != 0 && this.isProcessingMode()) {
+        if (wheel != 0 && this.panel != null) {
             final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
             final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
 
-            if (this.pageScrollBar.contains(x - this.guiLeft, y - this.guiTop)) {
-                this.pageScrollBar.wheel(wheel);
+            if (this.panel.mouseWheel(x - this.guiLeft, y - this.guiTop, wheel)) {
                 return;
             }
         }
@@ -772,6 +547,107 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public Map<Target<?>, Object> getFakeSlotTargetMap() {
         return mapTargetSlot;
+    }
+
+    @Override
+    public IPatternEncodingHost getHost() {
+        return this.container;
+    }
+
+    @Override
+    public List<Slot> getGridSlots(final String grid) {
+        return this.container.getGridSlots(grid);
+    }
+
+    @Override
+    public int getGuiLeft() {
+        return this.guiLeft;
+    }
+
+    @Override
+    public int getGuiTop() {
+        return this.guiTop;
+    }
+
+    @Override
+    public int getXSize() {
+        return this.xSize;
+    }
+
+    @Override
+    public int getYSize() {
+        return this.ySize;
+    }
+
+    @Override
+    public int getPanelTop() {
+        return this.ySize - 96 - this.getReservedSpace();
+    }
+
+    /**
+     * The terminal's slots are written relative to its bottom edge - see {@link #repositionSlot} - so a panel
+     * that thinks in window coordinates has its position translated here rather than in every panel.
+     */
+    @Override
+    public void placeSlot(final Slot slot, final int x, final int y) {
+        if (slot instanceof AppEngSlot aeSlot) {
+            aeSlot.setX(x);
+            aeSlot.setY(y - this.ySize + 81);
+        }
+    }
+
+    @Override
+    public void sendModeAction(final String action) {
+        try {
+            NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.ModeAction", action));
+        } catch (final IOException e) {
+            AELog.debug(e);
+        }
+    }
+
+    @Override
+    public void refreshPanelLayout() {
+        this.refreshLayout();
+    }
+
+    @Override
+    public FontRenderer getFontRenderer() {
+        return this.fontRenderer;
+    }
+
+    @Override
+    public void drawPanelBackground(final int x, final int y, final int width, final int height) {
+        drawPanel(x, y, width, height);
+    }
+
+    @Override
+    public void drawSlotBackground(final int x, final int y) {
+        drawSlotWell(x, y);
+    }
+
+    @Override
+    public void drawItemStack(final int x, final int y, final ItemStack stack) {
+        this.drawItem(x, y, stack);
+    }
+
+    @Override
+    public void drawText(final String text, final int x, final int y, final int colour) {
+        this.fontRenderer.drawString(text, x, y, colour);
+    }
+
+    @Override
+    public void drawTooltip(final List<String> lines, final int x, final int y) {
+        this.drawHoveringText(lines, x, y, this.fontRenderer);
+    }
+
+    @Override
+    public void bindTexture(final String modId, final String path) {
+        this.mc.getTextureManager().bindTexture(new ResourceLocation(modId, "textures/" + path));
+    }
+
+    @Override
+    public void drawTexture(final int x, final int y, final int u, final int v, final int width, final int height) {
+        this.drawTexturedModalRect(x, y, u, v, width, height);
     }
 
     /** The blank patterns the network holds, whatever the slot that spends them happens to hold. */

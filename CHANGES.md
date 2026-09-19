@@ -34,6 +34,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   showing the mode the terminal is in; clicking it opens a row of every mode to pick from. A terminal saved in
   crafting or processing mode opens in the same mode.
 
+- **A mode draws its own panel in the pattern terminal.** A `PatternModePanel`, registered per mode from the
+  client alone, says how much room the terminal sets aside for it, places its grids' slots, draws whatever it
+  likes around them and owns its own buttons; the terminal keeps only encode, clear and upload, and lets the
+  panel put them where its layout has room. A panel that will not fit above the player's inventory can show a
+  screen of its own over the same container instead. Crafting and processing are drawn by two such panels now,
+  so the terminal has no mode of its own left in it, and what a panel can do is what those two needed: the
+  three-by-three grid with its substitution toggles and the green hint, and the paged grids with the amount
+  buttons in the gap between them.
+
 - **An addon can reach a network through a player's wireless terminals without a word to the player.**
   `WirelessTerminalAccess.reachable` returns every terminal the player carries that is linked, charged and in
   range, where `run` stops at the first and tells the player why the others could not answer. That suits pick

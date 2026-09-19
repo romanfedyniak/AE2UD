@@ -109,6 +109,13 @@ public abstract class PatternEncodingMode {
     public void beforeRecipePlaced(final IPatternEncodingHost host, final RecipePlacement placement) {
     }
 
+    /**
+     * Something the player did on this mode's panel, sent from the screen by
+     * {@code IPatternTerminalScreen.sendModeAction}. Runs on the server, on the terminal the player has open.
+     */
+    public void onAction(final IPatternEncodingHost host, final String action) {
+    }
+
     /** Whether this is a pattern of this mode, which the terminal can then load back into the grids. */
     public abstract boolean isPattern(ItemStack stack);
 

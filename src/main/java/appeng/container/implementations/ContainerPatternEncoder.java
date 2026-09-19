@@ -58,6 +58,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,13 +66,6 @@ import java.util.Map;
 import java.util.Optional;
 
 public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, IProcessingEncodingHost {
-
-    // Where the processing grid sits on guis/pattern3.png and guis/pattern4.png. The inputs start at the
-    // same column either way; only the outputs move, from a single column on the right to the wide grid.
-    private static final int PROCESSING_TOP = -83;
-    private static final int PROCESSING_INPUT_X = 15;
-    private static final int PROCESSING_OUTPUT_COMPACT_X = 112;
-    private static final int PROCESSING_OUTPUT_EXPANDED_X = 58;
 
     private static AEItemKey blankPatternKey;
 
@@ -95,15 +89,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     /** The grids of addon modes on a terminal without a part to keep them; see {@link #getEncodingGrid}. */
     protected EncoderGrids modeGrids;
 
-    /** The ghost slots of each addon mode, shown while that mode is the one on screen. */
-    private final Map<ResourceLocation, List<SlotFakePatternGrid>> modeSlots = new LinkedHashMap<>();
-
-    /**
-     * Which page of the processing grid is on screen. Purely a client-side view: every slot is in the
-     * container and synced whatever the page says, so the server has no use for it and scrolling costs no
-     * round trip.
-     */
-    private int activePage = 0;
+    /** The ghost slots of each addon mode, by grid, shown while that mode is the one on screen. */
+    private final Map<ResourceLocation, Map<String, List<Slot>>> modeSlots = new LinkedHashMap<>();
 
     /**
      * Set when the crafting matrix changed and the result is stale. The server pushes one packet per slot
@@ -337,13 +324,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     /**
-     * Decides which slots the screen shows and where. Both grids and both orientations live in the
-     * container at once, so this is the only place that knows what is currently on screen; the screen
-     * feeds it the page and repositions whatever it moved.
+     * Hides every slot that does not belong to the mode on screen. Where each of the rest goes, and which of
+     * them a panel is showing, is the panel's own business.
      */
     public void updateSlotVisibility() {
-        final boolean crafting = this.isCraftingMode();
-        final boolean processing = PatternEncodingModes.PROCESSING.equals(this.getEncodingMode());
+        final ResourceLocation active = this.getEncodingMode();
+        final boolean crafting = PatternEncodingModes.CRAFTING.equals(active);
+        final boolean processing = PatternEncodingModes.PROCESSING.equals(active);
 
         if (this.craftSlot != null) {
             this.craftSlot.setHidden(!crafting);
@@ -353,19 +340,19 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             slot.setHidden(!crafting);
         }
 
-        for (int i = 0; i < this.processingSlots.length; i++) {
-            this.layOut(this.processingSlots[i], i, !processing, this.inverted, PROCESSING_INPUT_X);
+        for (final SlotFakeProcessingGrid slot : this.processingSlots) {
+            slot.setHidden(!processing);
         }
 
-        for (int i = 0; i < this.outputSlots.length; i++) {
-            this.layOut(this.outputSlots[i], i, !processing, !this.inverted,
-                    this.inverted ? PROCESSING_OUTPUT_EXPANDED_X : PROCESSING_OUTPUT_COMPACT_X);
+        for (final OptionalSlotFake slot : this.outputSlots) {
+            slot.setHidden(!processing);
         }
 
-        final ResourceLocation active = this.getEncodingMode();
-        for (final Map.Entry<ResourceLocation, List<SlotFakePatternGrid>> mode : this.modeSlots.entrySet()) {
-            for (final SlotFakePatternGrid slot : mode.getValue()) {
-                slot.setHidden(!mode.getKey().equals(active));
+        for (final Map.Entry<ResourceLocation, Map<String, List<Slot>>> mode : this.modeSlots.entrySet()) {
+            for (final List<Slot> grid : mode.getValue().values()) {
+                for (final Slot slot : grid) {
+                    ((AppEngSlot) slot).setHidden(!mode.getKey().equals(active));
+                }
             }
         }
     }
@@ -380,9 +367,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             if (EncoderGrids.isBuiltIn(mode.getId())) {
                 continue;
             }
-            final List<SlotFakePatternGrid> slots = new ArrayList<>();
+            final Map<String, List<Slot>> grids = new LinkedHashMap<>();
             for (final PatternGrid grid : mode.getGrids()) {
                 final IItemHandler inv = this.getEncodingGrid(mode, grid.getName());
+                final List<Slot> slots = new ArrayList<>();
                 for (int i = 0; i < grid.getSize(); i++) {
                     final SlotFakePatternGrid slot = grid.isItemsOnly()
                             ? new SlotFakeCraftingMatrix(inv, i, 0, 0)
@@ -391,35 +379,37 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                     this.addSlotToContainer(slot);
                     slots.add(slot);
                 }
+                grids.put(grid.getName(), slots);
             }
-            this.modeSlots.put(mode.getId(), slots);
+            this.modeSlots.put(mode.getId(), grids);
         }
     }
 
-    /** The ghost slots of an addon mode, in the order of its grids; none for crafting and processing. */
-    public List<SlotFakePatternGrid> getModeSlots(final ResourceLocation mode) {
-        return this.modeSlots.getOrDefault(mode, Collections.emptyList());
+    /** The ghost slots of one grid of the mode on screen, in slot order. */
+    public List<Slot> getGridSlots(final String grid) {
+        final ResourceLocation active = this.getEncodingMode();
+
+        if (PatternEncodingModes.CRAFTING.equals(active)) {
+            return CraftingEncodingMode.GRID.equals(grid) ? Arrays.asList(this.craftingSlots) : Collections.emptyList();
+        }
+
+        if (PatternEncodingModes.PROCESSING.equals(active)) {
+            if (ProcessingEncodingMode.INPUTS.equals(grid)) {
+                return Arrays.asList(this.processingSlots);
+            }
+            return ProcessingEncodingMode.OUTPUTS.equals(grid) ? Arrays.asList(this.outputSlots) : Collections.emptyList();
+        }
+
+        return this.modeSlots.getOrDefault(active, Collections.emptyMap()).getOrDefault(grid, Collections.emptyList());
     }
 
-    /**
-     * Places one slot of a processing grid. The expanded side fills the whole four-by-four grid and pages
-     * through it; the compact side shows a single column, one page's worth at a time.
-     */
-    private void layOut(final AppEngSlot slot, final int index, final boolean hidden, final boolean compact, final int left) {
-        final int dimension = PatternHelper.PROCESSING_GRID_DIMENSION;
-        final int page = index / (dimension * dimension);
-        final int x = index % dimension;
-        final int y = index / dimension % dimension;
-
-        if (compact) {
-            slot.setHidden(hidden || page != 0 || y != this.activePage);
-            slot.setX(left);
-            slot.setY(PROCESSING_TOP + 18 * x);
-        } else {
-            slot.setHidden(hidden || page != this.activePage);
-            slot.setX(left + 18 * x);
-            slot.setY(PROCESSING_TOP + 18 * y);
+    /** Every slot of the mode on screen, whichever grid it belongs to. */
+    private List<Slot> activeModeSlots() {
+        final List<Slot> slots = new ArrayList<>();
+        for (final PatternGrid grid : this.getMode().getGrids()) {
+            slots.addAll(this.getGridSlots(grid.getName()));
         }
+        return slots;
     }
 
     @Override
@@ -883,11 +873,6 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         this.updateSlotVisibility();
     }
 
-    /** Client-side only; see {@link #activePage}. */
-    public void setActivePage(final int activePage) {
-        this.activePage = activePage;
-    }
-
     boolean isSubstitute() {
         return this.substitute;
     }
@@ -1035,7 +1020,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             s.putStack(ItemStack.EMPTY);
         }
 
-        for (final Slot s : this.getModeSlots(this.getEncodingMode())) {
+        for (final Slot s : this.activeModeSlots()) {
             s.putStack(ItemStack.EMPTY);
         }
 
