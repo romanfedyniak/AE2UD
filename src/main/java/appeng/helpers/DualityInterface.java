@@ -1224,19 +1224,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
 
             var mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
-            if (mon != null && !fabricated) {
+            // Only a network node is handed the pattern as a network. A condenser also speaks MEStorage but is
+            // none, and goes on to the item path below like any other machine.
+            final IGridProxyable proxyable = mon == null || fabricated ? null : networkNodeOf(te, s.getOpposite());
+            if (proxyable != null) {
                 visitedFaces.remove(s);
 
                 try {
-                    IGridProxyable proxyable;
-                    if (te instanceof IGridProxyable) {
-                        proxyable = (IGridProxyable) te;
-                    } else if (te instanceof IPartHost partHost) {
-                        proxyable = (IGridProxyable) partHost.getPart(s.getOpposite());
-                    } else {
-                        continue;
-                    }
-
                     if (proxyable.getProxy().getGrid() == this.gridProxy.getGrid()) {
                         continue;
                     }
@@ -1377,6 +1371,17 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             visitedFaces.remove(s);
         }
         return false;
+    }
+
+    @Nullable
+    private static IGridProxyable networkNodeOf(final TileEntity te, final EnumFacing side) {
+        if (te instanceof IGridProxyable proxyable) {
+            return proxyable;
+        }
+        if (te instanceof IPartHost partHost && partHost.getPart(side) instanceof IGridProxyable proxyable) {
+            return proxyable;
+        }
+        return null;
     }
 
     public void resetCraftingLock() {

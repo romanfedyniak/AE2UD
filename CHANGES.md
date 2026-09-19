@@ -115,6 +115,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   plain tank, nor a pattern of mana to a mana pool, although the export strategy would have filled either.
   A pattern that has no items no longer needs anywhere to put them.
 
+- **An interface hands a pattern to a Matter Condenser, so singularities can be autocrafted.** The condenser
+  offers itself as ME storage, and the interface took anything that does for a neighbouring network: it
+  looked for the network, found none, and passed the condenser over without trying it as a machine. Only a
+  network node is treated as a network now; the condenser is handed the pattern like any other block, and a
+  pattern of 256,000 items for one singularity goes in whole.
+
 - **A pattern is not decoded from scratch every time the chunk holding it loads.** Reading an encoded
   crafting pattern means offering its grid to every recipe in the game until one matches, and that happened
   anew for each pattern each time the machine holding it came back: a player flying home paid one full scan
