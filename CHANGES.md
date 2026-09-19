@@ -24,6 +24,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon can add a mode to the pattern terminal.** Crafting and processing used to be the only two, a
+  switch in the terminal and in every packet that touched it. They are now the first two
+  `PatternEncodingMode`s registered in `PatternEncodingModes`, and an addon registers its own the same way: the
+  grids it edits, which recipe categories it takes, and how it turns what is in its grids into a pattern and
+  back. Every pattern terminal, wired or wireless, keeps each mode's grids and saves them. Moving a recipe from
+  HEI picks the mode that takes its category and falls back to processing, so a recipe lands in the right mode
+  in one step instead of the terminal switching first and the recipe following. The two tabs are one tab now,
+  showing the mode the terminal is in; clicking it opens a row of every mode to pick from. A terminal saved in
+  crafting or processing mode opens in the same mode.
+
 - **An addon can reach a network through a player's wireless terminals without a word to the player.**
   `WirelessTerminalAccess.reachable` returns every terminal the player carries that is linked, charged and in
   range, where `run` stops at the first and tells the player why the others could not answer. That suits pick

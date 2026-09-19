@@ -2,11 +2,11 @@ package appeng.container.implementations;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
-import appeng.api.definitions.IDefinitions;
-import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
-import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
+import appeng.api.patterns.PatternGrid;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -29,6 +29,10 @@ import appeng.core.sync.packets.PacketPatternSlot;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.helpers.PatternHelper;
 import appeng.helpers.PatternUpload;
+import appeng.helpers.encoding.CraftingEncodingMode;
+import appeng.helpers.encoding.EncoderGrids;
+import appeng.helpers.encoding.IProcessingEncodingHost;
+import appeng.helpers.encoding.ProcessingEncodingMode;
 import appeng.items.storage.ItemViewCell;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.reporting.AbstractPartEncoder;
@@ -47,20 +51,20 @@ import net.minecraft.inventory.*;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
-
-public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket {
+public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, IProcessingEncodingHost {
 
     // Where the processing grid sits on guis/pattern3.png and guis/pattern4.png. The inputs start at the
     // same column either way; only the outputs move, from a single column on the right to the wide grid.
@@ -88,6 +92,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     protected SlotFakeProcessingGrid[] processingSlots;
     protected OptionalSlotFake[] outputSlots;
 
+    /** The grids of addon modes on a terminal without a part to keep them; see {@link #getEncodingGrid}. */
+    protected EncoderGrids modeGrids;
+
+    /** The ghost slots of each addon mode, shown while that mode is the one on screen. */
+    private final Map<ResourceLocation, List<SlotFakePatternGrid>> modeSlots = new LinkedHashMap<>();
+
     /**
      * Which page of the processing grid is on screen. Purely a client-side view: every slot is in the
      * container and synced whatever the page says, so the server has no use for it and scrolling costs no
@@ -102,7 +112,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     private boolean outputDirty = false;
 
     @GuiSync(97)
-    public boolean craftingMode = true;
+    public String encodingMode = PatternEncodingModes.CRAFTING.toString();
     @GuiSync(96)
     public boolean substitute = false;
     @GuiSync(95)
@@ -170,12 +180,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     private boolean unencode(final EntityPlayer player, final boolean wholeStack) {
         final ItemStack held = player.inventory.getItemStack();
 
-        if (held.isEmpty() || !(held.getItem() instanceof ICraftingPatternItem)) {
-            return false;
-        }
-
-        final ICraftingPatternDetails details = ((ICraftingPatternItem) held.getItem()).getPatternForItem(held, player.world);
-        if (details == null) {
+        if (PatternEncodingModes.forPattern(held) == null) {
             return false;
         }
 
@@ -204,7 +209,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         // A stack is one item and one tag, so all of them carry the same recipe - read it once.
-        this.loadIntoGrid(details);
+        this.loadPattern(held);
 
         held.shrink(traded);
         player.inventory.setItemStack(held.isEmpty() ? ItemStack.EMPTY : held);
@@ -222,22 +227,20 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     /**
-     * Spreads a decoded pattern back over the terminal: the toggles, then the two inventories behind the
-     * grid and the output slots.
+     * Spreads a pattern back over the terminal, in the mode that encoded it.
+     *
+     * @return false for a pattern no mode can read, leaving the terminal as it was.
      */
-    protected void loadIntoGrid(final ICraftingPatternDetails details) {
-        this.setCraftingMode(details.isCraftable());
-        this.setSubstitute(details.canSubstitute());
-        this.setSubstituteFluids(details.canSubstituteFluids());
-        // Before decoding, never after: setInverted empties the side the orientation cannot reach, and
-        // would take the pattern we are about to lay out with it.
-        this.setInverted(PatternHelper.shouldInvert(details.getInputs(), details.getOutputs()));
+    protected boolean loadPattern(final ItemStack pattern) {
+        final PatternEncodingMode mode = PatternEncodingModes.forPattern(pattern);
+        if (mode == null || !mode.load(this, pattern)) {
+            return false;
+        }
 
-        PatternHelper.decodeInto(details, details.isCraftable() ? this.crafting : this.processing, this.getInventoryByName("output"));
-
+        this.setEncodingMode(mode.getId());
         this.markPatternLoaded();
-
         this.getAndUpdateOutput();
+        return true;
     }
 
     /**
@@ -340,6 +343,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
      */
     public void updateSlotVisibility() {
         final boolean crafting = this.isCraftingMode();
+        final boolean processing = PatternEncodingModes.PROCESSING.equals(this.getEncodingMode());
 
         if (this.craftSlot != null) {
             this.craftSlot.setHidden(!crafting);
@@ -350,31 +354,69 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         for (int i = 0; i < this.processingSlots.length; i++) {
-            this.layOut(this.processingSlots[i], i, crafting, this.inverted, PROCESSING_INPUT_X);
+            this.layOut(this.processingSlots[i], i, !processing, this.inverted, PROCESSING_INPUT_X);
         }
 
         for (int i = 0; i < this.outputSlots.length; i++) {
-            this.layOut(this.outputSlots[i], i, crafting, !this.inverted,
+            this.layOut(this.outputSlots[i], i, !processing, !this.inverted,
                     this.inverted ? PROCESSING_OUTPUT_EXPANDED_X : PROCESSING_OUTPUT_COMPACT_X);
         }
+
+        final ResourceLocation active = this.getEncodingMode();
+        for (final Map.Entry<ResourceLocation, List<SlotFakePatternGrid>> mode : this.modeSlots.entrySet()) {
+            for (final SlotFakePatternGrid slot : mode.getValue()) {
+                slot.setHidden(!mode.getKey().equals(active));
+            }
+        }
+    }
+
+    /**
+     * Adds a ghost slot for every slot of every addon mode's grids. They go in at the origin, hidden; the mode's
+     * screen places them. Called by each terminal once its own slots are in, so the slot numbers match on both
+     * sides.
+     */
+    protected void addModeSlots() {
+        for (final PatternEncodingMode mode : PatternEncodingModes.getAll()) {
+            if (EncoderGrids.isBuiltIn(mode.getId())) {
+                continue;
+            }
+            final List<SlotFakePatternGrid> slots = new ArrayList<>();
+            for (final PatternGrid grid : mode.getGrids()) {
+                final IItemHandler inv = this.getEncodingGrid(mode, grid.getName());
+                for (int i = 0; i < grid.getSize(); i++) {
+                    final SlotFakePatternGrid slot = grid.isItemsOnly()
+                            ? new SlotFakeCraftingMatrix(inv, i, 0, 0)
+                            : new SlotFakeProcessingGrid(inv, i, 0, 0);
+                    slot.setHidden(true);
+                    this.addSlotToContainer(slot);
+                    slots.add(slot);
+                }
+            }
+            this.modeSlots.put(mode.getId(), slots);
+        }
+    }
+
+    /** The ghost slots of an addon mode, in the order of its grids; none for crafting and processing. */
+    public List<SlotFakePatternGrid> getModeSlots(final ResourceLocation mode) {
+        return this.modeSlots.getOrDefault(mode, Collections.emptyList());
     }
 
     /**
      * Places one slot of a processing grid. The expanded side fills the whole four-by-four grid and pages
      * through it; the compact side shows a single column, one page's worth at a time.
      */
-    private void layOut(final AppEngSlot slot, final int index, final boolean crafting, final boolean compact, final int left) {
+    private void layOut(final AppEngSlot slot, final int index, final boolean hidden, final boolean compact, final int left) {
         final int dimension = PatternHelper.PROCESSING_GRID_DIMENSION;
         final int page = index / (dimension * dimension);
         final int x = index % dimension;
         final int y = index / dimension % dimension;
 
         if (compact) {
-            slot.setHidden(crafting || page != 0 || y != this.activePage);
+            slot.setHidden(hidden || page != 0 || y != this.activePage);
             slot.setX(left);
             slot.setY(PROCESSING_TOP + 18 * x);
         } else {
-            slot.setHidden(crafting || page != this.activePage);
+            slot.setHidden(hidden || page != this.activePage);
             slot.setX(left + 18 * x);
             slot.setY(PROCESSING_TOP + 18 * y);
         }
@@ -429,66 +471,32 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     public void encode() {
-        ItemStack output = this.patternSlotOUT.getStack();
+        final ItemStack output = this.patternSlotOUT.getStack();
 
-        final ItemStack[] in = this.getInputs();
-        final ItemStack[] out = this.getOutputs();
-
-        // if there is no input, this would be silly.
-        if (in == null || out == null) {
+        // The slot holds either nothing, which costs a blank, or a pattern to write over, which does not.
+        if (!output.isEmpty() && !this.isPattern(output)) {
             return;
         }
 
-        // first check the output slots, should either be null, or a pattern
-        if (!output.isEmpty() && !this.isPattern(output)) {
+        final ItemStack encoded = this.getMode().encode(this, this.getPlayerInv().player);
+        if (encoded.isEmpty()) {
             return;
-        } // if nothing is there we should snag a new pattern.
-        else if (output.isEmpty()) {
-            final Optional<ItemStack> maybePattern = AEApi.instance().definitions().items().encodedPattern().maybeStack(1);
-            if (!maybePattern.isPresent()) {
-                return;
-            }
+        }
 
+        if (output.isEmpty()) {
             final ItemStack blanks = this.patternSlotIN.getStack();
 
             if (!blanks.isEmpty() && this.isPattern(blanks)) {
-                // remove one, and clear the input slot.
                 blanks.setCount(blanks.getCount() - 1);
                 if (blanks.getCount() == 0) {
                     this.patternSlotIN.putStack(ItemStack.EMPTY);
                 }
             } else if (this.takeBlankPattern() <= 0) {
-                return; // no blanks.
+                return;
             }
-
-            // add a new encoded pattern.
-            output = maybePattern.get();
         }
 
-        // encode the slot.
-        final NBTTagCompound encodedValue = new NBTTagCompound();
-
-        final NBTTagList tagIn = new NBTTagList();
-        final NBTTagList tagOut = new NBTTagList();
-
-        for (final ItemStack i : in) {
-            tagIn.appendTag(this.createItemTag(i));
-        }
-
-        for (final ItemStack i : out) {
-            tagOut.appendTag(this.createItemTag(i));
-        }
-
-        encodedValue.setTag("in", tagIn);
-        encodedValue.setTag("out", tagOut);
-        encodedValue.setBoolean("crafting", this.isCraftingMode());
-        encodedValue.setBoolean("substitute", this.isSubstitute());
-        encodedValue.setBoolean("substitutefluids", this.isSubstituteFluids());
-        encodedValue.setString("author", this.getPlayerInv().player.getName());
-
-        output.setTagCompound(encodedValue);
-
-        patternSlotOUT.putStack(output);
+        this.patternSlotOUT.putStack(encoded);
     }
 
     /**
@@ -687,58 +695,6 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
-    /** The grid the current mode encodes from - the three-by-three matrix, or the processing grid. */
-    protected SlotFakePatternGrid[] gridSlots() {
-        return this.isCraftingMode() ? this.craftingSlots : this.processingSlots;
-    }
-
-    protected ItemStack[] getInputs() {
-        final SlotFakePatternGrid[] slots = this.gridSlots();
-        final ItemStack[] input = new ItemStack[slots.length];
-        boolean hasValue = false;
-
-        for (int x = 0; x < slots.length; x++) {
-            input[x] = slots[x].getStack();
-            if (!input[x].isEmpty()) {
-                hasValue = true;
-            }
-        }
-
-        if (hasValue) {
-            return input;
-        }
-
-        return null;
-    }
-
-    protected ItemStack[] getOutputs() {
-        if (this.isCraftingMode()) {
-            final ItemStack out = this.getAndUpdateOutput();
-
-            if (!out.isEmpty() && out.getCount() > 0) {
-                return new ItemStack[]{out};
-            }
-        } else {
-            final List<ItemStack> list = new ArrayList<>(outputSlots.length);
-            boolean hasValue = false;
-
-            for (final OptionalSlotFake outputSlot : this.outputSlots) {
-                final ItemStack out = outputSlot.getStack();
-
-                if (!out.isEmpty() && out.getCount() > 0) {
-                    list.add(out);
-                    hasValue = true;
-                }
-            }
-
-            if (hasValue) {
-                return list.toArray(new ItemStack[0]);
-            }
-        }
-
-        return null;
-    }
-
     protected ItemStack getAndUpdateOutput() {
         final World world = this.getPlayerInv().player.world;
         // Not this container: every setInventorySlotContents below would then fire onCraftMatrixChanged,
@@ -766,42 +722,88 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     }
 
     public boolean isCraftingMode() {
-        return this.craftingMode;
+        return PatternEncodingModes.CRAFTING.toString().equals(this.encodingMode);
     }
 
-    public void setCraftingMode(final boolean craftingMode) {
-        this.craftingMode = craftingMode;
+    public ResourceLocation getEncodingMode() {
+        return this.getMode().getId();
+    }
+
+    public PatternEncodingMode getMode() {
+        return PatternEncodingModes.getOrDefault(new ResourceLocation(this.encodingMode));
+    }
+
+    public void setEncodingMode(final ResourceLocation mode) {
+        this.encodingMode = PatternEncodingModes.getOrDefault(mode).getId().toString();
         if (getPart() != null) {
-            getPart().setCraftingRecipe(craftingMode);
+            getPart().setEncodingMode(mode);
         } else if (iGuiItemObject != null) {
-            NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
-            if (nbtTagCompound != null) {
-                nbtTagCompound.setBoolean("isCraftingMode", craftingMode);
-                this.updateSlotVisibility();
+            final NBTTagCompound tag = iGuiItemObject.getItemStack().getTagCompound();
+            if (tag != null) {
+                tag.setString("encodingMode", this.encodingMode);
+                tag.removeTag("isCraftingMode");
             }
         }
+        this.updateSlotVisibility();
     }
 
     /**
-     * The tab the player pressed. Carries the grid over to the mode being switched to, which plain
-     * {@link #setCraftingMode(boolean)} must not do: that one also runs when the container is only catching
-     * up with the mode its terminal was already in, and would mirror a stale grid over a saved one.
+     * The mode the player picked. Carries the grid over between crafting and processing, which plain
+     * {@link #setEncodingMode} must not do: that one also runs when the container is only catching up with the
+     * mode its terminal was already in, and would mirror a stale grid over a saved one.
      */
-    public void switchCraftingMode(final boolean craftingMode) {
-        final boolean changed = craftingMode != this.craftingMode;
+    public void switchEncodingMode(final ResourceLocation mode) {
+        final ResourceLocation from = this.getEncodingMode();
 
-        this.setCraftingMode(craftingMode);
+        this.setEncodingMode(mode);
 
-        if (!changed) {
-            return;
-        }
-
-        if (craftingMode) {
+        final ResourceLocation to = this.getEncodingMode();
+        if (PatternEncodingModes.CRAFTING.equals(to) && PatternEncodingModes.PROCESSING.equals(from)) {
             this.copyToMatrix();
             this.fixCraftingRecipes();
-        } else {
+        } else if (PatternEncodingModes.PROCESSING.equals(to) && PatternEncodingModes.CRAFTING.equals(from)) {
             this.copyToProcessing();
         }
+    }
+
+    @Override
+    public IItemHandler getEncodingGrid(final PatternEncodingMode mode, final String grid) {
+        if (getPart() != null) {
+            return getPart().getEncodingGrid(mode, grid);
+        }
+        if (PatternEncodingModes.CRAFTING.equals(mode.getId())) {
+            return CraftingEncodingMode.GRID.equals(grid) ? this.crafting : null;
+        }
+        if (PatternEncodingModes.PROCESSING.equals(mode.getId())) {
+            return ProcessingEncodingMode.OUTPUTS.equals(grid) ? this.getInventoryByName("output")
+                    : ProcessingEncodingMode.INPUTS.equals(grid) ? this.processing : null;
+        }
+        return this.modeGrids == null ? null : this.modeGrids.get(mode.getId(), grid);
+    }
+
+    @Override
+    public World getEncodingWorld() {
+        return this.getPlayerInv().player.world;
+    }
+
+    @Override
+    public boolean isSubstitution() {
+        return this.substitute;
+    }
+
+    @Override
+    public void setSubstitution(final boolean substitute) {
+        this.setSubstitute(substitute);
+    }
+
+    @Override
+    public boolean isFluidSubstitution() {
+        return this.substituteFluids;
+    }
+
+    @Override
+    public void setFluidSubstitution(final boolean substitute) {
+        this.setSubstituteFluids(substitute);
     }
 
     /**
@@ -859,10 +861,12 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
+    @Override
     public boolean isInverted() {
         return this.inverted;
     }
 
+    @Override
     public void setInverted(final boolean inverted) {
         this.inverted = inverted;
         if (getPart() != null) {
@@ -931,9 +935,8 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             this.canUndoUpload = PatternUpload.canReturn(this.getPlayerInv().player);
 
             if (getPart() != null) {
-                if (this.isCraftingMode() != this.getPart().isCraftingRecipe()) {
-                    this.setCraftingMode(this.getPart().isCraftingRecipe());
-                    this.updateSlotVisibility();
+                if (!this.getEncodingMode().equals(this.getPart().getEncodingMode())) {
+                    this.setEncodingMode(this.getPart().getEncodingMode());
                 }
                 this.substitute = this.getPart().isSubstitution();
                 this.substituteFluids = this.getPart().isFluidSubstitution();
@@ -942,18 +945,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
             } else if (iGuiItemObject != null) {
                 NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
                 if (nbtTagCompound != null) {
-                    if (nbtTagCompound.hasKey("isCraftingMode")) {
-                        boolean crafting = nbtTagCompound.getBoolean("isCraftingMode");
-                        if (this.isCraftingMode() != crafting) {
-                            this.setCraftingMode(crafting);
-                            this.updateSlotVisibility();
-                        }
-                    } else {
-                        nbtTagCompound.setBoolean("isCraftingMode", false);
+                    final ResourceLocation saved = savedMode(nbtTagCompound);
+                    if (!this.getEncodingMode().equals(saved)) {
+                        this.setEncodingMode(saved);
                     }
                 } else {
                     nbtTagCompound = new NBTTagCompound();
-                    nbtTagCompound.setBoolean("isCraftingMode", false);
+                    nbtTagCompound.setString("encodingMode", PatternEncodingModes.PROCESSING.toString());
                     iGuiItemObject.getItemStack().setTagCompound(nbtTagCompound);
                 }
                 nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
@@ -990,11 +988,22 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
+    /**
+     * The mode a wireless terminal was left in. One saved before there were modes says only whether it was
+     * crafting, and one never opened says nothing, which has always meant processing.
+     */
+    public static ResourceLocation savedMode(final NBTTagCompound tag) {
+        if (tag.hasKey("encodingMode")) {
+            return PatternEncodingModes.getOrDefault(new ResourceLocation(tag.getString("encodingMode"))).getId();
+        }
+        return tag.getBoolean("isCraftingMode") ? PatternEncodingModes.CRAFTING : PatternEncodingModes.PROCESSING;
+    }
+
     @Override
     public void onUpdate(final String field, final Object oldValue, final Object newValue) {
         super.onUpdate(field, oldValue, newValue);
 
-        if (field.equals("craftingMode")) {
+        if (field.equals("encodingMode")) {
             this.getAndUpdateOutput();
             this.updateSlotVisibility();
         }
@@ -1004,27 +1013,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
     }
 
-    boolean isPattern(final ItemStack output) {
-        if (output.isEmpty()) {
+    /** A blank, or a pattern some mode can write over. */
+    boolean isPattern(final ItemStack stack) {
+        if (stack.isEmpty()) {
             return false;
         }
-
-        final IDefinitions definitions = AEApi.instance().definitions();
-
-        boolean isPattern = definitions.items().encodedPattern().isSameAs(output);
-        isPattern |= definitions.materials().blankPattern().isSameAs(output);
-
-        return isPattern;
-    }
-
-    NBTBase createItemTag(final ItemStack i) {
-        final NBTTagCompound c = new NBTTagCompound();
-
-        if (!i.isEmpty()) {
-            stackWriteToNBT(i, c);
-        }
-
-        return c;
+        return AEApi.instance().definitions().materials().blankPattern().isSameAs(stack)
+                || PatternEncodingModes.forPattern(stack) != null;
     }
 
     public void clear() {
@@ -1037,6 +1032,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         }
 
         for (final Slot s : this.outputSlots) {
+            s.putStack(ItemStack.EMPTY);
+        }
+
+        for (final Slot s : this.getModeSlots(this.getEncodingMode())) {
             s.putStack(ItemStack.EMPTY);
         }
 

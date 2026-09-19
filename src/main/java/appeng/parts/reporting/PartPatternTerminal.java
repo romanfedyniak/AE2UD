@@ -20,6 +20,7 @@ package appeng.parts.reporting;
 
 
 import appeng.api.parts.IPartModel;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.Reflected;
@@ -60,7 +61,10 @@ public class PartPatternTerminal extends AbstractPartEncoder {
     @Override
     public void readFromNBT(final NBTTagCompound data) {
         super.readFromNBT(data);
-        this.setCraftingRecipe(data.getBoolean("craftingMode"));
+        // A terminal saved before there were modes says only whether it was crafting.
+        this.setEncodingMode(data.hasKey("encodingMode")
+                ? new ResourceLocation(data.getString("encodingMode"))
+                : data.getBoolean("craftingMode") ? PatternEncodingModes.CRAFTING : PatternEncodingModes.PROCESSING);
         this.setSubstitution(data.getBoolean("substitute"));
         // Straight to the field: setInverted would empty the far side of what was just read back.
         this.inverted = data.getBoolean("inverted");
@@ -69,7 +73,7 @@ public class PartPatternTerminal extends AbstractPartEncoder {
     @Override
     public void writeToNBT(final NBTTagCompound data) {
         super.writeToNBT(data);
-        data.setBoolean("craftingMode", this.craftingMode);
+        data.setString("encodingMode", this.mode.toString());
         data.setBoolean("substitute", this.substitute);
         data.setBoolean("inverted", this.inverted);
     }

@@ -150,6 +150,8 @@ public enum GuiText {
     CopyModeDesc,
     PatternTerminal,
 
+    PatternModes,
+
     // Pattern tooltips
     CraftingPattern,
     ProcessingPattern,

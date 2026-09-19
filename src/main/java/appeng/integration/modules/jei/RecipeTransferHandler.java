@@ -25,15 +25,18 @@ import appeng.container.implementations.ContainerWirelessCraftingTerminal;
 import appeng.api.integrations.hei.ExtraInputProviders;
 import appeng.api.integrations.hei.IngredientConverter;
 import appeng.api.integrations.hei.IngredientConverters;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
+import appeng.api.patterns.PatternGrid;
+import appeng.api.patterns.RecipePlacement;
+import appeng.api.patterns.TransferredRecipe;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
-import appeng.container.slot.SlotFakePatternGrid;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketJEIRecipe;
-import appeng.core.sync.packets.PacketValueConfig;
-import appeng.helpers.PatternHelper;
 import appeng.util.Platform;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
@@ -54,10 +57,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackToNBT;
@@ -95,36 +96,14 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         if (container instanceof ContainerPatternEncoder) {
-            try {
-                if (!((ContainerPatternEncoder) container).isCraftingMode()) {
-                    if (recipeType.equals(VanillaRecipeCategoryUid.CRAFTING)) {
-                        NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.CraftMode", "1"));
-                    }
-                } else if (!recipeType.equals(VanillaRecipeCategoryUid.CRAFTING)) {
-
-                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.CraftMode", "0"));
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            this.transferToEncoder(recipeLayout, recipeType);
+            return null;
         }
 
         Map<Integer, ? extends IGuiIngredient<ItemStack>> ingredients = recipeLayout.getItemStacks().getGuiIngredients();
 
         final NBTTagCompound recipe = new NBTTagCompound();
         final NBTTagList outputs = new NBTTagList();
-
-
-        // A crafting recipe is a shape, so an empty square in it has to stay an empty square and still take
-        // its place in the grid. A processing recipe is not: the recipe screen's own layout may leave gaps
-        // between the slots a machine happens to draw, and carrying those gaps into the pattern scattered
-        // the ingredients about. Bound for the processing grid, an ingredient takes the next free slot.
-        //
-        // Decided by the recipe rather than by the terminal's current mode: the switch above is a packet
-        // the server has not answered yet, so isCraftingMode() here is still the mode being left behind.
-        final boolean packed = container instanceof ContainerPatternEncoder
-                && !recipeType.equals(VanillaRecipeCategoryUid.CRAFTING);
 
         int slotIndex = 0;
         for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> ingredientEntry : ingredients.entrySet()) {
@@ -158,12 +137,8 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
                 }
             }
 
-            if (packed && list.isEmpty()) {
-                continue;
-            }
-
             for (final Slot slot : container.inventorySlots) {
-                if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakePatternGrid) {
+                if (slot instanceof SlotCraftingMatrix) {
                     if (slot.getSlotIndex() == slotIndex) {
                         final NBTTagList tags = new NBTTagList();
 
@@ -179,30 +154,6 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             }
 
             slotIndex++;
-        }
-
-        // Anything that is not an item lives in an IGuiIngredientGroup of its own, which the item loop
-        // above never sees - which is why "Move Items" silently skipped every fluid in a recipe. Only the
-        // processing grid can take them: its slots are fake, so they can hold a wrapped key. A crafting
-        // recipe is matched against items, whether the grid it is typed into is real or fake, and `packed`
-        // is true for exactly the recipes bound for the other grid. The server writes this one through the
-        // inventory rather than through the slots, so the slot's own filter never sees it.
-        if (packed) {
-            this.transferOtherIngredients(container, recipeLayout, recipe, outputs);
-        }
-
-        // The grid the recipe is about to land in only reaches eight slots on its compact side, so a
-        // recipe that needs more outputs than that has to arrive with the terminal already turned round.
-        if (container instanceof ContainerPatternEncoder && !recipeType.equals(VanillaRecipeCategoryUid.CRAFTING)) {
-            final boolean invert = PatternHelper.shouldInvert(recipe.getKeySet().size(), outputs.tagCount());
-
-            if (invert != ((ContainerPatternEncoder) container).isInverted()) {
-                try {
-                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Invert", invert ? "1" : "0"));
-                } catch (IOException e) {
-                    AELog.debug(e);
-                }
-            }
         }
 
         recipe.setTag("outputs", promoteFocused(recipeLayout, outputs));
@@ -223,18 +174,130 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         return null;
     }
 
-    private static Set<Integer> collectFreeSlots(final Container container, final NBTTagCompound recipe) {
-        final Set<Integer> free = new LinkedHashSet<>();
+    /**
+     * Moves a recipe into a pattern terminal, in whichever mode claims its category. The mode lays it out and the
+     * server fills the slots, so the switch and the recipe travel in one packet.
+     */
+    private void transferToEncoder(final IRecipeLayout recipeLayout, final String recipeType) {
+        final PatternEncodingMode mode = PatternEncodingModes.forRecipeCategory(recipeType);
+        final RecipePlacement placement = new RecipePlacement();
+        mode.placeRecipe(readRecipe(recipeLayout, recipeType), placement);
 
-        for (final Slot slot : container.inventorySlots) {
-            if (slot instanceof SlotCraftingMatrix || slot instanceof SlotFakePatternGrid) {
-                if (!recipe.hasKey("#" + slot.getSlotIndex())) {
-                    free.add(slot.getSlotIndex());
+        final NBTTagCompound grids = new NBTTagCompound();
+        for (final PatternGrid grid : mode.getGrids()) {
+            final NBTTagCompound slots = new NBTTagCompound();
+            for (final Map.Entry<Integer, List<GenericStack>> slot : placement.get(grid.getName()).entrySet()) {
+                final NBTTagList options = new NBTTagList();
+                for (final GenericStack option : slot.getValue()) {
+                    final ItemStack stack = toItemStack(option);
+                    if (!stack.isEmpty()) {
+                        options.appendTag(stackToNBT(stack));
+                    }
                 }
+                slots.setTag("#" + slot.getKey(), options);
+            }
+            grids.setTag(grid.getName(), slots);
+        }
+
+        final NBTTagCompound recipe = new NBTTagCompound();
+        recipe.setString("mode", mode.getId().toString());
+        recipe.setTag("grids", grids);
+
+        try {
+            NetworkHandler.instance().sendToServer(new PacketJEIRecipe(recipe));
+        } catch (IOException e) {
+            AELog.debug(e);
+        }
+    }
+
+    /** What the recipe screen shows, before any mode decides where it goes. */
+    private static TransferredRecipe readRecipe(final IRecipeLayout recipeLayout, final String recipeType) {
+        final List<List<GenericStack>> itemInputs = new ArrayList<>();
+        final NBTTagList itemOutputs = new NBTTagList();
+
+        for (final IGuiIngredient<ItemStack> ingredient : recipeLayout.getItemStacks().getGuiIngredients().values()) {
+            if (!ingredient.isInput()) {
+                final ItemStack output = ingredient.getDisplayedIngredient();
+                if (output != null && !output.isEmpty()) {
+                    itemOutputs.appendTag(stackToNBT(output));
+                }
+                continue;
+            }
+
+            final List<GenericStack> options = new ArrayList<>();
+            final ItemStack displayed = ingredient.getDisplayedIngredient();
+            // The one on screen first, pure crystals ahead of it.
+            if (displayed != null && !displayed.isEmpty()) {
+                addOption(options, displayed, false);
+            }
+            for (final ItemStack stack : ingredient.getAllIngredients()) {
+                if (stack != null && !stack.isEmpty()) {
+                    addOption(options, stack, Platform.isRecipePrioritized(stack));
+                }
+            }
+            itemInputs.add(options);
+        }
+
+        // Anything that is not an item lives in an IGuiIngredientGroup of its own, which the item loop above never
+        // sees. Which kinds there are comes from IngredientConverters, so an addon's key type is carried over as
+        // soon as it registers one.
+        final List<GenericStack> otherInputs = new ArrayList<>();
+        final List<GenericStack> otherOutputs = new ArrayList<>();
+        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
+            if (converter.getIngredientClass() != ItemStack.class) {
+                collectShown(converter, recipeLayout, otherInputs, otherOutputs);
             }
         }
 
-        return free;
+        // What the screen draws but does not list, such as a machine's mana bar.
+        final List<GenericStack> shownInputs = new ArrayList<>();
+        final List<GenericStack> shownOutputs = new ArrayList<>();
+        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
+            collectShown(converter, recipeLayout, shownInputs, shownOutputs);
+        }
+        final List<GenericStack> extraInputs = new ArrayList<>();
+        for (final GenericStack stack : ExtraInputProviders.getExtraInputs(recipeType, shownInputs, shownOutputs)) {
+            if (stack.amount() > 0) {
+                extraInputs.add(stack);
+            }
+        }
+
+        final NBTTagList allOutputs = itemOutputs.copy();
+        for (final GenericStack stack : otherOutputs) {
+            final ItemStack wrapped = GenericStack.wrapInItemStack(stack);
+            if (!wrapped.isEmpty()) {
+                allOutputs.appendTag(stackToNBT(wrapped));
+            }
+        }
+        final List<GenericStack> outputs = new ArrayList<>();
+        final NBTTagList promoted = promoteFocused(recipeLayout, allOutputs);
+        for (int x = 0; x < promoted.tagCount(); x++) {
+            final GenericStack stack = GenericStack.resolveItemStack(stackFromNBT(promoted.getCompoundTagAt(x)));
+            if (stack != null) {
+                outputs.add(stack);
+            }
+        }
+
+        return new TransferredRecipe(recipeType, itemInputs, otherInputs, extraInputs, outputs);
+    }
+
+    private static void addOption(final List<GenericStack> options, final ItemStack stack, final boolean first) {
+        final AEItemKey key = AEItemKey.of(stack);
+        if (key != null) {
+            final GenericStack option = new GenericStack(key, stack.getCount());
+            if (first) {
+                options.add(0, option);
+            } else {
+                options.add(option);
+            }
+        }
+    }
+
+    private static ItemStack toItemStack(final GenericStack stack) {
+        if (stack.what() instanceof AEItemKey item) {
+            return item.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()));
+        }
+        return GenericStack.wrapInItemStack(stack);
     }
 
     /**
@@ -292,49 +355,6 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         return stack == null ? null : stack.what();
     }
 
-    /**
-     * Writes the layout's non-item ingredients into the recipe alongside the items: inputs into whichever
-     * matrix slots the item pass left empty, outputs appended to the output list. Each one travels as the
-     * same wrapped placeholder {@code ItemStack} the pattern slots already store, so the server needs no new
-     * case - {@code AppEngInternalAEInventory} unwraps it back into a key on the way in.
-     * <p>
-     * Which kinds there are comes from {@link IngredientConverters}, so an addon's key type is carried over
-     * as soon as it registers one.
-     */
-    private void transferOtherIngredients(final T container, final IRecipeLayout recipeLayout,
-            final NBTTagCompound recipe, final NBTTagList outputs) {
-        // Matrix slots the item pass did not claim, in slot order. A set, not a list: the crafting matrix
-        // and the processing grid are both made of the same slot class and both number from zero, so the
-        // low indices turn up twice and two ingredients would otherwise be handed the same one.
-        final List<Integer> freeSlots = new ArrayList<>(collectFreeSlots(container, recipe));
-        final int[] nextFree = { 0 };
-
-        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
-            // Items came through the loop above, where they are matched against the recipe's own shape.
-            if (converter.getIngredientClass() != ItemStack.class) {
-                this.transferIngredients(converter, recipeLayout, recipe, outputs, freeSlots, nextFree);
-            }
-        }
-
-        // What the screen draws but does not list, such as a machine's mana bar, goes in after everything listed.
-        final List<GenericStack> shownInputs = new ArrayList<>();
-        final List<GenericStack> shownOutputs = new ArrayList<>();
-        for (final IngredientConverter<?> converter : IngredientConverters.getConverters()) {
-            collectShown(converter, recipeLayout, shownInputs, shownOutputs);
-        }
-        final List<GenericStack> extra = ExtraInputProviders.getExtraInputs(
-                recipeLayout.getRecipeCategory().getUid(), shownInputs, shownOutputs);
-        for (final GenericStack stack : extra) {
-            final ItemStack wrapped = stack.amount() > 0 ? GenericStack.wrapInItemStack(stack) : ItemStack.EMPTY;
-            if (wrapped.isEmpty() || nextFree[0] >= freeSlots.size()) {
-                continue;
-            }
-            final NBTTagList tags = new NBTTagList();
-            tags.appendTag(stackToNBT(wrapped));
-            recipe.setTag("#" + freeSlots.get(nextFree[0]++), tags);
-        }
-    }
-
     private static <I> void collectShown(final IngredientConverter<I> converter, final IRecipeLayout recipeLayout,
             final List<GenericStack> inputs, final List<GenericStack> outputs) {
         final Map<Integer, ? extends IGuiIngredient<I>> group;
@@ -348,49 +368,6 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
             final GenericStack stack = displayed == null ? null : converter.getStackFromIngredient(displayed);
             if (stack != null && stack.amount() > 0) {
                 (ingredient.isInput() ? inputs : outputs).add(stack);
-            }
-        }
-    }
-
-    private <I> void transferIngredients(final IngredientConverter<I> converter, final IRecipeLayout recipeLayout,
-            final NBTTagCompound recipe, final NBTTagList outputs, final List<Integer> freeSlots,
-            final int[] nextFree) {
-        final Map<Integer, ? extends IGuiIngredient<I>> group;
-
-        try {
-            group = recipeLayout.getIngredientsGroup(converter.getIngredientClass()).getGuiIngredients();
-        } catch (final IllegalArgumentException e) {
-            // A converter for something the recipe viewer itself does not know; nothing to read.
-            return;
-        }
-
-        for (final IGuiIngredient<I> ingredient : group.values()) {
-            final I displayed = ingredient.getDisplayedIngredient();
-            if (displayed == null) {
-                continue;
-            }
-
-            final GenericStack stack = converter.getStackFromIngredient(displayed);
-            if (stack == null || stack.amount() <= 0) {
-                continue;
-            }
-
-            final ItemStack wrapped = GenericStack.wrapInItemStack(stack);
-            if (wrapped.isEmpty()) {
-                continue;
-            }
-
-            if (ingredient.isInput()) {
-                if (nextFree[0] >= freeSlots.size()) {
-                    // More inputs than the pattern has room for; the rest are simply not transferred, the
-                    // same thing that happens to a recipe with more item inputs than slots.
-                    continue;
-                }
-                final NBTTagList tags = new NBTTagList();
-                tags.appendTag(stackToNBT(wrapped));
-                recipe.setTag("#" + freeSlots.get(nextFree[0]++), tags);
-            } else {
-                outputs.appendTag(stackToNBT(wrapped));
             }
         }
     }

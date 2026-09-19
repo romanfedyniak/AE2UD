@@ -30,6 +30,10 @@ import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
+import appeng.api.patterns.PatternGrid;
+import appeng.api.patterns.RecipePlacement;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -69,6 +73,7 @@ import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
@@ -77,7 +82,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
@@ -102,6 +110,13 @@ public class PacketJEIRecipe extends AppEngPacket {
 
     private List<ItemStack[]> recipe;
     private List<ItemStack> output;
+
+    /**
+     * A recipe bound for a pattern terminal: the mode it is encoded in, and what goes in each slot of that mode's
+     * grids, by grid and then by slot. Null for the crafting terminals, which read {@link #recipe}.
+     */
+    private ResourceLocation mode;
+    private Map<String, Map<Integer, List<ItemStack>>> grids;
     static ItemStack[] emptyArray = {ItemStack.EMPTY};
 
     /**
@@ -118,7 +133,29 @@ public class PacketJEIRecipe extends AppEngPacket {
         final ByteArrayInputStream bytes = this.getPacketByteArray(stream);
         bytes.skip(stream.readerIndex());
         final NBTTagCompound comp = CompressedStreamTools.readCompressed(bytes);
-        if (comp != null) {
+        if (comp != null && comp.hasKey("mode")) {
+            this.mode = new ResourceLocation(comp.getString("mode"));
+            this.grids = new HashMap<>();
+            final NBTTagCompound gridsTag = comp.getCompoundTag("grids");
+            for (final String grid : gridsTag.getKeySet()) {
+                final NBTTagCompound gridTag = gridsTag.getCompoundTag(grid);
+                final Map<Integer, List<ItemStack>> slots = new HashMap<>();
+                for (final String slot : gridTag.getKeySet()) {
+                    final NBTTagList list = gridTag.getTagList(slot, 10);
+                    final List<ItemStack> options = new ArrayList<>(list.tagCount());
+                    for (int y = 0; y < list.tagCount(); y++) {
+                        final ItemStack option = stackFromNBT(list.getCompoundTagAt(y));
+                        if (!option.isEmpty()) {
+                            options.add(option);
+                        }
+                    }
+                    if (!options.isEmpty()) {
+                        slots.put(Integer.parseInt(slot.substring(1)), options);
+                    }
+                }
+                this.grids.put(grid, slots);
+            }
+        } else if (comp != null) {
             this.recipe = new ArrayList<>();
 
             for (int x = 0; x < comp.getKeySet().size(); x++) {
@@ -189,10 +226,14 @@ public class PacketJEIRecipe extends AppEngPacket {
         final IEnergyGrid energy = grid.getCache(IEnergyGrid.class);
         final ISecurityGrid security = grid.getCache(ISecurityGrid.class);
         final ICraftingGrid crafting = grid.getCache(ICraftingGrid.class);
-        // "crafting" is always the three-by-three matrix, so a processing recipe has to be aimed at the
-        // pattern terminal's own grid instead.
-        final boolean processing = con instanceof ContainerPatternEncoder && !((ContainerPatternEncoder) con).isCraftingMode();
-        final IItemHandler craftMatrix = cct.getInventoryByName(processing ? "processing" : "crafting");
+
+        if (this.mode != null) {
+            if (con instanceof ContainerPatternEncoder && inv != null && security != null) {
+                this.placeIntoEncoder((ContainerPatternEncoder) con, player, inv, security, crafting);
+            }
+            return;
+        }
+        final IItemHandler craftMatrix = cct.getInventoryByName("crafting");
         final IItemHandler playerInventory = cct.getInventoryByName("player");
 
         if (inv != null && this.recipe != null && security != null) {
@@ -308,27 +349,85 @@ public class PacketJEIRecipe extends AppEngPacket {
 
             con.onCraftMatrixChanged(new WrapperInvItemHandler(craftMatrix));
 
-            if (this.output != null && ((con instanceof ContainerPatternEncoder && !((ContainerPatternEncoder) con).isCraftingMode()))) {
-                IItemHandler outputSlots = cct.getInventoryByName("output");
-                for (int i = 0; i < outputSlots.getSlots(); ++i) {
-                    ItemHandlerUtil.setStackInSlot(outputSlots, i, ItemStack.EMPTY);
-                }
-                for (int i = 0; i < this.output.size() && i < outputSlots.getSlots(); ++i) {
-                    if (this.output.get(i) == null || this.output.get(i) == ItemStack.EMPTY) {
-                        continue;
-                    }
-                    ItemHandlerUtil.setStackInSlot(outputSlots, i, this.output.get(i));
-                }
-            }
-
-            if (con instanceof ContainerPatternEncoder) {
-                ((ContainerPatternEncoder) con).markPatternLoaded();
-            }
-
             if (this.craftMissing) {
                 this.tryCraftMissing(pmp, con, cct, grid, crafting, craftMatrix);
             }
         }
+    }
+
+    /**
+     * Writes the recipe into every grid of the mode it is bound for. A slot given nothing is emptied; a slot given
+     * alternatives takes the first the network can craft or holds, then the first the player carries, and
+     * otherwise the first of them: a pattern names what a recipe takes, whether or not it is at hand.
+     */
+    private void placeIntoEncoder(final ContainerPatternEncoder encoder, final EntityPlayer player,
+            final IStorageService inv, final ISecurityGrid security, final ICraftingGrid crafting) {
+        final PatternEncodingMode target = PatternEncodingModes.get(this.mode);
+        if (target == null) {
+            return;
+        }
+
+        final RecipePlacement placement = new RecipePlacement();
+        for (final Map.Entry<String, Map<Integer, List<ItemStack>>> grid : this.grids.entrySet()) {
+            for (final Map.Entry<Integer, List<ItemStack>> slot : grid.getValue().entrySet()) {
+                final List<GenericStack> options = new ArrayList<>();
+                for (final ItemStack option : slot.getValue()) {
+                    final GenericStack stack = GenericStack.resolveItemStack(option);
+                    if (stack != null) {
+                        options.add(stack);
+                    }
+                }
+                placement.put(grid.getKey(), slot.getKey(), options);
+            }
+        }
+
+        encoder.setEncodingMode(target.getId());
+        target.beforeRecipePlaced(encoder, placement);
+
+        final boolean mayLook = security.hasPermission(player, SecurityPermissions.EXTRACT);
+        final IItemHandler playerInventory = encoder.getInventoryByName("player");
+
+        for (final PatternGrid grid : target.getGrids()) {
+            final IItemHandler slots = encoder.getEncodingGrid(target, grid.getName());
+            final Map<Integer, List<ItemStack>> placed = this.grids.getOrDefault(grid.getName(), Collections.emptyMap());
+            for (int x = 0; x < slots.getSlots(); x++) {
+                final List<ItemStack> options = placed.get(x);
+                final ItemStack chosen = options == null ? ItemStack.EMPTY
+                        : grid.getRole() == PatternGrid.Role.OUTPUT ? options.get(0).copy()
+                        : this.choose(options, inv, crafting, mayLook, playerInventory, encoder);
+                ItemHandlerUtil.setStackInSlot(slots, x, chosen);
+            }
+            encoder.onCraftMatrixChanged(new WrapperInvItemHandler(slots));
+        }
+
+        encoder.markPatternLoaded();
+    }
+
+    private ItemStack choose(final List<ItemStack> options, final IStorageService inv, final ICraftingGrid crafting,
+            final boolean mayLook, final IItemHandler playerInventory, final ContainerPatternEncoder encoder) {
+        if (mayLook) {
+            final AEKeyFilter filter = ItemViewCell.createFilter(encoder.getViewCells());
+            for (final ItemStack option : options) {
+                final GenericStack stack = GenericStack.resolveItemStack(option);
+                if (stack == null || !filter.matches(stack.what())) {
+                    continue;
+                }
+                if (!crafting.getCraftingFor(stack.what(), null, 0, null).isEmpty()
+                        || inv.getInventory().extract(stack.what(), 1, Actionable.SIMULATE, encoder.getActionSource()) > 0) {
+                    return option.copy();
+                }
+            }
+        }
+
+        final AdaptorItemHandler carried = new AdaptorItemHandler(playerInventory);
+        for (final ItemStack option : options) {
+            if (GenericStack.unwrapItemStack(option) == null
+                    && !carried.simulateSimilarRemove(option.getCount(), option, FuzzyMode.IGNORE_ALL, null).isEmpty()) {
+                return option.copy();
+            }
+        }
+
+        return options.get(0).copy();
     }
 
     /**

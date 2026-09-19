@@ -36,6 +36,7 @@ import appeng.api.features.IWirelessTerminalMode;
 import appeng.api.features.IWirelessTerminalModeRegistry;
 import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.networking.pathing.IChannelTierRegistry;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.api.features.IWorldGen.WorldGenType;
 import appeng.api.implementations.items.IItemGroup;
 import appeng.api.movable.IMovableRegistry;
@@ -68,6 +69,8 @@ import appeng.util.inv.InitGenericInventoryAdapters;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.ChannelTierSync;
 import appeng.core.sync.MultiblockLimitSync;
+import appeng.helpers.encoding.CraftingEncodingMode;
+import appeng.helpers.encoding.ProcessingEncodingMode;
 import appeng.helpers.PatternHelper;
 import appeng.core.sync.GuiBridge;
 import appeng.core.localization.PlayerMessages;
@@ -225,6 +228,10 @@ final class Registration {
         this.registerChannelTiers(api.registries().channelTiers());
 
         this.registerWirelessTerminalModes(api.registries().wirelessTerminalModes(), definitions);
+
+        // First, so the picker lists them first and an addon's mode can never take their place.
+        PatternEncodingModes.register(new CraftingEncodingMode());
+        PatternEncodingModes.register(new ProcessingEncodingMode());
 
         // Register
         definitions.getRegistry().getBootstrapComponents(IPreInitComponent.class).forEachRemaining(b -> b.preInitialize(event.getSide()));

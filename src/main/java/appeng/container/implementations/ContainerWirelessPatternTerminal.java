@@ -23,9 +23,8 @@ import java.util.List;
 import java.util.ArrayList;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.implementations.IUpgradeableCellContainer;
-import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.container.interfaces.IInventorySlotAware;
 import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.OptionalSlotFake;
@@ -41,6 +40,7 @@ import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.helpers.WirelessTerminalModes;
+import appeng.helpers.encoding.EncoderGrids;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
@@ -51,6 +51,7 @@ import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.items.IItemHandler;
 
 import static appeng.helpers.PatternHelper.CRAFTING_GRID_DIMENSION;
@@ -96,6 +97,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
         }
         this.wirelessTerminalGUIObject = gui;
         upgrades = new StackUpgradeInventory(wirelessTerminalGUIObject.getItemStack(), this, UPGRADE_SLOTS);
+        this.modeGrids = new EncoderGrids(this);
 
         this.loadFromNBT();
 
@@ -130,6 +132,8 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
                         .getInventoryPlayer()));
 
         this.patternSlotOUT.setStackLimit(1);
+
+        this.addModeSlots();
 
         this.updateSlotVisibility();
 
@@ -214,19 +218,15 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
 
     @Override
     public boolean isSlotEnabled(final int idx) {
-        boolean crafting = false;
+        ResourceLocation mode = this.getEncodingMode();
         if (Platform.isServer()) {
-            NBTTagCompound nbtTagCompound = iGuiItemObject.getItemStack().getTagCompound();
-            if (nbtTagCompound != null) {
-                if (nbtTagCompound.hasKey("isCraftingMode")) {
-                    crafting = nbtTagCompound.getBoolean("isCraftingMode");
-                }
-            }
+            final NBTTagCompound tag = iGuiItemObject.getItemStack().getTagCompound();
+            mode = tag == null ? PatternEncodingModes.PROCESSING : savedMode(tag);
         }
         if (idx == 1) {
-            return Platform.isServer() ? !crafting : !this.isCraftingMode();
+            return PatternEncodingModes.PROCESSING.equals(mode);
         } else if (idx == 2) {
-            return Platform.isServer() ? crafting : this.isCraftingMode();
+            return PatternEncodingModes.CRAFTING.equals(mode);
         } else {
             return false;
         }
@@ -242,6 +242,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
             ((AppEngInternalInventory) processing).writeToNBT(modeTag, "processing");
             this.output.writeToNBT(modeTag, "output");
             this.pattern.writeToNBT(modeTag, "patterns");
+            this.modeGrids.writeToNBT(modeTag, "modeGrids");
 
             WirelessTerminalSupport.applyEnergyCards(this.wirelessTerminalGUIObject.getItemStack(), this.upgrades);
 
@@ -262,6 +263,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
         ((AppEngInternalInventory) processing).readFromNBT(modeTag, "processing");
         this.output.readFromNBT(modeTag, "output");
         this.pattern.readFromNBT(modeTag, "patterns");
+        this.modeGrids.readFromNBT(modeTag, "modeGrids");
 
         final NBTTagCompound data = terminal.getTagCompound();
         if (data != null) {
@@ -272,14 +274,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
         if (inv == this.pattern && slot == 1) {
-            final ItemStack is = this.pattern.getStackInSlot(1);
-            if (!is.isEmpty() && is.getItem() instanceof ICraftingPatternItem) {
-                final ICraftingPatternItem pattern = (ICraftingPatternItem) is.getItem();
-                final ICraftingPatternDetails details = pattern.getPatternForItem(is, this.getPlayerInv().player.world);
-                if (details != null) {
-                    this.loadIntoGrid(details);
-                }
-            }
+            this.loadPattern(this.pattern.getStackInSlot(1));
         }
         super.onChangeInventory(inv, slot, mc, removedStack, newStack);
     }

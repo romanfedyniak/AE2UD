@@ -309,6 +309,7 @@ gui.appliedenergistics2.StoredSize=Зайнятий об'єм
 gui.appliedenergistics2.CellId=ID комірки
 gui.appliedenergistics2.SkyChest=Скриня з небесного каменю
 gui.appliedenergistics2.PatternTerminal=Термінал шаблонів
+gui.appliedenergistics2.PatternModes=Режим шаблону
 gui.appliedenergistics2.BlankPatternInNetwork=Постачається з мережі
 gui.appliedenergistics2.CraftingPattern=Шаблон крафту
 gui.appliedenergistics2.MolecularAssembler=Молекулярний збирач

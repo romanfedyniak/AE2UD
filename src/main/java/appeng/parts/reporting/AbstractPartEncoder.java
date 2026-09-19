@@ -1,29 +1,38 @@
 package appeng.parts.reporting;
 
-import appeng.api.implementations.ICraftingPatternItem;
-import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IPartModel;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.PatternHelper;
 import appeng.helpers.IPatternUploadHost;
+import appeng.helpers.encoding.CraftingEncodingMode;
+import appeng.helpers.encoding.EncoderGrids;
+import appeng.helpers.encoding.IProcessingEncodingHost;
+import appeng.helpers.encoding.ProcessingEncodingMode;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.inv.InvOperation;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
-public abstract class AbstractPartEncoder extends AbstractPartTerminal implements IPatternUploadHost {
+public abstract class AbstractPartEncoder extends AbstractPartTerminal implements IPatternUploadHost, IProcessingEncodingHost {
 
     protected AppEngInternalInventory crafting;
     protected AppEngInternalInventory processing;
     protected AppEngInternalInventory output;
     protected AppEngInternalInventory pattern;
 
-    protected boolean craftingMode = true;
+    /** The grids of the modes addons registered; crafting and processing keep the fields above. */
+    protected final EncoderGrids modeGrids = new EncoderGrids(this);
+
+    protected ResourceLocation mode = PatternEncodingModes.CRAFTING;
     protected boolean substitute = false;
     protected boolean fluidSubstitute = false;
     protected boolean inverted = false;
@@ -49,6 +58,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal implement
         this.output.readFromNBT(data, "outputList");
         this.crafting.readFromNBT(data, "crafting");
         this.processing.readFromNBT(data, "processing");
+        this.modeGrids.readFromNBT(data, "modeGrids");
     }
 
     @Override
@@ -58,26 +68,17 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal implement
         this.output.writeToNBT(data, "outputList");
         this.crafting.writeToNBT(data, "crafting");
         this.processing.writeToNBT(data, "processing");
+        this.modeGrids.writeToNBT(data, "modeGrids");
     }
 
     @Override
     public void onChangeInventory(final IItemHandler inv, final int slot, final InvOperation mc, final ItemStack removedStack, final ItemStack newStack) {
         if (inv == this.pattern && slot == 1) {
             final ItemStack is = this.pattern.getStackInSlot(1);
-            if (!is.isEmpty() && is.getItem() instanceof ICraftingPatternItem) {
-                final ICraftingPatternItem pattern = (ICraftingPatternItem) is.getItem();
-                final ICraftingPatternDetails details = pattern.getPatternForItem(is, this.getHost().getTile().getWorld());
-                if (details != null) {
-                    this.setCraftingRecipe(details.isCraftable());
-                    this.setSubstitution(details.canSubstitute());
-                    this.setFluidSubstitution(details.canSubstituteFluids());
-                    // Before decoding, never after: setInverted empties the side the orientation cannot
-                    // reach, and would take the pattern we are about to lay out with it.
-                    this.setInverted(PatternHelper.shouldInvert(details.getInputs(), details.getOutputs()));
-
-                    PatternHelper.decodeInto(details, details.isCraftable() ? this.crafting : this.processing, this.output);
-                    this.markPatternLoaded();
-                }
+            final PatternEncodingMode loader = PatternEncodingModes.forPattern(is);
+            if (loader != null && loader.load(this, is)) {
+                this.setEncodingMode(loader.getId());
+                this.markPatternLoaded();
             }
         } else if (inv == this.crafting) {
             this.fixCraftingRecipes();
@@ -87,7 +88,7 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal implement
     }
 
     private void fixCraftingRecipes() {
-        if (this.isCraftingRecipe()) {
+        if (PatternEncodingModes.CRAFTING.equals(this.mode)) {
             for (int x = 0; x < this.crafting.getSlots(); x++) {
                 final ItemStack is = this.crafting.getStackInSlot(x);
                 if (!is.isEmpty()) {
@@ -97,27 +98,48 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal implement
         }
     }
 
-    public boolean isCraftingRecipe() {
-        return this.craftingMode;
+    public ResourceLocation getEncodingMode() {
+        return this.mode;
     }
 
-    public void setCraftingRecipe(final boolean craftingMode) {
-        this.craftingMode = craftingMode;
+    public void setEncodingMode(final ResourceLocation mode) {
+        this.mode = PatternEncodingModes.getOrDefault(mode).getId();
         this.fixCraftingRecipes();
     }
 
+    @Override
+    public IItemHandler getEncodingGrid(final PatternEncodingMode mode, final String grid) {
+        if (PatternEncodingModes.CRAFTING.equals(mode.getId())) {
+            return CraftingEncodingMode.GRID.equals(grid) ? this.crafting : null;
+        }
+        if (PatternEncodingModes.PROCESSING.equals(mode.getId())) {
+            return ProcessingEncodingMode.OUTPUTS.equals(grid) ? this.output
+                    : ProcessingEncodingMode.INPUTS.equals(grid) ? this.processing : null;
+        }
+        return this.modeGrids.get(mode.getId(), grid);
+    }
+
+    @Override
+    public World getEncodingWorld() {
+        return this.getHost().getTile().getWorld();
+    }
+
+    @Override
     public boolean isSubstitution() {
         return this.substitute;
     }
 
+    @Override
     public void setSubstitution(final boolean canSubstitute) {
         this.substitute = canSubstitute;
     }
 
+    @Override
     public boolean isFluidSubstitution() {
         return this.fluidSubstitute;
     }
 
+    @Override
     public void setFluidSubstitution(final boolean canSubstituteFluids) {
         this.fluidSubstitute = canSubstituteFluids;
     }
@@ -135,10 +157,12 @@ public abstract class AbstractPartEncoder extends AbstractPartTerminal implement
         this.patternLoads++;
     }
 
+    @Override
     public boolean isInverted() {
         return this.inverted;
     }
 
+    @Override
     public void setInverted(final boolean inverted) {
         this.inverted = inverted;
         PatternHelper.clearUnreachable(this.processing, this.output, inverted);

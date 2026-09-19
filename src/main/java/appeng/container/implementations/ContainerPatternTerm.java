@@ -19,6 +19,7 @@
 package appeng.container.implementations;
 
 
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.slot.OptionalSlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
@@ -28,6 +29,7 @@ import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.items.IItemHandler;
 
 import static appeng.helpers.PatternHelper.CRAFTING_GRID_DIMENSION;
@@ -83,6 +85,8 @@ public class ContainerPatternTerm extends ContainerPatternEncoder {
 
         this.patternSlotOUT.setStackLimit(1);
 
+        this.addModeSlots();
+
         this.bindPlayerInventory(ip, 0, 0);
         this.updateSlotVisibility();
     }
@@ -90,10 +94,11 @@ public class ContainerPatternTerm extends ContainerPatternEncoder {
 
     @Override
     public boolean isSlotEnabled(final int idx) {
+        final ResourceLocation mode = Platform.isServer() ? this.getPart().getEncodingMode() : this.getEncodingMode();
         if (idx == 1) {
-            return Platform.isServer() ? !this.getPart().isCraftingRecipe() : !this.isCraftingMode();
+            return PatternEncodingModes.PROCESSING.equals(mode);
         } else if (idx == 2) {
-            return Platform.isServer() ? this.getPart().isCraftingRecipe() : this.isCraftingMode();
+            return PatternEncodingModes.CRAFTING.equals(mode);
         } else {
             return false;
         }

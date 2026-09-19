@@ -19,12 +19,15 @@
 package appeng.client.gui.implementations;
 
 
+import appeng.api.AEApi;
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.config.ActionItems;
 import appeng.api.config.FluidSubstitution;
 import appeng.api.config.ItemSubstitution;
 import appeng.api.config.Settings;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
@@ -59,15 +62,16 @@ import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.init.Blocks;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
 import java.text.NumberFormat;
 import java.util.Locale;
@@ -90,10 +94,15 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private static final String SUBSITUTION_DISABLE = "0";
     private static final String SUBSITUTION_ENABLE = "1";
 
-    private static final String CRAFTMODE_CRFTING = "1";
-    private static final String CRAFTMODE_PROCESSING = "0";
-
     private static final int FABRICATED_SLOT_TINT = 0x8032CD32;
+
+    /** Where the mode tab sits, the button below it, and the picker they open. */
+    private static final int MODE_TAB_X = 173;
+    private static final int MODE_TAB_Y_FROM_BOTTOM = 177;
+    private static final int MODE_PICKER_Y_FROM_BOTTOM = 155;
+    private static final int PICKER_CELL = 18;
+    private static final int PICKER_PADDING = 4;
+    private static final int PICKER_HOVER_TINT = 0x80FFFFFF;
 
     /**
      * The button cluster lives in the gap between the two processing grids, and inverting moves that gap
@@ -108,8 +117,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private GuiImgButton invertBtn;
     private int seenPatternLoads = Integer.MIN_VALUE;
 
-    private GuiTabButton tabCraftButton;
-    private GuiTabButton tabProcessButton;
+    /**
+     * One tab per mode, all in the same place; only the active mode's is shown. The two built-in tabs swap
+     * between themselves as they always have; an addon mode's tab opens the picker, which is the way back.
+     */
+    private final Map<ResourceLocation, GuiTabButton> modeTabs = new LinkedHashMap<>();
+    /** Shown only where an addon has registered a mode: the two built-in ones need no list. */
+    private GuiTabButton modesBtn;
+    private boolean pickerOpen;
     private GuiImgButton substitutionsEnabledBtn;
     private GuiImgButton substitutionsDisabledBtn;
     private GuiImgButton fluidSubstitutionsEnabledBtn;
@@ -161,10 +176,19 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
         try {
 
-            if (this.tabCraftButton == btn || this.tabProcessButton == btn) {
-                NetworkHandler.instance()
-                        .sendToServer(
-                                new PacketValueConfig("PatternTerminal.CraftMode", this.tabProcessButton == btn ? CRAFTMODE_CRFTING : CRAFTMODE_PROCESSING));
+            if (this.modesBtn == btn) {
+                this.pickerOpen = !this.pickerOpen;
+            }
+
+            if (this.modeTabs.containsValue(btn)) {
+                // The two built-in tabs are each other's other half; anything else has a list to go back through.
+                if (this.container.isCraftingMode()) {
+                    this.switchTo(PatternEncodingModes.PROCESSING);
+                } else if (this.isProcessingMode()) {
+                    this.switchTo(PatternEncodingModes.CRAFTING);
+                } else {
+                    this.pickerOpen = !this.pickerOpen;
+                }
             }
 
             if (this.invertBtn == btn) {
@@ -232,13 +256,21 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     public void initGui() {
         super.initGui();
 
-        this.tabCraftButton = new GuiTabButton(this.guiLeft + 173, this.guiTop + this.ySize - 177, new ItemStack(Blocks.CRAFTING_TABLE), GuiText.CraftingPattern
-                .getLocal(), this.itemRender);
-        this.buttonList.add(this.tabCraftButton);
+        this.modeTabs.clear();
+        this.pickerOpen = false;
+        for (final PatternEncodingMode mode : PatternEncodingModes.getAll()) {
+            final GuiTabButton tab = new GuiTabButton(this.guiLeft + MODE_TAB_X, this.guiTop + this.ySize - MODE_TAB_Y_FROM_BOTTOM,
+                    mode.getIcon(), I18n.format(mode.getTranslationKey()), this.itemRender);
+            this.modeTabs.put(mode.getId(), tab);
+            this.buttonList.add(tab);
+        }
 
-        this.tabProcessButton = new GuiTabButton(this.guiLeft + 173, this.guiTop + this.ySize - 177, new ItemStack(Blocks.FURNACE), GuiText.ProcessingPattern
-                .getLocal(), this.itemRender);
-        this.buttonList.add(this.tabProcessButton);
+        if (this.modeTabs.size() > 2) {
+            this.modesBtn = new GuiTabButton(this.guiLeft + MODE_TAB_X, this.guiTop + this.ySize - MODE_PICKER_Y_FROM_BOTTOM,
+                    AEApi.instance().definitions().materials().blankPattern().maybeStack(1).orElse(ItemStack.EMPTY),
+                    GuiText.PatternModes.getLocal(), this.itemRender);
+            this.buttonList.add(this.modesBtn);
+        }
 
         this.substitutionsEnabledBtn = new GuiImgButton(this.guiLeft + 84, this.guiTop + this.ySize - 163, Settings.ACTIONS, ItemSubstitution.ENABLED);
         this.substitutionsEnabledBtn.setHalfSize(true);
@@ -342,8 +374,94 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
         this.drawFluidSubstitutionHint();
 
-        if (!this.container.isCraftingMode()) {
+        if (this.isProcessingMode()) {
             this.pageScrollBar.draw(this);
+        }
+
+        if (this.pickerOpen) {
+            this.drawModePicker(mouseX - this.guiLeft, mouseY - this.guiTop);
+        }
+    }
+
+    private void switchTo(final ResourceLocation mode) {
+        try {
+            NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Mode", mode.toString()));
+        } catch (final IOException e) {
+            AELog.debug(e);
+        }
+    }
+
+    private boolean isProcessingMode() {
+        return PatternEncodingModes.PROCESSING.equals(this.container.getEncodingMode());
+    }
+
+    private int pickerLeft() {
+        return MODE_TAB_X - this.pickerWidth();
+    }
+
+    private int pickerTop() {
+        return this.ySize - MODE_TAB_Y_FROM_BOTTOM;
+    }
+
+    private int pickerWidth() {
+        return PatternEncodingModes.getAll().size() * PICKER_CELL + 2 * PICKER_PADDING;
+    }
+
+    /** While the picker is open nothing beneath it is under the mouse: no slot lights up, none says its name. */
+    @Override
+    protected boolean isPointInRegion(final int rectX, final int rectY, final int rectWidth, final int rectHeight,
+            final int pointX, final int pointY) {
+        if (this.pickerOpen && this.inPicker(pointX - this.guiLeft, pointY - this.guiTop)) {
+            return false;
+        }
+        return super.isPointInRegion(rectX, rectY, rectWidth, rectHeight, pointX, pointY);
+    }
+
+    private boolean inPicker(final int x, final int y) {
+        return x >= this.pickerLeft() && x < this.pickerLeft() + this.pickerWidth()
+                && y >= this.pickerTop() && y < this.pickerTop() + PICKER_CELL + 2 * PICKER_PADDING;
+    }
+
+    /** @return the mode whose cell is at that point, in coordinates relative to the window, or null. */
+    @Nullable
+    private PatternEncodingMode modeInPicker(final int x, final int y) {
+        final int top = this.pickerTop() + PICKER_PADDING;
+        final int left = this.pickerLeft() + PICKER_PADDING;
+        if (y < top || y >= top + PICKER_CELL || x < left) {
+            return null;
+        }
+        final int index = (x - left) / PICKER_CELL;
+        final List<PatternEncodingMode> modes = PatternEncodingModes.getAll();
+        return index < modes.size() ? modes.get(index) : null;
+    }
+
+    /** Drawn over the slots, so it is lifted above them the way a tooltip is. */
+    private void drawModePicker(final int mouseX, final int mouseY) {
+        final List<PatternEncodingMode> modes = PatternEncodingModes.getAll();
+        final PatternEncodingMode hovered = this.modeInPicker(mouseX, mouseY);
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0, 0, 300);
+        drawPanel(this.pickerLeft(), this.pickerTop(), this.pickerWidth(), PICKER_CELL + 2 * PICKER_PADDING);
+
+        for (int i = 0; i < modes.size(); i++) {
+            final int x = this.pickerLeft() + PICKER_PADDING + i * PICKER_CELL + 1;
+            final int y = this.pickerTop() + PICKER_PADDING + 1;
+            drawSlotWell(x, y);
+            this.drawItem(x, y, modes.get(i).getIcon());
+            if (modes.get(i) == hovered || modes.get(i).getId().equals(this.container.getEncodingMode())) {
+                GlStateManager.disableLighting();
+                GlStateManager.disableDepth();
+                drawRect(x, y, x + 16, y + 16, PICKER_HOVER_TINT);
+                GlStateManager.enableDepth();
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            }
+        }
+        GlStateManager.popMatrix();
+
+        if (hovered != null) {
+            this.drawHoveringText(Collections.singletonList(I18n.format(hovered.getTranslationKey())), mouseX, mouseY,
+                    this.fontRenderer);
         }
     }
 
@@ -360,9 +478,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.uploadBtn.set(undo ? ActionItems.UPLOAD_UNDO : ActionItems.UPLOAD);
         }
 
+        final ResourceLocation mode = this.container.getEncodingMode();
+        for (final Map.Entry<ResourceLocation, GuiTabButton> tab : this.modeTabs.entrySet()) {
+            tab.getValue().visible = tab.getKey().equals(mode);
+        }
+
         if (this.container.isCraftingMode()) {
-            this.tabCraftButton.visible = true;
-            this.tabProcessButton.visible = false;
             this.x2Btn.visible = false;
             this.x3Btn.visible = false;
             this.divTwoBtn.visible = false;
@@ -387,19 +508,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 this.fluidSubstitutionsDisabledBtn.visible = true;
             }
         } else {
-            this.tabCraftButton.visible = false;
-            this.tabProcessButton.visible = true;
+            final boolean processing = this.isProcessingMode();
             this.substitutionsEnabledBtn.visible = false;
             this.substitutionsDisabledBtn.visible = false;
             this.fluidSubstitutionsEnabledBtn.visible = false;
             this.fluidSubstitutionsDisabledBtn.visible = false;
-            this.x2Btn.visible = true;
-            this.x3Btn.visible = true;
-            this.divTwoBtn.visible = true;
-            this.divThreeBtn.visible = true;
-            this.plusOneBtn.visible = true;
-            this.minusOneBtn.visible = true;
-            this.invertBtn.visible = true;
+            this.x2Btn.visible = processing;
+            this.x3Btn.visible = processing;
+            this.divTwoBtn.visible = processing;
+            this.divThreeBtn.visible = processing;
+            this.plusOneBtn.visible = processing;
+            this.minusOneBtn.visible = processing;
+            this.invertBtn.visible = processing;
         }
     }
 
@@ -521,7 +641,22 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     protected void mouseClicked(final int xCoord, final int yCoord, final int btn) throws IOException {
-        if (!this.container.isCraftingMode()) {
+        if (this.pickerOpen) {
+            final PatternEncodingMode picked = this.modeInPicker(xCoord - this.guiLeft, yCoord - this.guiTop);
+            if (picked != null) {
+                this.pickerOpen = false;
+                if (!picked.getId().equals(this.container.getEncodingMode())) {
+                    NetworkHandler.instance().sendToServer(new PacketValueConfig("PatternTerminal.Mode", picked.getId().toString()));
+                }
+                return;
+            }
+            // Anywhere else closes it, and still does what a click there does - unless it was the button that
+            // opens it, which would open it again.
+            if (this.modesBtn == null || !this.modesBtn.isMouseOver()) {
+                this.pickerOpen = false;
+            }
+        }
+        if (this.isProcessingMode()) {
             this.pageScrollBar.click(this, xCoord - this.guiLeft, yCoord - this.guiTop);
         }
         super.mouseClicked(xCoord, yCoord, btn);
@@ -530,7 +665,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     protected void mouseClickMove(final int x, final int y, final int c, final long d) {
         super.mouseClickMove(x, y, c, d);
-        if (!this.container.isCraftingMode()) {
+        if (this.isProcessingMode()) {
             this.pageScrollBar.click(this, x - this.guiLeft, y - this.guiTop);
         }
     }
@@ -539,7 +674,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     public void handleMouseInput() throws IOException {
         final int wheel = Mouse.getEventDWheel();
 
-        if (wheel != 0 && !this.container.isCraftingMode()) {
+        if (wheel != 0 && this.isProcessingMode()) {
             final int x = Mouse.getEventX() * this.width / this.mc.displayWidth;
             final int y = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
 

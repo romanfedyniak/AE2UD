@@ -142,8 +142,8 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.startsWith("PatternTerminal.")) {
             if (c instanceof ContainerPatternEncoder) {
                 final ContainerPatternEncoder cpt = (ContainerPatternEncoder) c;
-                if (this.Name.equals("PatternTerminal.CraftMode")) {
-                    cpt.switchCraftingMode(this.Value.equals("1"));
+                if (this.Name.equals("PatternTerminal.Mode")) {
+                    cpt.switchEncodingMode(new ResourceLocation(this.Value));
                 } else if (this.Name.equals("PatternTerminal.Encode")) {
                     if (this.Value.equals("2")) {
                         cpt.encodeAndMoveToInventory();
