@@ -96,6 +96,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Autocrafting
 
+- **An interface hands a pattern of fluids or mana alone to a block with no item slots.** It looked for a
+  place to put items before anything else, so a pattern with nothing but fluids in it was never given to a
+  plain tank, nor a pattern of mana to a mana pool, although the export strategy would have filled either.
+  A pattern that has no items no longer needs anywhere to put them.
+
 - **A pattern is not decoded from scratch every time the chunk holding it loads.** Reading an encoded
   crafting pattern means offering its grid to every recipe in the game until one matches, and that happened
   anew for each pattern each time the machine holding it came back: a player flying home paid one full scan

@@ -1213,6 +1213,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         // coolant no recipe here asks for is not busy with anything.
         final Set<AEKeyType> extraTypes = typesOf(extraInputs);
 
+        // A pattern of fluids or mana alone goes to a tank or a pool, which has no slots to put items in.
+        final boolean hasItems = hasItems(table);
+
         for (final EnumFacing s : visitedFaces) {
             final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
             if (te == null) {
@@ -1326,7 +1329,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
 
             InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
-            if (ad != null && !fabricated) {
+            if ((ad != null || !hasItems) && !fabricated) {
                 if (this.isBlocking() && !(this.isSmartBlocking() && this.ranLastOnFace(s, patternDetails))) {
                     if (this.holdsAnyOf(s, extraTypes)) {
                         visitedFaces.remove(s);
@@ -1350,13 +1353,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             visitedFaces.remove(s);
                             continue;
                         }
-                    } else if (invIsBlocked(ad)) {
+                    } else if (ad != null && invIsBlocked(ad)) {
                         visitedFaces.remove(s);
                         continue;
                     }
                 }
 
-                if (this.acceptsItems(ad, table) && this.acceptsExtras(s, extraInputs)) {
+                if ((!hasItems || acceptsItems(ad, table)) && this.acceptsExtras(s, extraInputs)) {
                     this.visitedFaces.clear();
                     for (int x = 0; x < table.getSizeInventory(); x++) {
                         final ItemStack is = table.getStackInSlot(x);
@@ -1685,6 +1688,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final TileEntity self = this.iHost.getTileEntity();
         return StackWorldBehaviors.createExportStrategies(self.getWorld(), self.getPos().offset(side),
                 side.getOpposite());
+    }
+
+    private static boolean hasItems(final InventoryCrafting table) {
+        for (int x = 0; x < table.getSizeInventory(); x++) {
+            if (!table.getStackInSlot(x).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean acceptsItems(final InventoryAdaptor ad, final InventoryCrafting table) {
