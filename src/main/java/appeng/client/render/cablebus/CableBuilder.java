@@ -19,6 +19,9 @@
 package appeng.client.render.cablebus;
 
 
+import appeng.api.parts.cable.CableStyle;
+import appeng.api.parts.cable.CableStyles;
+import appeng.api.util.AECableCore;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.core.AppEng;
@@ -34,7 +37,8 @@ import java.util.function.Function;
 
 
 /**
- * A helper class that builds quads for cable connections.
+ * A helper class that builds quads for cable connections. One per {@link CableStyle}: the shapes are the same
+ * for every style and only the textures differ, so a style is a set of tables and nothing else.
  */
 class CableBuilder {
 
@@ -48,7 +52,8 @@ class CableBuilder {
 
     private final SmartCableTextures smartCableTextures;
 
-    CableBuilder(VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+    CableBuilder(VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter,
+            CableStyle style) {
         this.format = format;
         this.coreTextures = new EnumMap<>(CableCoreType.class);
 
@@ -56,7 +61,7 @@ class CableBuilder {
             EnumMap<AEColor, TextureAtlasSprite> colorTextures = new EnumMap<>(AEColor.class);
 
             for (AEColor color : AEColor.values()) {
-                colorTextures.put(color, bakedTextureGetter.apply(type.getTexture(color)));
+                colorTextures.put(color, bakedTextureGetter.apply(style.getCoreTexture(coreOf(type), color)));
             }
 
             this.coreTextures.put(type, colorTextures);
@@ -68,7 +73,7 @@ class CableBuilder {
             EnumMap<AEColor, TextureAtlasSprite> colorTextures = new EnumMap<>(AEColor.class);
 
             for (AEColor color : AEColor.values()) {
-                colorTextures.put(color, bakedTextureGetter.apply(getConnectionTexture(type, color)));
+                colorTextures.put(color, bakedTextureGetter.apply(style.getConnectionTexture(type, color)));
             }
 
             this.connectionTextures.put(type, colorTextures);
@@ -77,29 +82,9 @@ class CableBuilder {
         this.smartCableTextures = new SmartCableTextures(bakedTextureGetter);
     }
 
-    static ResourceLocation getConnectionTexture(AECableType cableType, AEColor color) {
-        String textureFolder;
-        switch (cableType) {
-            case GLASS:
-                textureFolder = "parts/cable/glass/";
-                break;
-            case COVERED:
-                textureFolder = "parts/cable/covered/";
-                break;
-            case SMART:
-                textureFolder = "parts/cable/smart/";
-                break;
-            case DENSE_COVERED:
-                textureFolder = "parts/cable/dense_covered/";
-                break;
-            case DENSE_SMART:
-                textureFolder = "parts/cable/dense_smart/";
-                break;
-            default:
-                throw new IllegalStateException("Cable type " + cableType + " does not support connections.");
-        }
-
-        return new ResourceLocation(AppEng.MOD_ID, textureFolder + color.name().toLowerCase());
+    /** The two name the same three shapes; the client enum also knows where AE2's own textures live. */
+    static AECableCore coreOf(CableCoreType type) {
+        return AECableCore.valueOf(type.name());
     }
 
     /**
@@ -683,18 +668,21 @@ class CableBuilder {
     }
 
     // Get all textures needed for building the actual cable quads
+    /** Every style's textures: they all go into the block atlas, since any of them may be on screen. */
     public static List<ResourceLocation> getTextures() {
         List<ResourceLocation> locations = new ArrayList<>();
 
-        for (CableCoreType coreType : CableCoreType.values()) {
-            for (AEColor color : AEColor.values()) {
-                locations.add(coreType.getTexture(color));
+        for (CableStyle style : CableStyles.getAll()) {
+            for (CableCoreType coreType : CableCoreType.values()) {
+                for (AEColor color : AEColor.values()) {
+                    locations.add(style.getCoreTexture(coreOf(coreType), color));
+                }
             }
-        }
 
-        for (AECableType cableType : AECableType.VALIDCABLES) {
-            for (AEColor color : AEColor.values()) {
-                locations.add(getConnectionTexture(cableType, color));
+            for (AECableType cableType : AECableType.VALIDCABLES) {
+                for (AEColor color : AEColor.values()) {
+                    locations.add(style.getConnectionTexture(cableType, color));
+                }
             }
         }
 

@@ -985,6 +985,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
         if (cable != null) {
             renderState.setCableColor(cable.getCableColor());
             renderState.setCableType(cable.getCableConnectionType());
+            renderState.setCableStyle(cable.getCableStyle());
             renderState.setCoreType(CableCoreType.fromCableType(cable.getCableConnectionType()));
 
             // Check each outgoing connection for the desired characteristics

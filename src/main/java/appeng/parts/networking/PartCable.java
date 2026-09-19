@@ -31,6 +31,7 @@ import appeng.api.parts.BusSupport;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
+import appeng.api.parts.cable.IColoredPartItem;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.api.util.AEPartLocation;
@@ -66,7 +67,18 @@ public class PartCable extends AEBasePart implements IPartCable {
         super(is);
         this.getProxy().setFlags(GridFlags.PREFERRED);
         this.getProxy().setIdlePowerUsage(0.0);
-        this.getProxy().setColor(AEColor.values()[((ItemPart) is.getItem()).variantOf(is.getItemDamage())]);
+        this.getProxy().setColor(colorOf(is));
+    }
+
+    /** An addon's cable is not one of AE2's own parts, and says its own colour. */
+    private static AEColor colorOf(final ItemStack is) {
+        if (is.getItem() instanceof ItemPart part) {
+            return AEColor.values()[part.variantOf(is.getItemDamage())];
+        }
+        if (is.getItem() instanceof IColoredPartItem colored) {
+            return colored.getPartColor(is);
+        }
+        return AEColor.TRANSPARENT;
     }
 
     @Override
@@ -114,21 +126,7 @@ public class PartCable extends AEBasePart implements IPartCable {
     @Override
     public boolean changeColor(final AEColor newColor, final EntityPlayer who) {
         if (this.getCableColor() != newColor) {
-            ItemStack newPart = null;
-
-            final IParts parts = AEApi.instance().definitions().parts();
-
-            if (this.getCableConnectionType() == AECableType.GLASS) {
-                newPart = parts.cableGlass().stack(newColor, 1);
-            } else if (this.getCableConnectionType() == AECableType.COVERED) {
-                newPart = parts.cableCovered().stack(newColor, 1);
-            } else if (this.getCableConnectionType() == AECableType.SMART) {
-                newPart = parts.cableSmart().stack(newColor, 1);
-            } else if (this.getCableConnectionType() == AECableType.DENSE_COVERED) {
-                newPart = parts.cableDenseCovered().stack(newColor, 1);
-            } else if (this.getCableConnectionType() == AECableType.DENSE_SMART) {
-                newPart = parts.cableDenseSmart().stack(newColor, 1);
-            }
+            final ItemStack newPart = this.getColoredCable(newColor);
 
             boolean hasPermission = true;
 
@@ -138,7 +136,7 @@ public class PartCable extends AEBasePart implements IPartCable {
                 // :P
             }
 
-            if (newPart != null && hasPermission) {
+            if (newPart != null && !newPart.isEmpty() && hasPermission) {
                 if (Platform.isClient()) {
                     return true;
                 }
@@ -149,6 +147,29 @@ public class PartCable extends AEBasePart implements IPartCable {
             }
         }
         return false;
+    }
+
+    /**
+     * The same cable in another colour, which painting replaces this part with. An addon's cable overrides this
+     * to name its own item; an empty stack refuses the paint.
+     */
+    protected ItemStack getColoredCable(final AEColor color) {
+        final IParts parts = AEApi.instance().definitions().parts();
+
+        switch (this.getCableConnectionType()) {
+            case GLASS:
+                return parts.cableGlass().stack(color, 1);
+            case COVERED:
+                return parts.cableCovered().stack(color, 1);
+            case SMART:
+                return parts.cableSmart().stack(color, 1);
+            case DENSE_COVERED:
+                return parts.cableDenseCovered().stack(color, 1);
+            case DENSE_SMART:
+                return parts.cableDenseSmart().stack(color, 1);
+            default:
+                return ItemStack.EMPTY;
+        }
     }
 
     @Override

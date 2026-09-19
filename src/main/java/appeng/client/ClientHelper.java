@@ -29,6 +29,7 @@ import appeng.client.render.tesr.InscriberTESR;
 import appeng.client.render.textures.ParticleTextures;
 import appeng.core.AEClientConfig;
 import appeng.api.AEApi;
+import appeng.api.parts.cable.CableStyles;
 import appeng.api.patterns.PatternEncodingModes;
 import appeng.api.patterns.client.PatternModePanels;
 import appeng.api.client.AEKeyRendering;
@@ -49,6 +50,7 @@ import appeng.entity.RenderFloatingItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.StorageCell;
+import appeng.client.render.cablebus.DefaultCableStyle;
 import appeng.client.gui.implementations.pattern.CraftingModePanel;
 import appeng.client.gui.implementations.pattern.ProcessingModePanel;
 import appeng.client.gui.implementations.GuiCellView;
@@ -114,6 +116,9 @@ public class ClientHelper extends ServerHelper {
         if (!FMLClientHandler.instance().hasOptifine() && ForgeModContainer.forgeLightPipelineEnabled) {
             ModelLoaderRegistry.registerLoader(UVLModelLoader.INSTANCE);
         }
+
+        // Before the cable bus model is loaded: a style's textures are stitched into the atlas with it.
+        CableStyles.register(DefaultCableStyle.INSTANCE);
 
         PatternModePanels.register(PatternEncodingModes.CRAFTING, CraftingModePanel::new);
         PatternModePanels.register(PatternEncodingModes.PROCESSING, ProcessingModePanel::new);

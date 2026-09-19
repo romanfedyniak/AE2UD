@@ -24,6 +24,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon can add a cable of its own.** A `CableStyle` - one set of cable textures, for every shape and every
+  colour - registered in `CableStyles` and named by a cable part's `getCableStyle()` is what the cable bus then
+  draws that cable in, with AE2's own shapes, channel lights and connection rules unchanged; every style's
+  textures are stitched into the block atlas when the cable bus model loads, so a style has to be registered
+  during client pre-initialisation. Two smaller things a cable outside AE2 needed: the part asks its item for
+  the colour it was placed in (`IColoredPartItem`) instead of assuming AE2's own part item, and which item
+  painting replaces it with is a method on the cable rather than a list of AE2's five.
+
 - **An addon can add a mode to the pattern terminal.** Crafting and processing used to be the only two, a
   switch in the terminal and in every packet that touched it. They are now the first two
   `PatternEncodingMode`s registered in `PatternEncodingModes`, and an addon registers its own the same way: the

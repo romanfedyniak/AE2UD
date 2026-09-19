@@ -19,6 +19,8 @@
 package appeng.client.render.cablebus;
 
 
+import appeng.api.parts.cable.CableStyle;
+import appeng.api.parts.cable.CableStyles;
 import appeng.api.util.AEColor;
 import appeng.core.AELog;
 import appeng.core.features.registries.PartModels;
@@ -34,6 +36,7 @@ import net.minecraftforge.common.model.IModelState;
 import net.minecraftforge.common.model.TRSRTransformation;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -66,14 +69,18 @@ public class CableBusModel implements IModel {
     public IBakedModel bake(IModelState state, VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
         Map<ResourceLocation, IBakedModel> partModels = this.loadPartModels(state, format, bakedTextureGetter);
 
-        CableBuilder cableBuilder = new CableBuilder(format, bakedTextureGetter);
+        final Map<ResourceLocation, CableBuilder> cableBuilders = new HashMap<>();
+        for (final CableStyle style : CableStyles.getAll()) {
+            cableBuilders.put(style.getId(), new CableBuilder(format, bakedTextureGetter, style));
+        }
+        CableBuilder cableBuilder = cableBuilders.get(CableStyles.DEFAULT);
         FacadeBuilder facadeBuilder = new FacadeBuilder();
 
         // This should normally not be used, but we *have* to provide a particle texture or otherwise damage models will
         // crash
         TextureAtlasSprite particleTexture = cableBuilder.getCoreTexture(CableCoreType.GLASS, AEColor.TRANSPARENT);
 
-        return new CableBusBakedModel(cableBuilder, facadeBuilder, partModels, particleTexture);
+        return new CableBusBakedModel(cableBuilders, facadeBuilder, partModels, particleTexture);
     }
 
     private Map<ResourceLocation, IBakedModel> loadPartModels(IModelState state, VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {

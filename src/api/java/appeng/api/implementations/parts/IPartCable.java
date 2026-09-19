@@ -28,9 +28,11 @@ import java.util.EnumSet;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 
 import appeng.api.networking.IGridHost;
 import appeng.api.parts.BusSupport;
+import appeng.api.parts.cable.CableStyles;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.util.AECableType;
@@ -59,6 +61,14 @@ public interface IPartCable extends IPart, IGridHost
 	 * @return the Cable type.
 	 */
 	AECableType getCableConnectionType();
+
+	/**
+	 * Which set of textures the cable bus draws this cable in; see {@link CableStyles}. AE2's own by default.
+	 */
+	default ResourceLocation getCableStyle()
+	{
+		return CableStyles.DEFAULT;
+	}
 
 	/**
 	 * Change the color of the cable, this should cost a small amount of dye, or something.

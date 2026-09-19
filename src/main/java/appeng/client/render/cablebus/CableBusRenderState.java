@@ -20,9 +20,11 @@ package appeng.client.render.cablebus;
 
 
 import appeng.api.parts.IPartModel;
+import appeng.api.parts.cable.CableStyles;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
@@ -44,6 +46,9 @@ public class CableBusRenderState {
     private CableCoreType coreType;
 
     private AEColor cableColor = AEColor.TRANSPARENT;
+
+    /** Which style's textures the cable is drawn in; see {@link appeng.api.parts.cable.CableStyles}. */
+    private ResourceLocation cableStyle = CableStyles.DEFAULT;
 
     // Describes the outgoing connections of this cable bus to other blocks, and how they should be rendered
     private EnumMap<EnumFacing, AECableType> connectionTypes = new EnumMap<>(EnumFacing.class);
@@ -90,6 +95,14 @@ public class CableBusRenderState {
 
     public AECableType getCableType() {
         return this.cableType;
+    }
+
+    public ResourceLocation getCableStyle() {
+        return this.cableStyle;
+    }
+
+    public void setCableStyle(ResourceLocation cableStyle) {
+        this.cableStyle = cableStyle;
     }
 
     public void setCableType(AECableType cableType) {
@@ -180,6 +193,7 @@ public class CableBusRenderState {
         result = prime * result + ((this.cableBusAdjacent == null) ? 0 : this.cableBusAdjacent.hashCode());
         result = prime * result + ((this.cableColor == null) ? 0 : this.cableColor.hashCode());
         result = prime * result + ((this.cableType == null) ? 0 : this.cableType.hashCode());
+        result = prime * result + ((this.cableStyle == null) ? 0 : this.cableStyle.hashCode());
         result = prime * result + this.channelCapacity;
         result = prime * result + ((this.channelsOnSide == null) ? 0 : this.channelsOnSide.hashCode());
         result = prime * result + ((this.connectionTypes == null) ? 0 : this.connectionTypes.hashCode());
@@ -203,6 +217,7 @@ public class CableBusRenderState {
         final CableBusRenderState other = (CableBusRenderState) obj;
 
         return this.cableColor == other.cableColor && this.cableType == other.cableType && this.coreType == other.coreType && Objects
+                .equals(this.cableStyle, other.cableStyle) && Objects
                 .equals(this.attachmentConnections, other.attachmentConnections) && Objects.equals(this.cableBusAdjacent, other.cableBusAdjacent) && Objects
                 .equals(this.channelsOnSide, other.channelsOnSide) && this.channelCapacity == other.channelCapacity && Objects.equals(this.connectionTypes, other.connectionTypes) && Objects
                 .equals(this.partFlags, other.partFlags);
