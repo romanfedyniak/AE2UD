@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon can reach a network through a player's wireless terminals without a word to the player.**
+  `WirelessTerminalAccess.reachable` returns every terminal the player carries that is linked, charged and in
+  range, where `run` stops at the first and tells the player why the others could not answer. That suits pick
+  block, which the player asked for; it does not suit work that happens unasked and often, such as a tool
+  drawing on the network every tick, which would fill the chat.
+
 - **An addon can put a switch on every wireless terminal.** A `WirelessTerminalToggle` - an id, whether it
   starts on, two icons from the addon's own texture and a tooltip - registered in `WirelessTerminalToggles`
   appears as a button in the settings drawer of every wireless screen: the terminal, the crafting and pattern

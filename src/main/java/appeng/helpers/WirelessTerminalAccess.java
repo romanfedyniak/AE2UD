@@ -10,6 +10,8 @@
 
 package appeng.helpers;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
@@ -133,6 +135,31 @@ public final class WirelessTerminalAccess {
 
         complaints.tell(player);
         return false;
+    }
+
+    /**
+     * Every terminal the player carries that is linked, charged and in range, with nothing said about the
+     * others: for work nobody asked for in the moment, which happens often and must not fill the chat.
+     */
+    public static List<WirelessTerminalGuiObject> reachable(final EntityPlayer player,
+            final Predicate<ItemStack> usable) {
+        final List<WirelessTerminalGuiObject> found = new ArrayList<>();
+        final Complaints ignored = new Complaints();
+        final Action collect = terminal -> {
+            found.add(terminal);
+            return false;
+        };
+
+        final NonNullList<ItemStack> mainInventory = player.inventory.mainInventory;
+        for (int i = 0; i < mainInventory.size(); i++) {
+            tryOne(mainInventory.get(i), i, false, player, usable, collect, ignored);
+        }
+
+        if (Platform.isModLoaded("baubles")) {
+            tryBaubles(player, usable, collect, ignored);
+        }
+
+        return found;
     }
 
     /**
