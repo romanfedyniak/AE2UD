@@ -30,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.Base64;
 import java.util.WeakHashMap;
 
 
@@ -68,7 +69,9 @@ public class GridStorage implements IGridStorage {
         NBTTagCompound myTag = null;
 
         try {
-            final byte[] byteData = javax.xml.bind.DatatypeConverter.parseBase64Binary(input);
+            // A lenient decoder, because the JAXB one this replaces skipped anything that was not base64
+            // and a world saved by it may hold such a string.
+            final byte[] byteData = Base64.getMimeDecoder().decode(input);
             myTag = CompressedStreamTools.readCompressed(new ByteArrayInputStream(byteData));
         } catch (final Throwable t) {
             myTag = new NBTTagCompound();
@@ -95,7 +98,7 @@ public class GridStorage implements IGridStorage {
         try {
             final ByteArrayOutputStream out = new ByteArrayOutputStream();
             CompressedStreamTools.writeCompressed(this.data, out);
-            return javax.xml.bind.DatatypeConverter.printBase64Binary(out.toByteArray());
+            return Base64.getEncoder().encodeToString(out.toByteArray());
         } catch (final IOException e) {
             AELog.debug(e);
         }

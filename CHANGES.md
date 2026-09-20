@@ -198,6 +198,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Leaving a world crashed on Java 11 and newer.** A grid's saved state was turned into text with a JAXB
+  class that no Java since 10 ships, so the very last thing a world does - writing its grids out - died
+  with a `NoClassDefFoundError` under Cleanroom. It uses `java.util.Base64` now, which writes byte for
+  byte what the old one did, and reads leniently so that nothing already saved is rejected.
+
 - **Painting anything with the Colour Applicator crashed the game.** The applicator takes its paint and its
   power in the same call on both sides, so that the client can show at once whether the block took the
   colour - but a cell's contents are only a summary on the client now, and taking something out of one
