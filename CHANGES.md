@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern grid of items takes one of each, and has no amount to type.** Whether a square of the
+  pattern terminal holds a quantity was decided by the mode - anything but crafting did - rather than by
+  the square. An addon's bench is a recipe's shape like the crafting grid is, so its squares offered a
+  middle-click to set an amount that means nothing on a bench, and a stack dropped into one was encoded
+  as that many. The square is asked now, and an items-only one holds exactly one.
+
 - **The pattern terminal's mode tab is the crafting-processing toggle again.** It opened the mode picker
   while an addon's mode was on, which is what the button beside it already does - two buttons, one job,
   and no way back to the pair without the list. The tab swaps crafting and processing as it always has,

@@ -22,6 +22,7 @@ package appeng.container.slot;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.AEKeyFilter;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 
@@ -35,6 +36,29 @@ public class SlotFakeCraftingMatrix extends SlotFakePatternGrid {
 
     public SlotFakeCraftingMatrix(final IItemHandler inv, final int idx, final int x, final int y) {
         super(inv, idx, x, y);
+    }
+
+    /** One of each, the way a bench's square holds one: there is no count in a recipe's shape. */
+    @Override
+    public int getSlotStackLimit() {
+        return 1;
+    }
+
+    /**
+     * A fake slot is set outright rather than filled, so the limit above is not what a click, a drag or a
+     * recipe carried over from a recipe screen obeys - the count is cut here instead. A grid holding sixty
+     * four of an ingredient would otherwise encode a pattern asking for sixty four of it.
+     */
+    @Override
+    public void putStack(final ItemStack is) {
+        if (!is.isEmpty() && is.getCount() != 1) {
+            final ItemStack one = is.copy();
+            one.setCount(1);
+            super.putStack(one);
+            return;
+        }
+
+        super.putStack(is);
     }
 
     /**

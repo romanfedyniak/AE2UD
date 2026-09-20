@@ -280,7 +280,9 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         if (this.inventorySlots instanceof ContainerPatternEncoder) {
-            return !((ContainerPatternEncoder) this.inventorySlots).isCraftingMode();
+            // Asked of the square rather than of the mode: a grid that stands for a bench's slots holds one
+            // item in each, whether it is AE2's three-by-three or an addon's nine-by-nine.
+            return !(slot instanceof SlotFakeCraftingMatrix);
         }
 
         // An ME Interface stocks its config up to the slot's capacity - 512 items, or 32 buckets.

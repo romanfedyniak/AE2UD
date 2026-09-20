@@ -46,6 +46,7 @@ import appeng.container.implementations.ContainerWirelessPatternTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFake;
+import appeng.container.slot.SlotFakeCraftingMatrix;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.features.AEFeature;
@@ -559,18 +560,17 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
-        final boolean processing = !this.container.isCraftingMode();
-
-        // Whether the grid can take this at all, which is all that can be settled now - the answer is null
-        // or not-null the same way whichever button ends the drag, and only the value depends on it.
-        if (ghostPayloadOf(ingredient, processing) == null) {
-            return Collections.emptyList();
-        }
         List<Target<?>> targets = new ArrayList<>();
         for (Slot slot : this.inventorySlots.inventorySlots) {
             // A slot scrolled off the page is still in the container; offering it as a drop target would
             // put the ingredient somewhere the screen cannot show.
             if (slot instanceof SlotFake && !((SlotFake) slot).isHidden()) {
+                // Asked of the square rather than of the mode: a grid standing for a bench's slots is a
+                // recipe's shape, and a dragged bucket belongs in it as a bucket.
+                final boolean processing = !(slot instanceof SlotFakeCraftingMatrix);
+                if (ghostPayloadOf(ingredient, processing) == null) {
+                    continue;
+                }
                 Target<Object> target = new Target<Object>() {
                     @Override
                     public Rectangle getArea() {
