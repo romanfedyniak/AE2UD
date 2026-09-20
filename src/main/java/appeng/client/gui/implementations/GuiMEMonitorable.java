@@ -860,7 +860,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.drawTexturedModalRect(offsetX, offsetY + 18 + x * 18, 0, 18, x_width, 18);
         }
 
-        if (this.drawsReservedSpace()) {
+        // A screen that reserved nothing is textured as if it had reserved nothing: the three pixels the
+        // split draws below the last row are not the whole of what is there - the scrollbar's own foot is
+        // in the pixels under them, and it would be left unfinished.
+        if (this.drawsReservedSpace() && this.reservedSpace > 0) {
             // The reserved space is drawn by whoever asked for it, so only the strip above it and the
             // player's inventory below come out of the texture. A window texture is 256 tall and the strip
             // is read from 70 down, which leaves room for about eighty pixels of reserved space - a screen

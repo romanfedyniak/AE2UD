@@ -30,7 +30,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   the window rather than above the inventory - and it says where it did. The terminal then centres the
   window and the plate together, rather than centring the window and letting the plate run off the edge
   of the screen, and a recipe viewer keeps its list off the plate the way it does off the terminal's own
-  column.
+  column. A panel whose plate holds everything can ask for no room above the inventory at all: the window
+  is then drawn as if the terminal had no mode on, name and all, and the list of what the network holds
+  keeps every row the screen has.
 
 - **A pattern mode's panel can take the view cells onto itself.** The column the cells sit in is drawn
   beside the window, which is where a panel with a plate of its own wants to be, so the two together were

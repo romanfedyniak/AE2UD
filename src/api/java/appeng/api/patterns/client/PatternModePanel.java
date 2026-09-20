@@ -47,7 +47,9 @@ public abstract class PatternModePanel {
 
     /**
      * How much room the terminal sets aside above the player's inventory. The list of what the network holds
-     * takes whatever is left, so a tall panel leaves few rows of it.
+     * takes whatever is left, so a tall panel leaves few rows of it. Zero leaves the window as the terminal
+     * would draw it without a mode at all, name and all, for a panel that draws everything of its own
+     * somewhere else.
      */
     public abstract int getHeight();
 

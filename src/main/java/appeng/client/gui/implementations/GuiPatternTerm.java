@@ -288,7 +288,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             GlStateManager.pushMatrix();
             GlStateManager.translate(this.guiLeft, this.guiTop, 0.0F);
 
-            if (this.drawsReservedSpace()) {
+            // A panel that asks for no room above the inventory gets no plate there either; what it draws
+            // of its own is all there is of it.
+            if (this.drawsReservedSpace() && this.panel.getHeight() > 0) {
                 drawPanel(0, this.getPanelTop(), Math.max(TEXTURE_WIDTH, this.panel.getWidth()),
                         this.panel.getHeight());
             }
@@ -301,9 +303,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
-        // A panel that paints its own plate has a frame where the title would otherwise sit.
-        this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8,
-                this.getPanelTop() + (this.drawsReservedSpace() ? 4 : 2), 4210752);
+        // A panel that paints its own plate has a frame where the title would otherwise sit, and one that
+        // asks for no room at all has nowhere for it: the line under the list is the player's inventory.
+        if (this.getReservedSpace() > 0) {
+            this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8,
+                    this.getPanelTop() + (this.drawsReservedSpace() ? 4 : 2), 4210752);
+        }
 
         if (this.panel != null) {
             this.panel.drawForeground(mouseX - this.guiLeft, mouseY - this.guiTop);
