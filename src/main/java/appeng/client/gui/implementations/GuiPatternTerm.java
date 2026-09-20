@@ -83,6 +83,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     private static final String BACKGROUND_NO_PANEL = "guis/pattern.png";
 
+    /** The width of the window texture, which is what a self-drawn panel covers. */
+    private static final int TEXTURE_WIDTH = 197;
+
     /** Where the mode tab sits, the button below it, and the picker they open. */
     private static final int MODE_TAB_X = 173;
     private static final int MODE_TAB_Y_FROM_BOTTOM = 177;
@@ -227,6 +230,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         if (!this.container.getEncodingMode().equals(this.panelMode)) {
             this.buildPanel();
             this.refreshLayout();
+        } else if (this.panel != null && this.panel.getHeight() != this.getReservedSpace()) {
+            // A panel that grows with what the player puts in it - an addon's bench, which is five squares
+            // across for one recipe and nine for another - reports a new height here rather than only when
+            // the mode changes.
+            this.setReservedSpace(this.panel.getHeight());
+            this.refreshLayout();
         }
 
         if (this.seenPatternLoads != this.container.patternLoads) {
@@ -259,14 +268,27 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         super.drawBG(offsetX, offsetY, mouseX, mouseY);
 
         if (this.panel != null) {
+            // Translated the way the foreground layer already is, so that everything a panel draws - a plate,
+            // a well, a texture of its own - is written in the same window coordinates as its slots.
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(this.guiLeft, this.guiTop, 0.0F);
+
+            if (this.drawsReservedSpace()) {
+                drawPanel(0, this.getPanelTop(), Math.max(TEXTURE_WIDTH, this.panel.getWidth()),
+                        this.panel.getHeight());
+            }
             this.panel.drawBackground(mouseX - this.guiLeft, mouseY - this.guiTop);
+
+            GlStateManager.popMatrix();
         }
     }
 
     @Override
     public void drawFG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
         super.drawFG(offsetX, offsetY, mouseX, mouseY);
-        this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8, this.ySize - 96 + 2 - this.getReservedSpace(), 4210752);
+        // A panel that paints its own plate has a frame where the title would otherwise sit.
+        this.fontRenderer.drawString(GuiText.PatternTerminal.getLocal(), 8,
+                this.getPanelTop() + (this.drawsReservedSpace() ? 4 : 2), 4210752);
 
         if (this.panel != null) {
             this.panel.drawForeground(mouseX - this.guiLeft, mouseY - this.guiTop);
@@ -413,6 +435,16 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     protected String getBackground() {
         final String background = this.panel == null ? null : this.panel.getBackground();
         return background == null ? BACKGROUND_NO_PANEL : background;
+    }
+
+    /**
+     * A panel that names no window texture is one that paints itself, and the crafting panel's texture behind
+     * it would only show through. It gets a plain plate of its own height instead, which is also the only way
+     * a panel taller than the texture allows can be drawn at all.
+     */
+    @Override
+    protected boolean drawsReservedSpace() {
+        return this.panel != null && this.panel.getBackground() == null;
     }
 
     @Override
@@ -580,6 +612,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     }
 
     @Override
+    public int getPanelWidth() {
+        return TEXTURE_WIDTH;
+    }
+
+    @Override
     public int getPanelTop() {
         return this.ySize - 96 - this.getReservedSpace();
     }
@@ -623,6 +660,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public void drawSlotBackground(final int x, final int y) {
         drawSlotWell(x, y);
+    }
+
+    @Override
+    public void drawWellBackground(final int x, final int y, final int width, final int height) {
+        drawWell(x, y, width, height);
+    }
+
+    @Override
+    public void drawRectangle(final int x, final int y, final int width, final int height, final int colour) {
+        drawRect(x, y, x + width, y + height, colour);
+        // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually textured.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     @Override

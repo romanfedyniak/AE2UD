@@ -49,6 +49,14 @@ public abstract class PatternModePanel {
     public abstract int getHeight();
 
     /**
+     * How wide the plate under the panel is drawn. Zero, the default, is the window's own width; anything
+     * more hangs off its right edge, which is where a panel too wide for the window puts what will not fit.
+     */
+    public int getWidth() {
+        return 0;
+    }
+
+    /**
      * The window texture behind the whole terminal, as a path under {@code textures/guis/}; null keeps the one
      * the terminal wears, which a panel that draws its own background wants.
      */

@@ -42,6 +42,13 @@ public interface IPatternTerminalScreen {
 
     int getXSize();
 
+    /**
+     * How wide the drawn window is, which is what a panel has to lay itself out in. Not the same as
+     * {@link #getXSize()}: a terminal carrying view cells counts their column in that, and it stands well to
+     * the right of the window a panel lives in.
+     */
+    int getPanelWidth();
+
     int getYSize();
 
     /** The top of the room set aside for the panel; the player's inventory begins below it. */
@@ -66,6 +73,17 @@ public interface IPatternTerminalScreen {
 
     /** The sunken square a ghost slot sits in, for a panel that draws itself rather than wearing a texture. */
     void drawSlotBackground(int x, int y);
+
+    /** The same sunken well at any size, for the wider frame an output slot wears. */
+    void drawWellBackground(int x, int y, int width, int height);
+
+    /**
+     * A flat rectangle, for the small decoration a panel that paints itself would otherwise need a texture
+     * of its own for - an arrow between a grid and what it makes, a rule between two halves.
+     *
+     * @param colour packed ARGB
+     */
+    void drawRectangle(int x, int y, int width, int height, int colour);
 
     void drawItemStack(int x, int y, ItemStack stack);
 

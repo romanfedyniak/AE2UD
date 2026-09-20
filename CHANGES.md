@@ -24,6 +24,22 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern mode's panel can be any size, and knows where it is.** Three things the panel api promised
+  and did not do, all found by writing the first panel outside AE2. A panel that named no window texture
+  was given the crafting panel's, three-by-three matrix and all, showing through whatever it drew; it
+  gets a plain plate of its own height now. That plate is also the only way a tall panel can be drawn at
+  all: the room above the player's inventory used to be cut from the window texture in one piece, and a
+  window texture is 256 pixels tall, so anything past about eighty pixels of panel read off the bottom
+  of the sheet and came out as garbage - a nine-by-nine bench needs more than twice that. A panel's
+  height was also read only when the mode changed, so one that changes size kept the window it started
+  with; it is read every frame now. And the two calls a panel draws its own background with ran before
+  the window was translated under them, so they wanted screen coordinates while everything else a panel
+  draws wanted the window's - they take the window's now, as documented.
+  A panel that paints itself is given the two things it would otherwise want a texture for as well: the
+  same sunken well at any size, and a flat rectangle.
+  A panel that paints itself is given the two things it would otherwise want a texture for as well: the
+  same sunken well at any size, and a flat rectangle.
+
 - **A crafting pattern may be bigger than three by three.** The size of the crafting grid a pattern's
   ingredients are laid into was written into the network in two places, so a pattern from an addon's
   larger bench - Extended Crafting's five, seven and nine wide tables, say - had nowhere to say so and

@@ -852,8 +852,18 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.drawTexturedModalRect(offsetX, offsetY + 18 + x * 18, 0, 18, x_width, 18);
         }
 
-        this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18 + this.lowerTextureOffset, 0, 106 - 18 - 18, x_width,
-                99 + this.reservedSpace - this.lowerTextureOffset);
+        if (this.drawsReservedSpace()) {
+            // The reserved space is drawn by whoever asked for it, so only the strip above it and the
+            // player's inventory below come out of the texture. A window texture is 256 tall and the strip
+            // is read from 70 down, which leaves room for about eighty pixels of reserved space - a screen
+            // that wants more than that has to draw its own.
+            this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18, 0, 106 - 18 - 18, x_width, 3);
+            this.drawTexturedModalRect(offsetX, offsetY + 19 + this.rows * 18 + this.reservedSpace, 0, 250 - 96,
+                    x_width, 96);
+        } else {
+            this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18 + this.lowerTextureOffset, 0, 106 - 18 - 18, x_width,
+                    99 + this.reservedSpace - this.lowerTextureOffset);
+        }
 
         this.drawPinDecorations(offsetX, offsetY);
 
@@ -1061,6 +1071,14 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     int getReservedSpace() {
         return this.reservedSpace;
+    }
+
+    /**
+     * Whether the room set aside above the player's inventory is drawn by this screen rather than taken from
+     * the window texture. Anything but a small strip has to be, since the texture has only so much of it.
+     */
+    protected boolean drawsReservedSpace() {
+        return false;
     }
 
     void setReservedSpace(final int reservedSpace) {
