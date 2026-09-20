@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A button under the open mode picker keeps quiet.** The list of modes draws over whatever is behind
+  it, and the slots under it already ignore the cursor, but a button did not: it went on showing its
+  tooltip through the list, with the two drawn over each other. A button the picker covers is no longer
+  under the cursor.
+
 - **The mode picker opens beside the button that opens it.** Its place was measured from where the mode
   tab sits in the built-in panels, so with a panel that puts the button somewhere else the list appeared
   across the middle of the grid.

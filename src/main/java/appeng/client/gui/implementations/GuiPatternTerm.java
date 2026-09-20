@@ -39,6 +39,7 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.core.localization.ButtonToolTips;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
+import appeng.client.gui.widgets.ITooltip;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
@@ -337,6 +338,19 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             return false;
         }
         return super.isPointInRegion(rectX, rectY, rectWidth, rectHeight, pointX, pointY);
+    }
+
+    /**
+     * A button under the open picker is not under the cursor, whatever its own rectangle says - the same
+     * rule the slots below it already follow, and without it a button explains itself through the list.
+     */
+    @Override
+    protected void drawTooltip(final ITooltip tooltip, final int mouseX, final int mouseY) {
+        if (this.pickerOpen && this.inPicker(mouseX - this.guiLeft, mouseY - this.guiTop)) {
+            return;
+        }
+
+        super.drawTooltip(tooltip, mouseX, mouseY);
     }
 
     private boolean inPicker(final int x, final int y) {
