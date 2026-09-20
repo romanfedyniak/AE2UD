@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **The pattern terminal's mode tab is the crafting-processing toggle again.** It opened the mode picker
+  while an addon's mode was on, which is what the button beside it already does - two buttons, one job,
+  and no way back to the pair without the list. The tab swaps crafting and processing as it always has,
+  and from an addon's mode it returns to crafting.
+
 - **A button under the open mode picker keeps quiet.** The list of modes draws over whatever is behind
   it, and the slots under it already ignore the cursor, but a button did not: it went on showing its
   tooltip through the list, with the two drawn over each other. A button the picker covers is no longer

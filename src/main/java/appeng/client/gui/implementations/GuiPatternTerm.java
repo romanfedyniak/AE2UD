@@ -103,8 +103,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private int seenPatternLoads = Integer.MIN_VALUE;
 
     /**
-     * One tab per mode, all in the same place; only the active mode's is shown. The two built-in tabs swap
-     * between themselves as they always have; an addon mode's tab opens the picker, which is the way back.
+     * One tab per mode, all in the same place; only the active mode's is shown. Clicking it swaps crafting
+     * and processing as it always has, and from an addon's mode it goes back to crafting.
      */
     private final Map<ResourceLocation, GuiTabButton> modeTabs = new LinkedHashMap<>();
     /** Shown only where an addon has registered a mode: the two built-in ones need no list. */
@@ -148,14 +148,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             }
 
             if (this.modeTabs.containsValue(btn)) {
-                // The two built-in tabs are each other's other half; anything else has a list to go back through.
-                if (this.container.isCraftingMode()) {
-                    this.switchTo(PatternEncodingModes.PROCESSING);
-                } else if (this.isProcessingMode()) {
-                    this.switchTo(PatternEncodingModes.CRAFTING);
-                } else {
-                    this.pickerOpen = !this.pickerOpen;
-                }
+                // The tab is the crafting/processing toggle it has always been, and nothing else: the list of
+                // every mode has a button of its own, and a tab that opened it too would be the same button
+                // twice. From an addon's mode the tab is the way back to the pair.
+                this.switchTo(this.container.isCraftingMode()
+                        ? PatternEncodingModes.PROCESSING
+                        : PatternEncodingModes.CRAFTING);
             }
 
             if (this.encodeBtn == btn) {
@@ -311,10 +309,6 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         } catch (final IOException e) {
             AELog.debug(e);
         }
-    }
-
-    private boolean isProcessingMode() {
-        return PatternEncodingModes.PROCESSING.equals(this.container.getEncodingMode());
     }
 
     private int pickerLeft() {
