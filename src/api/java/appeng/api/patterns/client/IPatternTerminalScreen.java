@@ -102,6 +102,12 @@ public interface IPatternTerminalScreen {
     void drawWellBackground(int x, int y, int width, int height);
 
     /**
+     * The pale square a slot wears under the cursor, for one the panel draws itself rather than holds - a
+     * result it works out, say - so that it lights up the way every other slot on the screen does.
+     */
+    void drawSlotHighlight(int x, int y);
+
+    /**
      * A flat rectangle, for the small decoration a panel that paints itself would otherwise need a texture
      * of its own for - an arrow between a grid and what it makes, a rule between two halves.
      *

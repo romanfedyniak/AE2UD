@@ -94,7 +94,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     private static final int MODE_PICKER_Y_FROM_BOTTOM = 155;
     private static final int PICKER_CELL = 18;
     private static final int PICKER_PADDING = 4;
-    private static final int PICKER_HOVER_TINT = 0x80FFFFFF;
+    /** What a slot is washed with under the cursor, which is the shade vanilla's own containers use. */
+    private static final int HOVER_TINT = 0x80FFFFFF;
 
     private final ContainerPatternEncoder container;
 
@@ -398,7 +399,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             if (modes.get(i) == hovered || modes.get(i).getId().equals(this.container.getEncodingMode())) {
                 GlStateManager.disableLighting();
                 GlStateManager.disableDepth();
-                drawRect(x, y, x + 16, y + 16, PICKER_HOVER_TINT);
+                drawRect(x, y, x + 16, y + 16, HOVER_TINT);
                 GlStateManager.enableDepth();
                 GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             }
@@ -782,6 +783,17 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     public void drawRectangle(final int x, final int y, final int width, final int height, final int colour) {
         drawRect(x, y, x + width, y + height, colour);
         // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually textured.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    @Override
+    public void drawSlotHighlight(final int x, final int y) {
+        // Over the item the panel has just drawn, so lighting and depth go the way they do for the picker's
+        // own cells; vanilla washes a hovered slot the same way, after everything in it.
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        drawRect(x, y, x + 16, y + 16, HOVER_TINT);
+        GlStateManager.enableDepth();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 

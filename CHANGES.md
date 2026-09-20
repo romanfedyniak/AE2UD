@@ -40,6 +40,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that width, and the panel is handed the cells to put where it likes. The cells go back to their column
   when a mode that wants them there comes on screen.
 
+- **A slot a pattern mode's panel draws itself lights up under the cursor.** A panel may draw a square
+  nothing holds - what an addon's bench would make of what is in the grid - and that square stayed dull
+  while every other slot on the screen washed pale under the cursor. The terminal lends the panel that
+  wash, so a square the player can point at behaves like one.
+
 - **A pattern mode's panel answers a recipe look-up for what it draws itself.** A panel may draw
   something no slot holds - what an addon's bench would make of what is in the grid, say - and over that
   the recipe keybinds did nothing, because the terminal knew only about slots. The panel is asked what is

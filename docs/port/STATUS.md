@@ -2509,17 +2509,19 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     an addon's grid slots are added hidden for its panel to place. Upstream divides the same thing by
     pattern item rather than by terminal mode, which is part of the crafting api alignment phase.
 68. **`appeng.api.patterns.client`** (`PatternModePanel`, `PatternModePanels`, `IPatternTerminalScreen`) -
-    additive, client-side, no upstream equivalent. The other half of 67: what a mode looks like in the
-    terminal. A panel says how tall and how wide it is, places the mode's slots and the terminal's own
-    slots, buttons and tabs, draws its own plate, wells and rectangles where it names no window texture,
-    and answers what is under the cursor where no slot is. A panel wider than the window hangs off the
-    right edge, and what hangs off is reported to the recipe viewer as the terminal's own column is. A
-    panel that puts a plate of its own somewhere else - beside the window rather than above the
-    inventory, for a grid too tall to sit in a band - says where: the terminal centres the window and
-    that plate together and keeps the recipe viewer off both, and may set aside no room above the
-    inventory at all, leaving the window as it is drawn with no mode on. Such a panel may also take the
-    view cells' column off the window and place the cells itself, so that a plate beside the window does
-    not cost a second column beside it.
+    additive, client-side, no upstream equivalent. The other half of 67: what a mode looks like in
+    the terminal. A panel says how tall and how wide it is, places the mode's slots and the
+    terminal's own slots, buttons and tabs, draws its own plate, wells and rectangles where it
+    names no window texture, and answers what is under the cursor where no slot is - a square it
+    draws itself lights up under the cursor as a real slot does, because the terminal lends it the
+    wash. A panel wider than the window hangs off the right edge, and what hangs off is reported
+    to the recipe viewer as the terminal's own column is. A panel that puts a plate of its own
+    somewhere else - beside the window rather than above the inventory, for a grid too tall to sit
+    in a band - says where: the terminal centres the window and that plate together and keeps the
+    recipe viewer off both, and may set aside no room above the inventory at all, leaving the
+    window as it is drawn with no mode on. Such a panel may also take the view cells' column off
+    the window and place the cells itself, so that a plate beside the window does not cost a
+    second column beside it.
 69. **`appeng.api.parts.cable`** (`CableStyle`, `CableStyles`, `IColoredPartItem`, `AECableCore`, and
     `IPartCable.getCableStyle`) - additive. Which textures a cable wears was a fixed set in
     `CableBuilder`, so an addon's cable could only borrow one of AE2's four looks. A style names the
