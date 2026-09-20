@@ -195,13 +195,16 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
         final AEItemKey key = AEItemKey.of(paintItem);
         if (key == null) return false;
 
-        final Actionable mode = simulate ? Actionable.SIMULATE : Actionable.MODULATE;
+        // Painting runs on both sides, so that the client can tell at once whether the block took the paint.
+        // What the applicator carries is only a summary here, which nothing may spend from, so this side asks
+        // the question and the server is the one that answers it by actually taking the paint.
+        final Actionable mode = simulate || Platform.isClient() ? Actionable.SIMULATE : Actionable.MODULATE;
         final long amount = paintItem.getCount();
         boolean success = inv.extract(key, amount, mode, new BaseActionSource()) > 0
                 && this.extractAEPower(applicator, POWER_PER_USE, mode) >= POWER_PER_USE;
 
         // Clear the color when we run out
-        if (success && !simulate && ItemStack.areItemStacksEqual(paintItem, getColor(applicator))) {
+        if (success && mode == Actionable.MODULATE && ItemStack.areItemStacksEqual(paintItem, getColor(applicator))) {
             if (inv.extract(key, amount, Actionable.SIMULATE, new BaseActionSource()) <= 0) {
                 setColor(applicator, ItemStack.EMPTY);
             }

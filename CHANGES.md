@@ -198,6 +198,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Painting anything with the Colour Applicator crashed the game.** The applicator takes its paint and its
+  power in the same call on both sides, so that the client can show at once whether the block took the
+  colour - but a cell's contents are only a summary on the client now, and taking something out of one
+  there is refused outright. The client asks the question and the server is the side that spends; the
+  cable is still painted the moment it is clicked. Both ways in were affected: clicking a cable with the
+  applicator, and placing a cable with it in the off hand.
+
 - **A Mekanism pipe or transporter did not attune a P2P tunnel.** A mechanical pipe should turn a tunnel into
   a fluid tunnel and a logistical transporter into an item tunnel, but both were registered under the item
   name Mekanism used before 1.12, which no longer exists, so nothing was registered at all.
