@@ -639,6 +639,24 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         return TEXTURE_WIDTH;
     }
 
+    /** Half of whatever the panel draws beside the window, which is what the window moves over to make room. */
+    @Override
+    protected int getHorizontalShift() {
+        if (this.panel == null) {
+            return 0;
+        }
+
+        int left = 0;
+        int right = this.xSize;
+
+        for (final Rectangle area : this.panel.getOutsideAreas()) {
+            left = Math.min(left, area.x);
+            right = Math.max(right, area.x + area.width);
+        }
+
+        return (left + right - this.xSize) / 2;
+    }
+
     @Override
     public int getPanelTop() {
         return this.ySize - 96 - this.getReservedSpace();
@@ -686,6 +704,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         if (this.panel != null && this.panel.getWidth() > this.xSize) {
             area.add(new Rectangle(this.guiLeft + this.xSize, this.guiTop + this.getPanelTop(),
                     this.panel.getWidth() - this.xSize, this.panel.getHeight()));
+        }
+
+        if (this.panel != null) {
+            for (final Rectangle rect : this.panel.getOutsideAreas()) {
+                area.add(new Rectangle(this.guiLeft + rect.x, this.guiTop + rect.y, rect.width, rect.height));
+            }
         }
 
         return area;

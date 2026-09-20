@@ -394,6 +394,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.xSize = this.standardSize;
 
         super.initGui();
+        // Whatever a screen draws beside the window is part of what the player is looking at, so the window
+        // gives up half of it rather than sitting centred with its own half off the edge of the screen.
+        this.guiLeft -= this.getHorizontalShift();
         // full size : 204
         // extra slots : 72
         // slot 18
@@ -1067,6 +1070,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
         this.repo.updateView();
+    }
+
+    /** How far left the window is pulled off centre, for a screen that draws something beside it. */
+    protected int getHorizontalShift() {
+        return 0;
     }
 
     int getReservedSpace() {

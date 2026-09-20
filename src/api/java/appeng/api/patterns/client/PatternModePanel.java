@@ -10,6 +10,8 @@
 
 package appeng.api.patterns.client;
 
+import java.awt.Rectangle;
+import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -55,6 +57,17 @@ public abstract class PatternModePanel {
      */
     public int getWidth() {
         return 0;
+    }
+
+    /**
+     * Where else the panel draws outside the window - a plate beside it, say. Coordinates are the window's,
+     * as a slot's are, and what a wide panel hangs off the right of its own band is already counted.
+     * <p>
+     * The terminal centres the window and everything named here together, so that a panel drawing beside the
+     * window does not push half of it off the edge of the screen, and keeps a recipe viewer's list off it.
+     */
+    public List<Rectangle> getOutsideAreas() {
+        return Collections.emptyList();
     }
 
     /**

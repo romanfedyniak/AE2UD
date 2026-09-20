@@ -2513,7 +2513,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     terminal. A panel says how tall and how wide it is, places the mode's slots and the terminal's own
     slots, buttons and tabs, draws its own plate, wells and rectangles where it names no window texture,
     and answers what is under the cursor where no slot is. A panel wider than the window hangs off the
-    right edge, and what hangs off is reported to the recipe viewer as the terminal's own column is.
+    right edge, and what hangs off is reported to the recipe viewer as the terminal's own column is. A
+    panel that puts a plate of its own somewhere else - beside the window rather than above the
+    inventory, for a grid too tall to sit in a band - says where: the terminal centres the window and
+    that plate together and keeps the recipe viewer off both.
 69. **`appeng.api.parts.cable`** (`CableStyle`, `CableStyles`, `IColoredPartItem`, `AECableCore`, and
     `IPartCable.getCableStyle`) - additive. Which textures a cable wears was a fixed set in
     `CableBuilder`, so an addon's cable could only borrow one of AE2's four looks. A style names the

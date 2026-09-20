@@ -24,6 +24,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern mode's panel can hang a plate of its own beside the window.** A panel names the band the
+  terminal sets aside above the player's inventory, and a grid nine squares across needs a band so deep
+  that the window stops fitting on a small screen. A panel may draw its plate anywhere instead - beside
+  the window rather than above the inventory - and it says where it did. The terminal then centres the
+  window and the plate together, rather than centring the window and letting the plate run off the edge
+  of the screen, and a recipe viewer keeps its list off the plate the way it does off the terminal's own
+  column.
+
 - **A pattern mode's panel answers a recipe look-up for what it draws itself.** A panel may draw
   something no slot holds - what an addon's bench would make of what is in the grid, say - and over that
   the recipe keybinds did nothing, because the terminal knew only about slots. The panel is asked what is
