@@ -18,6 +18,7 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 
 import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.stacks.AEKey;
 
 /**
  * What one {@link PatternEncodingMode} looks like in the pattern terminal: where its slots go, what it draws
@@ -91,6 +92,15 @@ public abstract class PatternModePanel {
 
     /** Drawn over the slots, where a tooltip or a hint belongs. */
     public void drawForeground(final int mouseX, final int mouseY) {
+    }
+
+    /**
+     * What the panel is drawing under the cursor where no slot is - a result it works out itself, say - so
+     * that a recipe viewer's look-up keys reach it. Null anywhere the panel has nothing of its own.
+     */
+    @Nullable
+    public AEKey getKeyUnderMouse(final int x, final int y) {
+        return null;
     }
 
     /** @return true if the click was the panel's, and the terminal should not go on to look at its slots. */

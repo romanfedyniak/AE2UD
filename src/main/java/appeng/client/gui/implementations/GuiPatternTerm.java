@@ -945,8 +945,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Nullable
     @Override
     public AEKey getKeyUnderMouse(final int mouseX, final int mouseY) {
-        return this.getSlot(mouseX, mouseY) == this.container.getBlankPatternSlot() && this.blankPatternsInNetwork() != null
-                ? ContainerPatternEncoder.blankPatternKey()
-                : null;
+        if (this.getSlot(mouseX, mouseY) == this.container.getBlankPatternSlot() && this.blankPatternsInNetwork() != null) {
+            return ContainerPatternEncoder.blankPatternKey();
+        }
+
+        return this.panel == null ? null
+                : this.panel.getKeyUnderMouse(mouseX - this.guiLeft, mouseY - this.guiTop);
     }
 }

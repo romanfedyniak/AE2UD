@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern mode's panel answers a recipe look-up for what it draws itself.** A panel may draw
+  something no slot holds - what an addon's bench would make of what is in the grid, say - and over that
+  the recipe keybinds did nothing, because the terminal knew only about slots. The panel is asked what is
+  under the cursor wherever a slot is not, so a result the player can see is one key away from its recipe.
+
 - **A pattern grid of items takes one of each, and has no amount to type.** Whether a square of the
   pattern terminal holds a quantity was decided by the mode - anything but crafting did - rather than by
   the square. An addon's bench is a recipe's shape like the crafting grid is, so its squares offered a
