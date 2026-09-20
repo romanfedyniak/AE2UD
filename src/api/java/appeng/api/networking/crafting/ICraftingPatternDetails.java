@@ -61,6 +61,25 @@ public interface ICraftingPatternDetails
 	boolean isCraftable();
 
 	/**
+	 * The shape of the {@link InventoryCrafting} a medium is handed for this pattern, in slots across and
+	 * then down; {@link #getInputs()} is indexed over that same shape. Three by three is the crafting
+	 * table, which is what a pattern that says nothing is assumed to use.
+	 * <p>
+	 * An addon whose bench is bigger says so here, and the network lays a table of that size instead. A
+	 * machine with fewer slots than the table then has to refuse the pattern rather than overflow, the way
+	 * the Molecular Assembler does.
+	 */
+	default int getTableWidth()
+	{
+		return 3;
+	}
+
+	default int getTableHeight()
+	{
+		return 3;
+	}
+
+	/**
 	 * @return a list of the inputs, will include nulls.
 	 */
 	GenericStack[] getInputs();

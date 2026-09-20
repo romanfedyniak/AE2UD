@@ -46,7 +46,6 @@ import appeng.core.features.AEFeature;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCraftingToast;
 import appeng.crafting.*;
-import appeng.helpers.PatternHelper;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.cluster.IAECluster;
 import appeng.me.helpers.MachineSource;
@@ -842,11 +841,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         if (eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
                             continue;
                         }
-                        if (details.isCraftable()) {
-                            ic = new InventoryCrafting(new ContainerNull(), 3, 3);
-                        } else {
-                            ic = new InventoryCrafting(new ContainerNull(), PatternHelper.PROCESSING_INPUT_WIDTH, PatternHelper.PROCESSING_INPUT_HEIGHT);
-                        }
+                        ic = new InventoryCrafting(new ContainerNull(), details.getTableWidth(), details.getTableHeight());
 
                         boolean found = false;
                         // Ingredients an InventoryCrafting cannot hold - a fluid, or an addon's own key

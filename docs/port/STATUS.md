@@ -2490,6 +2490,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     stored in the terminal's NBT under `toggles`, shown by `GuiWirelessToggleButton` in the settings drawer of
     every screen whose container is an `IWirelessTerminalContainer`, set on the server by
     `PacketWirelessToggle`. `Settings` is an enum, so an addon's switch cannot be one the way `PICK_BLOCK` is.
+66. **`ICraftingPatternDetails.getTableWidth()` and `getTableHeight()`** - additive, defaulted to three by
+    three, no upstream equivalent. The size of the crafting grid a pattern's ingredients are laid into was
+    written into the network in two places, the cpu and a batched plan, so a pattern from a bench bigger
+    than a crafting table had nowhere to say so and would have been handed a three-by-three
+    `InventoryCrafting` with its ingredients running off the end. A pattern states its own shape now and
+    both places lay the table it asks for; a medium with fewer slots than that table refuses the pattern
+    rather than overflowing, which is what the Molecular Assembler does. Upstream needs no such thing
+    because its `IPatternDetails` hands a medium a sparse list of ingredients and leaves the table to the
+    medium - a shape that belongs to the crafting api alignment phase, which is shut.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

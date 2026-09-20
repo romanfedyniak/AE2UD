@@ -215,7 +215,9 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         if (this.myPattern.isEmpty()) {
             boolean isEmpty = ItemHandlerUtil.isEmpty(this.gridInv) && ItemHandlerUtil.isEmpty(this.patternInv);
 
-            if (isEmpty && patternDetails.isCraftable()) {
+            // A bigger bench's pattern belongs in that bench: this grid holds nine, and writing a wider
+            // table into it would run off the end.
+            if (isEmpty && patternDetails.isCraftable() && table.getSizeInventory() <= this.gridInv.getSlots()) {
                 this.forcePlan = true;
                 this.myPlan = patternDetails;
                 this.pushDirection = AEPartLocation.fromFacing(where);

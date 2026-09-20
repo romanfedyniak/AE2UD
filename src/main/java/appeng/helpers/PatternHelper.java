@@ -595,6 +595,16 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     @Override
+    public int getTableWidth() {
+        return this.isCrafting ? CRAFTING_GRID_DIMENSION : PROCESSING_INPUT_WIDTH;
+    }
+
+    @Override
+    public int getTableHeight() {
+        return this.isCrafting ? CRAFTING_GRID_DIMENSION : PROCESSING_INPUT_HEIGHT;
+    }
+
+    @Override
     public boolean isCraftable() {
         return this.isCrafting;
     }

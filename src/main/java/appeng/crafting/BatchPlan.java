@@ -32,7 +32,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.container.ContainerNull;
-import appeng.helpers.PatternHelper;
 import appeng.util.Platform;
 
 /**
@@ -195,10 +194,8 @@ public final class BatchPlan {
 
     /** One copy's table, as a medium is handed it. */
     public InventoryCrafting getTable() {
-        final InventoryCrafting table = this.details.isCraftable()
-                ? new InventoryCrafting(new ContainerNull(), 3, 3)
-                : new InventoryCrafting(new ContainerNull(), PatternHelper.PROCESSING_INPUT_WIDTH,
-                        PatternHelper.PROCESSING_INPUT_HEIGHT);
+        final InventoryCrafting table = new InventoryCrafting(new ContainerNull(), this.details.getTableWidth(),
+                this.details.getTableHeight());
         final GenericStack[] inputs = this.details.getInputs();
 
         for (int x = 0; x < this.placed.length && x < table.getSizeInventory(); x++) {

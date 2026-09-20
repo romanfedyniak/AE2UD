@@ -24,6 +24,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A crafting pattern may be bigger than three by three.** The size of the crafting grid a pattern's
+  ingredients are laid into was written into the network in two places, so a pattern from an addon's
+  larger bench - Extended Crafting's five, seven and nine wide tables, say - had nowhere to say so and
+  would have been handed a three-by-three table with its ingredients running off the end. A pattern now
+  states its own `getTableWidth()` and `getTableHeight()`, three by three unless it says otherwise, and
+  both the crafting cpu and a batched plan lay the table it asks for. The Molecular Assembler refuses a
+  pattern whose table is wider than its own nine slots rather than overflowing them, so a bigger bench's
+  pattern goes to that bench and not to the first assembler beside the interface.
+
 - **An addon's upgrade card installs with a sneak-click like AE2's own.** Putting a card into a machine without
   opening its screen was written into AE2's own material item, so a card from an addon simply did nothing. It is
   `UpgradeCards.installHeldCard` now, which AE2's cards call as well, and an addon's card calls from
