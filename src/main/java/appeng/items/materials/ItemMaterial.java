@@ -21,13 +21,10 @@ package appeng.items.materials;
 
 import appeng.api.AEApi;
 import appeng.api.config.FuzzyMode;
-import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.items.IStorageComponent;
-import appeng.api.implementations.tiles.ISegmentedInventory;
-import appeng.api.parts.IPartHost;
-import appeng.api.parts.SelectedPart;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.ICellWorkbenchItem;
+import appeng.api.upgrades.UpgradeCards;
 import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.features.IStackSrc;
@@ -35,10 +32,8 @@ import appeng.core.features.MaterialStackSrc;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.items.contents.CellUpgrades;
-import appeng.util.InventoryAdaptor;
 import appeng.util.ItemToggle;
 import appeng.util.Platform;
-import appeng.util.inv.AdaptorItemHandler;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.client.util.ITooltipFlag;
@@ -161,29 +156,9 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
 
     @Override
     public EnumActionResult onItemUseFirst(final EntityPlayer player, final World world, final BlockPos pos, final EnumFacing side, final float hitX, final float hitY, final float hitZ, final EnumHand hand) {
-        if (player.isSneaking()) {
-            final TileEntity te = world.getTileEntity(pos);
-            IItemHandler upgrades = null;
-
-            if (te instanceof IPartHost) {
-                final SelectedPart sp = ((IPartHost) te).selectPart(new Vec3d(hitX, hitY, hitZ));
-                if (sp.part instanceof IUpgradeableHost) {
-                    upgrades = ((ISegmentedInventory) sp.part).getInventoryByName("upgrades");
-                }
-            } else if (te instanceof IUpgradeableHost) {
-                upgrades = ((ISegmentedInventory) te).getInventoryByName("upgrades");
-            }
-
-            if (upgrades != null && AEApi.instance().registries().upgrades()
-                    .isUpgradeCard(player.getHeldItem(hand))) {
-                if (player.world.isRemote) {
-                    return EnumActionResult.PASS;
-                }
-
-                final InventoryAdaptor ad = new AdaptorItemHandler(upgrades);
-                player.setHeldItem(hand, ad.addItems(player.getHeldItem(hand)));
-                return EnumActionResult.SUCCESS;
-            }
+        if (player.isSneaking()
+                && UpgradeCards.installHeldCard(player, hand, world, pos, new Vec3d(hitX, hitY, hitZ))) {
+            return world.isRemote ? EnumActionResult.PASS : EnumActionResult.SUCCESS;
         }
 
         return super.onItemUseFirst(player, world, pos, side, hitX, hitY, hitZ, hand);

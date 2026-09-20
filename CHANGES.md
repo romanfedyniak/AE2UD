@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's upgrade card installs with a sneak-click like AE2's own.** Putting a card into a machine without
+  opening its screen was written into AE2's own material item, so a card from an addon simply did nothing. It is
+  `UpgradeCards.installHeldCard` now, which AE2's cards call as well, and an addon's card calls from
+  `onItemUseFirst`.
+
 - **An addon can add a cable of its own.** A `CableStyle` - one set of cable textures, for every shape and every
   colour - registered in `CableStyles` and named by a cable part's `getCableStyle()` is what the cable bus then
   draws that cable in, with AE2's own shapes, channel lights and connection rules unchanged; every style's

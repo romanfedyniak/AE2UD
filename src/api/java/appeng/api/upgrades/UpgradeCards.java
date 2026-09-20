@@ -6,10 +6,21 @@
 
 package appeng.api.upgrades;
 
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraftforge.items.IItemHandler;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.IItemDefinition;
+import appeng.api.implementations.IUpgradeableHost;
+import appeng.api.parts.IPartHost;
+import appeng.api.parts.SelectedPart;
+import appeng.api.implementations.tiles.ISegmentedInventory;
 
 /**
  * Access to the standard AE2 upgrade-card stacks.
@@ -75,6 +86,55 @@ public final class UpgradeCards {
 
     public static ItemStack quantumLink() {
         return stack(AEApi.instance().definitions().materials().cardQuantumLink());
+    }
+
+    /**
+     * Puts the held card into the machine the player is sneak-clicking, which is how every upgrade card is
+     * installed without opening a screen. An addon's card calls this from {@code onItemUseFirst}:
+     *
+     * <pre>
+     * if (UpgradeCards.installHeldCard(player, hand, world, pos, new Vec3d(hitX, hitY, hitZ))) {
+     *     return world.isRemote ? EnumActionResult.PASS : EnumActionResult.SUCCESS;
+     * }
+     * </pre>
+     *
+     * @return true if that block takes upgrade cards and the card went in; on the client, true as soon as the
+     *         block would take it, since the card itself only moves on the server.
+     */
+    public static boolean installHeldCard(final EntityPlayer player, final EnumHand hand, final World world,
+            final BlockPos pos, final Vec3d hit) {
+        final ItemStack held = player.getHeldItem(hand);
+
+        if (held.isEmpty() || !AEApi.instance().registries().upgrades().isUpgradeCard(held)) {
+            return false;
+        }
+
+        final TileEntity te = world.getTileEntity(pos);
+        IItemHandler upgrades = null;
+
+        if (te instanceof IPartHost) {
+            final SelectedPart sp = ((IPartHost) te).selectPart(hit);
+            if (sp.part instanceof IUpgradeableHost) {
+                upgrades = ((ISegmentedInventory) sp.part).getInventoryByName("upgrades");
+            }
+        } else if (te instanceof IUpgradeableHost) {
+            upgrades = ((ISegmentedInventory) te).getInventoryByName("upgrades");
+        }
+
+        if (upgrades == null) {
+            return false;
+        }
+
+        if (world.isRemote) {
+            return true;
+        }
+
+        ItemStack remaining = held;
+        for (int slot = 0; slot < upgrades.getSlots() && !remaining.isEmpty(); slot++) {
+            remaining = upgrades.insertItem(slot, remaining, false);
+        }
+        player.setHeldItem(hand, remaining);
+        return true;
     }
 
     private static ItemStack stack(final IItemDefinition definition) {
