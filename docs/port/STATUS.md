@@ -2499,6 +2499,29 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     rather than overflowing, which is what the Molecular Assembler does. Upstream needs no such thing
     because its `IPatternDetails` hands a medium a sparse list of ingredients and leaves the table to the
     medium - a shape that belongs to the crafting api alignment phase, which is shut.
+67. **`appeng.api.patterns`** (`PatternEncodingMode`, `PatternEncodingModes`, `PatternGrid`,
+    `IPatternEncodingHost`, `TransferredRecipe`, `RecipePlacement`) - additive, no upstream equivalent.
+    What the pattern terminal can encode was a boolean, crafting or processing, read alike in the
+    container, the two parts, the screen and the recipe-transfer handler; an addon had no way in. A mode
+    is a registered object now: its grids, the recipe-viewer categories it claims, and how it turns its
+    grids into a pattern and back. Crafting and processing are the first two and behave as they always
+    did. The container syncs the mode as a string, both terminals save it and read the old boolean, and
+    an addon's grid slots are added hidden for its panel to place. Upstream divides the same thing by
+    pattern item rather than by terminal mode, which is part of the crafting api alignment phase.
+68. **`appeng.api.patterns.client`** (`PatternModePanel`, `PatternModePanels`, `IPatternTerminalScreen`) -
+    additive, client-side, no upstream equivalent. The other half of 67: what a mode looks like in the
+    terminal. A panel says how tall and how wide it is, places the mode's slots and the terminal's own
+    slots, buttons and tabs, draws its own plate, wells and rectangles where it names no window texture,
+    and answers what is under the cursor where no slot is. A panel wider than the window hangs off the
+    right edge, and what hangs off is reported to the recipe viewer as the terminal's own column is.
+69. **`appeng.api.parts.cable`** (`CableStyle`, `CableStyles`, `IColoredPartItem`, `AECableCore`, and
+    `IPartCable.getCableStyle`) - additive. Which textures a cable wears was a fixed set in
+    `CableBuilder`, so an addon's cable could only borrow one of AE2's four looks. A style names the
+    textures for each of the four cable kinds and is registered under an id the part carries; AE2's own
+    are one registered style like any other. Upstream has no equivalent - its cable models are datagen.
+70. **`UpgradeCards.installHeldCard`** - additive. Putting a card into a machine with a sneak-click,
+    without opening its screen, was written into AE2's own material item, so a card from an addon simply
+    did nothing. AE2's cards call it now as well, so the two behave alike.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
