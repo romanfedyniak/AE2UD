@@ -136,6 +136,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.panelMode = this.container.getEncodingMode();
         this.panel = PatternModePanels.create(this.container.getMode(), this);
         this.setReservedSpace(this.panel == null ? 0 : this.panel.getHeight());
+        this.setViewCellColumnShown(this.panel == null || this.panel.showsViewCellColumn());
     }
 
     @Override
@@ -258,6 +259,15 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             // so that a panel which leaves them alone gets the places the built-in modes use.
             this.container.getBlankPatternSlot().restoreHome();
             this.container.patternSlotOUT.restoreHome();
+            // A view cell's home is written from the top of the window rather than from its bottom, so the
+            // pass below leaves them alone and they are put back here themselves.
+            for (final Slot cell : this.getViewCellSlots()) {
+                if (cell instanceof AppEngSlot aeSlot) {
+                    aeSlot.restoreHome();
+                    aeSlot.xPos = aeSlot.getX();
+                    aeSlot.yPos = aeSlot.getY();
+                }
+            }
 
             this.panel.layOut();
             this.panel.updateButtons();
@@ -622,6 +632,20 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public int getGuiTop() {
         return this.guiTop;
+    }
+
+    @Override
+    public List<Slot> getViewCellSlots() {
+        final List<Slot> cells = new ArrayList<>();
+
+        for (int index = 0; index < this.container.getViewCells().length; index++) {
+            final Slot cell = this.container.getCellViewSlot(index);
+            if (cell != null) {
+                cells.add(cell);
+            }
+        }
+
+        return cells;
     }
 
     @Override

@@ -32,6 +32,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   of the screen, and a recipe viewer keeps its list off the plate the way it does off the terminal's own
   column.
 
+- **A pattern mode's panel can take the view cells onto itself.** The column the cells sit in is drawn
+  beside the window, which is where a panel with a plate of its own wants to be, so the two together were
+  two columns of width for one panel. A panel may say the column is not to be drawn: the window gives up
+  that width, and the panel is handed the cells to put where it likes. The cells go back to their column
+  when a mode that wants them there comes on screen.
+
 - **A pattern mode's panel answers a recipe look-up for what it draws itself.** A panel may draw
   something no slot holds - what an addon's bench would make of what is in the grid, say - and over that
   the recipe keybinds did nothing, because the terminal knew only about slots. The panel is asked what is

@@ -2516,7 +2516,9 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     right edge, and what hangs off is reported to the recipe viewer as the terminal's own column is. A
     panel that puts a plate of its own somewhere else - beside the window rather than above the
     inventory, for a grid too tall to sit in a band - says where: the terminal centres the window and
-    that plate together and keeps the recipe viewer off both.
+    that plate together and keeps the recipe viewer off both. Such a panel may also take the view cells'
+    column off the window and place the cells itself, so that a plate beside the window does not cost a
+    second column beside it.
 69. **`appeng.api.parts.cable`** (`CableStyle`, `CableStyles`, `IColoredPartItem`, `AECableCore`, and
     `IPartCable.getCableStyle`) - additive. Which textures a cable wears was a fixed set in
     `CableBuilder`, so an addon's cable could only borrow one of AE2's four looks. A style names the

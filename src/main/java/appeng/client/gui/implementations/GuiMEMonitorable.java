@@ -133,6 +133,10 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
      */
     private final boolean[] myCurrentViewCellsOn = new boolean[5];
     private final ContainerMEMonitorable monitorableContainer;
+    /** The window itself, without the column the view cells are drawn in beside it. */
+    private static final int WINDOW_WIDTH = 185;
+    private static final int VIEW_CELL_COLUMN = 33;
+
     private GuiTabButton craftingStatusBtn;
     private GuiImgButton keyTypesBtn;
     private MEGuiTextField searchField;
@@ -143,6 +147,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private int rows = 0;
     private int maxRows = Integer.MAX_VALUE;
     private int standardSize;
+    private boolean viewCellColumnShown = true;
     private GuiImgButton ViewBox;
     private GuiImgButton SortByBox;
     private GuiImgButton SortDirBox;
@@ -178,11 +183,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         this.setScrollBar(scrollbar);
         this.repo = new Repo(scrollbar, this);
 
-        this.xSize = 185;
+        this.xSize = WINDOW_WIDTH;
         this.ySize = 204;
 
         if (te instanceof IViewCellStorage) {
-            this.xSize += 33;
+            this.xSize += VIEW_CELL_COLUMN;
         }
 
         this.standardSize = this.xSize;
@@ -645,7 +650,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         addButtonArea(exclusionArea, this.craftingStatusBtn);
 
-        if (this.viewCell) {
+        if (this.viewCell && this.drawsViewCellColumn()) {
             Rectangle viewMode = new Rectangle(guiLeft + 205, guiTop + 4, 24, 19 * monitorableContainer.getViewCells().length);
             exclusionArea.add(viewMode);
         }
@@ -847,7 +852,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         final int x_width = 197;
         this.drawTexturedModalRect(offsetX, offsetY, 0, 0, x_width, 18);
 
-        if (this.viewCell || (this instanceof GuiSecurityStation)) {
+        if ((this.viewCell && this.drawsViewCellColumn()) || (this instanceof GuiSecurityStation)) {
             this.drawTexturedModalRect(offsetX + x_width, offsetY, x_width, 0, 46, 128);
         }
 
@@ -1075,6 +1080,20 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     /** How far left the window is pulled off centre, for a screen that draws something beside it. */
     protected int getHorizontalShift() {
         return 0;
+    }
+
+    /** Whether the column the view cells sit in is drawn beside the window and counted in its width. */
+    protected boolean drawsViewCellColumn() {
+        return this.viewCellColumnShown;
+    }
+
+    /**
+     * Takes the view cells' column off the window, for a screen that puts the cells somewhere of its own.
+     * The slots stay where they were built until something moves them; only the frame and the width go.
+     */
+    protected void setViewCellColumnShown(final boolean shown) {
+        this.viewCellColumnShown = shown;
+        this.setStandardSize(WINDOW_WIDTH + (this.viewCell && shown ? VIEW_CELL_COLUMN : 0));
     }
 
     int getReservedSpace() {

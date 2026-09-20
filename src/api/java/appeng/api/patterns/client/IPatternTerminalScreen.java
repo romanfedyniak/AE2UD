@@ -48,6 +48,12 @@ public interface IPatternTerminalScreen {
     /** The ghost slots of one of the active mode's grids, in slot order. */
     List<Slot> getGridSlots(String grid);
 
+    /**
+     * The terminal's view cell slots, in the order the terminal lists them, for a panel that has taken their
+     * column off the window. Empty on a terminal that carries no view cells.
+     */
+    List<Slot> getViewCellSlots();
+
     int getGuiLeft();
 
     int getGuiTop();

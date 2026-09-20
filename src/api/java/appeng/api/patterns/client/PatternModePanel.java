@@ -71,6 +71,16 @@ public abstract class PatternModePanel {
     }
 
     /**
+     * Whether the terminal keeps the column the view cells are drawn in beside the window. A panel that says
+     * no has that column's width taken off the window and puts the cells somewhere of its own - it is handed
+     * them by {@code IPatternTerminalScreen.getViewCellSlots}, and a cell it never places is left where the
+     * terminal built it.
+     */
+    public boolean showsViewCellColumn() {
+        return true;
+    }
+
+    /**
      * The window texture behind the whole terminal, as a path under {@code textures/guis/}; null keeps the one
      * the terminal wears, which a panel that draws its own background wants.
      */
