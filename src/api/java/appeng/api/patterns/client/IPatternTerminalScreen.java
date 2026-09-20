@@ -28,7 +28,19 @@ public interface IPatternTerminalScreen {
     enum TerminalButton {
         ENCODE,
         CLEAR,
-        UPLOAD
+        UPLOAD,
+        /** The tab that swaps crafting and processing; every mode's sits in the same place. */
+        MODE_TAB,
+        /** The button that opens the list of every mode, present only where an addon registered one. */
+        MODES
+    }
+
+    /** The terminal's own slots, which every mode needs somewhere. */
+    enum TerminalSlot {
+        /** The blank patterns encoding spends. */
+        BLANK_PATTERN,
+        /** Where a freshly encoded pattern lands, and where one is put to be read back. */
+        ENCODED_PATTERN
     }
 
     IPatternEncodingHost getHost();
@@ -56,6 +68,12 @@ public interface IPatternTerminalScreen {
 
     /** Places one of the mode's ghost slots. */
     void placeSlot(Slot slot, int x, int y);
+
+    /**
+     * Places one of the terminal's own slots. A panel that leaves them where they are gets the places the
+     * built-in modes use, which only suit a panel of their size.
+     */
+    void placeSlot(TerminalSlot slot, int x, int y);
 
     void placeButton(TerminalButton button, int x, int y);
 

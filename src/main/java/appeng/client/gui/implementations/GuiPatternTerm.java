@@ -254,6 +254,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         this.handleButtonVisibility();
 
         if (this.panel != null) {
+            // The panel gone before this one may have moved the terminal's own slots; they go home first,
+            // so that a panel which leaves them alone gets the places the built-in modes use.
+            this.container.getBlankPatternSlot().restoreHome();
+            this.container.patternSlotOUT.restoreHome();
+
             this.panel.layOut();
             this.panel.updateButtons();
         }
@@ -402,7 +407,16 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public void placeButton(final TerminalButton which, final int x, final int y) {
-        final GuiImgButton button = this.terminalButton(which);
+        if (which == TerminalButton.MODE_TAB) {
+            // Every mode's tab is in the same place, and only the active one is on screen.
+            for (final GuiTabButton tab : this.modeTabs.values()) {
+                tab.x = this.guiLeft + x;
+                tab.y = this.guiTop + y;
+            }
+            return;
+        }
+
+        final GuiButton button = which == TerminalButton.MODES ? this.modesBtn : this.terminalButton(which);
         if (button != null) {
             button.x = this.guiLeft + x;
             button.y = this.guiTop + y;
@@ -630,7 +644,42 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         if (slot instanceof AppEngSlot aeSlot) {
             aeSlot.setX(x);
             aeSlot.setY(y - this.ySize + 81);
+            // Put it there now as well as recording where it belongs. The pass that re-derives every slot's
+            // place from its home runs after this one and would do the same, but a slot a panel has just
+            // placed should be where it was put whether or not anything else runs.
+            aeSlot.xPos = x;
+            aeSlot.yPos = y;
         }
+    }
+
+    @Override
+    public void placeSlot(final TerminalSlot which, final int x, final int y) {
+        final Slot slot = which == TerminalSlot.BLANK_PATTERN
+                ? this.container.getBlankPatternSlot()
+                : this.container.patternSlotOUT;
+        this.placeSlot(slot, x, y);
+    }
+
+    /**
+     * The buttons a panel put outside the window, so HEI's item list keeps off them. The column to the left
+     * is the terminal's own and its parent already reports it.
+     */
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
+
+        for (final GuiButton button : this.buttonList) {
+            if (button.x + button.width > this.guiLeft + this.xSize) {
+                addButtonArea(area, button);
+            }
+        }
+
+        if (this.panel != null && this.panel.getWidth() > this.xSize) {
+            area.add(new Rectangle(this.guiLeft + this.xSize, this.guiTop + this.getPanelTop(),
+                    this.panel.getWidth() - this.xSize, this.panel.getHeight()));
+        }
+
+        return area;
     }
 
     @Override

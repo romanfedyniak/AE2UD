@@ -24,6 +24,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern mode's panel places the terminal's own slots and tabs.** Where blank patterns are kept,
+  where an encoded one lands, the mode tab and the button that lists every mode were all fixed at the
+  places the built-in panels use, which sit inside anything wider than a three-by-three grid: an
+  addon's bench drew its own grid straight over them. A panel places each of them the way it places
+  its buttons, and the terminal puts its slots back where they belong before every layout, so what one
+  panel moved is not still moved under the next. A button a panel puts outside the window is reported
+  to HEI, which keeps its item list off it.
+
 - **A pattern mode's panel can be any size, and knows where it is.** Three things the panel api promised
   and did not do, all found by writing the first panel outside AE2. A panel that named no window texture
   was given the crafting panel's, three-by-three matrix and all, showing through whatever it drew; it

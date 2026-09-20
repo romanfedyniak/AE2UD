@@ -50,6 +50,9 @@ public class AppEngSlot extends Slot {
     private hasCalculatedValidness isValid;
     private boolean isDisplay = false;
     private boolean returnAsSingleStack;
+    /** Where the slot was built, which {@link #restoreHome()} puts it back to. */
+    private final int homeX;
+    private final int homeY;
     private Supplier<String> emptyTooltip;
     private IntSupplier stackLimitCap;
 
@@ -60,6 +63,8 @@ public class AppEngSlot extends Slot {
 
         this.defX = x;
         this.defY = y;
+        this.homeX = x;
+        this.homeY = y;
         this.setIsValid(hasCalculatedValidness.NotAvailable);
     }
 
@@ -289,6 +294,16 @@ public class AppEngSlot extends Slot {
 
     public void setY(final int y) {
         this.defY = y;
+    }
+
+    /**
+     * Puts the slot back where it was built. A screen whose layout is decided by something that comes and
+     * goes - a pattern terminal's mode panel - restores its slots before asking, so that what one panel
+     * moved is not still moved under the next.
+     */
+    public void restoreHome() {
+        this.defX = this.homeX;
+        this.defY = this.homeY;
     }
 
     private int getIIcon() {
