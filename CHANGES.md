@@ -40,6 +40,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that width, and the panel is handed the cells to put where it likes. The cells go back to their column
   when a mode that wants them there comes on screen.
 
+- **The jar carries the one Mouse Tweaks interface every screen of ours implements.** An addon that
+  extends a screen of this fork could not be compiled at all without it, and Mouse Tweaks' own jar is no
+  use to a compiler: it names Minecraft's classes the way the game ships them rather than the way a mod
+  is written against them. Nothing changes where Mouse Tweaks is installed - the interface is the same
+  one either way.
+
 - **A slot a pattern mode's panel draws itself lights up under the cursor.** A panel may draw a square
   nothing holds - what an addon's bench would make of what is in the grid - and that square stayed dull
   while every other slot on the screen washed pale under the cursor. The terminal lends the panel that

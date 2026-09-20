@@ -769,6 +769,15 @@ jar {
         }
         dependsOn apiClasses
     }
+
+    // The one Mouse Tweaks interface every screen of ours implements. It travels with the jar because an
+    // addon extending one of those screens cannot be compiled without it, and Mouse Tweaks' own jar is no
+    // use to a compiler: it names Minecraft's classes the way the game ships them, not the way a mod is
+    // written against them. Loaded from here it behaves exactly as from Mouse Tweaks itself.
+    from(sourceSets.api.output) {
+        include 'yalter/**'
+    }
+    dependsOn apiClasses
 }
 
 // Configure default run tasks
