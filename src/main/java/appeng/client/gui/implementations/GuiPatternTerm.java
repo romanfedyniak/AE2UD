@@ -317,11 +317,12 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     }
 
     private int pickerLeft() {
-        return MODE_TAB_X - this.pickerWidth();
+        final int right = this.modesBtn != null ? this.modesBtn.x - this.guiLeft : MODE_TAB_X;
+        return right - this.pickerWidth();
     }
 
     private int pickerTop() {
-        return this.ySize - MODE_TAB_Y_FROM_BOTTOM;
+        return this.modesBtn != null ? this.modesBtn.y - this.guiTop : this.ySize - MODE_PICKER_Y_FROM_BOTTOM;
     }
 
     private int pickerWidth() {
