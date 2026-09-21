@@ -24,6 +24,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A screen that sizes itself to its contents can say where the network tool's slots go.** Where the
+  three by three a network tool opens is drawn was a number written into the container, measured for a
+  window of the usual width - so a screen wider than that had the toolbox land inside it, with nothing
+  drawn behind it. It is a pair of methods now, and the default is the number that was there.
+
 - **Which squares of a recipe the network can fill in for itself is part of the api.** A square holding
   a full bucket, where the recipe hands the empty one back, is a square the network never has to keep
   full buckets in - it fills an empty one from what it stores. Working out which squares those are was a

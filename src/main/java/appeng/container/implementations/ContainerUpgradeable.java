@@ -117,7 +117,7 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
             for (int v = 0; v < 3; v++) {
                 for (int u = 0; u < 3; u++) {
                     this.addSlotToContainer((new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.UPGRADES, this.tbInventory
-                            .getInternalInventory(), u + v * 3, 186 + u * 18, this.getHeight() - 82 + v * 18, this.getInventoryPlayer())).setPlayerSide());
+                            .getInternalInventory(), u + v * 3, this.getToolboxX() + u * 18, this.getToolboxY() + v * 18, this.getInventoryPlayer())).setPlayerSide());
                 }
             }
         }
@@ -129,6 +129,19 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
 
     public boolean hasToolbox() {
         return this.tbInventory != null;
+    }
+
+    /**
+     * Where the network tool's own three by three sits. Beside a window of the usual width, which is why
+     * these are measured from the right edge rather than written down: a screen that sizes itself to its
+     * contents would otherwise have the toolbox land inside it.
+     */
+    protected int getToolboxX() {
+        return 186;
+    }
+
+    protected int getToolboxY() {
+        return this.getHeight() - 82;
     }
 
     protected int getHeight() {
