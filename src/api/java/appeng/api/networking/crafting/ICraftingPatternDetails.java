@@ -150,8 +150,12 @@ public interface ICraftingPatternDetails
 	 * Asked once for the whole grid rather than square by square, because working the answer out may cost
 	 * a recipe look-up, and the callers all walk every square. Null, the default, says this pattern has
 	 * nothing of its own to leave and the network's usual rule stands for every square.
+	 * <p>
+	 * The grid must come back untouched: the machine is still settling the craft against it. A recipe is
+	 * free to empty the stacks it is handed, so an implementation that hands this one to a recipe copies it
+	 * first.
 	 *
-	 * @param craftingInv the grid as it stood when the craft happened
+	 * @param craftingInv the grid as it stood when the craft happened, not to be modified
 	 * @param world crafting world
 	 *
 	 * @return one stack per square of {@code craftingInv}, or null for the usual rule
