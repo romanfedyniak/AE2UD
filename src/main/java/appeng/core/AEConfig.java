@@ -118,7 +118,6 @@ public final class AEConfig extends Configuration {
     private double wirelessBoosterRangeMultiplier = 1;
     private double wirelessBoosterExp = 1.5;
     // Autocrafting
-    private boolean enableCraftingSubstitutes = false;
     // Controller sizes
     private int maxControllerSizeX = 7;
     private int maxControllerSizeY = 7;
@@ -192,9 +191,6 @@ public final class AEConfig extends Configuration {
         this.portableCellBattery = this.get("battery", "portableCell", this.portableCellBattery).getInt(this.portableCellBattery);
         this.colorApplicatorBattery = this.get("battery", "colorApplicator", this.colorApplicatorBattery).getInt(this.colorApplicatorBattery);
         this.matterCannonBattery = this.get("battery", "matterCannon", this.matterCannonBattery).getInt(this.matterCannonBattery);
-
-        this.addCustomCategoryComment("autocrafting", "Enable patterns with substitutions on to have their substitutes to be auto craftable.\nThis changes the crafting tree, and can show missing ingredients for the substitute, instead of the patterned item");
-        this.enableCraftingSubstitutes = this.get("autocrafting", "EnableAutocraftinSubstitutes", this.enableCraftingSubstitutes).getBoolean(this.enableCraftingSubstitutes);
 
         this.addCustomCategoryComment("ControllerSize", "Set the max size of a controller in any of the 3 axis.\nEach is between [1, 64)");
         this.maxControllerSizeX = Math.min(Math.max(this.get("ControllerSize", "maxControllerSizeX", this.maxControllerSizeX).getInt(this.maxControllerSizeX), 1), 63);
@@ -676,10 +672,6 @@ public final class AEConfig extends Configuration {
 
     public double getWirelessHighWirelessCount() {
         return this.wirelessHighWirelessCount;
-    }
-
-    public boolean getEnableCraftingSubstitutes() {
-        return this.enableCraftingSubstitutes;
     }
 
     public int getMaxControllerSizeX() {

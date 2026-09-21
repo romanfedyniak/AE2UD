@@ -334,6 +334,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A pattern that says it substitutes now substitutes.** Planning a job ignored a pattern's substitutes
+  unless a config option was switched on, and that option was off by default - so a pattern with the
+  toggle lit still demanded the exact item it was encoded from, and a job failed for want of an
+  ingredient the network could have swapped. The option is gone rather than turned on: it came from
+  Applied Energistics 2 Unofficial Extended Life in 2022, where it guarded the recursive crafting tree
+  that this fork has since replaced, and it only ever reached planning - a job already pushed to a
+  machine substituted regardless, so as a switch it never did what it said. What the network may put in
+  a square is the pattern's own toggle to decide, which is where a player sets it.
+
 - **A pattern mode that draws itself no longer has a crafting grid painted over the player's inventory.**
   The pattern terminal's window texture carries the three-by-three matrix in the strip above the
   inventory, and a mode that paints its own panel somewhere else was still given that texture - so the

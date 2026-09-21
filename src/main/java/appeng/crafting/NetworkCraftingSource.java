@@ -20,7 +20,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.core.AEConfig;
 import appeng.crafting.solver.ICraftingSource;
 import appeng.crafting.solver.SolverIngredient;
 import appeng.crafting.solver.SolverPattern;
@@ -60,7 +59,6 @@ public final class NetworkCraftingSource implements ICraftingSource {
     @Nullable
     private final ICraftingPatternDetails rootPattern;
     private final boolean requestedByPlayer;
-    private final boolean substitutesEnabled;
     private final Map<ICraftingPatternDetails, SolverPattern> normalized = new IdentityHashMap<>();
 
     /**
@@ -77,7 +75,6 @@ public final class NetworkCraftingSource implements ICraftingSource {
         this.rootKey = rootKey;
         this.rootPattern = rootPattern;
         this.requestedByPlayer = requestedByPlayer;
-        this.substitutesEnabled = AEConfig.instance().getEnableCraftingSubstitutes();
     }
 
     @Override
@@ -174,11 +171,7 @@ public final class NetworkCraftingSource implements ICraftingSource {
      */
     private List<GenericStack> optionsFor(final ICraftingPatternDetails details, final IPatternInput slot,
             final GenericStack encoded, final long perCraft) {
-        // The slot already knows whether the pattern substitutes; the config is the separate question of
-        // whether this pack wants substitution at all.
-        final List<GenericStack> declared = details.canSubstitute() && !this.substitutesEnabled
-                ? Collections.singletonList(slot.getOptions().get(0))
-                : slot.getOptions();
+        final List<GenericStack> declared = slot.getOptions();
 
         final Set<AEKey> seen = new LinkedHashSet<>();
         final List<GenericStack> options = new ArrayList<>(declared.size() + 1);

@@ -1678,10 +1678,11 @@ look broken or silently duplicate items:
   8000 mB - so dividing by it would have made every existing job eight times cheaper. A job is charged per
   thing, and for a fluid the thing is a bucket. Caught by reading the constant, not by testing; nothing
   in-game would have looked wrong, autocrafting would just have quietly become cheap.
-- `AEConfig.enableCraftingSubstitutes` defaults to **false** and gates all of `CraftingTreeProcess:92-158`,
-  while `CraftingTreeNode` and `CraftingCPUCluster` never check it. Hanging fluids inside that `if` would
+- `AEConfig.enableCraftingSubstitutes` defaulted to **false** and gated all of `CraftingTreeProcess:92-158`,
+  while `CraftingTreeNode` and `CraftingCPUCluster` never checked it. Hanging fluids inside that `if` would
   have had the plan reserve buckets and the CPU wait on water it never asked for - a job that never
-  finishes, with no error anywhere. The fabricated branch sits outside the gate.
+  finishes, with no error anywhere. The fabricated branch sat outside the gate. (The config is gone now -
+  see the landmine below, which was cleared.)
 - `DualityInterface.pushPattern` has **three** destinations, not one, and a fabricated container may go to
   none of them: a third-party `ICraftingMachine` hands the emptied container straight back, a neighbouring
   network takes the whole table into its storage, and a plain `InventoryAdaptor` drops it in a chest. Each
@@ -1723,10 +1724,12 @@ multiply by the slot's own count and a substitute arriving with a stack size wou
 because `request()` puts containers back only at the end of a batch. An eligible slot returns nothing, so it
 is no longer a reason to give it up; the same item sitting in another, non-eligible slot still is.
 
-**Known landmine, deliberately not touched.** For *item* substitution the same split is still there: the
-plan is gated by `enableCraftingSubstitutes`, the CPU is not. With the config off and a substituting pattern,
-the two can disagree about which item a craft will use. Left alone because fixing it changes ore-dict
-behaviour for every existing pattern, which is a separate change with separate testing.
+**That landmine is cleared.** For *item* substitution the same split used to be there: the plan was gated by
+`enableCraftingSubstitutes`, the CPU was not, so with the config off a substituting pattern had the two
+disagreeing about which item a craft would use - and the config was off by default, which is how it was
+found in game. The config is removed rather than defaulted on: it arrived from AE2 Unofficial Extended Life
+in 2022 (`4b6fbf68b`) guarding `CraftingTreeProcess`, a class this fork has since replaced, and the solver
+is built around a slot's options. What a square may hold is the pattern's own toggle to say.
 
 **Considered and rejected: batching by how many containers are in stock.** Worth recording, because the
 starting observation is real and will occur to the next person too.

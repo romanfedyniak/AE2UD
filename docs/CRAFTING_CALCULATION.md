@@ -288,8 +288,9 @@ several keys and the answer cannot change while a job is being worked out.
 
 What it settles:
 
-* **Substitutes.** A slot knows whether its pattern substitutes; `AEConfig.getEnableCraftingSubstitutes` is
-  the separate question of whether this pack wants substitution at all.
+* **Substitutes.** A slot knows whether its pattern substitutes, and that is the whole of it: the encoded
+  item is the first option and the rest follow it, so a plan reaches for what the player chose and falls
+  back only when it has to.
 * **Fuzzy tool variants.** For a damageable slot the network is searched for part-used ones, which are added
   as further options — after a job, most of what a network holds *is* part-used.
 * **Fabricated slots**, and containers handed back, folded into the pattern's outputs.
