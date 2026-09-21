@@ -321,6 +321,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A pattern mode that draws itself no longer has a crafting grid painted over the player's inventory.**
+  The pattern terminal's window texture carries the three-by-three matrix in the strip above the
+  inventory, and a mode that paints its own panel somewhere else was still given that texture - so the
+  matrix and its arrow were drawn across the inventory rows. Such a mode gets the plain terminal's
+  window now, which is the same window without the matrix. The strip below the list is also drawn in
+  full: it is eight pixels deep, where the window narrows and the scrollbar's own bottom is finished,
+  and only three of them were being drawn, because the missing five used to arrive as part of the
+  matrix's own art.
+
 - **Leaving a world crashed on Java 11 and newer.** A grid's saved state was turned into text with a JAXB
   class that no Java since 10 ships, so the very last thing a world does - writing its grids out - died
   with a `NoClassDefFoundError` under Cleanroom. It uses `java.util.Base64` now, which writes byte for

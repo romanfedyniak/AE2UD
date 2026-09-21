@@ -83,7 +83,11 @@ import java.util.*;
 
 public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients, IKeyUnderMouse, IPatternTerminalScreen {
 
-    private static final String BACKGROUND_NO_PANEL = "guis/pattern.png";
+    /**
+     * The window a panel that paints its own band is given: the plain terminal's, which is the same window
+     * without a crafting matrix drawn into the strip above the player's inventory.
+     */
+    private static final String BACKGROUND_NO_BAND = "guis/terminal.png";
 
     /** The width of the window texture, which is what a self-drawn panel covers. */
     private static final int TEXTURE_WIDTH = 197;
@@ -474,13 +478,13 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     protected String getBackground() {
         final String background = this.panel == null ? null : this.panel.getBackground();
-        return background == null ? BACKGROUND_NO_PANEL : background;
+        return background == null ? BACKGROUND_NO_BAND : background;
     }
 
     /**
-     * A panel that names no window texture is one that paints itself, and the crafting panel's texture behind
-     * it would only show through. It gets a plain plate of its own height instead, which is also the only way
-     * a panel taller than the texture allows can be drawn at all.
+     * A panel that names no window texture is one that paints itself, so it gets the band-less window and a
+     * plain plate of its own height. Drawing the plate rather than reading a band out of the texture is also
+     * the only way a panel taller than the texture allows can be drawn at all.
      */
     @Override
     protected boolean drawsReservedSpace() {

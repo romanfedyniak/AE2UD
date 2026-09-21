@@ -143,6 +143,9 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     private GuiText myName;
     private int perRow = 9;
     private int reservedSpace = 0;
+
+    /** How far the window narrows below the list, which is where the scrollbar's own bottom is drawn. */
+    private static final int FOOT_HEIGHT = 8;
     private boolean customSortOrder = true;
     private int rows = 0;
     private int maxRows = Integer.MAX_VALUE;
@@ -860,16 +863,15 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.drawTexturedModalRect(offsetX, offsetY + 18 + x * 18, 0, 18, x_width, 18);
         }
 
-        // A screen that reserved nothing is textured as if it had reserved nothing: the three pixels the
-        // split draws below the last row are not the whole of what is there - the scrollbar's own foot is
-        // in the pixels under them, and it would be left unfinished.
-        if (this.drawsReservedSpace() && this.reservedSpace > 0) {
-            // The reserved space is drawn by whoever asked for it, so only the strip above it and the
-            // player's inventory below come out of the texture. A window texture is 256 tall and the strip
-            // is read from 70 down, which leaves room for about eighty pixels of reserved space - a screen
-            // that wants more than that has to draw its own.
-            this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18, 0, 106 - 18 - 18, x_width, 3);
-            this.drawTexturedModalRect(offsetX, offsetY + 19 + this.rows * 18 + this.reservedSpace, 0, 250 - 96,
+        // The reserved space is drawn by whoever asked for it, so the window's own foot below the list and
+        // the player's inventory are all that come out of the texture. The foot is the whole eight pixels
+        // the window narrows over, not the three the band's own art used to finish - a texture with no band
+        // has nothing under those three but the scrollbar's unfinished bottom. The two strips overlap by
+        // five and are read from the same rows the unsplit path reads them from, so a screen reserving
+        // nothing is drawn exactly as one with no mode on.
+        if (this.drawsReservedSpace()) {
+            this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18, 0, 70, x_width, FOOT_HEIGHT);
+            this.drawTexturedModalRect(offsetX, offsetY + 19 + this.rows * 18 + this.reservedSpace, 0, 73,
                     x_width, 96);
         } else {
             this.drawTexturedModalRect(offsetX, offsetY + 16 + this.rows * 18 + this.lowerTextureOffset, 0, 106 - 18 - 18, x_width,
