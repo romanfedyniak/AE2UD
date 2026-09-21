@@ -97,7 +97,7 @@ public class GuiPatternView extends AEBaseGui {
         this.substitutesFluids = details.canSubstituteFluids();
 
         // Which ingredients the network fills in for out of its own tanks rather than handing over the
-        // container. The pattern terminal works this out with PatternHelper.findFabricatedSlots because
+        // container. The pattern terminal works this out with FabricatedSlots.find because
         // nothing is encoded yet; an encoded pattern already carries the answer, and it is the same one.
         final GenericStack[] sparse = details.getInputs();
         this.fabricated = new boolean[this.crafting ? sparse.length : 0];

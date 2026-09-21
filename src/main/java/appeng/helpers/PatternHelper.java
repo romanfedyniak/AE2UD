@@ -19,10 +19,8 @@
 package appeng.helpers;
 
 
-import appeng.api.behaviors.ContainerItemStrategies;
-import appeng.api.behaviors.ContainerItemStrategy;
-import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.FabricatedSlots;
 import appeng.api.networking.crafting.IPatternInput;
 import static appeng.api.networking.crafting.IPatternInput.CONSUMED;
 import appeng.api.networking.crafting.IPatternInputs;
@@ -215,7 +213,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         this.outputs = out.toArray(new GenericStack[outputLength]);
         this.substituteInputs = new HashMap<>(CRAFTING_INPUT_LIMIT);
         final GenericStack[] fromGrid = wantsFluidSubstitution
-                ? findFabricatedSlots(this.crafting, this.standardRecipe)
+                ? FabricatedSlots.find(this.crafting, this.standardRecipe)
                 : new GenericStack[0];
         this.fabricated = new GenericStack[this.inputs.length];
         System.arraycopy(fromGrid, 0, this.fabricated, 0, Math.min(fromGrid.length, this.fabricated.length));
@@ -401,43 +399,6 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
      * Static and public because the pattern terminal answers the same question about a grid the player is
      * still filling in, and two copies of this rule would be one copy too many.
      */
-    public static GenericStack[] findFabricatedSlots(final InventoryCrafting grid, final IRecipe recipe) {
-        final GenericStack[] found = new GenericStack[grid.getSizeInventory()];
-
-        if (recipe == null) {
-            return found;
-        }
-
-        // On a throwaway copy: an implementation of getRemainingItems is free to empty the stacks it was
-        // handed, and this grid is the reference frame every isValidItemForSlot test is built from. One mod
-        // recipe draining it leaves the pattern rejecting its own ingredients.
-        final NonNullList<ItemStack> remaining = recipe.getRemainingItems(copyOf(grid));
-
-        for (int x = 0; x < found.length && x < remaining.size(); x++) {
-            final ItemStack encoded = grid.getStackInSlot(x);
-
-            if (encoded.isEmpty()) {
-                continue;
-            }
-
-            final GenericStack contained = ContainerItemStrategies.getContainedStack(encoded);
-
-            if (contained == null || contained.amount() <= 0) {
-                continue;
-            }
-
-            final ItemStack emptied = emptyContainerOf(encoded);
-            final ItemStack leftBehind = remaining.get(x);
-
-            if (!emptied.isEmpty() && ItemStack.areItemsEqual(emptied, leftBehind)
-                    && ItemStack.areItemStackTagsEqual(emptied, leftBehind)) {
-                found[x] = contained;
-            }
-        }
-
-        return found;
-    }
-
     /**
      * Lays an encoded pattern back out over an encoder's two inventories - the grid and the outputs - the
      * way a pattern terminal shows it. Every slot is written, so nothing of what was there before survives.
@@ -495,37 +456,6 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         for (int x = PROCESSING_COMPACT_LIMIT; x < compact.getSlots(); x++) {
             ItemHandlerUtil.setStackInSlot(compact, x, ItemStack.EMPTY);
         }
-    }
-
-    private static InventoryCrafting copyOf(final InventoryCrafting grid) {
-        final InventoryCrafting copy = new InventoryCrafting(new ContainerNull(), grid.getWidth(), grid.getHeight());
-
-        for (int x = 0; x < grid.getSizeInventory(); x++) {
-            copy.setInventorySlotContents(x, grid.getStackInSlot(x).copy());
-        }
-
-        return copy;
-    }
-
-    /**
-     * @return what is left of the container once everything in it is taken out, or empty if it cannot be
-     * fully emptied.
-     */
-    private static ItemStack emptyContainerOf(final ItemStack container) {
-        final ContainerItemStrategy.Context context = ContainerItemStrategies.openContext(container, null);
-
-        if (context == null) {
-            return ItemStack.EMPTY;
-        }
-
-        final GenericStack content = context.getExtractableContent();
-
-        if (content == null || content.amount() <= 0
-                || context.extract(content.what(), content.amount(), Actionable.MODULATE) != content.amount()) {
-            return ItemStack.EMPTY;
-        }
-
-        return context.getContainer();
     }
 
     private void markItemAs(final int slotIndex, final ItemStack i, final TestStatus b) {

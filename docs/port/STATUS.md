@@ -2567,6 +2567,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     finishes 66. The view worked its grid out as the square root of the slot count, which is right for
     every square bench and wrong for a rectangular one. Nothing shipped a rectangular pattern, so it was
     never wrong in practice; the guess is gone now that the pattern states its shape.
+76. **`FabricatedSlots`** - additive, no upstream equivalent. Which squares of a recipe the network can
+    fill in for itself - a full bucket where the recipe returns the empty one - was
+    `PatternHelper.findFabricatedSlots`, a static in `appeng.helpers`. An addon encoding patterns for its
+    own bench has to answer exactly the same question and could only copy the rule, so the two would have
+    drifted the first time either changed. The body moved into `src/api` whole, taking the container
+    emptying and the defensive grid copy with it; `PatternHelper` and the crafting panel call it. It
+    carries its own do-nothing `Container` because `appeng.container.ContainerNull` is not api.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

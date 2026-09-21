@@ -35,7 +35,7 @@ import appeng.container.ContainerNull;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketValueConfig;
-import appeng.helpers.PatternHelper;
+import appeng.api.networking.crafting.FabricatedSlots;
 import appeng.helpers.encoding.CraftingEncodingMode;
 
 /** The three-by-three grid, its two substitution toggles and the hint that says what they will act on. */
@@ -130,7 +130,7 @@ public class CraftingModePanel extends PatternModePanel {
 
     /**
      * Tints the ingredients the network would fill in for, while the fluid-substitution button is under the
-     * cursor. Decided by {@link PatternHelper#findFabricatedSlots}, the same rule the pattern itself will use
+     * cursor. Decided by {@link FabricatedSlots#find}, the same rule the pattern itself will use
      * once encoded - so what lights up green here is exactly what the toggle will act on, and a container the
      * recipe does not simply empty stays dark instead of promising something.
      */
@@ -177,7 +177,7 @@ public class CraftingModePanel extends PatternModePanel {
             grid.setInventorySlotContents(i, slots.get(i).getStack().copy());
         }
 
-        return PatternHelper.findFabricatedSlots(grid, CraftingManager.findMatchingRecipe(grid, Minecraft.getMinecraft().world));
+        return FabricatedSlots.find(grid, CraftingManager.findMatchingRecipe(grid, Minecraft.getMinecraft().world));
     }
 
     private static int contentsOf(final List<Slot> slots) {

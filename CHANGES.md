@@ -24,6 +24,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **Which squares of a recipe the network can fill in for itself is part of the api.** A square holding
+  a full bucket, where the recipe hands the empty one back, is a square the network never has to keep
+  full buckets in - it fills an empty one from what it stores. Working out which squares those are was a
+  method inside the pattern terminal's own helper, so an addon encoding patterns on a bench of its own
+  could only copy it and drift. It is `FabricatedSlots.find` now, and AE2's own pattern uses the same
+  call as anyone else.
+
 - **A pattern's tooltip names only the first few of what it takes and makes.** A pattern from a bench
   nine squares across has up to eighty-one ingredients, and printing all of them ran off the top and the
   bottom of the screen - the same thing a storage cell's tooltip used to do before it was cut to five
