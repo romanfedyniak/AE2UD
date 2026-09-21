@@ -526,7 +526,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
                     // IAEItemStack -> GenericStack move already made on TileCraftingMonitorTile#setJob; the
                     // packet class itself must be updated in wave 4 to match, see migration report.
                     final GenericStack item = GenericStack.fromItemStack(output);
-                    NetworkHandler.instance().sendToAllAround(new PacketAssemblerAnimation(this.pos, (byte) speed, item), where);
+                    NetworkHandler.instance().sendToAllAround(new PacketAssemblerAnimation(this.pos, speed, item), where);
                 } catch (final IOException e) {
                     // ;P
                 }

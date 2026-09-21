@@ -39,7 +39,8 @@ public class PacketAssemblerAnimation extends AppEngPacket {
     private final int x;
     private final int y;
     private final int z;
-    public final byte rate;
+    /** How fast the machine is running. An int because a well accelerated one runs well past 127. */
+    public final int rate;
     public final GenericStack is;
 
     // automatic.
@@ -47,12 +48,12 @@ public class PacketAssemblerAnimation extends AppEngPacket {
         this.x = stream.readInt();
         this.y = stream.readInt();
         this.z = stream.readInt();
-        this.rate = stream.readByte();
+        this.rate = stream.readInt();
         this.is = GenericStack.readBuffer(stream);
     }
 
     // api
-    public PacketAssemblerAnimation(final BlockPos pos, final byte rate, final GenericStack is) throws IOException {
+    public PacketAssemblerAnimation(final BlockPos pos, final int rate, final GenericStack is) throws IOException {
 
         final ByteBuf data = Unpooled.buffer();
 
@@ -60,7 +61,7 @@ public class PacketAssemblerAnimation extends AppEngPacket {
         data.writeInt(this.x = pos.getX());
         data.writeInt(this.y = pos.getY());
         data.writeInt(this.z = pos.getZ());
-        data.writeByte(this.rate = rate);
+        data.writeInt(this.rate = rate);
         GenericStack.writeBuffer(is, data);
         this.is = is;
 

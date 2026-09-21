@@ -346,6 +346,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A well accelerated Molecular Assembler stopped sparking.** How fast the machine is running is sent to
+  everyone nearby so that the item it made can be shown spinning inside it for as long as the craft took,
+  wrapped in sparks - and that number was sent as a single byte, which held every speed the stock
+  acceleration card could reach and nothing beyond it. Enough acceleration behind the assembler and the
+  speed wrapped negative, so the item still appeared but no sparks were thrown around it and it vanished
+  in three ticks. It is sent whole now. The sparks are also capped at what the fastest stock assembler
+  throws, so that a machine running many times faster does not bury itself in them.
+
 - **A pattern that says it substitutes now substitutes.** Planning a job ignored a pattern's substitutes
   unless a config option was switched on, and that option was off by default - so a pattern with the
   toggle lit still demanded the exact item it was encoded from, and a job failed for want of an

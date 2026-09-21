@@ -33,6 +33,9 @@ import net.minecraft.world.World;
 
 public class AssemblerFX extends Particle implements ICanDie {
 
+    /** As many as the fastest stock assembler throws, so an accelerated one does not bury itself in them. */
+    private static final int MAX_SPARKS = 10;
+
     private final EntityFloatingItem fi;
     private final float speed;
     private float time = 0;
@@ -92,7 +95,8 @@ public class AssemblerFX extends Particle implements ICanDie {
         if (this.time > 4.0) {
             this.time -= 4.0;
             // if ( AppEng.proxy.shouldAddParticles( r ) )
-            for (int x = 0; x < (int) Math.ceil(this.speed / 5); x++) {
+            final int sparks = Math.min(MAX_SPARKS, (int) Math.ceil(this.speed / 5));
+            for (int x = 0; x < sparks; x++) {
                 AppEng.proxy.spawnEffect(EffectType.Crafting, this.world, this.posX, this.posY, this.posZ, null);
             }
         }
