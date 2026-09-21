@@ -93,8 +93,8 @@ public class ContainerPatternView extends AEBaseContainer {
 
         final GenericStack[] laidOut = keepShape ? details.getInputs() : inputs.toArray(new GenericStack[0]);
 
-        this.inputColumns = keepShape ? squareSide(laidOut.length) : columnsFor(laidOut.length);
-        this.inputRows = rowsFor(laidOut.length, this.inputColumns);
+        this.inputColumns = keepShape ? details.getTableWidth() : columnsFor(laidOut.length);
+        this.inputRows = keepShape ? details.getTableHeight() : rowsFor(laidOut.length, this.inputColumns);
         this.outputColumns = columnsFor(outputs.length);
         this.outputRows = rowsFor(outputs.length, this.outputColumns);
 
@@ -105,16 +105,6 @@ public class ContainerPatternView extends AEBaseContainer {
         this.addGrid(laidOut, this.inputColumns, MARGIN, this.rowTop(contentRows, this.inputRows));
         this.addGrid(outputs, this.outputColumns, this.getOutputLeft(),
                 this.rowTop(contentRows, this.outputRows));
-    }
-
-    /**
-     * The side of the square a shaped recipe was encoded on, taken from the slot count rather than assumed
-     * to be three - an addon pattern on a bigger bench lays itself out correctly without anything here
-     * knowing about it.
-     */
-    private static int squareSide(final int slots) {
-        final int side = (int) Math.round(Math.sqrt(slots));
-        return Math.max(1, side * side == slots ? side : side + 1);
     }
 
     /**

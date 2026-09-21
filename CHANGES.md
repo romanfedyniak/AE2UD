@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **The pattern view lays a recipe out at the size the pattern says it is.** It worked the grid out from
+  how many squares a pattern had and took the square root, which is right for every square bench and
+  wrong for any other - a recipe two squares across and eight down would have been drawn four by four,
+  with its shape lost. Patterns have stated their own width and height since bigger benches were allowed
+  at all, so the view asks rather than guesses.
+
 - **An addon's pattern tooltip reads like AE2's own.** What a pattern makes, what it takes, whether it
   substitutes, who encoded it and which key opens its view were written into AE2's pattern item, so an
   addon could only retype all of it and have it drift - in wording, and in every language it had been

@@ -2563,6 +2563,10 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     the author line with it; `ItemEncodedPattern` keeps only the branch for a pattern that will not
     decode, which is specific to AE2's own encoding. Upstream has no equivalent - its tooltip is built
     from `IPatternDetails` by a client-side renderer registry.
+75. **`ContainerPatternView` reads `getTableWidth()/getTableHeight()`** - not an api change, but it
+    finishes 66. The view worked its grid out as the square root of the slot count, which is right for
+    every square bench and wrong for a rectangular one. Nothing shipped a rectangular pattern, so it was
+    never wrong in practice; the guess is gone now that the pattern states its shape.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
