@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **The pattern view opens on an addon's pattern too.** The key that shows what a pattern holds - its
+  ingredients laid out as they were encoded, and what they make - answered only AE2's own plates. It
+  asks the pattern now, whoever wrote it. Nothing else had to change for a bigger bench: the view works
+  its grid out from how many squares the pattern has rather than assuming three by three, so a
+  nine-by-nine recipe lays itself out correctly the first time it is opened.
+
 - **An addon's pattern is drawn as what it makes, like AE2's own.** Holding the view key over a plate
   swaps it for the thing it crafts, so a shelf of patterns reads as its contents rather than as a row of
   identical plates. That was written against AE2's own pattern item by name, so a pattern from an addon

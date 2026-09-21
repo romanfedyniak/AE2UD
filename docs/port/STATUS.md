@@ -2550,6 +2550,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `appeng.helpers.PatternOutputs`: one map for every pattern item, keyed by the whole stack, and
     deliberately not client-only because the path that turns a pattern back into a blank has to forget
     it from both sides.
+73. **The pattern view is gated on `ICraftingPatternItem`** - not an api change in itself, but the
+    other half of 72: `ClientHelper.onGuiKeyInput` tested `instanceof ItemEncodedPattern` and then cast
+    to it to call a method the interface already declares, so an addon's pattern was refused for no
+    reason. `ContainerPatternView` needed nothing: it works the grid out from the number of squares the
+    pattern has rather than assuming three by three, which is close enough for every square bench (75
+    replaces that guess with the width the pattern declares).
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

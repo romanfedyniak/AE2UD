@@ -48,6 +48,7 @@ import appeng.entity.EntityFloatingItem;
 import appeng.entity.EntityTinyTNTPrimed;
 import appeng.entity.RenderFloatingItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.StorageCell;
 import appeng.client.render.cablebus.DefaultCableStyle;
@@ -453,14 +454,14 @@ public class ClientHelper extends ServerHelper {
             return;
         }
 
-        if (!(slot.getStack().getItem() instanceof ItemEncodedPattern)) {
+        if (!(slot.getStack().getItem() instanceof ICraftingPatternItem)) {
             return;
         }
 
         final ItemStack pattern = slot.getStack();
         final EntityPlayer player = Minecraft.getMinecraft().player;
         final ICraftingPatternDetails details =
-                ((ItemEncodedPattern) pattern.getItem()).getPatternForItem(pattern, player.world);
+                ((ICraftingPatternItem) pattern.getItem()).getPatternForItem(pattern, player.world);
 
         // A pattern that will not decode has nothing to show; its tooltip already says it is invalid.
         if (details == null) {
