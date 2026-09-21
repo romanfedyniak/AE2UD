@@ -24,6 +24,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A window that paints itself can be more than one rectangle.** The painter that draws a window at any
+  size drew a rectangle and nothing else, so a screen whose top half is wider than its bottom - a big
+  crafting grid over a player's inventory - had to leave the corner beside the inventory as blank panel.
+  A panel may now be asked to leave some of its sides unframed, which is all such a shape needs: the band
+  that carries on is drawn second without the edge the two share, its fill covers the frame the first one
+  drew there, and what is left standing where it stops is the step.
+
 - **A screen that sizes itself to its contents can say where the network tool's slots go.** Where the
   three by three a network tool opens is drawn was a number written into the container, measured for a
   window of the usual width - so a screen wider than that had the toolbox land inside it, with nothing

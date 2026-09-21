@@ -120,10 +120,25 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     /** The panel sheet, and the square of it each corner takes. */
     private static final ResourceLocation PANEL = new ResourceLocation(AppEng.MOD_ID, "textures/guis/panel.png");
     private static final int PANEL_TEXTURE = 64;
-    private static final int PANEL_CORNER = 8;
+    /** How deep a panel's own frame is, which is what a second panel must overlap to hide a shared edge. */
+    public static final int PANEL_CORNER = 8;
+    /** How much of that is the frame itself: the last three rows of an edge, the five before it are fill. */
+    private static final int PANEL_FRAME = 3;
+    /** The panel's own two frame colours and its fill, for the one corner the sheet has no piece for. */
+    private static final int PANEL_FILL_COLOR = 0xFFC6C6C6;
+    private static final int PANEL_OUTLINE_COLOR = 0xFF000000;
+
+    /** Which sides of a panel wear its frame; a side left out runs on as fill. See {@link #drawPanel}. */
+    public static final int PANEL_EDGE_TOP = 1;
+    public static final int PANEL_EDGE_BOTTOM = 2;
+    public static final int PANEL_EDGE_LEFT = 4;
+    public static final int PANEL_EDGE_RIGHT = 8;
+    public static final int PANEL_EDGE_ALL =
+            PANEL_EDGE_TOP | PANEL_EDGE_BOTTOM | PANEL_EDGE_LEFT | PANEL_EDGE_RIGHT;
     protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
     protected static final int PANEL_SHADOW_COLOR = 0xFF555555;
-    private static final int SLOT_SHADOW_COLOR = 0xFF373737;
+    /** The shadow a sunken well casts on its top and left, for a screen painting a recess of its own. */
+    protected static final int SLOT_SHADOW_COLOR = 0xFF373737;
     /** The grey every arrow in the mod's windows is drawn in. */
     private static final int ARROW_COLOR = 0xFF8B8B8B;
     private static final int SLOT_FILL_COLOR = 0xFF8B8B8B;
@@ -1638,6 +1653,21 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
      * against every other window's rounded ones.
      */
     public static void drawPanel(final int x, final int y, final int width, final int height) {
+        drawPanel(x, y, width, height, PANEL_EDGE_ALL);
+    }
+
+    /**
+     * The same, with only some of its sides framed. A side left out of {@code edges} is drawn as fill
+     * instead, so the panel reads as running on past that edge - which is how a window of more than one
+     * rectangle is built: the band that continues is drawn second, without the edge they share, and its
+     * fill covers the frame the first band drew there. The frame stays where the second band stops, and
+     * that is the step.
+     * <p>
+     * A corner is only drawn as a corner where both of its sides are framed; otherwise the side that is
+     * framed runs straight through it.
+     */
+    public static void drawPanel(final int x, final int y, final int width, final int height,
+            final int edges) {
         enableSpriteBlending();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         Minecraft.getMinecraft().getTextureManager().bindTexture(PANEL);
@@ -1647,17 +1677,87 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         final int middleWidth = width - 2 * c;
         final int middleHeight = height - 2 * c;
 
-        blitPanel(x, y, 0, 0, c, c);
-        blitPanel(x + width - c, y, far, 0, c, c);
-        blitPanel(x, y + height - c, 0, far, c, c);
-        blitPanel(x + width - c, y + height - c, far, far, c, c);
+        // An unframed side reads from the middle of the sheet, which is the fill.
+        final int top = (edges & PANEL_EDGE_TOP) != 0 ? 0 : c;
+        final int bottom = (edges & PANEL_EDGE_BOTTOM) != 0 ? far : c;
+        final int left = (edges & PANEL_EDGE_LEFT) != 0 ? 0 : c;
+        final int right = (edges & PANEL_EDGE_RIGHT) != 0 ? far : c;
 
-        blitPanel(x + c, y, c, 0, middleWidth, c);
-        blitPanel(x + c, y + height - c, c, far, middleWidth, c);
-        blitPanel(x, y + c, 0, c, c, middleHeight);
-        blitPanel(x + width - c, y + c, far, c, c, middleHeight);
+        blitPanel(x, y, left, top, c, c);
+        blitPanel(x + width - c, y, right, top, c, c);
+        blitPanel(x, y + height - c, left, bottom, c, c);
+        blitPanel(x + width - c, y + height - c, right, bottom, c, c);
+
+        blitPanel(x + c, y, c, top, middleWidth, c);
+        blitPanel(x + c, y + height - c, c, bottom, middleWidth, c);
+        blitPanel(x, y + c, left, c, c, middleHeight);
+        blitPanel(x + width - c, y + c, right, c, c, middleHeight);
 
         blitPanel(x + c, y + c, c, c, middleWidth, middleHeight);
+    }
+
+    /**
+     * A window wider across the top than across the bottom - a crafting grid larger than the player's
+     * inventory, over that inventory - as one shape rather than two that overlap.
+     * <p>
+     * Two bands. The upper one is full width. The lower one is drawn over it without the edge they share,
+     * so its fill rubs out the frame the upper band drew where the window carries on, and what is left
+     * standing beside it is the step. The lower band's own sides are framed from its first row, which is a
+     * corner's worth above the step, so that much of its right side is rubbed out in turn - all but the
+     * frame itself, which is what turns the corner and meets the step.
+     *
+     * @param stepHeight how far down the window steps in, measured from {@code y}
+     * @param lowerWidth how wide it is below that; the same as {@code width} draws a plain rectangle
+     */
+    public static void drawSteppedPanel(final int x, final int y, final int width, final int height,
+            final int stepHeight, final int lowerWidth) {
+        if (lowerWidth >= width) {
+            drawPanel(x, y, width, height);
+            return;
+        }
+
+        final int c = PANEL_CORNER;
+
+        drawPanel(x, y, width, stepHeight);
+        drawPanel(x, y + stepHeight - c, lowerWidth, height - stepHeight + c,
+                PANEL_EDGE_LEFT | PANEL_EDGE_RIGHT | PANEL_EDGE_BOTTOM);
+        drawPanelFill(x + lowerWidth - c, y + stepHeight - c, c, c - PANEL_FRAME);
+
+        drawInsideCorner(x + lowerWidth, y + stepHeight);
+    }
+
+    /**
+     * The corner where the step turns back down, which the panel sheet has no piece for: it is the one
+     * corner of a window that is concave, and every piece on the sheet is drawn for a convex one.
+     * <p>
+     * Copied pixel for pixel from where the Crafting Status window does the same thing in its own texture.
+     * The shadow runs straight through the corner and only the outermost pixel is outlined, while the one
+     * deepest inside stays fill - so the frame turns a pixel short of square rather than butting.
+     *
+     * @param x the column the frame's outline runs down, and {@code y} the row it runs along
+     */
+    private static void drawInsideCorner(final int x, final int y) {
+        final int inner = PANEL_FRAME;
+
+        drawRect(x - inner, y - inner, x, y, PANEL_SHADOW_COLOR);
+        drawRect(x - inner, y - inner, x - inner + 1, y - inner + 1, PANEL_FILL_COLOR);
+        drawRect(x - 1, y - 1, x, y, PANEL_OUTLINE_COLOR);
+
+        // drawRect leaves whatever colour it painted with set, and a panel is drawn textured.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    /**
+     * Nothing but the panel's fill over an area. What a window built from more than one rectangle needs to
+     * rub out the frame a band drew where the next one carries on - the bands themselves cannot, because a
+     * band's own sides are framed from its first row down.
+     */
+    public static void drawPanelFill(final int x, final int y, final int width, final int height) {
+        enableSpriteBlending();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        Minecraft.getMinecraft().getTextureManager().bindTexture(PANEL);
+
+        blitPanel(x, y, PANEL_CORNER, PANEL_CORNER, width, height);
     }
 
     /** Repeats one piece of the panel sheet over an area, since an edge or the fill can be any length. */
