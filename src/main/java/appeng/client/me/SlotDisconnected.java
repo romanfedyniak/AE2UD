@@ -21,7 +21,7 @@ package appeng.client.me;
 
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.IJEITargetSlot;
-import appeng.items.misc.ItemEncodedPattern;
+import appeng.helpers.PatternOutputs;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
@@ -55,13 +55,9 @@ public class SlotDisconnected extends AppEngSlot implements IJEITargetSlot {
     @Override
     public ItemStack getDisplayStack() {
         if (Platform.isClient()) {
-            final ItemStack is = super.getStack();
-            if (!is.isEmpty() && is.getItem() instanceof ItemEncodedPattern) {
-                final ItemEncodedPattern iep = (ItemEncodedPattern) is.getItem();
-                final ItemStack out = iep.getOutput(is);
-                if (!out.isEmpty()) {
-                    return out;
-                }
+            final ItemStack out = PatternOutputs.of(super.getStack());
+            if (!out.isEmpty()) {
+                return out;
             }
         }
         return super.getStack();

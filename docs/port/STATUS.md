@@ -2541,6 +2541,15 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     is replaced by `Platform.getRemainingItems`, which keeps the fabricated-container rule so that no
     implementation has to remember it. Upstream has no equivalent because its patterns hand a medium a
     sparse ingredient list and leave the grid to the medium, which is the crafting api alignment phase.
+72. **`ICraftingPatternItem.getOutput()`** - additive, defaulted, no upstream equivalent. Drawing a
+    pattern as the thing it makes was `instanceof ItemEncodedPattern` in three places -
+    `EncodedPatternPreview` for the view key, and `SlotRestrictedInput`/`SlotDisconnected` for the slots
+    that show a result with no key held - and the method they called lived on that class, so an addon's
+    pattern could only ever be drawn as a plate. The interface carries it now, defaulted to the first
+    output, and a pattern with a better answer overrides it. The cache moved with it, to
+    `appeng.helpers.PatternOutputs`: one map for every pattern item, keyed by the whole stack, and
+    deliberately not client-only because the path that turns a pattern back into a blank has to forget
+    it from both sides.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

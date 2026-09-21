@@ -24,6 +24,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's pattern is drawn as what it makes, like AE2's own.** Holding the view key over a plate
+  swaps it for the thing it crafts, so a shelf of patterns reads as its contents rather than as a row of
+  identical plates. That was written against AE2's own pattern item by name, so a pattern from an addon
+  stayed a plate; the same was true of the slots in the interface and the pattern terminal, which show a
+  pattern as its result without any key held. All three ask the pattern itself now, and a pattern that
+  wants to be recognised by something other than its first output - one output standing for a whole
+  multiblock craft, say - names it. What every plate on screen is drawn as is remembered between frames
+  in one place rather than one cache per kind of pattern.
+
 - **A pattern may say what its craft leaves behind.** What a crafting grid was left holding once the
   craft was done was worked out one way and one way only: the container item, an empty bucket for a
   filled one. A recipe from another mod may leave something else in a square - Extended Crafting's

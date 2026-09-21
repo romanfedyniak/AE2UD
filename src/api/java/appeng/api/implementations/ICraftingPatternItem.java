@@ -29,6 +29,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.stacks.GenericStack;
 
 
 /**
@@ -46,4 +47,27 @@ public interface ICraftingPatternItem
 	 * @return details of pattern
 	 */
 	ICraftingPatternDetails getPatternForItem( ItemStack is, World w );
+
+	/**
+	 * What this pattern is drawn as while the view key is held down - its first output, so that a shelf
+	 * of patterns reads as the things they make rather than as a row of identical plates.
+	 * <p>
+	 * The stack is swapped, not the model: an item with a renderer of its own looks its contents up in
+	 * the stack it is handed, so handing it another item's model and this pattern's stack draws nothing.
+	 * A pattern whose first output is not what a player would recognise it by - one output standing for
+	 * a whole multiblock craft, say - overrides this and names something else.
+	 *
+	 * @return what to draw instead of the pattern, or an empty stack to draw the pattern itself
+	 */
+	default ItemStack getOutput( ItemStack is, World w )
+	{
+		final ICraftingPatternDetails details = this.getPatternForItem( is, w );
+
+		if( details == null || details.getOutputs().length == 0 || details.getOutputs()[0] == null )
+		{
+			return ItemStack.EMPTY;
+		}
+
+		return GenericStack.wrapInItemStack( details.getOutputs()[0] );
+	}
 }

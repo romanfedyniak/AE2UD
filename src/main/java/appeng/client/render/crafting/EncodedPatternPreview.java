@@ -22,7 +22,7 @@ package appeng.client.render.crafting;
 
 import appeng.api.stacks.GenericStack;
 import appeng.client.render.StackSizeRenderer;
-import appeng.items.misc.ItemEncodedPattern;
+import appeng.helpers.PatternOutputs;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.item.ItemStack;
@@ -52,11 +52,11 @@ public final class EncodedPatternPreview {
      *         as that fluid, the same as the interface's own slots show it.
      */
     public static ItemStack previewFor(final ItemStack stack) {
-        if (stack.isEmpty() || !GuiScreen.isShiftKeyDown() || !(stack.getItem() instanceof ItemEncodedPattern)) {
+        if (!GuiScreen.isShiftKeyDown()) {
             return ItemStack.EMPTY;
         }
 
-        return ((ItemEncodedPattern) stack.getItem()).getOutput(stack);
+        return PatternOutputs.of(stack);
     }
 
     /**

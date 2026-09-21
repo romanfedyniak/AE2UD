@@ -32,7 +32,7 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.core.localization.ButtonToolTips;
-import appeng.items.misc.ItemEncodedPattern;
+import appeng.helpers.PatternOutputs;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -234,13 +234,9 @@ public class SlotRestrictedInput extends AppEngSlot {
     @Override
     public ItemStack getDisplayStack() {
         if (Platform.isClient() && (this.which == PlacableItemType.ENCODED_PATTERN)) {
-            final ItemStack is = super.getStack();
-            if (!is.isEmpty() && is.getItem() instanceof ItemEncodedPattern) {
-                final ItemEncodedPattern iep = (ItemEncodedPattern) is.getItem();
-                final ItemStack out = iep.getOutput(is);
-                if (!out.isEmpty()) {
-                    return out;
-                }
+            final ItemStack out = PatternOutputs.of(super.getStack());
+            if (!out.isEmpty()) {
+                return out;
             }
         }
         return super.getStack();

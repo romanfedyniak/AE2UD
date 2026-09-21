@@ -22,19 +22,17 @@ package appeng.items.misc;
 import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.helpers.PatternOutputs;
 import appeng.api.networking.crafting.IPatternInput;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
-import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
 import appeng.helpers.PatternHelper;
 import appeng.items.AEBaseItem;
 import appeng.util.Platform;
 import appeng.core.api.ApiClientHelper;
-import appeng.util.item.ItemStackHashStrategy;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
@@ -57,10 +55,6 @@ import java.util.List;
 import java.util.Map;
 
 public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternItem {
-
-    private static final ItemStackHashStrategy hashStrategy = ItemStackHashStrategy.comparingAllButCount();
-    // rather simple client side caching.
-    private static final Map<ItemStack, ItemStack> SIMPLE_CACHE = new Object2ObjectOpenCustomHashMap<>(hashStrategy);
 
     public ItemEncodedPattern() {
         this.setMaxStackSize(64);
@@ -102,7 +96,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
 
     private boolean clearPattern(final ItemStack stack, final EntityPlayer player) {
         if (player.isSneaking()) {
-            SIMPLE_CACHE.remove(stack);
+            PatternOutputs.forget(stack);
             if (Platform.isClient()) {
                 return false;
             }
@@ -269,23 +263,4 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         }
     }
 
-    public ItemStack getOutput(final ItemStack item) {
-        ItemStack out = SIMPLE_CACHE.get(item);
-
-        if (out != null) {
-            return out;
-        }
-
-        final World w = AppEng.proxy.getWorld();
-        if (w == null) {
-            return ItemStack.EMPTY;
-        }
-
-        final ICraftingPatternDetails details = this.getPatternForItem(item, w);
-
-        out = details != null ? GenericStack.wrapInItemStack(details.getOutputs()[0]) : ItemStack.EMPTY;
-
-        SIMPLE_CACHE.put(item, out);
-        return out;
-    }
 }
