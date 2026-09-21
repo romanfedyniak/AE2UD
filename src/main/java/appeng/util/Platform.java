@@ -97,6 +97,7 @@ import net.minecraft.server.management.PlayerChunkMap;
 import net.minecraft.server.management.PlayerChunkMapEntry;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.*;
 import net.minecraft.util.registry.RegistryNamespaced;
 import net.minecraft.util.text.translation.I18n;
@@ -1395,20 +1396,31 @@ public class Platform {
     }
 
     /**
-     * What a crafting slot leaves behind once the craft is done. The same as
-     * {@link #getContainerItem(ItemStack)}, except that a container the network assembled out of a fluid
-     * never existed as an item and must not be handed back as one.
+     * What the whole grid leaves behind once the craft is done. Usually {@link #getContainerItem(ItemStack)}
+     * square by square, but a pattern may name something else - and a container the network assembled out of
+     * a fluid never existed as an item and must not be handed back as one.
+     * <p>
+     * The pattern is asked once rather than per square: working its answer out can cost a recipe look-up,
+     * and every caller here walks the whole grid.
      *
      * @param cpuSupplied false when the ingredients were fed in by hand rather than pushed by a crafting
      *                    CPU, in which case every container in the grid is real and stays real.
      */
-    public static ItemStack getRemainingItem(final ICraftingPatternDetails details, final int slot,
-            final ItemStack inSlot, final boolean cpuSupplied) {
-        if (cpuSupplied && details != null && details.getPatternInputs().get(slot).isFabricated()) {
-            return ItemStack.EMPTY;
+    public static NonNullList<ItemStack> getRemainingItems(final ICraftingPatternDetails details,
+            final InventoryCrafting craftingInv, final World world, final boolean cpuSupplied) {
+        final NonNullList<ItemStack> own = details == null ? null : details.getRemainingItems(craftingInv, world);
+        final NonNullList<ItemStack> left = NonNullList.withSize(craftingInv.getSizeInventory(), ItemStack.EMPTY);
+
+        for (int slot = 0; slot < left.size(); slot++) {
+            if (cpuSupplied && details != null && details.getPatternInputs().get(slot).isFabricated()) {
+                continue;
+            }
+
+            left.set(slot, own != null && slot < own.size() ? own.get(slot)
+                    : getContainerItem(craftingInv.getStackInSlot(slot)));
         }
 
-        return getContainerItem(inSlot);
+        return left;
     }
 
     public static void notifyBlocksOfNeighbors(final World world, final BlockPos pos) {

@@ -2530,6 +2530,17 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
 70. **`UpgradeCards.installHeldCard`** - additive. Putting a card into a machine with a sneak-click,
     without opening its screen, was written into AE2's own material item, so a card from an addon simply
     did nothing. AE2's cards call it now as well, so the two behave alike.
+71. **`ICraftingPatternDetails.getRemainingItems()`** - additive, defaulted to null, no upstream
+    equivalent. What a crafting grid is left holding after the craft was `Platform.getContainerItem`
+    and nothing else, so a recipe that substitutes something of its own into a square - Extended
+    Crafting's tables do - had no way to say so. It could not be fixed machine-side: the same rule is
+    read by `CraftingCPUCluster` both when it books what a pushed job will hand back (`waitingFor`) and
+    when it plans one (`expect`), so a machine returning what the cpu did not book desynchronises the
+    job. The hook is asked once for the whole grid rather than once per square, because working the
+    answer out may cost a recipe look-up and every caller walks every square; `Platform.getRemainingItem`
+    is replaced by `Platform.getRemainingItems`, which keeps the fabricated-container rule so that no
+    implementation has to remember it. Upstream has no equivalent because its patterns hand a medium a
+    sparse ingredient list and leave the grid to the medium, which is the crafting api alignment phase.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

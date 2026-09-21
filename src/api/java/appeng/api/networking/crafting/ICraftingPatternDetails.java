@@ -24,8 +24,11 @@
 package appeng.api.networking.crafting;
 
 
+import javax.annotation.Nullable;
+
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 
 import appeng.api.implementations.ICraftingPatternItem;
@@ -138,6 +141,26 @@ public interface ICraftingPatternDetails
 	 * @return the crafted ( work bench ) item.
 	 */
 	ItemStack getOutput( InventoryCrafting craftingInv, World world );
+
+	/**
+	 * What each square of the grid is left holding once the craft is done, for a pattern whose recipe
+	 * leaves behind something other than the plain container item - an empty bucket for a filled one, a
+	 * tool a use more worn, or whatever else that recipe puts back in its place.
+	 * <p>
+	 * Asked once for the whole grid rather than square by square, because working the answer out may cost
+	 * a recipe look-up, and the callers all walk every square. Null, the default, says this pattern has
+	 * nothing of its own to leave and the network's usual rule stands for every square.
+	 *
+	 * @param craftingInv the grid as it stood when the craft happened
+	 * @param world crafting world
+	 *
+	 * @return one stack per square of {@code craftingInv}, or null for the usual rule
+	 */
+	@Nullable
+	default NonNullList<ItemStack> getRemainingItems( final InventoryCrafting craftingInv, final World world )
+	{
+		return null;
+	}
 
 	/**
 	 * Get the priority of this pattern

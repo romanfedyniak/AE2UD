@@ -58,6 +58,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.world.World;
@@ -990,8 +991,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         }
 
                         if (details.isCraftable()) {
-                            for (int x = 0; x < ic.getSizeInventory(); x++) {
-                                final ItemStack output = Platform.getRemainingItem(details, x, ic.getStackInSlot(x), true);
+                            final NonNullList<ItemStack> left =
+                                    Platform.getRemainingItems(details, ic, this.getWorld(), true);
+
+                            for (int x = 0; x < left.size(); x++) {
+                                final ItemStack output = left.get(x);
                                 if (!output.isEmpty()) {
                                     final AEItemKey key = AEItemKey.of(output);
                                     if (key != null) {
@@ -1124,8 +1128,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
 
         if (details.isCraftable()) {
-            for (int x = 0; x < table.getSizeInventory(); x++) {
-                final ItemStack left = Platform.getRemainingItem(details, x, table.getStackInSlot(x), true);
+            for (final ItemStack left : Platform.getRemainingItems(details, table, this.getWorld(), true)) {
                 final AEItemKey key = left.isEmpty() ? null : AEItemKey.of(left);
                 if (key != null) {
                     this.expect(key, (long) left.getCount() * copies);

@@ -24,6 +24,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern may say what its craft leaves behind.** What a crafting grid was left holding once the
+  craft was done was worked out one way and one way only: the container item, an empty bucket for a
+  filled one. A recipe from another mod may leave something else in a square - Extended Crafting's
+  tables can substitute whatever the recipe names - and the network had no way to hear it. Worse, the
+  rule was read in two places that have to agree: the machine handing leftovers back, and the crafting
+  CPU booking beforehand what it expects to get. A pattern that answered one of them and not the other
+  would have desynchronised the job, so this could not be fixed on the machine's side alone. A pattern
+  may now name the whole grid's leftovers, and both places ask it. A pattern that says nothing behaves
+  exactly as before. The grid is asked once per craft rather than once per square, because working the
+  answer out can cost a recipe look-up and a nine-by-nine grid has eighty-one of them.
+
 - **A pattern mode's panel can hang a plate of its own beside the window.** A panel names the band the
   terminal sets aside above the player's inventory, and a grid nine squares across needs a band so deep
   that the window stops fitting on a small screen. A panel may draw its plate anywhere instead - beside

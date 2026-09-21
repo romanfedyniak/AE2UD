@@ -70,6 +70,7 @@ import appeng.util.inv.filter.IAEItemFilter;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -501,12 +502,13 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
                 // was never taken out of the network.
                 final ICraftingPatternDetails plan = this.myPlan;
                 final boolean cpuSupplied = this.forcePlan;
+                final NonNullList<ItemStack> left =
+                        Platform.getRemainingItems(plan, this.craftingInv, this.getWorld(), cpuSupplied);
 
                 this.pushOut(output);
 
-                for (int x = 0; x < this.craftingInv.getSizeInventory(); x++) {
-                    this.gridInv.setStackInSlot(x, Platform.getRemainingItem(plan, x,
-                            this.craftingInv.getStackInSlot(x), cpuSupplied));
+                for (int x = 0; x < left.size(); x++) {
+                    this.gridInv.setStackInSlot(x, left.get(x));
                 }
 
                 if (ItemHandlerUtil.isEmpty(this.patternInv)) {
