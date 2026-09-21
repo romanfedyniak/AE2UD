@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern's tooltip names only the first few of what it takes and makes.** A pattern from a bench
+  nine squares across has up to eighty-one ingredients, and printing all of them ran off the top and the
+  bottom of the screen - the same thing a storage cell's tooltip used to do before it was cut to five
+  rows. Five of each now, then how many more there are, in the same grey the cell uses. The view the key
+  opens still draws the whole recipe, and the tooltip's last line still says which key that is.
+
 - **The pattern view lays a recipe out at the size the pattern says it is.** It worked the grid out from
   how many squares a pattern had and took the square root, which is right for every square bench and
   wrong for any other - a recipe two squares across and eight down would have been drawn four by four,

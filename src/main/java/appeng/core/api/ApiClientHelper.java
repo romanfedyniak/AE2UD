@@ -12,6 +12,7 @@ package appeng.core.api;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,6 +57,12 @@ public class ApiClientHelper implements IClientHelper {
 
     /** How many of a cell's contents a tooltip names before it says how many more there are. */
     public static final int PREVIEW_ROWS = BasicCellInventory.PREVIEW_SIZE;
+
+    /**
+     * The same for a pattern's ingredients, and its own number rather than the cell's: what a cell puts in
+     * its summary is written into the cell's tag, and a tooltip's length must not be tied to that.
+     */
+    public static final int PATTERN_ROWS = 5;
 
     @Override
     public void addCellInformation(final StorageCell handler, final List<String> lines) {
@@ -122,28 +129,10 @@ public class ApiClientHelper implements IClientHelper {
         final boolean isCrafting = details.isCraftable();
 
         final String label = (isCrafting ? GuiText.Crafts.getLocal() : GuiText.Creates.getLocal()) + ": ";
-        final String and = ' ' + GuiText.And.getLocal() + ' ';
         final String with = GuiText.With.getLocal() + ": ";
 
-        boolean first = true;
-        for (final GenericStack anOut : details.getCondensedOutputs()) {
-            if (anOut == null) {
-                continue;
-            }
-
-            lines.add((first ? label : and) + describe(anOut));
-            first = false;
-        }
-
-        first = true;
-        for (final GenericStack anIn : displayInputs(details)) {
-            if (anIn == null) {
-                continue;
-            }
-
-            lines.add((first ? with : and) + describe(anIn));
-            first = false;
-        }
+        addStacks(label, Arrays.asList(details.getCondensedOutputs()), lines);
+        addStacks(with, displayInputs(details), lines);
 
         if (isCrafting) {
             lines.add(GuiText.Substitute.getLocal() + ' '
@@ -156,6 +145,37 @@ public class ApiClientHelper implements IClientHelper {
 
         addAuthor(stack, lines);
         addViewHint(lines);
+    }
+
+    /**
+     * One line per stack under a heading, and no more than {@value #PATTERN_ROWS} of them. A pattern from a
+     * bench nine squares across has up to eighty-one ingredients, which ran off the top and the bottom of
+     * the screen; the view the key opens draws the whole recipe, and this says what it mostly takes.
+     */
+    private static void addStacks(final String heading, final List<GenericStack> stacks,
+            final List<String> lines) {
+        final String and = ' ' + GuiText.And.getLocal() + ' ';
+
+        int shown = 0;
+        int more = 0;
+
+        for (final GenericStack stack : stacks) {
+            if (stack == null) {
+                continue;
+            }
+
+            if (shown == PATTERN_ROWS) {
+                more++;
+                continue;
+            }
+
+            lines.add((shown == 0 ? heading : and) + describe(stack));
+            shown++;
+        }
+
+        if (more > 0) {
+            lines.add(TextFormatting.DARK_GRAY + I18n.format(GuiText.AndMoreTypes.getUnlocalized(), more));
+        }
     }
 
     /** Who encoded the pattern, if the terminal wrote a name into it. */
