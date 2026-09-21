@@ -64,16 +64,6 @@ import java.util.List;
  */
 public class GuiPatternView extends AEBaseGui {
 
-    /**
-     * The arrow between the two grids. Its shape is the pattern terminal's, but it is drawn rather than
-     * taken out of that texture: the texture carries its own background with it, a shade darker than this
-     * panel, which showed as a grey patch around the arrow.
-     */
-    private static final int ARROW_COLOR = 0xFF8B8B8B;
-    /** Where the shaft ends and the head begins, and the row the point sits on. */
-    private static final int ARROW_HEAD_LEFT = 14;
-    private static final int ARROW_MIDDLE = 7;
-
     /** The pattern terminal's own tint for the same hint, so both screens mark the same thing alike. */
     private static final int FABRICATED_SLOT_TINT = 0x8032CD32;
 
@@ -150,25 +140,11 @@ public class GuiPatternView extends AEBaseGui {
             drawSlotWell(offsetX + slot.xPos, offsetY + slot.yPos);
         }
 
-        this.drawArrow(offsetX + this.view.getArrowLeft(), offsetY + this.view.getArrowTop());
+        drawArrow(offsetX + this.view.getArrowLeft(), offsetY + this.view.getArrowTop(),
+                ContainerPatternView.ARROW_WIDTH, ContainerPatternView.ARROW_HEIGHT);
 
         // drawRect leaves its colour set, and the slot contents are drawn textured after this.
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-    }
-
-    /** A shaft three rows deep, and a head that tapers to its point one row at a time. */
-    private void drawArrow(final int left, final int top) {
-        for (int row = 0; row < ContainerPatternView.ARROW_HEIGHT; row++) {
-            final int taper = Math.abs(row - ARROW_MIDDLE);
-            final int y = top + row;
-
-            if (taper <= 1) {
-                drawRect(left, y, left + ARROW_HEAD_LEFT, y + 1, ARROW_COLOR);
-            }
-
-            drawRect(left + ARROW_HEAD_LEFT, y, left + ContainerPatternView.ARROW_WIDTH - taper, y + 1,
-                    ARROW_COLOR);
-        }
     }
 
     @Override

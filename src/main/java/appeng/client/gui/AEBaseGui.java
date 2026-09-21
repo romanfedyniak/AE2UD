@@ -124,6 +124,8 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     protected static final int PANEL_LIGHT_COLOR = 0xFFFFFFFF;
     protected static final int PANEL_SHADOW_COLOR = 0xFF555555;
     private static final int SLOT_SHADOW_COLOR = 0xFF373737;
+    /** The grey every arrow in the mod's windows is drawn in. */
+    private static final int ARROW_COLOR = 0xFF8B8B8B;
     private static final int SLOT_FILL_COLOR = 0xFF8B8B8B;
     private GuiScrollbar myScrollBar = null;
     private boolean disableShiftClick = false;
@@ -1694,6 +1696,34 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         drawRect(x + 1, y + 1, x + width - 1, y + height - 1, SLOT_FILL_COLOR);
         // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually
         // textured. Cleaned up here rather than at each call site, one of which had already forgotten.
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    /**
+     * The arrow that says what a screen turns into what, for a window that paints itself rather than
+     * wearing a texture with the arrow already in it. Drawn rather than cut out of the pattern terminal's
+     * texture, which would bring the panel around it along and show as a grey patch.
+     * <p>
+     * A shaft three rows deep and a head that tapers to its point one row at a time, at whatever size the
+     * caller lays out for: the head is as long as the arrow is tall, halved, so it stays in proportion.
+     */
+    protected static void drawArrow(final int left, final int top, final int width, final int height) {
+        final int middle = height / 2;
+        final int head = middle + 1;
+        final int shaft = width - head;
+
+        for (int row = 0; row < height; row++) {
+            final int taper = Math.abs(row - middle);
+            final int y = top + row;
+
+            if (taper <= 1) {
+                drawRect(left, y, left + shaft, y + 1, ARROW_COLOR);
+            }
+
+            drawRect(left + shaft, y, left + width - taper, y + 1, ARROW_COLOR);
+        }
+
+        // drawRect leaves whatever colour it painted with set, and the next thing drawn is usually textured.
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
