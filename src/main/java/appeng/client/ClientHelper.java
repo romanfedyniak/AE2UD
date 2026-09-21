@@ -38,6 +38,7 @@ import appeng.client.render.keytypes.FluidKeyRenderHandler;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.core.api.ApiClientHelper;
 import appeng.core.MultiblockLimits;
 import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.network.NetworkHandler;
@@ -470,7 +471,7 @@ public class ClientHelper extends ServerHelper {
 
         event.setCanceled(true);
         Minecraft.getMinecraft().displayGuiScreen(new GuiPatternView(player.inventory, details,
-                ItemEncodedPattern.displayInputs(details), details.getCondensedOutputs(), screen));
+                ApiClientHelper.displayInputs(details), details.getCondensedOutputs(), screen));
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)

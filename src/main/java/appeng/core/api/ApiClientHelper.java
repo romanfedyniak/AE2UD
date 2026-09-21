@@ -13,18 +13,24 @@ package appeng.core.api;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import appeng.api.config.IncludeExclude;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.networking.crafting.IPatternInput;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.IClientHelper;
 import appeng.client.ActionKey;
@@ -32,6 +38,7 @@ import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.me.storage.BasicCellInventory;
+import appeng.util.Platform;
 
 /**
  * The storage cell tooltip: how full the cell is, what its cards do to it, and the few things in it that
@@ -99,6 +106,106 @@ public class ApiClientHelper implements IClientHelper {
 
         addContents(cellInventory, lines);
         addViewHint(lines);
+    }
+
+    /**
+     * A pattern's tooltip: what it makes, what it takes, whether it substitutes, who wrote it, and how to
+     * open the view that draws it.
+     */
+    @Override
+    public void addPatternInformation(final ICraftingPatternDetails details, final ItemStack stack,
+            final List<String> lines) {
+        if (details == null) {
+            return;
+        }
+
+        final boolean isCrafting = details.isCraftable();
+
+        final String label = (isCrafting ? GuiText.Crafts.getLocal() : GuiText.Creates.getLocal()) + ": ";
+        final String and = ' ' + GuiText.And.getLocal() + ' ';
+        final String with = GuiText.With.getLocal() + ": ";
+
+        boolean first = true;
+        for (final GenericStack anOut : details.getCondensedOutputs()) {
+            if (anOut == null) {
+                continue;
+            }
+
+            lines.add((first ? label : and) + describe(anOut));
+            first = false;
+        }
+
+        first = true;
+        for (final GenericStack anIn : displayInputs(details)) {
+            if (anIn == null) {
+                continue;
+            }
+
+            lines.add((first ? with : and) + describe(anIn));
+            first = false;
+        }
+
+        if (isCrafting) {
+            lines.add(GuiText.Substitute.getLocal() + ' '
+                    + (details.canSubstitute() ? GuiText.Yes : GuiText.No).getLocal());
+
+            if (details.canSubstituteFluids()) {
+                lines.add(GuiText.UsesFluidsDirectly.getLocal());
+            }
+        }
+
+        addAuthor(stack, lines);
+        addViewHint(lines);
+    }
+
+    /** Who encoded the pattern, if the terminal wrote a name into it. */
+    public static void addAuthor(final ItemStack stack, final List<String> lines) {
+        if (!stack.hasTagCompound()) {
+            return;
+        }
+
+        final String author = stack.getTagCompound().getString("author");
+
+        if (!author.isEmpty()) {
+            lines.add(TextFormatting.LIGHT_PURPLE + I18n.format(GuiText.EncodedBy.getUnlocalized(), author));
+        }
+    }
+
+    /**
+     * The ingredients as the pattern will actually ask for them: a slot the network fills in shows its
+     * contents rather than the container, because the container is never taken out of storage.
+     */
+    public static List<GenericStack> displayInputs(final ICraftingPatternDetails details) {
+        final GenericStack[] sparse = details.getInputs();
+        final Map<AEKey, GenericStack> merged = new LinkedHashMap<>();
+
+        for (int x = 0; x < sparse.length; x++) {
+            if (sparse[x] == null) {
+                continue;
+            }
+
+            GenericStack shown = sparse[x];
+
+            final IPatternInput input = details.getPatternInputs().get(x);
+
+            if (input.isFabricated()) {
+                final GenericStack supplied = input.getSupplied();
+                shown = new GenericStack(supplied.what(), supplied.amount() * sparse[x].amount());
+            }
+
+            merged.merge(shown.what(), shown, GenericStack::sum);
+        }
+
+        return new ArrayList<>(merged.values());
+    }
+
+    /**
+     * Amounts go through the key type, so a thousand millibuckets reads as one bucket. Printing the raw
+     * number was only ever tolerable while patterns held items.
+     */
+    private static String describe(final GenericStack stack) {
+        return stack.what().formatAmount(stack.amount(), AmountFormat.FULL) + ' '
+                + Platform.getItemDisplayName(stack.what());
     }
 
     /**

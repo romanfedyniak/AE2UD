@@ -2556,6 +2556,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     reason. `ContainerPatternView` needed nothing: it works the grid out from the number of squares the
     pattern has rather than assuming three by three, which is close enough for every square bench (75
     replaces that guess with the width the pattern declares).
+74. **`IClientHelper.addPatternInformation()`** - additive, and the exact parallel of the
+    `addCellInformation` that was already there. A pattern's tooltip lines lived in a method on
+    `ItemEncodedPattern`, so an addon's pattern could only retype them and drift from AE2's wording and
+    from its translations. The body moved to `ApiClientHelper`, taking `displayInputs`, `describe` and
+    the author line with it; `ItemEncodedPattern` keeps only the branch for a pattern that will not
+    decode, which is specific to AE2's own encoding. Upstream has no equivalent - its tooltip is built
+    from `IPatternDetails` by a client-side renderer registry.
 
 ### The crafting api is being aligned piecemeal, and that was not the plan
 

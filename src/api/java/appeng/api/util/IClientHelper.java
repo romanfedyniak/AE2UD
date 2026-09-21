@@ -27,6 +27,9 @@ package appeng.api.util;
 
 import java.util.List;
 
+import net.minecraft.item.ItemStack;
+
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.cells.StorageCell;
 
 
@@ -39,5 +42,18 @@ public interface IClientHelper
 	 * @param lines List of lines to add to.
 	 */
 	void addCellInformation( StorageCell handler, List<String> lines );
+
+	/**
+	 * Add the lines a pattern's tooltip carries: what it makes, what it takes, whether it substitutes,
+	 * who encoded it, and how to open the view that draws it. Used for tooltip content.
+	 * <p>
+	 * Here rather than on the pattern item, so that an addon's pattern reads the same as AE2's own and
+	 * is translated once. A pattern that will not decode has nothing to show and is not passed here.
+	 *
+	 * @param details the decoded pattern
+	 * @param stack the pattern item itself, which carries who wrote it
+	 * @param lines List of lines to add to.
+	 */
+	void addPatternInformation( ICraftingPatternDetails details, ItemStack stack, List<String> lines );
 
 }

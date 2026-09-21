@@ -23,17 +23,12 @@ import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.helpers.PatternOutputs;
-import appeng.api.networking.crafting.IPatternInput;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AmountFormat;
-import appeng.api.stacks.GenericStack;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
 import appeng.helpers.PatternHelper;
 import appeng.items.AEBaseItem;
 import appeng.util.Platform;
 import appeng.core.api.ApiClientHelper;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -49,10 +44,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternItem {
 
@@ -154,7 +146,7 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
                 lines.add(substitutionLabel + canSubstitute);
             }
 
-            addAuthor(stack, lines);
+            ApiClientHelper.addAuthor(stack, lines);
             return;
         }
 
@@ -162,97 +154,10 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
             stack.removeSubCompound("display");
         }
 
-        final boolean isCrafting = details.isCraftable();
-        final boolean substitute = details.canSubstitute();
-
-        final List<GenericStack> in = displayInputs(details);
-        final GenericStack[] out = details.getCondensedOutputs();
-
-        final String label = (isCrafting ? GuiText.Crafts.getLocal() : GuiText.Creates.getLocal()) + ": ";
-        final String and = ' ' + GuiText.And.getLocal() + ' ';
-        final String with = GuiText.With.getLocal() + ": ";
-
-        boolean first = true;
-        for (final GenericStack anOut : out) {
-            if (anOut == null) {
-                continue;
-            }
-
-            lines.add((first ? label : and) + describe(anOut));
-            first = false;
-        }
-
-        first = true;
-        for (final GenericStack anIn : in) {
-            if (anIn == null) {
-                continue;
-            }
-
-            lines.add((first ? with : and) + describe(anIn));
-            first = false;
-        }
-
-        if (isCrafting) {
-            final String substitutionLabel = GuiText.Substitute.getLocal() + " ";
-            final String canSubstitute = substitute ? GuiText.Yes.getLocal() : GuiText.No.getLocal();
-
-            lines.add(substitutionLabel + canSubstitute);
-
-            if (details.canSubstituteFluids()) {
-                lines.add(GuiText.UsesFluidsDirectly.getLocal());
-            }
-        }
-
-        addAuthor(stack, lines);
-        ApiClientHelper.addViewHint(lines);
+        AEApi.instance().client().addPatternInformation(details, stack, lines);
     }
 
-    private static void addAuthor(final ItemStack stack, final List<String> lines) {
-        if (stack.hasTagCompound()) {
-            final String author = stack.getTagCompound().getString("author");
-            if (!author.isEmpty()) {
-                lines.add(TextFormatting.LIGHT_PURPLE
-                        + I18n.format(GuiText.EncodedBy.getUnlocalized(), author));
-            }
-        }
-    }
 
-    /**
-     * The ingredients as the pattern will actually ask for them: a slot the network fills in shows its
-     * contents rather than the container, because the container is never taken out of storage.
-     */
-    public static List<GenericStack> displayInputs(final ICraftingPatternDetails details) {
-        final GenericStack[] sparse = details.getInputs();
-        final Map<AEKey, GenericStack> merged = new LinkedHashMap<>();
-
-        for (int x = 0; x < sparse.length; x++) {
-            if (sparse[x] == null) {
-                continue;
-            }
-
-            GenericStack shown = sparse[x];
-
-            final IPatternInput input = details.getPatternInputs().get(x);
-
-            if (input.isFabricated()) {
-                final GenericStack supplied = input.getSupplied();
-                shown = new GenericStack(supplied.what(), supplied.amount() * sparse[x].amount());
-            }
-
-            merged.merge(shown.what(), shown, GenericStack::sum);
-        }
-
-        return new ArrayList<>(merged.values());
-    }
-
-    /**
-     * Amounts go through the key type, so a thousand millibuckets reads as one bucket. Printing the raw
-     * number was only ever tolerable while patterns held items.
-     */
-    private static String describe(final GenericStack stack) {
-        return stack.what().formatAmount(stack.amount(), AmountFormat.FULL) + ' '
-                + Platform.getItemDisplayName(stack.what());
-    }
 
     @Override
     public ICraftingPatternDetails getPatternForItem(final ItemStack is, final World w) {

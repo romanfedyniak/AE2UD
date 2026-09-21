@@ -24,6 +24,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's pattern tooltip reads like AE2's own.** What a pattern makes, what it takes, whether it
+  substitutes, who encoded it and which key opens its view were written into AE2's pattern item, so an
+  addon could only retype all of it and have it drift - in wording, and in every language it had been
+  translated into. Those lines come from one place now, beside the storage cell's tooltip, which has
+  been shared with addons in the same way for years.
+
 - **The pattern view opens on an addon's pattern too.** The key that shows what a pattern holds - its
   ingredients laid out as they were encoded, and what they make - answered only AE2's own plates. It
   asks the pattern now, whoever wrote it. Nothing else had to change for a bigger bench: the view works
