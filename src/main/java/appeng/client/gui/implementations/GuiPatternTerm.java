@@ -803,8 +803,16 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public void drawItemStack(final int x, final int y, final ItemStack stack) {
-        this.drawItem(x, y, stack);
-        this.itemRender.renderItemOverlayIntoGUI(this.fontRenderer, stack, x, y, null);
+        // As an AE slot draws: vanilla for the wear bar alone, AE's renderer for the amount and the "+".
+        final ItemStack single = stack.copy();
+        single.setCount(1);
+        this.drawItem(x, y, single);
+        this.itemRender.renderItemOverlayIntoGUI(this.fontRenderer, single, x, y, null);
+
+        final GenericStack resolved = GenericStack.resolveItemStack(stack);
+        final boolean craftable = resolved != null && this.isDisplayedKeyCraftable(resolved.what());
+        this.stackSizeRenderer.renderStackSize(this.fontRenderer, resolved, craftable,
+                craftable && this.isDisplayedKeyFakeCraftable(resolved.what()), x, y);
     }
 
     @Override

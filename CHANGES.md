@@ -398,6 +398,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **What a pattern mode draws itself is marked craftable, as a slot is.** The result an addon's mode shows
+  beside its plate - what a fusion or a big table would make - was drawn without the "+" a slot puts on
+  something the network can already craft, so the same item carried it in the crafting mode and not in
+  those. It is drawn the way a slot draws it now, amount and all.
+
 - **Uploading from a wireless pattern terminal left the pattern in its slot.** The upload emptied the slot
   in the terminal item, but an open wireless terminal keeps its slots in the window until it next saves,
   so the pattern stayed on screen - and was written back over the item on the next change, leaving a copy

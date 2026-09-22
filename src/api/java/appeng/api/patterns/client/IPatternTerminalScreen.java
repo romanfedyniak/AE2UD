@@ -115,7 +115,10 @@ public interface IPatternTerminalScreen {
      */
     void drawRectangle(int x, int y, int width, int height, int colour);
 
-    /** The item with everything a slot draws over it: how many there are, and how worn it is. */
+    /**
+     * The item with everything a slot draws over it: how many there are, how worn it is, and the "+" of
+     * one the network can already craft.
+     */
     void drawItemStack(int x, int y, ItemStack stack);
 
     /**
