@@ -87,6 +87,16 @@ public interface ICraftingMachine
 	boolean acceptsPlans();
 
 	/**
+	 * Whether this machine makes the pattern's recipe at all, busy or not. {@link #acceptsPlans} is whether it
+	 * takes one right now; this is what decides where a pattern is filed, so that a pattern is not put beside
+	 * a machine that would refuse every push of it. Defaults to true, as every machine was treated before.
+	 */
+	default boolean canRun( ICraftingPatternDetails patternDetails )
+	{
+		return true;
+	}
+
+	/**
 	 * Whether this machine can be given a pattern whose container items the network assembled out of a
 	 * fluid - see {@link appeng.api.networking.crafting.IPatternInput#isFabricated()}.
 	 * <p>

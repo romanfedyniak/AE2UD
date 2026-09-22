@@ -37,9 +37,9 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.packets.PacketSwitchGuis;
 
 /**
- * Sending an encoded pattern from a pattern terminal into the network. A crafting pattern goes on its own,
- * since only an interface beside a plan-taking machine will run one; a processing pattern is the player's
- * choice, since any interface will. Shift asks either way. What may go where is
+ * Sending an encoded pattern from a pattern terminal into the network. A pattern that needs a machine - a
+ * crafting pattern, say - goes on its own, since only an interface beside a machine that runs it will; a
+ * processing pattern is the player's choice, since any interface will. Shift asks either way. What may go where is
  * {@link IPatternContainer#canAccept}, not here.
  */
 public final class PatternUpload {
@@ -105,7 +105,7 @@ public final class PatternUpload {
             return;
         }
 
-        if (!pick && details.isCraftable()) {
+        if (!pick && details.needsMachine()) {
             final IPatternContainer best = PatternContainers.best(containers, player, pattern, details);
             if (best != null) {
                 fileInto(player, host, best, pattern, details);

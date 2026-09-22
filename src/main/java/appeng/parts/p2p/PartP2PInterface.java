@@ -116,10 +116,11 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     }
 
     /**
-     * Whether anything behind the outputs would take a plan. {@link #acceptsPlans} answers for the tunnel
-     * alone, which is enough for a push that can fail harmlessly but not for deciding where a pattern lives.
+     * Whether anything behind the outputs would take a plan for this pattern. {@link #acceptsPlans} answers
+     * for the tunnel alone, which is enough for a push that can fail harmlessly but not for deciding where a
+     * pattern lives.
      */
-    public boolean hasPlanTakingOutput() {
+    public boolean hasPlanTakingOutput(final ICraftingPatternDetails patternDetails) {
         if (this.isOutput() || this.visiting) {
             return false;
         }
@@ -130,8 +131,30 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
                 final ICraftingMachine machine = output.getFacingMachine();
 
                 if (machine instanceof PartP2PInterface
-                        ? ((PartP2PInterface) machine).hasPlanTakingOutput()
-                        : machine != null && machine.acceptsPlans()) {
+                        ? ((PartP2PInterface) machine).hasPlanTakingOutput(patternDetails)
+                        : machine != null && machine.acceptsPlans() && machine.canRun(patternDetails)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            this.visiting = false;
+        }
+    }
+
+    /** Whether any machine behind the outputs makes it. */
+    @Override
+    public boolean canRun(final ICraftingPatternDetails patternDetails) {
+        if (this.isOutput() || this.visiting) {
+            return false;
+        }
+
+        this.visiting = true;
+        try {
+            for (final PartP2PInterface output : this.getOutputList()) {
+                final ICraftingMachine machine = output.getFacingMachine();
+                if (machine != null && machine.canRun(patternDetails)) {
                     return true;
                 }
             }

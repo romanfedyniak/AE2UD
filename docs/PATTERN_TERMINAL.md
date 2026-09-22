@@ -118,13 +118,17 @@ The button beside the encoded pattern slot files that pattern in something that 
 the player carrying it there. `appeng.helpers.PatternUpload` is the whole policy; the packet and the two
 screens only ask it things.
 
-**A crafting pattern is filed without asking.** In this version the molecular assembler is an
+**A crafting pattern is filed without asking**, and so is any pattern whose `needsMachine()` says it runs
+only in a crafting machine - an addon's bench or fusion pattern. In this version the molecular assembler is an
 `ICraftingMachine`, not a crafting provider - its one pattern slot locks it to a recipe and does not make
 that recipe craftable. The only route from a network to an assembler is an ME Interface standing next to it,
-which is `DualityInterface.canAcceptPattern`: for a craftable pattern it wants a neighbour whose
-`acceptsPlans()` is true, and, when the network would fabricate containers for that pattern, one whose
-`acceptsFabricatedContainers()` is true as well. Those are the same questions `pushPattern` asks a face when
-the time comes, asked of every face at once and in advance.
+which is `DualityInterface.canAcceptPattern`: for such a pattern it wants a neighbour whose `acceptsPlans()`
+is true and whose `canRun(details)` says it makes that recipe at all, and, when the network would fabricate
+containers for that pattern, one whose `acceptsFabricatedContainers()` is true as well. Those are the same
+questions `pushPattern` asks a face when the time comes, asked of every face at once and in advance.
+`canRun` is the one that keeps patterns apart: `acceptsPlans()` is only whether a machine is free, and every
+free machine said yes to every pattern, so crafting patterns went beside an addon's fusion core and a
+five-by-five bench's patterns beside a molecular assembler.
 
 Of the containers that pass, `PatternContainers.best` takes the one with the most free usable slots, and
 breaks a tie by distance to the player. Never the first one out of the grid: `IGrid.getMachines` hands them
@@ -139,7 +143,7 @@ pattern too, and so does a crafting pattern with nowhere to go - the list is whe
 it is the question a push asks a moment before it tries, and a tunnel with nothing but furnaces behind it
 still says yes, after which the push fails and nothing is lost. Filing a pattern against that answer is not
 harmless: the pattern sits there being offered to the network and never runs. So `acceptingFace` asks the
-tunnel `hasPlanTakingOutput()` as well, which walks its outputs, and through further tunnels.
+tunnel `hasPlanTakingOutput(details)` as well, which walks its outputs, and through further tunnels.
 
 **A row is named after the machine that would run this pattern**, not after whichever neighbour comes
 first. An interface that works on every side has a choice of names, and `DualityInterface.identifyFor` picks

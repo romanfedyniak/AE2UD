@@ -14,6 +14,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A machine says which patterns it makes.** An interface asked the machine beside it only whether it was
+  free, so any free machine was taken to make any pattern: uploading a crafting pattern could file it
+  beside an addon's fusion core or bench, where it would never run, and a bench's pattern beside a molecular
+  assembler. A crafting machine is asked whether it makes that recipe at all now, and the molecular
+  assembler answers for crafting patterns that fit its grid. A machine that says nothing is taken to make
+  everything, as before. A pattern may also say that it runs only in a machine, as a crafting pattern
+  does, and the upload then files it without asking, beside a machine that makes it.
+
 - **A pattern mode's own squares draw a stack the way a slot does.** What a mode works out and draws
   itself - the result of the recipe on its plate - was drawn as a bare picture: how many there are and
   how worn the item is were both dropped, so a recipe that makes four of something showed one, with

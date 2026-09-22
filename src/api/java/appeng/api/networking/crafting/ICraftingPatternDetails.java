@@ -32,6 +32,7 @@ import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 
 import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.implementations.tiles.ICraftingMachine;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
@@ -62,6 +63,17 @@ public interface ICraftingPatternDetails
 	 * @return if this pattern is a crafting pattern ( work bench )
 	 */
 	boolean isCraftable();
+
+	/**
+	 * Whether the pattern runs only in a crafting machine an interface pushes it into, rather than as items
+	 * handed to whatever stands beside the interface. Such a pattern is filed only into an interface beside a
+	 * machine that {@link ICraftingMachine#canRun runs it}, and the pattern terminal's upload finds that
+	 * interface on its own. Crafting patterns, by default.
+	 */
+	default boolean needsMachine()
+	{
+		return this.isCraftable();
+	}
 
 	/**
 	 * What the window that draws this pattern calls it. A pattern for a machine of an addon's own says its

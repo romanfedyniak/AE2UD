@@ -1112,7 +1112,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return false;
         }
 
-        return !details.isCraftable() || this.acceptingFace(details) != null;
+        return !details.needsMachine() || this.acceptingFace(details) != null;
     }
 
     /**
@@ -1121,7 +1121,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * it takes the pattern at all.
      */
     public MachineIdentity identifyFor(@Nullable final ICraftingPatternDetails details) {
-        if (details == null || !details.isCraftable()) {
+        if (details == null || !details.needsMachine()) {
             return this.getMachineIdentity();
         }
 
@@ -1165,12 +1165,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         for (final EnumFacing s : this.iHost.getTargets()) {
             final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(s)), s.getOpposite());
 
-            if (cm == null || !cm.acceptsPlans() || (fabricated && !cm.acceptsFabricatedContainers())) {
+            if (cm == null || !cm.acceptsPlans() || !cm.canRun(details)
+                    || (fabricated && !cm.acceptsFabricatedContainers())) {
                 continue;
             }
 
             // A tunnel says yes on behalf of its outputs without looking at them.
-            if (cm instanceof PartP2PInterface && !((PartP2PInterface) cm).hasPlanTakingOutput()) {
+            if (cm instanceof PartP2PInterface && !((PartP2PInterface) cm).hasPlanTakingOutput(details)) {
                 continue;
             }
 
@@ -1305,7 +1306,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     && (!fabricated || cm.acceptsFabricatedContainers())) {
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
-                    if (cm.pushPattern(patternDetails, table, s.getOpposite())) {
+                    if (cm.canRun(patternDetails) && cm.pushPattern(patternDetails, table, s.getOpposite())) {
                         // Taking the face out of the rotation spreads consecutive patterns over the machines
                         // around the interface. A tunnel is not one of those machines but the way to many,
                         // and it spreads them itself, so its face has to stay in.

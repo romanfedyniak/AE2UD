@@ -217,9 +217,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         if (this.myPattern.isEmpty()) {
             boolean isEmpty = ItemHandlerUtil.isEmpty(this.gridInv) && ItemHandlerUtil.isEmpty(this.patternInv);
 
-            // A bigger bench's pattern belongs in that bench: this grid holds nine, and writing a wider
-            // table into it would run off the end.
-            if (isEmpty && patternDetails.isCraftable() && table.getSizeInventory() <= this.gridInv.getSlots()) {
+            if (isEmpty && this.canRun(patternDetails)) {
                 this.forcePlan = true;
                 this.myPlan = patternDetails;
                 this.pushDirection = AEPartLocation.fromFacing(where);
@@ -274,6 +272,12 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     @Override
     public boolean acceptsPlans() {
         return ItemHandlerUtil.isEmpty(this.patternInv);
+    }
+
+    /** A crafting pattern that fits the grid: a bigger bench's pattern belongs in that bench. */
+    @Override
+    public boolean canRun(final ICraftingPatternDetails patternDetails) {
+        return patternDetails.isCraftable() && patternDetails.getTableWidth() <= 3 && patternDetails.getTableHeight() <= 3;
     }
 
     @Override

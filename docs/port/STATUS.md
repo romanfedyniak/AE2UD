@@ -2605,6 +2605,17 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     not the player, fixes how many the craft takes. Found writing hrmae's fusion mode, where the catalyst
     square holds one block and the pattern is encoded with four.
 
+81. **`ICraftingMachine.canRun(details)` and `ICraftingPatternDetails.needsMachine()`** - additive, both
+    `default`, no upstream equivalent. `acceptsPlans()` is liveness; filing needed capability, and without
+    it every free machine took every pattern - hrmae's fusion core and table assemblers were being handed
+    crafting patterns by the upload. `canRun` defaults to true so a machine written before it keeps
+    receiving everything; `TileMolecularAssembler` answers crafting patterns no bigger than three by
+    three, `PartP2PInterface` answers for its outputs. `needsMachine` defaults to `isCraftable()` and is
+    what `canAcceptPattern`, `identifyFor` and the upload's no-questions path read, so a fusion pattern -
+    a heap, not a grid, and so not craftable - is filed like a crafting one. The push itself also asks
+    `canRun` before `pushPattern`. The inventory fallback for a busy machine is kept: `acceptsPlans()`
+    documents it as the contract.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
