@@ -403,6 +403,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   something the network can already craft, so the same item carried it in the crafting mode and not in
   those. It is drawn the way a slot draws it now, amount and all.
 
+- **A wireless terminal's cards stand clear of a pattern mode's plate.** The three card slots hang beside
+  the window at a fixed place, and a mode that draws a plate of its own there covered them, slots and all.
+  They move out past the plate's right edge while such a mode is open, and back when it is not.
+
 - **Uploading from a wireless pattern terminal left the pattern in its slot.** The upload emptied the slot
   in the terminal item, but an open wireless terminal keeps its slots in the window until it next saves,
   so the pattern stayed on screen - and was written back over the item on the next change, leaving a copy

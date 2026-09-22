@@ -666,7 +666,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         }
 
         if (this.isWirelessTerminal()) {
-            GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + WIRELESS_PLATE_X,
+            GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + this.wirelessPlateX(),
                     guiTop + WIRELESS_PLATE_Y, IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
 
@@ -843,11 +843,16 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         return false;
     }
 
+    /** Where a wireless terminal's card plate hangs beside the window. */
+    protected int wirelessPlateX() {
+        return WIRELESS_PLATE_X;
+    }
+
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
 
         if (this.isWirelessTerminal()) {
-            GuiWirelessUpgradePlate.draw(this, offsetX + WIRELESS_PLATE_X, offsetY + WIRELESS_PLATE_Y,
+            GuiWirelessUpgradePlate.draw(this, offsetX + this.wirelessPlateX(), offsetY + WIRELESS_PLATE_Y,
                     IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
 

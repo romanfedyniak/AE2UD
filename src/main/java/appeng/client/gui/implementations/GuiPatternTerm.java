@@ -44,9 +44,11 @@ import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
 import appeng.container.interfaces.IJEIGhostIngredients;
+import appeng.container.interfaces.IWirelessTerminalContainer;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.SlotFake;
 import appeng.container.slot.SlotFakeCraftingMatrix;
+import appeng.container.slot.SlotRestrictedInput;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.features.AEFeature;
@@ -278,10 +280,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             this.panel.updateButtons();
         }
 
+        final int plateShift = this.wirelessPlateX() - IWirelessTerminalContainer.UPGRADE_PLATE_X;
         for (final Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
                 aeSlot.xPos = aeSlot.getX();
                 this.repositionSlot(aeSlot);
+            } else if (slot instanceof SlotRestrictedInput card
+                    && card.getPlaceableItemType() == SlotRestrictedInput.PlacableItemType.UPGRADES) {
+                card.xPos = card.getX() + plateShift;
             }
         }
 
@@ -473,6 +479,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             default:
                 return null;
         }
+    }
+
+    /** A panel's plate stands where the card plate would, so the cards move out past its right edge. */
+    @Override
+    protected int wirelessPlateX() {
+        int x = super.wirelessPlateX();
+        if (this.panel != null) {
+            for (final Rectangle area : this.panel.getOutsideAreas()) {
+                x = Math.max(x, area.x + area.width);
+            }
+        }
+        return x;
     }
 
     @Override
