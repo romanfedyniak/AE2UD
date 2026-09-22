@@ -398,6 +398,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Uploading from a wireless pattern terminal left the pattern in its slot.** The upload emptied the slot
+  in the terminal item, but an open wireless terminal keeps its slots in the window until it next saves,
+  so the pattern stayed on screen - and was written back over the item on the next change, leaving a copy
+  in the terminal as well as the one in the interface. The same went for taking an upload back. Both now
+  go through the open window. The button also clicked twice on a successful upload: once for the press,
+  as any button does, and once more from the server, which only a row of the target list needs.
+
 - **A well accelerated Molecular Assembler stopped sparking.** How fast the machine is running is sent to
   everyone nearby so that the item it made can be shown spinning inside it for as long as the craft took,
   wrapped in sparks - and that number was sent as a single byte, which held every speed the stock

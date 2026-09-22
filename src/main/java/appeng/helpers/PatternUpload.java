@@ -32,6 +32,7 @@ import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.crafting.IPatternContainer;
 import appeng.api.stacks.AEItemKey;
 import appeng.container.AEBaseContainer;
+import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.packets.PacketSwitchGuis;
@@ -83,12 +84,12 @@ public final class PatternUpload {
      */
     public static void run(final EntityPlayerMP player, final AEBaseContainer from, final IPatternUploadHost host,
             final boolean pick) {
-        final ItemStack pattern = host.getEncodedPattern();
+        final ItemStack pattern = encodedIn(from, host);
 
         // Which of the two things the button does is decided here rather than by the screen: the client's
         // idea of the slot is a tick old, and only one of the two is ever possible at a time anyway.
         if (pattern.isEmpty()) {
-            returnLast(player, host);
+            returnLast(player, from, host);
             return;
         }
 
@@ -108,7 +109,7 @@ public final class PatternUpload {
         if (!pick && details.needsMachine()) {
             final IPatternContainer best = PatternContainers.best(containers, player, pattern, details);
             if (best != null) {
-                fileInto(player, host, best, pattern, details);
+                fileInto(player, from, host, best, pattern, details);
                 return;
             }
         }
@@ -132,13 +133,16 @@ public final class PatternUpload {
             return;
         }
 
-        if (fileInto(player, host, target, pattern, details)) {
+        if (fileInto(player, from, host, target, pattern, details)) {
+            // The terminal's button clicks on its own; a row of this list does not.
+            click(player);
             PacketSwitchGuis.reopen(player, from, host.getGuiBridge());
         }
     }
 
     /** Puts the last upload back in the terminal it was sent from. */
-    private static void returnLast(final EntityPlayerMP player, final IPatternUploadHost host) {
+    private static void returnLast(final EntityPlayerMP player, final AEBaseContainer from,
+            final IPatternUploadHost host) {
         final Undo undo = remembered(player);
         if (undo == null) {
             player.sendMessage(PlayerMessages.PatternUploadNothingToUndo.get());
@@ -160,8 +164,7 @@ public final class PatternUpload {
         }
 
         UNDO.remove(player);
-        host.setEncodedPattern(undo.pattern);
-        click(player);
+        setEncodedIn(from, host, undo.pattern);
     }
 
     /** The record, with a dead one cleared away as it is read. */
@@ -180,7 +183,7 @@ public final class PatternUpload {
     /**
      * @return true when the pattern is now in that container and gone from the terminal.
      */
-    private static boolean fileInto(final EntityPlayerMP player, final IPatternUploadHost host,
+    private static boolean fileInto(final EntityPlayerMP player, final AEBaseContainer from, final IPatternUploadHost host,
             final IPatternContainer target, final ItemStack pattern, final ICraftingPatternDetails details) {
         final AEItemKey key = AEItemKey.of(pattern);
         if (key == null) {
@@ -208,10 +211,27 @@ public final class PatternUpload {
             return false;
         }
 
-        host.setEncodedPattern(ItemStack.EMPTY);
+        setEncodedIn(from, host, ItemStack.EMPTY);
         UNDO.put(player, new Undo(target, one));
-        click(player);
         return true;
+    }
+
+    /**
+     * The encoded slot of the terminal the player has open, or the host's own when it is not open. A
+     * wireless terminal's container keeps its slots apart from the item while it is open, and writes them
+     * back over it on the next change.
+     */
+    private static ItemStack encodedIn(final AEBaseContainer from, final IPatternUploadHost host) {
+        return from instanceof ContainerPatternEncoder ? ((ContainerPatternEncoder) from).patternSlotOUT.getStack()
+                : host.getEncodedPattern();
+    }
+
+    private static void setEncodedIn(final AEBaseContainer from, final IPatternUploadHost host, final ItemStack pattern) {
+        if (from instanceof ContainerPatternEncoder) {
+            ((ContainerPatternEncoder) from).patternSlotOUT.putStack(pattern);
+        } else {
+            host.setEncodedPattern(pattern);
+        }
     }
 
     /**
