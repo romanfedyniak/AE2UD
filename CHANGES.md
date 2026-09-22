@@ -12,6 +12,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### API
+
+- **A pattern mode's own squares draw a stack the way a slot does.** What a mode works out and draws
+  itself - the result of the recipe on its plate - was drawn as a bare picture: how many there are and
+  how worn the item is were both dropped, so a recipe that makes four of something showed one, with
+  nothing saying otherwise. It draws what a slot draws now. A mode may also put a number over a square
+  of its own, for a square that holds one item and stands for more: a machine whose recipe fixes how
+  many of an ingredient it takes has nowhere else to say so.
+
 ### JEI
 
 - **Everything that happens outside a machine has a recipe screen now.** Five of them were paragraphs of text sitting on an item: fluix made by dropping three things in a puddle, the entangled singularity made by blowing one up, and a crystal seed grown in water, one line each per crystal. They are categories with slots now, so what goes in and what comes out is looked up the way any other recipe is, and the part a grid cannot say - that a liquid or an explosion is what sets it off, that accelerators make growth faster - is written across the top of the entry, wrapped to the panel and given as much room as it needs rather than measured against the English: the same sentence is longer in most other languages. Three more describe things that were written down nowhere at all: the Charger, which turns certus quartz charged and fills any tool that holds power; the ME P2P Tunnel, whose kind is chosen by whatever you right-click it with; and the Entropy Manipulator, which has a table of blocks it heats and cools that a player could only find by trying. The tunnel category is worked out only when it is opened, because listing what attunes a tunnel means offering the registry every item in the game - it answers by mod and by capability as well as by item, so there is no shorter way and no reason to spend it at load. Half the Entropy Manipulator's table is water and lava, which have no item to put in a slot, so those sides are drawn as fluids; heating water gives nothing back, and that entry simply has no output. The new categories have no machine window to cut a background from, so their slots and arrows are cut from the furnace instead - which is what JEI's own vanilla categories do, and what the three older ones here do with the grindstone, condenser and inscriber. Each entry centres what it has in the panel, so one with nothing to explain sits in the middle rather than under an empty line. Upstream AE2 has the same six; the layouts are this fork's, since the mechanics behind three of them no longer exist upstream.

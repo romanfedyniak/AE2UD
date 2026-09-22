@@ -804,6 +804,26 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public void drawItemStack(final int x, final int y, final ItemStack stack) {
         this.drawItem(x, y, stack);
+        this.itemRender.renderItemOverlayIntoGUI(this.fontRenderer, stack, x, y, null);
+    }
+
+    @Override
+    public void drawItemCount(final int x, final int y, final int count) {
+        if (count <= 1) {
+            return;
+        }
+
+        // Placed and lit as RenderItem#renderItemOverlayIntoGUI places a stack's size, because it sits
+        // among slots that draw theirs through it: right-aligned in the square, shadowed, over the item.
+        final String text = String.valueOf(count);
+
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.disableBlend();
+        this.fontRenderer.drawStringWithShadow(text, x + 17 - this.fontRenderer.getStringWidth(text), y + 9, 0xFFFFFF);
+        GlStateManager.enableLighting();
+        GlStateManager.enableDepth();
+        GlStateManager.enableBlend();
     }
 
     @Override

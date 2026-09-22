@@ -2597,6 +2597,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     rather than a rule each of them restates. `Platform.getRemainingItems` now asks it too, which is where
     the condition was written out by hand.
 
+80. **`IPatternTerminalScreen.drawItemCount()`, and `drawItemStack()` draws the whole stack** - additive
+    plus a behaviour fix, no upstream equivalent. `drawItemStack` rendered the item and nothing else, so a
+    square a mode draws itself lost the stack size and the damage bar that every real slot shows; it calls
+    `renderItemOverlayIntoGUI` now, which is what a slot does. `drawItemCount` is the other half: a number
+    over a square that holds one item and stands for more, which an items-only grid needs when the recipe,
+    not the player, fixes how many the craft takes. Found writing hrmae's fusion mode, where the catalyst
+    square holds one block and the pattern is encoded with four.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

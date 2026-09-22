@@ -115,7 +115,15 @@ public interface IPatternTerminalScreen {
      */
     void drawRectangle(int x, int y, int width, int height, int colour);
 
+    /** The item with everything a slot draws over it: how many there are, and how worn it is. */
     void drawItemStack(int x, int y, ItemStack stack);
+
+    /**
+     * How many there are, over a square the terminal draws itself - so a panel can say that a slot holding
+     * one item stands for more than one. Drawn exactly as a slot draws a stack's size, and left out for a
+     * count of one, which a slot does not draw either.
+     */
+    void drawItemCount(int x, int y, int count);
 
     void drawText(String text, int x, int y, int colour);
 
