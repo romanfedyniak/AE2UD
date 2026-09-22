@@ -43,6 +43,7 @@ import appeng.integration.modules.jei.JEIPlugin;
 import appeng.util.Platform;
 import mezz.jei.api.recipe.IFocus;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
@@ -70,6 +71,8 @@ public class GuiPatternView extends AEBaseGui {
     private final ContainerPatternView view;
     private final GuiScreen parent;
     private final boolean crafting;
+    /** What the pattern calls itself, or null to be named after the two kinds this fork has of its own. */
+    private final String typeName;
     private final boolean substitutes;
     private final boolean substitutesFluids;
     private final boolean[] fabricated;
@@ -83,6 +86,7 @@ public class GuiPatternView extends AEBaseGui {
         this.view = (ContainerPatternView) this.inventorySlots;
         this.parent = parent;
         this.crafting = details.isCraftable();
+        this.typeName = details.getTypeTranslationKey();
         this.substitutes = details.canSubstitute();
         this.substitutesFluids = details.canSubstituteFluids();
 
@@ -129,7 +133,9 @@ public class GuiPatternView extends AEBaseGui {
     }
 
     private String title() {
-        return (this.crafting ? GuiText.CraftingPattern : GuiText.ProcessingPattern).getLocal();
+        return this.typeName != null
+                ? I18n.format(this.typeName)
+                : (this.crafting ? GuiText.CraftingPattern : GuiText.ProcessingPattern).getLocal();
     }
 
     @Override

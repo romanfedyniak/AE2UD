@@ -31,6 +31,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that carries on is drawn second without the edge the two share, its fill covers the frame the first one
   drew there, and what is left standing where it stops is the step.
 
+- **A pattern can say what the view window calls it.** That window named every pattern from one question -
+  crafting or processing - so a pattern for a machine of an addon's own was headed "Processing Pattern",
+  which describes its shape and not what it is. A pattern may now give the window its own name.
+
 - **A pattern mode is told to name the gaps in what it draws beside the window.** What a mode puts outside
   the window is named to the terminal so that a recipe viewer keeps off it, and a strip left between two of
   those rectangles is screen the viewer will use - a dozen pixels is enough for it to fit a column of its

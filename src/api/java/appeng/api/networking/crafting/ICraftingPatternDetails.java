@@ -64,6 +64,19 @@ public interface ICraftingPatternDetails
 	boolean isCraftable();
 
 	/**
+	 * What the window that draws this pattern calls it. A pattern for a machine of an addon's own says its
+	 * own name here; null leaves the window to say whether it is a crafting or a processing pattern, which
+	 * is all it can tell from {@link #isCraftable()}.
+	 *
+	 * @return a translation key, or null.
+	 */
+	@Nullable
+	default String getTypeTranslationKey()
+	{
+		return null;
+	}
+
+	/**
 	 * The shape of the {@link InventoryCrafting} a medium is handed for this pattern, in slots across and
 	 * then down; {@link #getInputs()} is indexed over that same shape. Three by three is the crafting
 	 * table, which is what a pattern that says nothing is assumed to use.

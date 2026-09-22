@@ -2578,6 +2578,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     emptying and the defensive grid copy with it; `PatternHelper` and the crafting panel call it. It
     carries its own do-nothing `Container` because `appeng.container.ContainerNull` is not api.
 
+77. **`ICraftingPatternDetails.getTypeTranslationKey()`** - additive, defaulted to null, no upstream
+    equivalent. The window the view key opens named every pattern from `isCraftable()` alone, so an
+    addon's pattern for its own machine was headed "Processing Pattern" - true of its shape and wrong
+    about what it is. A pattern may now say what to call it. Found writing hrmae's fusion patterns.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
