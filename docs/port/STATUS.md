@@ -2583,6 +2583,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     addon's pattern for its own machine was headed "Processing Pattern" - true of its shape and wrong
     about what it is. A pattern may now say what to call it. Found writing hrmae's fusion patterns.
 
+78. **Substitution is no longer a crafting-only property in the client** - not an api change, but the
+    two places that showed it assumed one. `ApiClientHelper.addPatternInformation` printed the
+    substitution line only for a crafting pattern, and `ContainerPatternView` drew the header of toggles
+    on the same test - its comment said "Only a crafting pattern substitutes", which an addon's pattern
+    disproves: `canSubstitute()` is on the interface for anyone. Both now follow the pattern's own answer,
+    and a stock processing pattern still shows neither, because for it the answer is no.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

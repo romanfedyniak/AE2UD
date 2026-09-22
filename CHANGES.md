@@ -31,6 +31,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that carries on is drawn second without the edge the two share, its fill covers the frame the first one
   drew there, and what is left standing where it stops is the step.
 
+- **A pattern that substitutes says so, whatever kind of pattern it is.** Both the tooltip and the window
+  the view key opens asked whether the pattern was a crafting one before showing anything about
+  substitution, because only a crafting pattern could substitute here. An addon's pattern for its own
+  machine can, and did - it just had no way to say so, so a pattern encoded with the toggle lit looked
+  exactly like one encoded without it. Both now ask the pattern instead of guessing from its shape. A
+  stock processing pattern shows neither line, as before, since for it the answer really is no. The view
+  window shows an icon per answer for the same reason: a crafting pattern has both toggles on offer and
+  shows both, lit or crossed out, while any other pattern shows only what it actually does - an icon
+  crossed out promises a switch that is not there.
+
 - **A pattern can say what the view window calls it.** That window named every pattern from one question -
   crafting or processing - so a pattern for a machine of an addon's own was headed "Processing Pattern",
   which describes its shape and not what it is. A pattern may now give the window its own name.

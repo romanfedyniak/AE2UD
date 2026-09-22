@@ -134,13 +134,16 @@ public class ApiClientHelper implements IClientHelper {
         addStacks(label, Arrays.asList(details.getCondensedOutputs()), lines);
         addStacks(with, displayInputs(details), lines);
 
-        if (isCrafting) {
+        // A crafting pattern answers either way, since the toggle is always on offer for one. Anything else
+        // says so only when it does substitute: an addon's pattern may, and stock processing patterns
+        // cannot, so a "Substitution: No" on every one of those would be a line saying nothing.
+        if (isCrafting || details.canSubstitute()) {
             lines.add(GuiText.Substitute.getLocal() + ' '
                     + (details.canSubstitute() ? GuiText.Yes : GuiText.No).getLocal());
+        }
 
-            if (details.canSubstituteFluids()) {
-                lines.add(GuiText.UsesFluidsDirectly.getLocal());
-            }
+        if (details.canSubstituteFluids()) {
+            lines.add(GuiText.UsesFluidsDirectly.getLocal());
         }
 
         addAuthor(stack, lines);

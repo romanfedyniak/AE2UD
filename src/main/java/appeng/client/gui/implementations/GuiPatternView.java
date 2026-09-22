@@ -111,12 +111,21 @@ public class GuiPatternView extends AEBaseGui {
 
         super.initGui();
 
-        if (this.view.hasHeader()) {
-            // The same icons the pattern terminal toggles these settings with, so the two screens say the
-            // same thing the same way. They are indicators here, not controls - nothing acts on a click -
-            // and each carries the setting's own tooltip, which explains what it does.
-            this.addFlagIcon(0, this.substitutes ? ItemSubstitution.ENABLED : ItemSubstitution.DISABLED);
-            this.fluidIcon = this.addFlagIcon(1,
+        // The same icons the pattern terminal toggles these settings with, so the two screens say the same
+        // thing the same way. They are indicators here, not controls - nothing acts on a click - and each
+        // carries the setting's own tooltip, which explains what it does.
+        //
+        // A crafting pattern shows both either way, because both toggles are on offer when one is written.
+        // Any other pattern shows only what it actually does: an addon's pattern may substitute items and
+        // know nothing of containers, and an icon crossed out promises a switch that is not there.
+        int column = 0;
+
+        if (this.crafting || this.substitutes) {
+            this.addFlagIcon(column++, this.substitutes ? ItemSubstitution.ENABLED : ItemSubstitution.DISABLED);
+        }
+
+        if (this.crafting || this.substitutesFluids) {
+            this.fluidIcon = this.addFlagIcon(column,
                     this.substitutesFluids ? FluidSubstitution.ENABLED : FluidSubstitution.DISABLED);
         }
     }

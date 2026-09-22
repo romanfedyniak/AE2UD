@@ -87,9 +87,9 @@ public class ContainerPatternView extends AEBaseContainer {
         // all. A processing pattern is a bag of ingredients, so it packs instead.
         final boolean keepShape = details.isCraftable();
 
-        // Only a crafting pattern substitutes, so only it has anything to say about it - which is the same
-        // rule the pattern tooltip follows.
-        this.hasHeader = keepShape;
+        // A crafting pattern always has the two toggles to report; anything else only when it substitutes.
+        // An addon's pattern may, whatever shape it keeps - the same rule the pattern tooltip follows.
+        this.hasHeader = keepShape || details.canSubstitute() || details.canSubstituteFluids();
 
         final GenericStack[] laidOut = keepShape ? details.getInputs() : inputs.toArray(new GenericStack[0]);
 
