@@ -31,6 +31,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that carries on is drawn second without the edge the two share, its fill covers the frame the first one
   drew there, and what is left standing where it stops is the step.
 
+- **A pattern mode is told to name the gaps in what it draws beside the window.** What a mode puts outside
+  the window is named to the terminal so that a recipe viewer keeps off it, and a strip left between two of
+  those rectangles is screen the viewer will use - a dozen pixels is enough for it to fit a column of its
+  list into, over the window's own right edge, which reaches a little further than the window is wide. And
+  no more than the gaps: a rectangle covering screen the panel does not draw on is a hole in the viewer's
+  list for nothing. Said on the method rather than worked around, since only the mode knows what shape it
+  means to occupy.
+
 - **A screen that sizes itself to its contents can say where the network tool's slots go.** Where the
   three by three a network tool opens is drawn was a number written into the container, measured for a
   window of the usual width - so a screen wider than that had the toolbox land inside it, with nothing

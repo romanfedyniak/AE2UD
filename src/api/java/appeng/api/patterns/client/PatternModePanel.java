@@ -67,6 +67,12 @@ public abstract class PatternModePanel {
      * <p>
      * The terminal centres the window and everything named here together, so that a panel drawing beside the
      * window does not push half of it off the edge of the screen, and keeps a recipe viewer's list off it.
+     * <p>
+     * Name the gaps too. A strip of free screen between two of these, or between one of them and the
+     * window, is screen a recipe viewer will use: a dozen pixels is enough for it to fit a column of its
+     * list into, over the window's own right edge, which reaches a little further than the window is wide.
+     * Name no more than that, though - a rectangle covering screen the panel does not draw on is a hole in
+     * the viewer's list for nothing.
      */
     public List<Rectangle> getOutsideAreas() {
         return Collections.emptyList();
