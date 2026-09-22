@@ -27,6 +27,7 @@ import appeng.api.implementations.IPowerChannelState;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.tiles.ICraftingMachine;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.FabricatedSlots;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.networking.events.MENetworkEventSubscribe;
@@ -431,8 +432,25 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         return (int) this.progress;
     }
 
+    /**
+     * Whether that square of the grid holds a container the network conjured for the craft running now.
+     * Such a stack is not the machine's to give up - see {@link FabricatedSlots#isConjured}.
+     */
+    public boolean isConjuredSlot(final int slot) {
+        return FabricatedSlots.isConjured(this.myPlan, this.forcePlan, slot);
+    }
+
     @Override
     public void getDrops(final World w, final BlockPos pos, final List<ItemStack> drops) {
+        // A container the network assembled out of a fluid is destroyed rather than dropped: it never was
+        // an item the network held, and a broken machine would be minting one out of the fluid that paid
+        // for it. The craft dies with the machine either way.
+        for (int slot = 0; slot < this.gridInv.getSlots(); slot++) {
+            if (this.isConjuredSlot(slot)) {
+                this.gridInv.setStackInSlot(slot, ItemStack.EMPTY);
+            }
+        }
+
         super.getDrops(w, pos, drops);
 
         for (int h = 0; h < this.upgrades.getSlots(); h++) {

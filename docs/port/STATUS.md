@@ -2590,6 +2590,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     disproves: `canSubstitute()` is on the interface for anyone. Both now follow the pattern's own answer,
     and a stock processing pattern still shows neither, because for it the answer is no.
 
+79. **`FabricatedSlots.isConjured()`** - additive, no upstream equivalent. A crafting cpu draws a fluid out
+    of storage and writes the container straight into the table it hands a machine, so while a craft runs
+    the machine holds an item the network never had. Every route by which that stack could leave the
+    machine has to destroy it instead, and each machine owns its own routes - so the test is one api call
+    rather than a rule each of them restates. `Platform.getRemainingItems` now asks it too, which is where
+    the condition was written out by hand.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

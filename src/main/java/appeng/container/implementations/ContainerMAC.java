@@ -40,13 +40,37 @@ import net.minecraftforge.items.IItemHandler;
 public class ContainerMAC extends ContainerUpgradeable implements IProgressProvider {
 
     private static final int MAX_CRAFT_PROGRESS = 100;
+    /** The crafting grid, which is also how many bits {@link #conjuredSlots} uses. */
+    private static final int GRID_SLOTS = 9;
     private final TileMolecularAssembler tma;
     @GuiSync(4)
     public int craftProgress = 0;
+    /**
+     * One bit per square of the grid, set where the network conjured the container standing there. Synced
+     * because the client knows nothing of the machine's plan, and a slot that refuses to be taken from
+     * only on the server would let the click through and snap it back a tick later.
+     */
+    @GuiSync(5)
+    public int conjuredSlots = 0;
 
     public ContainerMAC(final InventoryPlayer ip, final TileMolecularAssembler te) {
         super(ip, te);
         this.tma = te;
+    }
+
+    /**
+     * Whether that square holds a container the network conjured, which the player may not carry off.
+     * <p/>
+     * The server asks the machine itself: the mask is a tick old by the time a click packet is judged
+     * against it, and a click landing between a finished craft and the next plan being pushed would find
+     * it clear while the grid already holds the next container.
+     */
+    public boolean isConjuredSlot(final int slotIndex) {
+        if (Platform.isServer()) {
+            return this.tma.isConjuredSlot(slotIndex);
+        }
+
+        return slotIndex >= 0 && slotIndex < GRID_SLOTS && (this.conjuredSlots & 1 << slotIndex) != 0;
     }
 
     public boolean isValidItemForSlot(final int slotIndex, final ItemStack i) {
@@ -129,6 +153,18 @@ public class ContainerMAC extends ContainerUpgradeable implements IProgressProvi
         }
 
         this.craftProgress = this.tma.getCraftingProgress();
+
+        if (Platform.isServer()) {
+            int conjured = 0;
+
+            for (int slot = 0; slot < GRID_SLOTS; slot++) {
+                if (this.tma.isConjuredSlot(slot)) {
+                    conjured |= 1 << slot;
+                }
+            }
+
+            this.conjuredSlots = conjured;
+        }
 
         this.standardDetectAndSendChanges();
     }

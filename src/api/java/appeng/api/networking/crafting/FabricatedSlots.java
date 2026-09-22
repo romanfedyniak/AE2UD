@@ -10,6 +10,8 @@
 
 package appeng.api.networking.crafting;
 
+import javax.annotation.Nullable;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryCrafting;
@@ -35,6 +37,25 @@ import appeng.api.stacks.GenericStack;
 public final class FabricatedSlots {
 
     private FabricatedSlots() {
+    }
+
+    /**
+     * Whether what a machine is holding in that slot is a container the network conjured rather than an
+     * item it ever had. A crafting cpu draws the contents out of storage and writes the container straight
+     * into the table it hands the machine, so nothing in the network answers for it.
+     * <p>
+     * Such a stack must never leave the machine as an item: not dropped when the machine is broken, not
+     * taken out of its window, not pushed anywhere. It is destroyed instead, exactly as the contents were
+     * conjured, or a bucket is made out of the water that paid for it. A machine holding a plan a cpu
+     * pushed asks this about every slot it is about to give up.
+     *
+     * @param details     the plan the machine is running, or null for none
+     * @param cpuSupplied whether a crafting cpu pushed that plan, rather than a player feeding the machine
+     *                    a pattern of their own
+     */
+    public static boolean isConjured(@Nullable final ICraftingPatternDetails details, final boolean cpuSupplied,
+            final int slot) {
+        return cpuSupplied && details != null && details.getPatternInputs().get(slot).isFabricated();
     }
 
     /**

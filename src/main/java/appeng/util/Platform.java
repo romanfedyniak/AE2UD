@@ -28,6 +28,7 @@ import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.implementations.items.IAEWrench;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.FabricatedSlots;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IEnergySource;
@@ -1412,7 +1413,7 @@ public class Platform {
         final NonNullList<ItemStack> left = NonNullList.withSize(craftingInv.getSizeInventory(), ItemStack.EMPTY);
 
         for (int slot = 0; slot < left.size(); slot++) {
-            if (cpuSupplied && details != null && details.getPatternInputs().get(slot).isFabricated()) {
+            if (FabricatedSlots.isConjured(details, cpuSupplied, slot)) {
                 continue;
             }
 

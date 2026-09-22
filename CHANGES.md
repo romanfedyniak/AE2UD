@@ -31,6 +31,19 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   that carries on is drawn second without the edge the two share, its fill covers the frame the first one
   drew there, and what is left standing where it stops is the step.
 
+- **Breaking a Molecular Assembler mid-craft no longer makes a bucket out of nothing.** When a pattern
+  takes a filled container and hands the empty one back, the network keeps the contents and not the
+  container: the crafting cpu draws the fluid out of storage and the container is assembled on the spot,
+  into the machine. It never was an item the network held, which is why it is destroyed rather than handed
+  back once the craft is done - but a machine broken while the craft was still running dropped it like any
+  other ingredient, and so did the window if the player simply took it out of the grid. Both now destroy
+  it, and the craft fails the way a broken machine always fails. Nothing changes for a container a player
+  put in themselves: that one is real and stays real. Which squares those are is sent to the client, so
+  the slot simply does not pick up rather than letting the click through and snapping the item back a
+  tick later - for drawing only, though: what the server lets go is asked of the machine itself, since
+  that copy is a tick old, and a craft finishing inside that tick left it clear while the grid already
+  held the next container.
+
 - **A pattern that substitutes says so, whatever kind of pattern it is.** Both the tooltip and the window
   the view key opens asked whether the pattern was a crafting one before showing anything about
   substitution, because only a crafting pattern could substitute here. An addon's pattern for its own

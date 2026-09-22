@@ -20,6 +20,7 @@ package appeng.container.slot;
 
 
 import appeng.container.implementations.ContainerMAC;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
@@ -36,5 +37,15 @@ public class SlotMACPattern extends AppEngSlot {
     @Override
     public boolean isItemValid(final ItemStack i) {
         return this.mac.isValidItemForSlot(this.getSlotIndex(), i);
+    }
+
+    /**
+     * A container the network assembled out of a fluid is not the player's to take: it never was an item
+     * the network held, and carrying it out of the window would be minting one out of the fluid that paid
+     * for it. Every other ingredient may still be taken, as it always could.
+     */
+    @Override
+    public boolean canTakeStack(final EntityPlayer player) {
+        return !this.mac.isConjuredSlot(this.getSlotIndex()) && super.canTakeStack(player);
     }
 }
