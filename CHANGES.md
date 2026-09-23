@@ -405,6 +405,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   85,000 AE/t for what seven points already buy for 1,000. The tax stops growing at one craft a tick, and
   the assembler pays only for the progress its craft still needs.
 
+- **A Formation Plane counts its cards by their points.** How much it throws at once was read from how
+  many of AE2's own Acceleration Cards it held, so an addon's card, worth several points, went into the
+  slot and did nothing. It reads the points now, as a bus does, and takes from the network no more than
+  the one stack it can throw: with four cards it took 96 and put back the 32 that did not fit, paying for
+  all 96.
+
 - **What a pattern mode draws itself is marked craftable, as a slot is.** The result an addon's mode shows
   beside its plate - what a fusion or a big table would make - was drawn without the "+" a slot puts on
   something the network can already craft, so the same item carried it in the crafting mode and not in

@@ -37,12 +37,14 @@ import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartModel;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.upgrades.UpgradeCards;
+import appeng.api.upgrades.CardTraits;
 import appeng.core.sync.GuiBridge;
 import appeng.items.parts.PartModels;
 import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.util.Platform;
+import appeng.util.UpgradeSpeedCalculations;
 import appeng.util.inv.InvOperation;
 
 public class PartFormationPlane extends PartAbstractFormationPlane {
@@ -143,29 +145,15 @@ public class PartFormationPlane extends PartAbstractFormationPlane {
         return this.getPlacementStrategies().placeInWorld(what, amount, mode, placeAsEntity);
     }
 
-    /** A block goes down one at a time whatever it is handed; only a thrown stack can come in quantity. */
+    /** A block goes down one at a time; a throw takes what a bus would, up to one stack. */
     @Override
     protected long placementAmount(final AEKey what) {
-        if (this.getConfigManager().getSetting(Settings.PLACE_BLOCK) == YesNo.YES) {
+        if (this.getConfigManager().getSetting(Settings.PLACE_BLOCK) == YesNo.YES || !(what instanceof AEItemKey item)) {
             return what.getAmountPerUnit();
         }
 
-        return (long) what.getAmountPerOperation() * this.dropMultiplier();
-    }
-
-    private int dropMultiplier() {
-        switch (this.getInstalledUpgrades(UpgradeCards.speed())) {
-            case 0:
-                return 1;
-            case 1:
-                return 8;
-            case 2:
-                return 32;
-            case 3:
-                return 64;
-            default:
-                return 96;
-        }
+        return Math.min(UpgradeSpeedCalculations.itemBusOperations(this.getInstalledPoints(CardTraits.SPEED)),
+                item.getMaxStackSize());
     }
 
     @Override
