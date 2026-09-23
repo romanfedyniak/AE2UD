@@ -49,6 +49,7 @@ import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPatternUploadHost;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.helpers.ISubMenuHost;
 import appeng.items.contents.QuartzKnifeObj;
 import appeng.parts.automation.PartAnnihilationPlane;
 import appeng.parts.automation.PartFormationPlane;
@@ -229,22 +230,7 @@ public enum GuiBridge implements IGuiHandler {
      */
     @Nullable
     public static GuiBridge terminalFor(final Object host) {
-        if (host instanceof WirelessTerminalGuiObject) {
-            final ItemStack terminal = ((WirelessTerminalGuiObject) host).getItemStack();
-            final IWirelessTermHandler handler = AEApi.instance().registries().wireless()
-                    .getWirelessTerminalHandler(terminal);
-            return handler == null ? null : (GuiBridge) handler.getGuiHandler(terminal);
-        }
-        if (host instanceof PartCraftingTerminal) {
-            return GUI_CRAFTING_TERMINAL;
-        }
-        if (host instanceof PartPatternTerminal) {
-            return GUI_PATTERN_TERMINAL;
-        }
-        if (host instanceof PartTerminal) {
-            return GUI_ME;
-        }
-        return null;
+        return host instanceof ISubMenuHost terminal ? terminal.getGuiBridge() : null;
     }
 
     GuiBridge(final Class containerClass, final SecurityPermissions requiredPermission) {

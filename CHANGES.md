@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **The crafting screens go back to any terminal they were opened from.** Confirming a craft, the crafting
+  tree and the CPU status knew the way back only to AE2's own three terminals and the wireless one, each
+  named in a list, so from an addon's terminal they left the player nowhere to return to. They ask the
+  terminal itself now, through the `ISubMenuHost` every terminal already answers, and take its icon for the
+  way back from there too.
+
 - **A recipe moves from HEI into any crafting grid.** Only AE2's two crafting terminals took the recipe
   screen's "+" with the red marks for what is missing and Ctrl to craft it, and the recipe went square for
   square into a grid of nine. Any terminal with a crafting grid takes all three now: an addon registers

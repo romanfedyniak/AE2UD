@@ -23,9 +23,6 @@
 package appeng.client.gui.implementations;
 
 
-import appeng.api.AEApi;
-import appeng.api.definitions.IDefinitions;
-import appeng.api.definitions.IParts;
 import appeng.api.storage.ITerminalHost;
 import appeng.client.gui.widgets.GuiCraftingCPUTable;
 import appeng.client.gui.widgets.GuiTabButton;
@@ -33,10 +30,7 @@ import appeng.container.implementations.ContainerCraftingStatus;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketSwitchGuis;
-import appeng.helpers.WirelessTerminalGuiObject;
-import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartPatternTerminal;
-import appeng.parts.reporting.PartTerminal;
+import appeng.helpers.ISubMenuHost;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
@@ -63,30 +57,9 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
         this.status = (ContainerCraftingStatus) this.inventorySlots;
         this.cpuTable = new GuiCraftingCPUTable(this, this.status);
         final Object target = this.status.getTarget();
-        final IDefinitions definitions = AEApi.instance().definitions();
-        final IParts parts = definitions.parts();
-
-        if (target instanceof WirelessTerminalGuiObject) {
-            myIcon = ((WirelessTerminalGuiObject) target).getItemStack();
-            this.originalGui = (GuiBridge) AEApi.instance().registries().wireless().getWirelessTerminalHandler(myIcon).getGuiHandler(myIcon);
-        }
-
-        if (target instanceof PartTerminal) {
-            this.myIcon = parts.terminal().maybeStack(1).orElse(ItemStack.EMPTY);
-
-            this.originalGui = GuiBridge.GUI_ME;
-        }
-
-        if (target instanceof PartCraftingTerminal) {
-            this.myIcon = parts.craftingTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
-
-            this.originalGui = GuiBridge.GUI_CRAFTING_TERMINAL;
-        }
-
-        if (target instanceof PartPatternTerminal) {
-            this.myIcon = parts.patternTerminal().maybeStack(1).orElse(ItemStack.EMPTY);
-
-            this.originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
+        this.originalGui = GuiBridge.terminalFor(target);
+        if (target instanceof ISubMenuHost terminal) {
+            this.myIcon = terminal.getItemStackRepresentation();
         }
     }
 

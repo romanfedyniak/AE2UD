@@ -19,7 +19,6 @@
 package appeng.container.implementations;
 
 
-import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.config.CraftingMode;
@@ -51,17 +50,12 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
 import appeng.crafting.CraftingJob;
-import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.PlayerSource;
-import appeng.parts.reporting.PartCraftingTerminal;
-import appeng.parts.reporting.PartPatternTerminal;
-import appeng.parts.reporting.PartTerminal;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IContainerListener;
-import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
@@ -373,25 +367,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
     }
 
     public void startJob() {
-        GuiBridge originalGui = null;
-
         final IActionHost ah = this.getActionHost();
-        if (ah instanceof WirelessTerminalGuiObject) {
-            ItemStack myIcon = ((WirelessTerminalGuiObject) ah).getItemStack();
-            originalGui = (GuiBridge) AEApi.instance().registries().wireless().getWirelessTerminalHandler(myIcon).getGuiHandler(myIcon);
-        }
-
-        if (ah instanceof PartTerminal) {
-            originalGui = GuiBridge.GUI_ME;
-        }
-
-        if (ah instanceof PartCraftingTerminal) {
-            originalGui = GuiBridge.GUI_CRAFTING_TERMINAL;
-        }
-
-        if (ah instanceof PartPatternTerminal) {
-            originalGui = GuiBridge.GUI_PATTERN_TERMINAL;
-        }
+        final GuiBridge originalGui = GuiBridge.terminalFor(ah);
 
         final IActionHost h = ((IActionHost) this.getTarget());
         if (h == null) {
