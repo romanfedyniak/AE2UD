@@ -27,7 +27,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
 import appeng.api.storage.MEStorage;
 import appeng.container.ContainerNull;
-import appeng.container.implementations.ContainerCraftingTerm;
+import appeng.helpers.ICraftingGridContainer;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.helpers.InventoryAction;
 import appeng.items.storage.ItemViewCell;
@@ -39,6 +39,7 @@ import appeng.util.inv.WrapperCursorItemHandler;
 import appeng.util.inv.WrapperInvItemHandler;
 import com.blamejared.recipestages.recipes.RecipeStage;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -146,14 +147,9 @@ public class SlotCraftingTerm extends AppEngCraftingSlot {
         }
     }
 
-    // TODO: This is really hacky and NEEDS to be solved with a full container/gui refactoring.
     protected IRecipe findRecipe(InventoryCrafting ic, World world, EntityPlayer player) {
-        if (this.container instanceof ContainerCraftingTerm containerTerminal) {
-            final IRecipe recipe = containerTerminal.getCurrentRecipe();
-
-            if (recipe != null && recipe.matches(ic, world)) {
-                return handleRecipe(ic, containerTerminal.getCurrentRecipe(), player);
-            }
+        if (this.container instanceof ICraftingGridContainer grid) {
+            return handleRecipe(ic, grid.findRecipe(ic, world), player);
         }
 
         return handleRecipe(ic, CraftingManager.findMatchingRecipe(ic, world), player);
@@ -171,18 +167,24 @@ public class SlotCraftingTerm extends AppEngCraftingSlot {
         return recipe;
     }
 
-    // TODO: This is really hacky and NEEDS to be solved with a full container/gui refactoring.
     @Override
     protected NonNullList<ItemStack> getRemainingItems(InventoryCrafting ic, World world) {
-        if (this.container instanceof ContainerCraftingTerm containerTerminal) {
-            final IRecipe recipe = containerTerminal.getCurrentRecipe();
-
-            if (recipe != null && recipe.matches(ic, world)) {
-                return containerTerminal.getCurrentRecipe().getRemainingItems(ic);
+        if (this.container instanceof ICraftingGridContainer grid) {
+            final IRecipe recipe = grid.findRecipe(ic, world);
+            if (recipe != null) {
+                return recipe.getRemainingItems(ic);
             }
         }
 
         return CraftingManager.getRemainingItems(ic, world);
+    }
+
+    @Override
+    protected InventoryCrafting createGrid(final Container container) {
+        if (this.container instanceof ICraftingGridContainer grid) {
+            return new InventoryCrafting(container, grid.getGridWidth(), grid.getGridHeight());
+        }
+        return super.createGrid(container);
     }
 
     private int capCraftingAttempts(final int maxTimesToCraft) {
@@ -200,8 +202,8 @@ public class SlotCraftingTerm extends AppEngCraftingSlot {
 
             // add one of each item to the items on the board...
             if (Platform.isServer()) {
-                final InventoryCrafting ic = new InventoryCrafting(new ContainerNull(), 3, 3);
-                for (int x = 0; x < 9; x++) {
+                final InventoryCrafting ic = this.createGrid(new ContainerNull());
+                for (int x = 0; x < ic.getSizeInventory(); x++) {
                     ic.setInventorySlotContents(x, this.getPattern().getStackInSlot(x));
                 }
 

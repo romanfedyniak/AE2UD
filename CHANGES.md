@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A crafting terminal's grid can be any size and take any recipes.** The output slot built a three by three
+  grid and asked the workbench for its recipe, whatever the terminal around it held. It asks the terminal's
+  container now, through `ICraftingGridContainer`, for the grid's size and for the recipe on it, so an
+  addon's terminal can have a bigger grid with recipes of its own. AE2's two crafting terminals answer as
+  they did.
+
 - **A storage cell can hold more than two billion bytes.** A cell said how many bytes it held as an `int`,
   though everything that counts what is inside one already worked in `long`. A cell may give its capacity
   as a `long` now; one that does not is read as before. A cell may also charge nothing for a type.

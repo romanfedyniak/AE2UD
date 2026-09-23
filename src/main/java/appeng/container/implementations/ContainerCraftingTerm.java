@@ -23,6 +23,7 @@ import appeng.api.storage.ITerminalHost;
 import appeng.container.ContainerNull;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotCraftingTerm;
+import appeng.helpers.ICraftingGridContainer;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.parts.reporting.PartCraftingTerminal;
@@ -37,11 +38,12 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 
-public class ContainerCraftingTerm extends ContainerMEMonitorable implements IAEAppEngInventory, IContainerCraftingPacket {
+public class ContainerCraftingTerm extends ContainerMEMonitorable implements IAEAppEngInventory, IContainerCraftingPacket, ICraftingGridContainer {
 
     private final PartCraftingTerminal ct;
     private final AppEngInternalInventory output = new AppEngInternalInventory(this, 1);
@@ -120,5 +122,23 @@ public class ContainerCraftingTerm extends ContainerMEMonitorable implements IAE
 
     public IRecipe getCurrentRecipe() {
         return this.currentRecipe;
+    }
+
+    @Override
+    public int getGridWidth() {
+        return 3;
+    }
+
+    @Override
+    public int getGridHeight() {
+        return 3;
+    }
+
+    @Override
+    public IRecipe findRecipe(final InventoryCrafting grid, final World world) {
+        if (this.currentRecipe != null && this.currentRecipe.matches(grid, world)) {
+            return this.currentRecipe;
+        }
+        return CraftingManager.findMatchingRecipe(grid, world);
     }
 }

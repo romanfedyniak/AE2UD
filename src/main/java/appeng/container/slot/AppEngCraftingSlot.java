@@ -22,6 +22,7 @@ package appeng.container.slot;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.WrapperInvItemHandler;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
@@ -136,7 +137,7 @@ public class AppEngCraftingSlot extends AppEngSlot {
         this.onCrafting(stack);
         stack.getItem().onCreated(stack, playerIn.world, playerIn);
 
-        final InventoryCrafting ic = new InventoryCrafting(this.getContainer(), 3, 3);
+        final InventoryCrafting ic = this.createGrid(this.getContainer());
 
         for (int x = 0; x < this.craftMatrix.getSlots(); x++) {
             ic.setInventorySlotContents(x, this.craftMatrix.getStackInSlot(x));
@@ -182,6 +183,10 @@ public class AppEngCraftingSlot extends AppEngSlot {
         }
 
         return super.decrStackSize(par1);
+    }
+
+    protected InventoryCrafting createGrid(final Container container) {
+        return new InventoryCrafting(container, 3, 3);
     }
 
     // TODO: This is really hacky and NEEDS to be solved with a full container/gui refactoring.

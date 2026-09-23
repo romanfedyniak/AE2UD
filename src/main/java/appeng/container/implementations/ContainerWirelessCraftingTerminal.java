@@ -23,6 +23,7 @@ import appeng.container.ContainerNull;
 import appeng.container.slot.SlotCraftingMatrix;
 import appeng.container.slot.SlotCraftingTerm;
 import appeng.core.features.registries.WirelessTerminalMode;
+import appeng.helpers.ICraftingGridContainer;
 import appeng.helpers.IContainerCraftingPacket;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.WirelessTerminalModes;
@@ -36,12 +37,13 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.world.World;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 
-public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTerminal implements IContainerCraftingPacket {
+public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTerminal implements IContainerCraftingPacket, ICraftingGridContainer {
 
     private final AppEngInternalInventory output = new AppEngInternalInventory(this, 1);
     private final SlotCraftingMatrix[] craftingSlots = new SlotCraftingMatrix[9];
@@ -136,5 +138,23 @@ public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTermin
     @Override
     public boolean useRealItems() {
         return true;
+    }
+
+    @Override
+    public int getGridWidth() {
+        return 3;
+    }
+
+    @Override
+    public int getGridHeight() {
+        return 3;
+    }
+
+    @Override
+    public IRecipe findRecipe(final InventoryCrafting grid, final World world) {
+        if (this.currentRecipe != null && this.currentRecipe.matches(grid, world)) {
+            return this.currentRecipe;
+        }
+        return CraftingManager.findMatchingRecipe(grid, world);
     }
 }
