@@ -52,6 +52,14 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
 
     int getBytes(@Nonnull ItemStack cellItem);
 
+    /**
+     * The cell's capacity, for a cell holding more than an {@code int} of bytes; {@link #getBytes} otherwise.
+     * Keep it small enough that it times any key type's {@link AEKeyType#getAmountPerByte()} still fits a long.
+     */
+    default long getTotalBytes(@Nonnull ItemStack cellItem) {
+        return this.getBytes(cellItem);
+    }
+
     int getBytesPerType(@Nonnull ItemStack cellItem);
 
     /**

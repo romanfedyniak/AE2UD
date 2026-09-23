@@ -2626,6 +2626,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     light; AE2's own units keep going through `CraftingCubeRendering`, which an addon's registration cannot
     reach. Found for hrmae's 1024x-16384x co-processors and endless crafting storage.
 
+83. **`IBasicCellItem.getTotalBytes(ItemStack)`** - additive, `default`, no upstream equivalent. Returns
+    `getBytes`, so every cell written before it is unchanged; `BasicCellInventory.getTotalBytes()` reads it.
+    `getBytes` stays an `int` so no implementer breaks. The ceiling is
+    the caller's to keep: capacity times the largest `getAmountPerByte()` of the cell's key types must fit a
+    `long` (Mekanism Energistics' gas is 32 000 a byte). `getBytesPerType()` may be 0 now: `getRemainingItemTypes`
+    no longer divides by it. Found for hrmae's endless universal cell, 2^40 bytes and nothing a type.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

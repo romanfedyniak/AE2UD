@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A storage cell can hold more than two billion bytes.** A cell said how many bytes it held as an `int`,
+  though everything that counts what is inside one already worked in `long`. A cell may give its capacity
+  as a `long` now; one that does not is read as before. A cell may also charge nothing for a type.
+
 - **An addon's block can be part of a crafting CPU.** What a co-processor is worth and what a crafting
   storage holds were read from a fixed list of AE2's own blocks, and the formed CPU was drawn from the same
   list, so a block of an addon's could join the multiblock and count for nothing. The block says both

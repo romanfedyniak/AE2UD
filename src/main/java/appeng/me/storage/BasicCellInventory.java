@@ -368,7 +368,7 @@ public class BasicCellInventory implements StorageCell {
     }
 
     public long getTotalBytes() {
-        return this.cellType.getBytes(this.i);
+        return this.cellType.getTotalBytes(this.i);
     }
 
     public long getFreeBytes() {
@@ -396,7 +396,7 @@ public class BasicCellInventory implements StorageCell {
     }
 
     public long getRemainingItemTypes() {
-        final long basedOnStorage = this.getFreeBytes() / this.getBytesPerType();
+        final long basedOnStorage = this.getBytesPerType() > 0 ? this.getFreeBytes() / this.getBytesPerType() : Long.MAX_VALUE;
         final long baseOnTotal = this.getTotalItemTypes() - this.getStoredItemTypes();
         return Math.min(basedOnStorage, baseOnTotal);
     }
