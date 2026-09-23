@@ -398,6 +398,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A Molecular Assembler's cards stop making each craft dearer past one a tick.** Its power tax grows
+  with its speed, and it was paid on the whole speed however little of it the craft still needed, so the
+  bill rose with the square of the cards while the assembler never made more than one craft a tick. AE2's
+  own cards never got that far; an addon's worth several points each did, and five of them asked about
+  85,000 AE/t for what seven points already buy for 1,000. The tax stops growing at one craft a tick, and
+  the assembler pays only for the progress its craft still needs.
+
 - **What a pattern mode draws itself is marked craftable, as a slot is.** The result an addon's mode shows
   beside its plate - what a fusion or a big table would make - was drawn without the "+" a slot puts on
   something the network can already craft, so the same item carried it in the crafting mode and not in

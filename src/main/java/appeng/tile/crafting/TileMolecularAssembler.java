@@ -504,7 +504,8 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         this.reboot = false;
         final int speed = UpgradeSpeedCalculations.molecularAssemblerSpeed(
                 this.upgrades.getInstalledPoints(CardTraits.SPEED));
-        this.progress += this.userPower(ticksSinceLastCall, speed, speed / 10.0);
+        final double wanted = Math.min((double) speed * ticksSinceLastCall, 100 - this.progress);
+        this.progress += this.userPower(Math.max(0, wanted), Math.min(speed, 100) / 10.0);
 
         if (this.progress >= 100) {
             for (int x = 0; x < this.craftingInv.getSizeInventory(); x++) {
@@ -578,13 +579,14 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         }
     }
 
-    private int userPower(final int ticksPassed, final int bonusValue, final double acceleratorTax) {
+    private double userPower(final double progress, final double acceleratorTax) {
         try {
-            final double requestedPower = (double) ticksPassed * bonusValue * acceleratorTax;
+            final double requestedPower = progress * acceleratorTax;
             final double extracted = this.getProxy().getEnergy()
                     .extractAEPower(requestedPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
             this.powerUsage.record(this.world, extracted, PowerMultiplier.CONFIG);
-            return (int) (extracted / acceleratorTax);
+            // The quotient can fall a hair short of a full payment.
+            return extracted >= requestedPower - 0.0001 ? progress : extracted / acceleratorTax;
         } catch (final GridAccessException e) {
             return 0;
         }
