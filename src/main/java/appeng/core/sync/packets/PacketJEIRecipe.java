@@ -158,17 +158,22 @@ public class PacketJEIRecipe extends AppEngPacket {
         } else if (comp != null) {
             this.recipe = new ArrayList<>();
 
-            for (int x = 0; x < comp.getKeySet().size(); x++) {
-                if (comp.hasKey("#" + x)) {
-                    final NBTTagList list = comp.getTagList("#" + x, 10);
-                    if (list.tagCount() > 0) {
-                        this.recipe.add(new ItemStack[list.tagCount()]);
-                        for (int y = 0; y < list.tagCount(); y++) {
-                            this.recipe.get(x)[y] = stackFromNBT(list.getCompoundTagAt(y));
-                        }
-                    } else {
-                        this.recipe.add(emptyArray);
+            // By the slot's own number: a recipe laid out in a bigger grid names only some of its squares.
+            for (final String key : comp.getKeySet()) {
+                if (!key.startsWith("#")) {
+                    continue;
+                }
+                final int x = Integer.parseInt(key.substring(1));
+                while (this.recipe.size() <= x) {
+                    this.recipe.add(emptyArray);
+                }
+                final NBTTagList list = comp.getTagList(key, 10);
+                if (list.tagCount() > 0) {
+                    final ItemStack[] options = new ItemStack[list.tagCount()];
+                    for (int y = 0; y < list.tagCount(); y++) {
+                        options[y] = stackFromNBT(list.getCompoundTagAt(y));
                     }
+                    this.recipe.set(x, options);
                 }
             }
 

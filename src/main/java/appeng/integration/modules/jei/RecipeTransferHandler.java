@@ -19,9 +19,7 @@
 package appeng.integration.modules.jei;
 
 
-import appeng.container.implementations.ContainerCraftingTerm;
 import appeng.container.implementations.ContainerPatternEncoder;
-import appeng.container.implementations.ContainerWirelessCraftingTerminal;
 import appeng.api.integrations.hei.ExtraInputProviders;
 import appeng.api.integrations.hei.IngredientConverter;
 import appeng.api.integrations.hei.IngredientConverters;
@@ -34,6 +32,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.container.slot.SlotCraftingMatrix;
+import appeng.helpers.ICraftingGridContainer;
 import appeng.core.AELog;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketJEIRecipe;
@@ -64,11 +63,11 @@ import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackToNBT;
 
 
-class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandler<T> {
+public class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandler<T> {
 
     private final Class<T> containerClass;
 
-    RecipeTransferHandler(Class<T> containerClass) {
+    public RecipeTransferHandler(Class<T> containerClass) {
         this.containerClass = containerClass;
     }
 
@@ -87,7 +86,7 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         if (!doTransfer) {
-            if (recipeType.equals(VanillaRecipeCategoryUid.CRAFTING) && (container instanceof ContainerCraftingTerm || container instanceof ContainerWirelessCraftingTerminal)) {
+            if (container instanceof ICraftingGridContainer) {
                 JEIMissingItem error = new JEIMissingItem(container, recipeLayout);
                 if (error.errored())
                     return error;
@@ -137,9 +136,10 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
                 }
             }
 
+            final int gridSlot = this.gridSlotOf(recipeLayout, slotIndex);
             for (final Slot slot : container.inventorySlots) {
                 if (slot instanceof SlotCraftingMatrix) {
-                    if (slot.getSlotIndex() == slotIndex) {
+                    if (slot.getSlotIndex() == gridSlot) {
                         final NBTTagList tags = new NBTTagList();
 
                         for (final ItemStack is : list) {
@@ -160,7 +160,7 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
 
         // Ctrl+Move Items: craft whatever this recipe is missing instead of refusing the transfer.
         // Ctrl+Shift additionally starts that craft right away instead of opening the confirm screen.
-        if (GuiScreen.isCtrlKeyDown() && (container instanceof ContainerCraftingTerm || container instanceof ContainerWirelessCraftingTerminal)) {
+        if (GuiScreen.isCtrlKeyDown() && container instanceof ICraftingGridContainer) {
             recipe.setBoolean("craftMissing", true);
             recipe.setBoolean("craftMissingAutoStart", maxTransfer);
         }
@@ -172,6 +172,14 @@ class RecipeTransferHandler<T extends Container> implements IRecipeTransferHandl
         }
 
         return null;
+    }
+
+    /**
+     * Which square of the crafting grid the recipe's {@code input}th ingredient goes to; a slot no ingredient
+     * names is emptied. A grid bigger than the recipe screen's own lays the recipe out here.
+     */
+    protected int gridSlotOf(final IRecipeLayout recipeLayout, final int input) {
+        return input;
     }
 
     /**

@@ -14,6 +14,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A recipe moves from HEI into any crafting grid.** Only AE2's two crafting terminals took the recipe
+  screen's "+" with the red marks for what is missing and Ctrl to craft it, and the recipe went square for
+  square into a grid of nine. Any terminal with a crafting grid takes all three now: an addon registers
+  AE2's `RecipeTransferHandler` for its own container and recipe screens, and overrides `gridSlotOf` where
+  a recipe has to be laid out in a bigger grid than the screen shows it in. The server reads each square by
+  its number, so a recipe that names only some of the squares puts nothing in the rest.
+
 - **A crafting terminal's grid can be any size and take any recipes.** The output slot built a three by three
   grid and asked the workbench for its recipe, whatever the terminal around it held. It asks the terminal's
   container now, through `ICraftingGridContainer`, for the grid's size and for the recipe on it, so an
