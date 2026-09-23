@@ -214,6 +214,9 @@ public class CraftingCPUStatus implements Comparable<CraftingCPUStatus> {
 
     public String formatStorage() {
         long val = getStorage();
+        if (val == Long.MAX_VALUE) {
+            return "\u221E";
+        }
         if (val > 4_000_000_000_000L) {
             return String.format("%dT", val / 1024 / 1024 / 1024 / 1024);
         } else if (val > 4_000_000_000L) {

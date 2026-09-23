@@ -19,56 +19,10 @@
 package appeng.tile.crafting;
 
 
-import appeng.api.AEApi;
-import appeng.api.definitions.IBlocks;
 import appeng.block.crafting.BlockCraftingUnit;
-import net.minecraft.item.ItemStack;
-
-import java.util.Optional;
 
 
 public class TileCraftingStorageTile extends TileCraftingTile {
-    private static final int KILO_SCALAR = 1024;
-
-    @Override
-    protected ItemStack getItemFromTile(final Object obj) {
-        final IBlocks blocks = AEApi.instance().definitions().blocks();
-        final int storage = ((TileCraftingTile) obj).getStorageBytes() / KILO_SCALAR;
-
-        Optional<ItemStack> is;
-
-        switch (storage) {
-            case 1:
-                is = blocks.craftingStorage1k().maybeStack(1);
-                break;
-            case 4:
-                is = blocks.craftingStorage4k().maybeStack(1);
-                break;
-            case 16:
-                is = blocks.craftingStorage16k().maybeStack(1);
-                break;
-            case 64:
-                is = blocks.craftingStorage64k().maybeStack(1);
-                break;
-            case 256:
-                is = blocks.craftingStorage256k().maybeStack(1);
-                break;
-            case 1024:
-                is = blocks.craftingStorage1024k().maybeStack(1);
-                break;
-            case 4096:
-                is = blocks.craftingStorage4096k().maybeStack(1);
-                break;
-            case 16384:
-                is = blocks.craftingStorage16384k().maybeStack(1);
-                break;
-            default:
-                is = Optional.empty();
-                break;
-        }
-
-        return is.orElseGet(() -> super.getItemFromTile(obj));
-    }
 
     @Override
     public boolean isAccelerator() {
@@ -81,33 +35,12 @@ public class TileCraftingStorageTile extends TileCraftingTile {
     }
 
     @Override
-    public int getStorageBytes() {
+    public long getStorageBytes() {
         if (this.world == null || this.notLoaded() || this.isInvalid()) {
             return 0;
         }
 
-        if (!(this.world.getBlockState(this.pos).getBlock() instanceof BlockCraftingUnit unit)) {
-            return 0;
-        }
-
-        switch (unit.type) {
-            default:
-            case STORAGE_1K:
-                return 1024;
-            case STORAGE_4K:
-                return 4 * 1024;
-            case STORAGE_16K:
-                return 16 * 1024;
-            case STORAGE_64K:
-                return 64 * 1024;
-            case STORAGE_256K:
-                return 256 * 1024;
-            case STORAGE_1024K:
-                return 1024 * 1024;
-            case STORAGE_4096K:
-                return 4096 * 1024;
-            case STORAGE_16384K:
-                return 16384 * 1024;
-        }
+        final BlockCraftingUnit unit = this.getUnit();
+        return unit == null ? 0 : unit.getStorageBytes();
     }
 }

@@ -54,6 +54,7 @@ import appeng.tile.crafting.TileCraftingMonitorTile;
 import appeng.tile.crafting.TileCraftingTile;
 import appeng.util.Platform;
 import com.google.common.base.Preconditions;
+import com.google.common.math.LongMath;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.InventoryCrafting;
@@ -278,7 +279,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.tiles.add(0, te);
 
         if (te.isStorage()) {
-            this.availableStorage += te.getStorageBytes();
+            this.availableStorage = LongMath.saturatedAdd(this.availableStorage, te.getStorageBytes());
             this.storage.add(te);
         } else if (te.isStatus()) {
             this.status.add((TileCraftingMonitorTile) te);

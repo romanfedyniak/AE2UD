@@ -14,6 +14,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's block can be part of a crafting CPU.** What a co-processor is worth and what a crafting
+  storage holds were read from a fixed list of AE2's own blocks, and the formed CPU was drawn from the same
+  list, so a block of an addon's could join the multiblock and count for nothing. The block says both
+  itself now, and `CraftingUnitModels` draws it in a formed CPU with AE2's frame around a light texture of
+  its own. A storage may hold as much as a `long` does; the CPU adds its storages up without overflowing,
+  and one that holds `Long.MAX_VALUE` is shown as ∞.
+
 - **A machine says which patterns it makes.** An interface asked the machine beside it only whether it was
   free, so any free machine was taken to make any pattern: uploading a crafting pattern could file it
   beside an addon's fusion core or bench, where it would never run, and a bench's pattern beside a molecular

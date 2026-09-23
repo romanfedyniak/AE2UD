@@ -23,6 +23,7 @@ import appeng.api.parts.CableRenderMode;
 import appeng.api.util.AEColor;
 import appeng.block.AEBaseBlock;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.render.crafting.AddonCraftingUnitModels;
 import appeng.client.render.effects.*;
 import appeng.client.render.model.UVLModelLoader;
 import appeng.client.render.tesr.InscriberTESR;
@@ -118,6 +119,9 @@ public class ClientHelper extends ServerHelper {
         if (!FMLClientHandler.instance().hasOptifine() && ForgeModContainer.forgeLightPipelineEnabled) {
             ModelLoaderRegistry.registerLoader(UVLModelLoader.INSTANCE);
         }
+
+        ModelLoaderRegistry.registerLoader(AddonCraftingUnitModels.INSTANCE);
+        MinecraftForge.EVENT_BUS.register(AddonCraftingUnitModels.INSTANCE);
 
         // Before the cable bus model is loaded: a style's textures are stitched into the atlas with it.
         CableStyles.register(DefaultCableStyle.INSTANCE);

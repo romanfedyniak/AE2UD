@@ -179,9 +179,32 @@ public class BlockCraftingUnit extends AEBaseTileBlock {
         }
     }
 
+    /**
+     * How many parallel operations the block is worth, zero if it is not a co-processor at all. An addon's
+     * block passes {@link CraftingUnitType#UNIT} and overrides this or {@link #getStorageBytes()}.
+     */
+    public int getAcceleratorFactor() {
+        return this.type.acceleratorFactor;
+    }
+
+    /** What the block adds to its CPU's storage; {@link Long#MAX_VALUE} is shown as endless. */
+    public long getStorageBytes() {
+        return this.type.storageBytes;
+    }
+
     public enum CraftingUnitType {
-        UNIT, ACCELERATOR, ACCELERATOR_4X, ACCELERATOR_16X, ACCELERATOR_64X, ACCELERATOR_256X,
-        STORAGE_1K, STORAGE_4K, STORAGE_16K, STORAGE_64K,
-        STORAGE_256K, STORAGE_1024K, STORAGE_4096K, STORAGE_16384K, MONITOR
+        UNIT(0, 0), ACCELERATOR(1, 0), ACCELERATOR_4X(4, 0), ACCELERATOR_16X(16, 0), ACCELERATOR_64X(64, 0),
+        ACCELERATOR_256X(256, 0),
+        STORAGE_1K(0, 1), STORAGE_4K(0, 4), STORAGE_16K(0, 16), STORAGE_64K(0, 64),
+        STORAGE_256K(0, 256), STORAGE_1024K(0, 1024), STORAGE_4096K(0, 4096), STORAGE_16384K(0, 16384),
+        MONITOR(0, 0);
+
+        private final int acceleratorFactor;
+        private final long storageBytes;
+
+        CraftingUnitType(final int acceleratorFactor, final int kilobytes) {
+            this.acceleratorFactor = acceleratorFactor;
+            this.storageBytes = kilobytes * 1024L;
+        }
     }
 }

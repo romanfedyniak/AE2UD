@@ -30,6 +30,7 @@ import net.minecraftforge.client.model.IModel;
 import net.minecraftforge.common.model.IModelState;
 import net.minecraftforge.common.model.TRSRTransformation;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Function;
@@ -64,9 +65,18 @@ class CraftingCubeModel implements IModel {
     private final static ResourceLocation MONITOR_LIGHT_BRIGHT = texture("monitor_light_bright");
 
     private final BlockCraftingUnit.CraftingUnitType type;
+    @Nullable
+    private final ResourceLocation light;
 
     CraftingCubeModel(BlockCraftingUnit.CraftingUnitType type) {
         this.type = type;
+        this.light = null;
+    }
+
+    /** An addon's unit, drawn as AE2's lit ones are with a light of its own. */
+    CraftingCubeModel(ResourceLocation light) {
+        this.type = null;
+        this.light = light;
     }
 
     @Override
@@ -76,6 +86,9 @@ class CraftingCubeModel implements IModel {
 
     @Override
     public Collection<ResourceLocation> getTextures() {
+        if (this.light != null) {
+            return ImmutableList.of(RING_CORNER, RING_SIDE_HOR, RING_SIDE_VER, LIGHT_BASE, this.light);
+        }
         return ImmutableList.of(RING_CORNER, RING_SIDE_HOR, RING_SIDE_VER, UNIT_BASE, LIGHT_BASE, ACCELERATOR_LIGHT, ACCELERATOR_4X_LIGHT, ACCELERATOR_16X_LIGHT, ACCELERATOR_64X_LIGHT, ACCELERATOR_256X_LIGHT, STORAGE_1K_LIGHT, STORAGE_4K_LIGHT,
                 STORAGE_16K_LIGHT, STORAGE_64K_LIGHT, STORAGE_256K_LIGHT, STORAGE_1024K_LIGHT, STORAGE_4096K_LIGHT, STORAGE_16384K_LIGHT, MONITOR_BASE, MONITOR_LIGHT_DARK, MONITOR_LIGHT_MEDIUM, MONITOR_LIGHT_BRIGHT);
     }
@@ -86,6 +99,11 @@ class CraftingCubeModel implements IModel {
         TextureAtlasSprite ringCorner = bakedTextureGetter.apply(RING_CORNER);
         TextureAtlasSprite ringSideHor = bakedTextureGetter.apply(RING_SIDE_HOR);
         TextureAtlasSprite ringSideVer = bakedTextureGetter.apply(RING_SIDE_VER);
+
+        if (this.light != null) {
+            return new LightBakedModel(format, ringCorner, ringSideHor, ringSideVer, bakedTextureGetter
+                    .apply(LIGHT_BASE), bakedTextureGetter.apply(this.light));
+        }
 
         switch (this.type) {
             case UNIT:
