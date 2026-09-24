@@ -148,6 +148,8 @@ public interface IBlocks
 
 	ITileDefinition iface();
 
+	ITileDefinition exposer();
+
 	ITileDefinition cellWorkbench();
 
 	ITileDefinition iOPort();

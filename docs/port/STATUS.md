@@ -2633,6 +2633,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `long` (Mekanism Energistics' gas is 32 000 a byte). `getBytesPerType()` may be 0 now: `getRemainingItemTypes`
     no longer divides by it. Found for hrmae's endless universal cell, 2^40 bytes and nothing a type.
 
+84. **`ExposerStrategy`, `ExposedStorage`, and the exposer half of `StackWorldBehaviors`** - additive, no
+    upstream equivalent. The storage exposer (from NAE2) turns a network into a Forge capability, the storage
+    bus in reverse. NAE2 keyed its handlers by capability and built them by reflection from a class; here a
+    capability is tied to an `AEKeyType` and a factory, like every other strategy. The factory is handed a
+    view, not the network: the exposer keeps its own per-type list from the grid's watcher pushes, so a pipe
+    walking the slots costs no recount. A second registration for the same capability is ignored, and a
+    capability whose mod is absent (null) is skipped. `IParts.exposer()` and `IBlocks.exposer()` are additive.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

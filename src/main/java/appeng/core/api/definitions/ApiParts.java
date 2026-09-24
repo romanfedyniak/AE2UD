@@ -55,6 +55,7 @@ public final class ApiParts implements IParts {
     private final IItemDefinition importBus;
     private final IItemDefinition exportBus;
     private final IItemDefinition iface;
+    private final IItemDefinition exposer;
     private final IItemDefinition levelEmitter;
     private final IItemDefinition annihilationPlane;
     private final IItemDefinition formationPlane;
@@ -106,6 +107,7 @@ public final class ApiParts implements IParts {
         this.importBus = new DamagedItemDefinition("part.bus.import", itemPart.createPart(PartType.IMPORT_BUS));
         this.exportBus = new DamagedItemDefinition("part.bus.export", itemPart.createPart(PartType.EXPORT_BUS));
         this.iface = new DamagedItemDefinition("part.interface", itemPart.createPart(PartType.INTERFACE));
+        this.exposer = new DamagedItemDefinition("part.exposer", itemPart.createPart(PartType.EXPOSER));
         this.levelEmitter = new DamagedItemDefinition("part.level_emitter", itemPart.createPart(PartType.LEVEL_EMITTER));
         this.annihilationPlane = new DamagedItemDefinition("part.plane.annihilation", itemPart.createPart(PartType.ANNIHILATION_PLANE));
         this.formationPlane = new DamagedItemDefinition("part.plane.formation", itemPart.createPart(PartType.FORMATION_PLANE));
@@ -232,6 +234,11 @@ public final class ApiParts implements IParts {
     @Override
     public IItemDefinition iface() {
         return this.iface;
+    }
+
+    @Override
+    public IItemDefinition exposer() {
+        return this.exposer;
     }
 
     @Override

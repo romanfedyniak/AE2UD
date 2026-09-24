@@ -7,6 +7,7 @@ tile.appliedenergistics2.condenser.name=Конденсатор матерії
 tile.appliedenergistics2.controller.name=МЕ контролер
 tile.appliedenergistics2.crank.name=Дерев'яна ручка
 tile.appliedenergistics2.crystal_resonance_generator.name=Кристальний резонансний генератор
+tile.appliedenergistics2.exposer.name=МЕ експозер сховища
 tile.appliedenergistics2.creative_energy_cell.name=Творче енергетичне сховище
 tile.appliedenergistics2.dense_energy_cell.name=Щільне енергетичне сховище
 tile.appliedenergistics2.energy_cell.name=Енергетичне сховище
@@ -425,6 +426,9 @@ gui.appliedenergistics2.ResultLock=Очікування виходу резул�
 gui.appliedenergistics2.UntilPulseUnlock=Очікування імпульсу редстоуну для розблокування
 gui.appliedenergistics2.CanBeEnchanted=Можна чарувати
 gui.appliedenergistics2.IncreasedEnergyUseFromEnchants=Чари збільшують витрати енергії
+gui.appliedenergistics2.ExposerTooltip=Дає трубам і машинам забирати все, що є в мережі; нічого не приймає.
+gui.appliedenergistics2.ExposerTypes=Віддає:
+gui.appliedenergistics2.ExposerNoTypes=Нічого не віддає: жоден тип не зареєстровано.
 
 // GUI Tooltips
 gui.tooltips.appliedenergistics2.Stash=Зберегти предмети
@@ -859,6 +863,7 @@ item.appliedenergistics2.multi_part.p2p_tunnel.name=P2P-тунель
 item.appliedenergistics2.multi_part.pattern_terminal.name=МЕ термінал шаблонів
 item.appliedenergistics2.multi_part.quartz_fiber.name=Кварцове волокно
 item.appliedenergistics2.multi_part.storage_bus.name=МЕ шина зберігання
+item.appliedenergistics2.multi_part.exposer.name=МЕ експозер сховища
 item.appliedenergistics2.multi_part.oredict_storage_bus.name=МЕ шина зберігання за словником руд
 item.appliedenergistics2.multi_part.terminal.name=МЕ термінал
 item.appliedenergistics2.multi_part.inverted_toggle_bus.name=МЕ інвертована перемикальна шина

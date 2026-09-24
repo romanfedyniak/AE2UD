@@ -26,6 +26,7 @@ import appeng.api.parts.IPartItem;
 import appeng.api.networking.pathing.ChannelTiers;
 import appeng.api.util.AEColor;
 import appeng.core.AEConfig;
+import appeng.helpers.exposer.DualityExposer;
 import appeng.core.features.AEFeature;
 import appeng.core.features.ActivityState;
 import appeng.core.features.ItemStackSrc;
@@ -193,6 +194,10 @@ public final class ItemPart extends AEBaseItem implements IPartItem, IItemGroup 
         final ResourceLocation channelTier = getTypeByStack(stack).getChannelTier();
         if (channelTier != null && AEConfig.instance().isFeatureEnabled(AEFeature.CHANNELS)) {
             lines.add(String.format(GuiText.ChannelCapacity.getLocal(), ChannelTiers.capacityOf(channelTier)));
+        }
+
+        if (getTypeByStack(stack) == PartType.EXPOSER) {
+            DualityExposer.addTooltip(lines);
         }
 
         if (getTypeByStack(stack) == PartType.ANNIHILATION_PLANE) {

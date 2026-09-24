@@ -245,7 +245,9 @@ public enum PartType {
 
     PATTERN_ACCESS_TERMINAL(480, "pattern_access_terminal", EnumSet.of(AEFeature.PATTERN_ACCESS_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartPatternAccessTerminal.class),
 
-    INTERFACE_CONFIGURATION_TERMINAL(521, "interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_CONFIGURATION_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceConfigurationTerminal.class);
+    INTERFACE_CONFIGURATION_TERMINAL(521, "interface_configuration_terminal", EnumSet.of(AEFeature.INTERFACE_CONFIGURATION_TERMINAL), EnumSet.noneOf(IntegrationType.class), PartInterfaceConfigurationTerminal.class),
+
+    EXPOSER(540, "exposer", EnumSet.of(AEFeature.EXPOSER), EnumSet.noneOf(IntegrationType.class), PartExposer.class);
 
     private final int baseDamage;
     private final Set<AEFeature> features;

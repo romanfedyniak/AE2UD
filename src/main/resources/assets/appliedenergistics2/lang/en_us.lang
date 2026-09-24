@@ -7,6 +7,7 @@ tile.appliedenergistics2.condenser.name=Matter Condenser
 tile.appliedenergistics2.controller.name=ME Controller
 tile.appliedenergistics2.crank.name=Wooden Crank
 tile.appliedenergistics2.crystal_resonance_generator.name=Crystal Resonance Generator
+tile.appliedenergistics2.exposer.name=ME Storage Exposer
 tile.appliedenergistics2.creative_energy_cell.name=Creative Energy Cell
 tile.appliedenergistics2.dense_energy_cell.name=Dense Energy Cell
 tile.appliedenergistics2.energy_cell.name=Energy Cell
@@ -425,6 +426,9 @@ gui.appliedenergistics2.ResultLock=Waiting for pattern output to unlock
 gui.appliedenergistics2.UntilPulseUnlock=Waiting for redstone pulse to unlock
 gui.appliedenergistics2.CanBeEnchanted=Can be enchanted
 gui.appliedenergistics2.IncreasedEnergyUseFromEnchants=Enchants increase energy use
+gui.appliedenergistics2.ExposerTooltip=Lets pipes and machines take whatever the network holds; nothing goes in.
+gui.appliedenergistics2.ExposerTypes=Gives out:
+gui.appliedenergistics2.ExposerNoTypes=Gives out nothing: no type is registered.
 
 // GUI Tooltips
 gui.tooltips.appliedenergistics2.Stash=Store Items
@@ -859,6 +863,7 @@ item.appliedenergistics2.multi_part.p2p_tunnel.name=P2P Tunnel
 item.appliedenergistics2.multi_part.pattern_terminal.name=ME Pattern Terminal
 item.appliedenergistics2.multi_part.quartz_fiber.name=Quartz Fiber
 item.appliedenergistics2.multi_part.storage_bus.name=ME Storage Bus
+item.appliedenergistics2.multi_part.exposer.name=ME Storage Exposer
 item.appliedenergistics2.multi_part.oredict_storage_bus.name=ME OreDict Storage Bus
 item.appliedenergistics2.multi_part.terminal.name=ME Terminal
 item.appliedenergistics2.multi_part.inverted_toggle_bus.name=ME Inverted Toggle Bus

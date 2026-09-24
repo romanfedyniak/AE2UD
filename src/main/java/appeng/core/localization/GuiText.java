@@ -303,6 +303,11 @@ public enum GuiText {
     CanBeEnchanted,
     IncreasedEnergyUseFromEnchants,
 
+    // Used on the storage exposer
+    ExposerTooltip,
+    ExposerTypes,
+    ExposerNoTypes,
+
     // How the two priorities actually decide anything, which neither number says by itself
     PriorityHintInsert,
     PriorityHintExtract,

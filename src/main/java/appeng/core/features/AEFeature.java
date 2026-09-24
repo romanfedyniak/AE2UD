@@ -98,6 +98,7 @@ public enum AEFeature {
     IMPORT_BUS("ImportBus", Constants.CATEGORY_NETWORK_BUSES),
     EXPORT_BUS("ExportBus", Constants.CATEGORY_NETWORK_BUSES),
     STORAGE_BUS("StorageBus", Constants.CATEGORY_NETWORK_BUSES),
+    EXPOSER("Exposer", Constants.CATEGORY_NETWORK_BUSES, "The storage exposer, block and part, that lets pipes and machines take what the network holds."),
     PART_CONVERSION_MONITOR("PartConversionMonitor", Constants.CATEGORY_NETWORK_BUSES),
     TOGGLE_BUS("ToggleBus", Constants.CATEGORY_NETWORK_BUSES),
     PANELS("Panels", Constants.CATEGORY_NETWORK_BUSES),

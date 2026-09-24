@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +42,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.common.capabilities.Capability;
 
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.AEKeyFilter;
@@ -64,6 +66,8 @@ public final class StackWorldBehaviors {
     private static final Map<AEKeyType, ExternalStorageStrategy.Factory> externalStorageStrategies = new LinkedHashMap<>();
     private static final Map<AEKeyType, PlacementStrategy.Factory> placementStrategies = new LinkedHashMap<>();
     private static final Map<AEKeyType, PickupStrategy.Factory> pickupStrategies = new LinkedHashMap<>();
+    private static final Map<Capability<?>, AEKeyType> exposerTypes = new LinkedHashMap<>();
+    private static final Map<Capability<?>, ExposerStrategy.Factory<?>> exposerStrategies = new IdentityHashMap<>();
 
     private StackWorldBehaviors() {
     }
@@ -86,6 +90,30 @@ public final class StackWorldBehaviors {
 
     public static void registerPickupStrategy(AEKeyType type, PickupStrategy.Factory factory) {
         pickupStrategies.putIfAbsent(type, factory);
+    }
+
+    public static <T> void registerExposerStrategy(AEKeyType type, Capability<T> capability,
+            ExposerStrategy.Factory<T> factory) {
+        if (capability != null && exposerTypes.putIfAbsent(capability, type) == null) {
+            exposerStrategies.put(capability, factory);
+        }
+    }
+
+    /**
+     * @return null if no exposer strategy answers to this capability.
+     */
+    @Nullable
+    public static AEKeyType getExposedType(Capability<?> capability) {
+        return exposerTypes.get(capability);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T createExposer(Capability<T> capability, ExposedStorage storage) {
+        return ((ExposerStrategy.Factory<T>) exposerStrategies.get(capability)).create(storage);
+    }
+
+    public static Set<AEKeyType> withExposerStrategy() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(exposerTypes.values()));
     }
 
     public static AEKeyFilter hasImportStrategyFilter() {

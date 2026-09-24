@@ -65,6 +65,7 @@ import appeng.core.features.registries.cell.BasicCellHandler;
 import appeng.core.features.registries.cell.CreativeCellHandler;
 import appeng.parts.automation.InitStackWorldBehaviors;
 import appeng.parts.misc.InitExternalStorageStrategies;
+import appeng.helpers.exposer.InitExposerStrategies;
 import appeng.util.inv.InitGenericInventoryAdapters;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.ChannelTierSync;
@@ -415,6 +416,7 @@ final class Registration {
         // which happens in newRegistry() (RegistryEvent.NewRegistry) - long before this FMLInitializationEvent.
         InitStackWorldBehaviors.register();
         InitExternalStorageStrategies.register();
+        InitExposerStrategies.register();
         InitGenericInventoryAdapters.register();
 
         api.definitions().materials().matterBall().maybeStack(1).ifPresent(ammoStack ->

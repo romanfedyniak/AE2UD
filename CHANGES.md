@@ -14,6 +14,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **The storage exposer hands out any key type an addon registers.** `ExposerStrategy.register(type,
+  capability, factory)` ties a Forge capability to a key type; the factory gets an `ExposedStorage` - the
+  network's keys of that type in a steady order, their amounts, and an extraction that pays for itself in
+  power - and builds the handler on top of it. Items and fluids register through the same call.
+
 - **The crafting screens go back to any terminal they were opened from.** Confirming a craft, the crafting
   tree and the CPU status knew the way back only to AE2's own three terminals and the wireless one, each
   named in a list, so from an addon's terminal they left the player nowhere to return to. They ask the
@@ -1132,6 +1137,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Networking
 
+- **The ME Storage Exposer**, as a block and as a part. It lets pipes and machines take whatever the network holds, as if it were a chest with a slot for every item and a tank for every fluid: the block to all six sides, the part to the one block it faces. Nothing can be put in through it, and it offers only what is stored, never what could be crafted. It takes a channel, and a storage bus refuses to read one, which would count the network a second time with every look. Adapted from [NAE2](https://github.com/AE2-UEL/NAE2), including its textures and recipe.
 - **A network is told what moved instead of counting everything to find out.** Any network with something watching it - an open terminal, a storage monitor, a level emitter - used to recount its entire contents twenty times a second, whether or not anything had moved. On a large network that was the single most expensive thing the server did: measured at **25 milliseconds a tick** for a thousand mounted cells, against a tick budget of fifty, and five nanoseconds for the same network with nobody looking. Storage now reports its own changes and the network keeps a running total, so a tick costs what moved rather than what is stored - the same network idles at tens of nanoseconds and takes about ninety microseconds on a tick where a hundred different things changed. Nothing about the behaviour changes: watchers are still told once per tick, in one batch, exactly as before. Modern AE2 recounts the same way and this is a deliberate departure from it, back to how the fork's own ancestor worked.
 - **A network with no Sticky Card stops looking for one on every insertion.** Sticky mounts get first refusal on whatever they are interested in, which meant walking every mounted cell before the ordinary search even began - on a network of a thousand cells that walk was almost the whole cost of putting an item away, because the ordinary search stops at the first cell that already holds the item and rarely looks further. The network now knows whether it has any sticky mount at all and skips the pass when it has none, which is nearly every network: measured at 1 578 ns down to 87 ns per insertion on a thousand mounts. Nothing changes where a Sticky Card is actually installed.
 - **For addon authors:** storage mounted onto a network should implement `IStorageChangeSource` if its contents can change for any reason other than the network itself inserting or extracting. Everything AE2UD ships already does. A mount that neither implements it nor calls `IStorageService.invalidateCache()` after changing behind the network's back will show a stale count in terminals, and will not correct itself. The new `auditNetworkStorage` option in the config's `general` section, off by default, counts every network the slow way once a second and logs whatever disagrees with the running total, naming the mounts - turn it on while chasing a wrong count, not in production.

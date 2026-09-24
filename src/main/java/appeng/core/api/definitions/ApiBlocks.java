@@ -132,6 +132,7 @@ public final class ApiBlocks implements IBlocks {
     private final ITileDefinition drive;
     private final ITileDefinition chest;
     private final ITileDefinition iface;
+    private final ITileDefinition exposer;
     private final ITileDefinition cellWorkbench;
     private final ITileDefinition iOPort;
     private final ITileDefinition condenser;
@@ -349,6 +350,10 @@ public final class ApiBlocks implements IBlocks {
         this.iface = registry.block("interface", BlockInterface::new)
                 .features(AEFeature.INTERFACE)
                 .tileEntity(new TileEntityDefinition(TileInterface.class))
+                .build();
+        this.exposer = registry.block("exposer", BlockExposer::new)
+                .features(AEFeature.EXPOSER)
+                .tileEntity(new TileEntityDefinition(TileExposer.class))
                 .build();
         this.cellWorkbench = registry.block("cell_workbench", BlockCellWorkbench::new)
                 .features(AEFeature.STORAGE_CELLS)
@@ -871,6 +876,11 @@ public final class ApiBlocks implements IBlocks {
     @Override
     public ITileDefinition iface() {
         return this.iface;
+    }
+
+    @Override
+    public ITileDefinition exposer() {
+        return this.exposer;
     }
 
     @Override

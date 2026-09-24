@@ -65,6 +65,8 @@ public interface IParts {
 
     IItemDefinition iface();
 
+    IItemDefinition exposer();
+
     IItemDefinition levelEmitter();
 
     IItemDefinition annihilationPlane();

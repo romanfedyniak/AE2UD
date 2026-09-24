@@ -22,6 +22,10 @@ The pin icon in `textures/guis/states.png` is adapted from the corresponding tex
 Applied Energistics 2 Unofficial. The crafting-pin animation reuses Applied Energistics 2's
 `molecular_assembler_lights` texture and follows the current upstream terminal renderer.
 
+The storage exposer's textures, `textures/blocks/exposer.png` and `textures/items/part/exposer.png`, and its
+recipe are taken from [NAE2](https://github.com/AE2-UEL/NAE2), which is under the GNU Lesser General Public
+License v3.
+
 The pattern terminal's processing backgrounds `textures/guis/pattern3.png` and `textures/guis/pattern4.png`,
 and the slot-layout icon in `textures/guis/states.png`, are adapted from the corresponding textures in
 GTNewHorizons' Applied Energistics 2 Unofficial, recoloured onto Applied Energistics 2's palette.

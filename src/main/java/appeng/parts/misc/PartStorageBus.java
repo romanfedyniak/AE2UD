@@ -45,6 +45,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.IStorageMonitorableAccessor;
+import appeng.helpers.exposer.DualityExposer;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
@@ -395,6 +396,10 @@ public class PartStorageBus extends PartUpgradeable
     @Nullable
     MEStorage findExternalStorage(final TileEntity target, final EnumFacing targetSide, final boolean extractableOnly,
             final Runnable changeListener) {
+        if (DualityExposer.isExposer(target, targetSide)) {
+            return null;
+        }
+
         // 1. A direct link to another ME network (sub-networking through a storage bus).
         final IStorageMonitorableAccessor accessor = target.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, targetSide);
         if (accessor != null) {
