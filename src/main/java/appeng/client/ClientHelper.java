@@ -36,8 +36,10 @@ import appeng.api.patterns.client.PatternModePanels;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.client.render.keytypes.FluidKeyRenderHandler;
+import appeng.client.render.WrappedGenericStackItemRenderer;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
+import appeng.core.Api;
 import appeng.core.AppEng;
 import appeng.core.api.ApiClientHelper;
 import appeng.core.MultiblockLimits;
@@ -145,6 +147,8 @@ public class ClientHelper extends ServerHelper {
     @Override
     public void init() {
         AEKeyRendering.register(AEKeyTypes.fluids(), new FluidKeyRenderHandler());
+        Api.INSTANCE.definitions().items().wrappedGenericStack().maybeItem()
+                .ifPresent(item -> item.setTileEntityItemStackRenderer(new WrappedGenericStackItemRenderer()));
 
         for (ActionKey key : ActionKey.values()) {
             if (!key.isAvailable()) {

@@ -37,4 +37,21 @@ public interface AEKeyRenderHandler {
     default int getTint(AEKey what) {
         return 0xFFFFFFFF;
     }
+
+    /**
+     * Whether {@link #draw(AEKey)} draws this key instead of {@link #getModel}, for a picture that is not atlas
+     * quads and a tint: a texture that was never stitched, blending the item renderer does not do, anything
+     * that changes per frame.
+     */
+    default boolean drawsItself(AEKey what) {
+        return false;
+    }
+
+    /**
+     * Draws the key into the unit cube from 0 to 1 on each axis, facing +Z, with the transforms of wherever it
+     * is shown already applied. Called on the render thread for every key drawn. Whatever texture this binds,
+     * the block atlas is bound again and the colour reset to white afterwards.
+     */
+    default void draw(AEKey what) {
+    }
 }

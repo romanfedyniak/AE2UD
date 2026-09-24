@@ -2641,6 +2641,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     walking the slots costs no recount. A second registration for the same capability is ignored, and a
     capability whose mod is absent (null) is skipped. `IParts.exposer()` and `IBlocks.exposer()` are additive.
 
+85. **`AEKeyRenderHandler.drawsItself` and `draw`** - additive default methods, so every existing handler
+    compiles and behaves as before. The key-rendering note had set this aside for "a picture that is not atlas
+    quads plus a tint", expecting a mixin into `RenderItem`; none is needed. The wrapper item carries a
+    `TileEntityItemStackRenderer`, and for such a key the dispatcher model answers with a built-in model that
+    keeps the base model's transforms and sends the item there. Wanted for Thaumcraft's aspect icons.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

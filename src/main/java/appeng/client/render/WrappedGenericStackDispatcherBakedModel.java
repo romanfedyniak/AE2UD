@@ -88,6 +88,10 @@ public class WrappedGenericStackDispatcherBakedModel extends DelegateBakedModel 
             final AEKey what = wrapped.what();
             final AEKeyRenderHandler handler = AEKeyRendering.get(what);
 
+            if (handler != null && handler.drawsItself(what)) {
+                return WrappedGenericStackDispatcherBakedModel.this.drawnModel;
+            }
+
             if (handler != null) {
                 final IBakedModel model = handler.getModel(what, WrappedGenericStackDispatcherBakedModel.this);
                 if (model != null) {
@@ -109,10 +113,16 @@ public class WrappedGenericStackDispatcherBakedModel extends DelegateBakedModel 
         }
     };
 
+    /**
+     * Hands the key to the item's {@link WrappedGenericStackItemRenderer}, keeping the base model's transforms.
+     */
+    private final IBakedModel drawnModel;
+
     public WrappedGenericStackDispatcherBakedModel(IBakedModel baseModel, VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
         super(baseModel);
         this.format = format;
         this.bakedTextureGetter = bakedTextureGetter;
+        this.drawnModel = new DrawnKeyModel(baseModel);
     }
 
     // This is never used. See the item override list above.

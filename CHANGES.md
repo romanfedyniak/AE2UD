@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A key type can draw its keys itself.** A render handler could only hand over a model built from the block
+  atlas and a tint, which is all an item or a fluid needs. Thaumcraft's aspect icons are loose textures with
+  soft, half-transparent edges that only Thaumcraft's own blending shows right, and baked into the atlas they
+  came out with a black fill. `AEKeyRenderHandler.drawsItself` and `draw` let the handler draw such a key
+  directly, wherever a key stands in for an item. A handler that overrides neither draws as before.
+
 - **The storage exposer hands out any key type an addon registers.** `ExposerStrategy.register(type,
   capability, factory)` ties a Forge capability to a key type; the factory gets an `ExposedStorage` - the
   network's keys of that type in a steady order, their amounts, and an extraction that pays for itself in
