@@ -67,14 +67,14 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
             return;
         }
 
-        final KeyCounter before = this.getAvailableStacks();
+        final KeyCounter before = this.shown();
 
         this.listenToDelegate(false);
         this.delegate = delegate;
         this.listenToDelegate(true);
 
         // Through this wrapper, so what is counted is what this mount shows, filters and all.
-        this.listeners.postDiff(before, this.getAvailableStacks());
+        this.listeners.postDiff(before, this.shown());
     }
 
     @Override
@@ -108,6 +108,31 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
     @Override
     public boolean reportsChanges() {
         return this.delegateReportsChanges();
+    }
+
+    /**
+     * Runs a change to what this wrapper shows - its own settings, not the storage underneath - and tells
+     * whoever is listening what that did to its contents.
+     */
+    protected void changeShown(final Runnable change) {
+        if (this.listeners.isEmpty()) {
+            change.run();
+            return;
+        }
+
+        final KeyCounter before = this.shown();
+        change.run();
+        this.listeners.postDiff(before, this.shown());
+    }
+
+    /**
+     * What this wrapper shows. Not {@link #getAvailableStacks()}, which goes straight to the delegate and skips
+     * whatever a subclass filters out in {@link #getAvailableStacks(KeyCounter)}.
+     */
+    private KeyCounter shown() {
+        final KeyCounter out = new KeyCounter();
+        this.getAvailableStacks(out);
+        return out;
     }
 
     /** Passes a change on to whoever is listening to this wrapper. */

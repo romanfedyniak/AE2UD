@@ -553,15 +553,17 @@ public class PartStorageBus extends PartUpgradeable
         final boolean allowExtraction = access.hasPermission(AccessRestriction.READ);
         final boolean extractableOnlyFilter = this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
 
-        this.handler.setAllowExtraction(allowExtraction);
-        this.handler.setAllowInsertion(access.hasPermission(AccessRestriction.WRITE));
-        // filterOnExtraction is forced on unconditionally: the old generic MEInventoryHandler<T> gated BOTH
-        // extraction and visibility on hasReadAccess unconditionally; the new one only does either when told to
-        // via setExtractFiltering, so READ (and the whitelist) must always be asked here to reproduce that.
-        this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
-        this.handler.setWhitelist(this.isInstalled(CardTraits.INVERTER) ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
-        this.handler.setPartitionList(this.createFilter());
-        this.handler.setSticky(this.isInstalled(CardTraits.STICKY));
+        this.handler.reconfigure(() -> {
+            this.handler.setAllowExtraction(allowExtraction);
+            this.handler.setAllowInsertion(access.hasPermission(AccessRestriction.WRITE));
+            // filterOnExtraction is forced on unconditionally: the old generic MEInventoryHandler<T> gated BOTH
+            // extraction and visibility on hasReadAccess unconditionally; the new one only does either when told
+            // to via setExtractFiltering, so READ (and the whitelist) must always be asked here to reproduce that.
+            this.handler.setExtractFiltering(true, !allowExtraction || extractableOnlyFilter);
+            this.handler.setWhitelist(this.isInstalled(CardTraits.INVERTER) ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
+            this.handler.setPartitionList(this.createFilter());
+            this.handler.setSticky(this.isInstalled(CardTraits.STICKY));
+        });
 
         // update sleep state...
         if (wasSleeping != this.isIdle()) {

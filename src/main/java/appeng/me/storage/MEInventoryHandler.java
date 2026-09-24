@@ -87,6 +87,13 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         this.partitionList = myPartitionList;
     }
 
+    /**
+     * Applies new access, filter and card settings together, and tells the network what they hid or showed.
+     */
+    public void reconfigure(final Runnable settings) {
+        this.changeShown(settings);
+    }
+
     public void setExtractFiltering(final boolean filterOnExtraction, final boolean filterAvailableContents) {
         this.filterOnExtraction = filterOnExtraction;
         this.filterAvailableContents = filterAvailableContents;
@@ -203,6 +210,19 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         }
 
         return super.isPreferredStorageFor(input, source);
+    }
+
+    /**
+     * A change underneath counts on the network only if this mount shows that key: {@link #getAvailableStacks}
+     * leaves out what the filter hides, so a change to it has to be left out too, or it leaks in as soon as the
+     * storage reports anything.
+     */
+    @Override
+    protected void report(final AEKey what, final long delta) {
+        if (this.filterAvailableContents && !this.canExtract(what)) {
+            return;
+        }
+        super.report(what, delta);
     }
 
     protected boolean canExtract(final AEKey request) {

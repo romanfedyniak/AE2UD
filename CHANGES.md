@@ -439,6 +439,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A partitioned storage bus no longer counts what its filter hides.** With inaccessible items not
+  reported, the default, a bus shows only what it can hand out, but a storage that tells the network when it
+  changes - a tank, a gas tank, a Thaumcraft jar - had every change passed on regardless of the filter, so
+  the first time a tube filled it, a fluid or an aspect outside the partition turned up in the terminal all
+  the same. Changing the filter, the access or the cards now tells the network what that hid or showed; it
+  went unheard before, and so did the filter when the bus was pointed at another block, so a terminal kept
+  showing the old contents until something else made the network count again.
+
 - **A Molecular Assembler's cards stop making each craft dearer past one a tick.** Its power tax grows
   with its speed, and it was paid on the whole speed however little of it the craft still needed, so the
   bill rose with the square of the cards while the assembler never made more than one craft a tick. AE2's
