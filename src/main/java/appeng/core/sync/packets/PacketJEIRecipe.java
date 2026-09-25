@@ -52,6 +52,7 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.crafting.VirtualPatternDetails;
 import appeng.helpers.IContainerCraftingPacket;
+import appeng.helpers.ICraftingGridContainer;
 import appeng.hooks.TickHandler;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.IWorldCallable;
@@ -464,7 +465,12 @@ public class PacketJEIRecipe extends AppEngPacket {
             return;
         }
 
-        if (craftMatrix.getSlots() != 9 || this.output == null || this.output.size() != 1) {
+        // A terminal with a grid of its own - a bigger bench, an arcane workbench - says how big it is and which
+        // recipes it knows; anything else is the plain three by three.
+        final ICraftingGridContainer bench = con instanceof ICraftingGridContainer g ? g : null;
+        final int width = bench == null ? 3 : bench.getGridWidth();
+        final int height = bench == null ? 3 : bench.getGridHeight();
+        if (craftMatrix.getSlots() != width * height || this.output == null || this.output.size() != 1) {
             return;
         }
 
@@ -475,14 +481,15 @@ public class PacketJEIRecipe extends AppEngPacket {
 
         // The client only claims to be missing something; verify it against the real recipe before
         // trusting it with a crafting job.
-        final InventoryCrafting testFrame = new InventoryCrafting(new ContainerNull(), 3, 3);
+        final InventoryCrafting testFrame = new InventoryCrafting(new ContainerNull(), width, height);
         for (int x = 0; x < craftMatrix.getSlots() && x < this.recipe.size(); x++) {
             if (this.recipe.get(x) != null && this.recipe.get(x).length > 0) {
                 testFrame.setInventorySlotContents(x, this.recipe.get(x)[0]);
             }
         }
 
-        final IRecipe matchingRecipe = CraftingManager.findMatchingRecipe(testFrame, player.world);
+        final IRecipe matchingRecipe = bench == null ? CraftingManager.findMatchingRecipe(testFrame, player.world)
+                : bench.findRecipe(testFrame, player.world);
         if (matchingRecipe == null || !ItemStack.areItemStacksEqual(matchingRecipe.getRecipeOutput(), wantedOutput)) {
             return;
         }

@@ -443,6 +443,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Ctrl+Move Items orders the missing ingredients in every terminal with a crafting grid**, not only in the
+  crafting terminal. It checked the recipe on a three by three grid against the game's own recipe list, so a
+  terminal with a bigger grid or recipes of its own - an addon's extended crafting table, an arcane workbench -
+  never passed and nothing was ordered. It now asks the terminal, which knows its grid and its recipes.
 - **A partitioned storage bus no longer counts what its filter hides.** With inaccessible items not
   reported, the default, a bus shows only what it can hand out, but a storage that tells the network when it
   changes - a tank, a gas tank, a Thaumcraft jar - had every change passed on regardless of the filter, so
