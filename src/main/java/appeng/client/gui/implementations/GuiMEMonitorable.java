@@ -665,7 +665,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
                     this.perRow * 18, pinRows * 18 + 1));
         }
 
-        if (this.isWirelessTerminal()) {
+        if (this.drawsWirelessUpgradePlate()) {
             GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + this.wirelessPlateX(),
                     guiTop + WIRELESS_PLATE_Y, IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
@@ -843,6 +843,14 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         return false;
     }
 
+    /**
+     * Whether the wireless terminal's cards hang on AE2's plate beside the window. A screen that lays its slots
+     * out somewhere of its own draws their frame itself and answers false.
+     */
+    protected boolean drawsWirelessUpgradePlate() {
+        return this.isWirelessTerminal();
+    }
+
     /** Where a wireless terminal's card plate hangs beside the window. */
     protected int wirelessPlateX() {
         return WIRELESS_PLATE_X;
@@ -851,7 +859,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
 
-        if (this.isWirelessTerminal()) {
+        if (this.drawsWirelessUpgradePlate()) {
             GuiWirelessUpgradePlate.draw(this, offsetX + this.wirelessPlateX(), offsetY + WIRELESS_PLATE_Y,
                     IWirelessTerminalContainer.UPGRADE_SLOTS);
         }

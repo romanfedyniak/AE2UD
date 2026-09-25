@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A wireless terminal's screen can lay its cards out itself.** The magnet and energy cards always hung on
+  AE2's plate down the side of the window. `GuiMEMonitorable.drawsWirelessUpgradePlate` answering false leaves
+  the slots where the screen puts them and the plate undrawn, for an addon's screen with its own layout.
+
 - **A key type can draw its keys itself.** A render handler could only hand over a model built from the block
   atlas and a tint, which is all an item or a fluid needs. Thaumcraft's aspect icons are loose textures with
   soft, half-transparent edges that only Thaumcraft's own blending shows right, and baked into the atlas they
