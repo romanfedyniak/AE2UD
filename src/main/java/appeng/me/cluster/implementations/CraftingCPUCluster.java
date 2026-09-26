@@ -1183,6 +1183,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             }
             return;
         }
+        if (medium.refusedAsBusy()) {
+            return;
+        }
 
         final long[] entry = this.pushBackoff.computeIfAbsent(details, d -> new HashMap<>())
                 .computeIfAbsent(medium, m -> new long[2]);

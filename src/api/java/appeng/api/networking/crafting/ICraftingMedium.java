@@ -132,6 +132,15 @@ public interface ICraftingMedium
 	}
 
 	/**
+	 * Whether the last push this medium refused failed only because a machine that makes the pattern was busy.
+	 * Such a refusal is cheap to meet again, so the crafting CPU asks again next tick instead of waiting longer.
+	 */
+	default boolean refusedAsBusy()
+	{
+		return false;
+	}
+
+	/**
 	 * Whether a pattern pushed here is finished the moment it leaves - nothing comes back, and the job is
 	 * settled as if it had. For a machine chain that carries its own results, or one that consumes them.
 	 * <p>

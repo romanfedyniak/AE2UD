@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A medium can say its refusal was only a busy machine.** `ICraftingMedium.refusedAsBusy()`, false by
+  default; an interface answers it for the push it just refused. The crafting CPU does not lengthen its wait
+  after such a refusal.
+
 - **A crafting machine is handed a pattern's fluids and other non-item inputs.** The interface passed a
   machine only the crafting table, which holds items, so a pattern with a fluid, gas, mana or essentia input
   was never offered to one. `ICraftingMachine.pushPattern` takes them as `GenericStack[] extraInputs` now, in
@@ -448,6 +452,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   both the line and the sync.
 
 ### Fixes
+
+- **A lone crafting machine behind an interface is fed as fast as it works.** After a refused push the CPU
+  waited before asking that interface again, twice as long each time up to a second, which spares it
+  simulating a push into a full chest every tick. A machine that is merely busy - a molecular assembler, or an
+  addon's assembler whose queue is full - refuses the same way, so one such machine on an interface spent most
+  of its time idle while the CPU waited, and a second or third machine on the same interface hid it. The wait
+  now grows only for the expensive kind of refusal.
 
 - **Ctrl+Move Items orders the missing ingredients in every terminal with a crafting grid**, not only in the
   crafting terminal. It checked the recipe on a three by three grid against the game's own recipe list, so a

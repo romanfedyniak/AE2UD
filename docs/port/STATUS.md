@@ -2655,6 +2655,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     plain block behind a tunnel still gets item-only patterns. Wanted for hrmae's Thaumcraft machines, which
     take essentia.
 
+87. **`ICraftingMedium.refusedAsBusy()`** - additive, `default`, no upstream equivalent. The CPU's push
+    back-off (1 to 20 ticks, doubling) was meant for a refusal that costs a simulated insert, but a busy
+    `ICraftingMachine` refuses too, and a single one on an interface idled through the back-off. The interface
+    sets the flag when a face holds a machine that makes the pattern (for a P2P tunnel, `hasPlanTakingOutput`,
+    since its `canRun` also answers for a plain block); the CPU then leaves the back-off as it was.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

@@ -159,6 +159,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private EnumMap<EnumFacing, List<ItemStack>> waitingToSendFacing = new EnumMap<>(EnumFacing.class);
     /** The last pattern each face was handed, which is what smart blocking lets through a second time. */
     private final EnumMap<EnumFacing, ICraftingPatternDetails> lastRan = new EnumMap<>(EnumFacing.class);
+    /** Set when the last refused push met only a busy machine that makes the pattern. */
+    private boolean refusedAsBusy;
 
     /**
      * Every key type other than items that some pattern here pushes. What blocking has to look for in a
@@ -1189,6 +1191,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     @Override
     public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
             final GenericStack[] extraInputs) {
+        this.refusedAsBusy = false;
         if (this.hasItemsToSend() || this.hasItemsToSendFacing() || !this.gridProxy.isActive() || !this.craftingList.contains(patternDetails)) {
             return false;
         }
@@ -1300,6 +1303,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             // is the only route from an interface to one.
             final ICraftingMachine cm = ICraftingMachine.of(te, s.getOpposite());
             if (cm != null && (!fabricated || cm.acceptsFabricatedContainers())) {
+                // A tunnel answers canRun for a plain block too, whose refusal is the expensive kind.
+                this.refusedAsBusy |= cm instanceof PartP2PInterface
+                        ? ((PartP2PInterface) cm).hasPlanTakingOutput(patternDetails)
+                        : cm.canRun(patternDetails);
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
                     if (cm.canRun(patternDetails) && cm.pushPattern(patternDetails, table, extraInputs, s.getOpposite())) {
@@ -1617,6 +1624,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * The hash is the gate and the comparison is the answer: a hash is four bytes of a pattern, two of them
      * can collide, and here that would mean the wrong recipe going into a busy machine, silently.
      */
+    public boolean refusedAsBusy() {
+        return this.refusedAsBusy;
+    }
+
     private boolean ranLastOnFace(final EnumFacing side, final ICraftingPatternDetails pattern) {
         final ICraftingPatternDetails last = this.lastRan.get(side);
         return last != null && last.hashCode() == pattern.hashCode() && last.equals(pattern);
