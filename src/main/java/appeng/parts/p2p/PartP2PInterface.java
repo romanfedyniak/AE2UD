@@ -31,6 +31,7 @@ import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
 import appeng.api.parts.P2PTunnelModels;
+import appeng.api.stacks.GenericStack;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.helpers.DualityInterface;
@@ -197,7 +198,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
 
     @Override
     public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
-            final EnumFacing ejectionDirection) {
+            final GenericStack[] extraInputs, final EnumFacing ejectionDirection) {
         if (this.isOutput() || !this.getProxy().isActive() || this.visiting) {
             return false;
         }
@@ -211,7 +212,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
 
             for (int i = 0; i < count; i++) {
                 final int index = Math.floorMod(this.nextOutput + i, count);
-                if (outputs.get(index).accept(patternDetails, table, blocking)) {
+                if (outputs.get(index).accept(patternDetails, table, extraInputs, blocking)) {
                     // Start at the next one, so a second pattern in the same tick goes to a second machine.
                     this.nextOutput = Math.floorMod(index + 1, count);
                     return true;
@@ -280,10 +281,10 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     /**
      * Takes a pattern the interface has already laid out and hands it to the machine in front, all or
      * nothing. A machine that speaks {@link ICraftingMachine} - including another tunnel's input - is given
-     * the table directly; anything else is loaded through the send queue.
+     * the table directly; anything else is loaded through the send queue, which carries items only.
      */
     private boolean accept(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
-            final BlockingMode blocking) {
+            final GenericStack[] extraInputs, final BlockingMode blocking) {
         if (!this.isOutput() || !this.getProxy().isActive() || this.hasItemsToSend()) {
             return false;
         }
@@ -296,7 +297,10 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         final EnumFacing facing = this.getFacingSide();
         final ICraftingMachine machine = ICraftingMachine.of(te, facing);
         if (machine != null && machine.acceptsPlans()) {
-            return machine.pushPattern(patternDetails, table, facing);
+            return machine.pushPattern(patternDetails, table, extraInputs, facing);
+        }
+        if (extraInputs.length > 0) {
+            return false;
         }
 
         final InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, facing);

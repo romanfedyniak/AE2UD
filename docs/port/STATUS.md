@@ -2647,6 +2647,14 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `TileEntityItemStackRenderer`, and for such a key the dispatcher model answers with a built-in model that
     keeps the base model's transforms and sends the item there. Wanted for Thaumcraft's aspect icons.
 
+86. **`ICraftingMachine.pushPattern` takes the extra inputs** - breaking, no upstream equivalent. The
+    interface skipped a crafting machine for any pattern with a non-item input, since an `InventoryCrafting`
+    holds items only; fluids, gases and mana reached plain blocks but never a machine. The `GenericStack[]`
+    goes in beside the table, replacing the old signature rather than overloading it. `TileMolecularAssembler`
+    refuses a push that carries any; `PartP2PInterface` hands them to an `ICraftingMachine` behind it, and a
+    plain block behind a tunnel still gets item-only patterns. Wanted for hrmae's Thaumcraft machines, which
+    take essentia.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

@@ -1293,20 +1293,16 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 continue;
             }
 
-            // A third-party crafting machine is handed an InventoryCrafting, which cannot carry a fluid, so
-            // a pattern with one is not offered to it at all rather than pushed short an ingredient.
-            //
             // A pattern the network fills containers for goes only to a machine that says it destroys them.
             // The table it gets is complete, but an ordinary machine hands the emptied container back and
             // nothing here can stop it - and since that container was assembled out of a fluid, taking it
             // back would mint a bucket every craft. Note our own molecular assembler arrives here too: this
             // is the only route from an interface to one.
             final ICraftingMachine cm = ICraftingMachine.of(te, s.getOpposite());
-            if (cm != null && extraInputs.length == 0
-                    && (!fabricated || cm.acceptsFabricatedContainers())) {
+            if (cm != null && (!fabricated || cm.acceptsFabricatedContainers())) {
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);
-                    if (cm.canRun(patternDetails) && cm.pushPattern(patternDetails, table, s.getOpposite())) {
+                    if (cm.canRun(patternDetails) && cm.pushPattern(patternDetails, table, extraInputs, s.getOpposite())) {
                         // Taking the face out of the rotation spreads consecutive patterns over the machines
                         // around the interface. A tunnel is not one of those machines but the way to many,
                         // and it spreads them itself, so its face has to stay in.

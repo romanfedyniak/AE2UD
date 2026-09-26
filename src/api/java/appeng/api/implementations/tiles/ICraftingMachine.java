@@ -33,6 +33,7 @@ import net.minecraft.util.EnumFacing;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
+import appeng.api.stacks.GenericStack;
 
 
 public interface ICraftingMachine
@@ -72,11 +73,13 @@ public interface ICraftingMachine
 	 *
 	 * @param patternDetails details of pattern
 	 * @param table crafting table
+	 * @param extraInputs what an InventoryCrafting cannot hold; a machine that crafts from items alone refuses a push carrying any
 	 * @param ejectionDirection ejection direction
 	 *
 	 * @return if it was accepted, all or nothing.
 	 */
-	boolean pushPattern( ICraftingPatternDetails patternDetails, InventoryCrafting table, EnumFacing ejectionDirection );
+	boolean pushPattern( ICraftingPatternDetails patternDetails, InventoryCrafting table, GenericStack[] extraInputs,
+			EnumFacing ejectionDirection );
 
 	/**
 	 * check if the crafting machine is accepting pushes via pushPattern, if this is false, all calls to push will fail,

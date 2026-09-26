@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A crafting machine is handed a pattern's fluids and other non-item inputs.** The interface passed a
+  machine only the crafting table, which holds items, so a pattern with a fluid, gas, mana or essentia input
+  was never offered to one. `ICraftingMachine.pushPattern` takes them as `GenericStack[] extraInputs` now, in
+  place of the old signature; a machine that crafts from items alone refuses a push carrying any, as the
+  molecular assembler does. An interface P2P tunnel passes them on to a crafting machine behind it.
+
 - **A wireless terminal's screen can lay its cards out itself.** The magnet and energy cards always hung on
   AE2's plate down the side of the window. `GuiMEMonitorable.drawsWirelessUpgradePlate` answering false leaves
   the slots where the screen puts them and the plate undrawn, for an addon's screen with its own layout.

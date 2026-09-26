@@ -213,7 +213,11 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     }
 
     @Override
-    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table, final EnumFacing where) {
+    public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs, final EnumFacing where) {
+        if (extraInputs.length > 0) {
+            return false;
+        }
         if (this.myPattern.isEmpty()) {
             boolean isEmpty = ItemHandlerUtil.isEmpty(this.gridInv) && ItemHandlerUtil.isEmpty(this.patternInv);
 
