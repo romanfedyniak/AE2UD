@@ -460,6 +460,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   of its time idle while the CPU waited, and a second or third machine on the same interface hid it. The wait
   now grows only for the expensive kind of refusal.
 
+- **A machine that takes several copies a tick gets them from an interface block with other neighbours.**
+  An interface hands consecutive patterns to the machines around it in turn, and a machine it has just served
+  waits for the others. When the rest were a cable or anything else that takes nothing, the second copy of the
+  tick went nowhere and the machine got one copy a tick however fast its cards were. An interface whose
+  remaining sides all refuse now offers the pattern to the ones it has already served.
+
 - **Ctrl+Move Items orders the missing ingredients in every terminal with a crafting grid**, not only in the
   crafting terminal. It checked the recipe on a three by three grid against the game's own recipe list, so a
   terminal with a bigger grid or recipes of its own - an addon's extended crafting table, an arcane workbench -

@@ -1192,6 +1192,22 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public boolean pushPattern(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
             final GenericStack[] extraInputs) {
         this.refusedAsBusy = false;
+        final EnumSet<EnumFacing> tried = EnumSet.copyOf(this.visitedFaces);
+        if (this.pushPatternToFaces(patternDetails, table, extraInputs)) {
+            return true;
+        }
+        if (tried.isEmpty()) {
+            return false;
+        }
+        // The rotation had only faces left that refused; the ones it already served get their turn now, or a
+        // machine that takes several copies a tick would be handed one.
+        this.visitedFaces = this.iHost.getTargets();
+        this.visitedFaces.removeAll(tried);
+        return !this.visitedFaces.isEmpty() && this.pushPatternToFaces(patternDetails, table, extraInputs);
+    }
+
+    private boolean pushPatternToFaces(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
+            final GenericStack[] extraInputs) {
         if (this.hasItemsToSend() || this.hasItemsToSendFacing() || !this.gridProxy.isActive() || !this.craftingList.contains(patternDetails)) {
             return false;
         }
