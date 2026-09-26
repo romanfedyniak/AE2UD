@@ -143,7 +143,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         }
     }
 
-    /** Whether any machine behind the outputs makes it. */
+    /** Whether any machine behind the outputs makes it; a plain block is left to {@link #accept}. */
     @Override
     public boolean canRun(final ICraftingPatternDetails patternDetails) {
         if (this.isOutput() || this.visiting) {
@@ -154,7 +154,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         try {
             for (final PartP2PInterface output : this.getOutputList()) {
                 final ICraftingMachine machine = output.getFacingMachine();
-                if (machine != null && machine.canRun(patternDetails)) {
+                if (machine == null ? output.getFacingTile() != null : machine.canRun(patternDetails)) {
                     return true;
                 }
             }
