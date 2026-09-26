@@ -60,7 +60,9 @@ public interface ICraftingPatternDetails
 	boolean isValidItemForSlot( int slotIndex, ItemStack itemStack, World world );
 
 	/**
-	 * @return if this pattern is a crafting pattern ( work bench )
+	 * @return if this pattern is a crafting pattern: a recipe laid out square for square, whose items the
+	 *         network checks against {@link #isValidItemForSlot} and may substitute. Inputs that are not items
+	 *         never reach the table; they are handed to the machine beside it.
 	 */
 	boolean isCraftable();
 

@@ -278,10 +278,21 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         return ItemHandlerUtil.isEmpty(this.patternInv);
     }
 
-    /** A crafting pattern that fits the grid: a bigger bench's pattern belongs in that bench. */
+    /**
+     * A crafting pattern that fits the grid and takes only items: a bigger bench's pattern belongs in that
+     * bench, and one taking essentia or the like belongs in the machine that spends it.
+     */
     @Override
     public boolean canRun(final ICraftingPatternDetails patternDetails) {
-        return patternDetails.isCraftable() && patternDetails.getTableWidth() <= 3 && patternDetails.getTableHeight() <= 3;
+        if (!patternDetails.isCraftable() || patternDetails.getTableWidth() > 3 || patternDetails.getTableHeight() > 3) {
+            return false;
+        }
+        for (final GenericStack input : patternDetails.getInputs()) {
+            if (input != null && !(input.what() instanceof AEItemKey)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

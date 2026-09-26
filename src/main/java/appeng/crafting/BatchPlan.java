@@ -88,7 +88,7 @@ public final class BatchPlan {
                 if (free(available, perCopy, drawn) < need) {
                     return null;
                 }
-            } else if (details.isCraftable()) {
+            } else if (details.isCraftable() && inputs[x].what() instanceof AEItemKey) {
                 need = inputs[x].amount();
                 drawn = chooseItem(details, x, inputs[x], slot, available, perCopy, world);
                 if (drawn == null) {

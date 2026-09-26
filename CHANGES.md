@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A crafting pattern may take essentia, fluids or other non-item inputs.** The crafting CPU draws them as
+  it does for a processing pattern and hands them to the machine beside the table, while the items keep
+  substitution. The molecular assembler does not claim such a pattern.
+
 - **A medium can say its refusal was only a busy machine.** `ICraftingMedium.refusedAsBusy()`, false by
   default; an interface answers it for the push it just refused. The crafting CPU does not lengthen its wait
   after such a refusal.

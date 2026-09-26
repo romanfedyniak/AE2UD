@@ -874,7 +874,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         ic.setInventorySlotContents(x, containerKey.toStack((int) input[x].amount()));
                                         found = true;
                                     }
-                                } else if (details.isCraftable()) {
+                                } else if (details.isCraftable() && input[x].what() instanceof AEItemKey) {
                                     final List<GenericStack> itemList;
 
                                     if (details.canSubstitute()) {

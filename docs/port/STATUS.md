@@ -2661,6 +2661,13 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     sets the flag when a face holds a machine that makes the pattern (for a P2P tunnel, `hasPlanTakingOutput`,
     since its `canRun` also answers for a plain block); the CPU then leaves the back-off as it was.
 
+88. **A crafting pattern may carry non-item inputs** - contract widened, no signature change, no upstream
+    equivalent. `isCraftable()` meant a workbench recipe of items; the CPU's crafting branch (single push and
+    `BatchPlan`) now draws a non-item input by its exact key and hands it beside the table, as the processing
+    branch does. Only the crafting branch honours substitution, and hrmae's crucible and infusion patterns
+    carry essentia, so as processing patterns their substitution was planned by the solver and then ignored
+    by the CPU. `TileMolecularAssembler.canRun` refuses a pattern with any non-item input.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
