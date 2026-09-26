@@ -667,7 +667,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         if (this.drawsWirelessUpgradePlate()) {
             GuiWirelessUpgradePlate.addExclusionArea(exclusionArea, guiLeft + this.wirelessPlateX(),
-                    guiTop + WIRELESS_PLATE_Y, IWirelessTerminalContainer.UPGRADE_SLOTS);
+                    guiTop + this.wirelessPlateY(), IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
 
         return exclusionArea;
@@ -856,11 +856,15 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         return WIRELESS_PLATE_X;
     }
 
+    protected int wirelessPlateY() {
+        return WIRELESS_PLATE_Y;
+    }
+
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
 
         if (this.drawsWirelessUpgradePlate()) {
-            GuiWirelessUpgradePlate.draw(this, offsetX + this.wirelessPlateX(), offsetY + WIRELESS_PLATE_Y,
+            GuiWirelessUpgradePlate.draw(this, offsetX + this.wirelessPlateX(), offsetY + this.wirelessPlateY(),
                     IWirelessTerminalContainer.UPGRADE_SLOTS);
         }
 

@@ -94,6 +94,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     /** The width of the window texture, which is what a self-drawn panel covers. */
     private static final int TEXTURE_WIDTH = 197;
 
+    /** Between a panel's plate and the card plate hung beside it, as between the terminal's own plates. */
+    private static final int PANEL_PLATE_GAP = 3;
+
     /** Where the mode tab sits, the button below it, and the picker they open. */
     private static final int MODE_TAB_X = 173;
     private static final int MODE_TAB_Y_FROM_BOTTOM = 177;
@@ -281,6 +284,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         }
 
         final int plateShift = this.wirelessPlateX() - IWirelessTerminalContainer.UPGRADE_PLATE_X;
+        final int plateDrop = this.wirelessPlateY() - IWirelessTerminalContainer.UPGRADE_PLATE_Y;
         for (final Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
                 aeSlot.xPos = aeSlot.getX();
@@ -288,6 +292,7 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             } else if (slot instanceof SlotRestrictedInput card
                     && card.getPlaceableItemType() == SlotRestrictedInput.PlacableItemType.UPGRADES) {
                 card.xPos = card.getX() + plateShift;
+                card.yPos = card.getY() + plateDrop;
             }
         }
 
@@ -484,13 +489,30 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     /** A panel's plate stands where the card plate would, so the cards move out past its right edge. */
     @Override
     protected int wirelessPlateX() {
-        int x = super.wirelessPlateX();
+        final Rectangle beside = this.rightmostPanelArea();
+        return beside == null ? super.wirelessPlateX() : beside.x + beside.width + PANEL_PLATE_GAP;
+    }
+
+    /** Level with the top of the plate the cards stand beside. */
+    @Override
+    protected int wirelessPlateY() {
+        final Rectangle beside = this.rightmostPanelArea();
+        return beside == null ? super.wirelessPlateY() : beside.y;
+    }
+
+    /** The panel's plate reaching furthest right, when it reaches past where the card plate would be. */
+    @Nullable
+    private Rectangle rightmostPanelArea() {
+        Rectangle rightmost = null;
         if (this.panel != null) {
             for (final Rectangle area : this.panel.getOutsideAreas()) {
-                x = Math.max(x, area.x + area.width);
+                if (area.x + area.width > super.wirelessPlateX()
+                        && (rightmost == null || area.x + area.width > rightmost.x + rightmost.width)) {
+                    rightmost = area;
+                }
             }
         }
-        return x;
+        return rightmost;
     }
 
     @Override

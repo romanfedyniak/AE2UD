@@ -453,6 +453,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A wireless terminal's card plate stands clear of a pattern mode's side plate.** Beside a mode that hangs a
+  plate of its own off the window, the card plate was pushed right up against it, with no gap, and stayed at
+  its usual height whatever the plate beside it did. It now keeps the gap every other plate keeps and lines
+  its top up with that plate's.
+
 - **A lone crafting machine behind an interface is fed as fast as it works.** After a refused push the CPU
   waited before asking that interface again, twice as long each time up to a second, which spares it
   simulating a push into a full chest every tick. A machine that is merely busy - a molecular assembler, or an
