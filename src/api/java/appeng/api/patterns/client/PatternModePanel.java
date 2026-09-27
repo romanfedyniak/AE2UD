@@ -10,6 +10,7 @@
 
 package appeng.api.patterns.client;
 
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.Collections;
 import java.util.List;
@@ -86,6 +87,16 @@ public abstract class PatternModePanel {
      */
     public boolean showsViewCellColumn() {
         return true;
+    }
+
+    /**
+     * Where a wireless terminal's cards stand in a row, laid across rather than down the plate beside the window:
+     * the top-left corner of the row's plate, in window coordinates. Null, the default, keeps the plate. A panel
+     * with its own plates up there, the view cells' say, lines the cards up beside them.
+     */
+    @Nullable
+    public Point getWirelessCardRow() {
+        return null;
     }
 
     /**

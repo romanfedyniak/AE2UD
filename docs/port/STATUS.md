@@ -2674,6 +2674,11 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     `DualityInterface.rereadPatterns()`, which decodes all its patterns afresh and posts the pattern change.
     For addon patterns that cache their recipe lookup. GroovyScript is a compile-only dependency.
 
+90. **`PatternModePanel.getWirelessCardRow()`** - additive, defaulted to null, no upstream equivalent. A mode
+    panel returns the top-left corner of a row plate for the wireless terminal's cards; `GuiPatternTerm` then
+    lays them across on it, skips the side plate, and counts the row in its centring and HEI exclusion. For
+    panels with their view cells on a plate of their own above, whose widest plate the side plate hung beside.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's

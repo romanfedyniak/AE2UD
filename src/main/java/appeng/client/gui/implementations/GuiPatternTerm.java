@@ -96,6 +96,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     /** Between a panel's plate and the card plate hung beside it, as between the terminal's own plates. */
     private static final int PANEL_PLATE_GAP = 3;
+    /** A card row's plate edge, as the wireless card plate's. */
+    private static final int CARD_ROW_EDGE = 7;
 
     /** Where the mode tab sits, the button below it, and the picker they open. */
     private static final int MODE_TAB_X = 173;
@@ -285,14 +287,21 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
         final int plateShift = this.wirelessPlateX() - IWirelessTerminalContainer.UPGRADE_PLATE_X;
         final int plateDrop = this.wirelessPlateY() - IWirelessTerminalContainer.UPGRADE_PLATE_Y;
+        final Point row = this.cardRow();
+        int cardIndex = 0;
         for (final Slot slot : this.inventorySlots.inventorySlots) {
             if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
                 aeSlot.xPos = aeSlot.getX();
                 this.repositionSlot(aeSlot);
             } else if (slot instanceof SlotRestrictedInput card
                     && card.getPlaceableItemType() == SlotRestrictedInput.PlacableItemType.UPGRADES) {
-                card.xPos = card.getX() + plateShift;
-                card.yPos = card.getY() + plateDrop;
+                if (row != null) {
+                    card.xPos = row.x + CARD_ROW_EDGE + 1 + 18 * cardIndex++;
+                    card.yPos = row.y + CARD_ROW_EDGE + 1;
+                } else {
+                    card.xPos = card.getX() + plateShift;
+                    card.yPos = card.getY() + plateDrop;
+                }
             }
         }
 
@@ -311,6 +320,14 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                         this.panel.getHeight());
             }
             this.panel.drawBackground(mouseX - this.guiLeft, mouseY - this.guiTop);
+
+            final Rectangle cards = this.cardRowArea();
+            if (cards != null) {
+                drawPanel(cards.x, cards.y, cards.width, cards.height);
+                for (int card = 0; card < IWirelessTerminalContainer.UPGRADE_SLOTS; card++) {
+                    drawSlotWell(cards.x + CARD_ROW_EDGE + 1 + 18 * card, cards.y + CARD_ROW_EDGE + 1);
+                }
+            }
 
             GlStateManager.popMatrix();
         }
@@ -484,6 +501,25 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             default:
                 return null;
         }
+    }
+
+    /** Where the panel wants a wireless terminal's cards in a row, or null for the plate beside the window. */
+    @Nullable
+    private Point cardRow() {
+        return this.panel != null && this.isWirelessTerminal() ? this.panel.getWirelessCardRow() : null;
+    }
+
+    /** The row's plate, in window coordinates. */
+    @Nullable
+    private Rectangle cardRowArea() {
+        final Point row = this.cardRow();
+        return row == null ? null : new Rectangle(row.x, row.y,
+                CARD_ROW_EDGE * 2 + 18 * IWirelessTerminalContainer.UPGRADE_SLOTS, CARD_ROW_EDGE * 2 + 18);
+    }
+
+    @Override
+    protected boolean drawsWirelessUpgradePlate() {
+        return super.drawsWirelessUpgradePlate() && this.cardRow() == null;
     }
 
     /** A panel's plate stands where the card plate would, so the cards move out past its right edge. */
@@ -727,6 +763,10 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             left = Math.min(left, area.x);
             right = Math.max(right, area.x + area.width);
         }
+        final Rectangle row = this.cardRowArea();
+        if (row != null) {
+            right = Math.max(right, row.x + row.width);
+        }
 
         return (left + right - this.xSize) / 2;
     }
@@ -784,6 +824,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
             for (final Rectangle rect : this.panel.getOutsideAreas()) {
                 area.add(new Rectangle(this.guiLeft + rect.x, this.guiTop + rect.y, rect.width, rect.height));
             }
+        }
+
+        final Rectangle row = this.cardRowArea();
+        if (row != null) {
+            area.add(new Rectangle(this.guiLeft + row.x, this.guiTop + row.y, row.width, row.height));
         }
 
         return area;

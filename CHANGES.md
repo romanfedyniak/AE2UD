@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **A pattern terminal mode can line a wireless terminal's cards up in a row.** They hung on a plate beside
+  the window, or beside the mode's widest plate. `PatternModePanel.getWirelessCardRow()` names where a row of
+  them stands instead, beside plates of the mode's own; null, the default, keeps the plate.
+
 - **An addon's pattern can drop what it remembers about its recipe when recipes change.**
   `PatternRecipesChangedEvent` is posted on the Forge bus after a GroovyScript reload, before the interfaces
   decode their patterns again.
