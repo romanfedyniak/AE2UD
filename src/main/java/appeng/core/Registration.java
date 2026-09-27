@@ -82,6 +82,7 @@ import appeng.core.worlddata.SpatialDimensionManager;
 import appeng.hooks.ItemSpawnCapture;
 import appeng.hooks.TickHandler;
 import appeng.hooks.WrenchClickHook;
+import appeng.integration.modules.groovyscript.GroovyScriptReload;
 import appeng.items.materials.ItemMaterial;
 import appeng.items.parts.ItemFacade;
 import appeng.items.parts.ItemPart;
@@ -356,6 +357,10 @@ final class Registration {
         definitions.getRegistry().getBootstrapComponents(IInitComponent.class).forEachRemaining(b -> b.initialize(event.getSide()));
 
         MinecraftForge.EVENT_BUS.register(TickHandler.INSTANCE);
+
+        if (Platform.isModLoaded("groovyscript")) {
+            MinecraftForge.EVENT_BUS.register(new GroovyScriptReload());
+        }
 
         MinecraftForge.EVENT_BUS.register(new ChannelTierSync());
 

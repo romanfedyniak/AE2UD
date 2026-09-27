@@ -462,7 +462,19 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.notifyNeighbors();
     }
 
+    /**
+     * Decodes every pattern again, since the recipes behind them may have changed: what one makes, or whether
+     * it still makes anything at all.
+     */
+    public void rereadPatterns() {
+        this.updateCraftingList(true);
+    }
+
     private void updateCraftingList() {
+        this.updateCraftingList(false);
+    }
+
+    private void updateCraftingList(final boolean reread) {
         final Boolean[] accountedFor = new Boolean[this.patterns.getSlots()];
         Arrays.fill(accountedFor, false);
 
@@ -471,6 +483,11 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         }
 
         boolean removed = false;
+
+        if (reread && this.craftingList != null && !this.craftingList.isEmpty()) {
+            this.craftingList.clear();
+            removed = true;
+        }
 
         if (this.craftingList != null) {
             final Iterator<ICraftingPatternDetails> i = this.craftingList.iterator();

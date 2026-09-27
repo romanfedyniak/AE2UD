@@ -14,6 +14,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon's pattern can drop what it remembers about its recipe when recipes change.**
+  `PatternRecipesChangedEvent` is posted on the Forge bus after a GroovyScript reload, before the interfaces
+  decode their patterns again.
+
 - **A crafting pattern may take essentia, fluids or other non-item inputs.** The crafting CPU draws them as
   it does for a processing pattern and hands them to the machine beside the table, while the items keep
   substitution. The molecular assembler does not claim such a pattern.
@@ -400,6 +404,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   addon's machine does the same through `IPowerUsageReporter`.
 
 ### Autocrafting
+
+- **Patterns follow a GroovyScript reload.** `/gs reload` changes recipes without the event AE2 clears its
+  pattern cache on, so a crafting pattern went on making what the old recipe made, or offered a recipe that
+  was gone, until the game restarted. After a reload every interface decodes its patterns again against the
+  new recipes, and the network relearns what it can craft; crafts already running finish as they were.
 
 - **An interface hands a pattern of fluids or mana alone to a block with no item slots.** It looked for a
   place to put items before anything else, so a pattern with nothing but fluids in it was never given to a

@@ -2668,6 +2668,12 @@ wraps with amount 0) was the only one that ever went in ahead of its review.
     carry essentia, so as processing patterns their substitution was planned by the solver and then ignored
     by the CPU. `TileMolecularAssembler.canRun` refuses a pattern with any non-item input.
 
+89. **`PatternRecipesChangedEvent`** - additive, no upstream equivalent. Posted on the Forge bus on the server
+    thread at the end of the tick of a GroovyScript reload (`/gs reload` replaces recipes without a registry
+    event), after `PatternHelper`'s recipe cache is cleared; then every `IInterfaceHost` on a grid runs
+    `DualityInterface.rereadPatterns()`, which decodes all its patterns afresh and posts the pattern change.
+    For addon patterns that cache their recipe lookup. GroovyScript is a compile-only dependency.
+
 ### The crafting api is being aligned piecemeal, and that was not the plan
 
 `CONTRACT.md` §4.4 says crafting keeps its names and changes only its typing, because modern AE2's
