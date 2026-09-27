@@ -979,9 +979,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     // A row the player cannot pick up by hand - a fluid - but can carry away in a container.
                     // Left click fills what is held from the network; with an empty hand the server borrows
                     // an empty container out of storage and fills that instead. Never overrides AUTO_CRAFT,
-                    // which is what an empty hand on a craftable-but-unstocked row already means.
+                    // which is what an empty hand on a craftable-but-unstocked row already means. Anything
+                    // held that is no container for it goes into the network, as on an item's row.
+                    final ItemStack held = player.inventory.getItemStack();
                     if (mouseButton == 0 && entry != null && action != InventoryAction.AUTO_CRAFT
-                            && ContainerItemStrategies.isKeySupported(entry.getWhat())) {
+                            && ContainerItemStrategies.isKeySupported(entry.getWhat())
+                            && (held.isEmpty()
+                                    || ContainerItemStrategies.openContext(held, entry.getWhat().getType()) != null)) {
                         action = InventoryAction.FILL_ITEM;
                     } else if (mouseButton == 1 && !player.inventory.getItemStack().isEmpty()
                             && ContainerItemStrategies.getContainedStack(player.inventory.getItemStack()) != null) {

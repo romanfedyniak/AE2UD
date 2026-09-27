@@ -470,6 +470,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **An item clicked onto a fluid's or essentia's row in a terminal goes into the network.** A left click there
+  always asked to fill the held item, so anything that was no container for it - a stone, say - stayed in
+  hand. It is filled only when it is such a container, or the hand is empty; otherwise it is stored, as on an
+  item's row.
+
 - **A wireless terminal's card plate stands clear of a pattern mode's side plate.** Beside a mode that hangs a
   plate of its own off the window, the card plate was pushed right up against it, with no gap, and stayed at
   its usual height whatever the plate beside it did. It now keeps the gap every other plate keeps and lines
