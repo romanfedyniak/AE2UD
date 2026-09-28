@@ -242,12 +242,16 @@ public final class AppEng {
 
     @EventHandler
     private void serverStopping(final FMLServerStoppingEvent event) {
-        WorldData.instance().onServerStopping();
+        if (WorldData.isRunning()) {
+            WorldData.instance().onServerStopping();
+        }
     }
 
     @EventHandler
     private void serverStopped(final FMLServerStoppedEvent event) {
-        WorldData.instance().onServerStoppped();
+        if (WorldData.isRunning()) {
+            WorldData.instance().onServerStoppped();
+        }
         TickHandler.INSTANCE.shutdown();
         NetworkVisualiserService.INSTANCE.onServerStopped();
     }

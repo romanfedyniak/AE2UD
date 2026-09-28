@@ -470,6 +470,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A server that stops before its world has loaded no longer throws a second error on the way out.** When
+  another mod crashed it during startup, AE2 went on to tidy up world data that had never been made, and
+  that failure buried the real one in the log.
+
 - **An item clicked onto a fluid's or essentia's row in a terminal goes into the network.** A left click there
   always asked to fill the held item, so anything that was no container for it - a stone, say - stayed in
   hand. It is filled only when it is such a container, or the hand is empty; otherwise it is stored, as on an

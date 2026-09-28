@@ -111,6 +111,13 @@ public final class WorldData implements IWorldData {
     }
 
     /**
+     * False when a server stopped before its world was loaded, and there is nothing to stop.
+     */
+    public static boolean isRunning() {
+        return instance != null;
+    }
+
+    /**
      * Requires to start up from external from here
      * <p>
      * drawback of the singleton build style
