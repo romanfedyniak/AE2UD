@@ -60,6 +60,7 @@ import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -361,9 +362,14 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
      * Adds a ghost slot for every slot of every addon mode's grids. They go in at the origin, hidden; the mode's
      * screen places them. Called by each terminal once its own slots are in, so the slot numbers match on both
      * sides.
+     * <p>
+     * The modes go in by id, not in the order they were registered, which the client and the server need not
+     * share.
      */
     protected void addModeSlots() {
-        for (final PatternEncodingMode mode : PatternEncodingModes.getAll()) {
+        final List<PatternEncodingMode> modes = new ArrayList<>(PatternEncodingModes.getAll());
+        modes.sort(Comparator.comparing(mode -> mode.getId().toString()));
+        for (final PatternEncodingMode mode : modes) {
             if (EncoderGrids.isBuiltIn(mode.getId())) {
                 continue;
             }

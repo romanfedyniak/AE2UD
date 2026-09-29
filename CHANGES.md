@@ -470,6 +470,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **An addon's pattern mode no longer puts a recipe in the wrong squares on a server.** The terminal numbered
+  the modes' squares in the order the modes were registered, and the client and the server need not register
+  them in the same order. A recipe moved in from HEI then landed shifted, and a pattern was encoded from squares
+  the player never filled. They are numbered by the mode's id now.
+
 - **The game no longer crashes on start with HEI 4.35.0, which is now the oldest HEI it accepts.** HEI
   gave the method every click in a screen passes through a new parameter, and renamed the call that asks
   a recipe's move-items button whether it can transfer, so neither of the two places the mod reaches into
