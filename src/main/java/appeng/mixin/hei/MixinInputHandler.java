@@ -10,6 +10,7 @@
 
 package appeng.mixin.hei;
 
+import mezz.jei.input.IClickedIngredient;
 import mezz.jei.input.InputHandler;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -37,8 +38,9 @@ public class MixinInputHandler {
 
     @Inject(method = "handleMouseClick", at = @At("HEAD"), cancellable = true)
     private void ae2ud$networkShortcuts(final GuiScreen guiScreen, final int mouseButton, final int mouseX,
-            final int mouseY, final CallbackInfoReturnable<Boolean> cir) {
-        if (JeiIngredientActions.act(mouseButton - 100)) {
+            final int mouseY, final IClickedIngredient<?> heldBack, final CallbackInfoReturnable<Boolean> cir) {
+        // A click HEI held back for a ghost drag comes through again on release; it was offered on the press.
+        if (heldBack == null && JeiIngredientActions.act(mouseButton - 100)) {
             cir.setReturnValue(true);
         }
     }

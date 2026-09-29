@@ -470,6 +470,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **The game no longer crashes on start with HEI 4.35.0, which is now the oldest HEI it accepts.** HEI
+  gave the method every click in a screen passes through a new parameter, and renamed the call that asks
+  a recipe's move-items button whether it can transfer, so neither of the two places the mod reaches into
+  HEI matched any more.
+
 - **A server that stops before its world has loaded no longer throws a second error on the way out.** When
   another mod crashed it during startup, AE2 went on to tidy up world data that had never been made, and
   that failure buried the real one in the log.

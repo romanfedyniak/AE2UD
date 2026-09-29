@@ -75,7 +75,7 @@ public final class AppEng {
     public static final String MOD_DEPENDENCIES = "required-after:forge@[" + FORGE_CURRENT_VERSION + "," + FORGE_MAX_VERSION + ");" +
             "required-after:mixinbooter@[10.7,);" +
             "after:ctm@[" + CTM.VERSION + ",);" +
-            "after:jei@[4.33.0,);" +
+            "after:jei@[4.35.0,);" +
             "after:itemstages;" +
             "after:recipestages;" +
             "before:bogosorter@[1.2.2,);";
