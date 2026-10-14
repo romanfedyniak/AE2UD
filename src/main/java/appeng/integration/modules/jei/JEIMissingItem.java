@@ -231,7 +231,7 @@ public class JEIMissingItem implements IRecipeTransferError {
             RecipeTransferButton b = ((RecipeLayout) recipeLayout).getRecipeTransferButton();
             if (b != null) {
                 List<String> tooltipLines = new ArrayList<>();
-                b.update(c, minecraft.player);
+                b.init(c, minecraft.player);
                 if (errored && foundAny) {
                     tooltipLines.add(I18n.translateToLocal("gui.tooltips.appliedenergistics2.PartialTransfer"));
                     b.enabled = true;
