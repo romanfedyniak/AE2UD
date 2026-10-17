@@ -163,6 +163,11 @@ public class GuiRenamer extends AEBaseGui implements IJEIGhostIngredients {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.textField != null && this.textField.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) { // Enter
             this.send("QuartzKnife.ReName", this.textField.getText());

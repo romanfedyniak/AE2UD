@@ -253,6 +253,11 @@ public class GuiPatternUpload extends AEBaseGui {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchField != null && this.searchField.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (this.searchField.isFocused() && this.searchField.textboxKeyTyped(character, key)) {
             this.refilter();

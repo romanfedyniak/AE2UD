@@ -465,7 +465,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
     @Override
     public boolean isTextFieldFocused() {
-        return this.searchField != null && this.searchField.isFocused();
+        return this.searchField != null && this.searchField.isFocused() || this.cpuTable.isSearchFocused();
     }
 
     @Override

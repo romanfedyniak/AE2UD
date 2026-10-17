@@ -93,6 +93,11 @@ public class GuiQuartzKnife extends AEBaseGui {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.name != null && this.name.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (this.name.textboxKeyTyped(character, key)) {
             this.sendName();

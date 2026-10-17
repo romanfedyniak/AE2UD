@@ -470,6 +470,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **Typing P into a search or name box no longer opens the pattern or cell under the cursor.** The key that
+  opens a pattern's view stands aside while a box has the keyboard, but eight places never said that theirs
+  had it: the Pattern Access Terminal, the Crafting Plan's tree, the crafting CPU list beside three screens,
+  the ore dictionary storage bus, pattern upload, the amount screen, the renamer and the Quartz Cutting Knife.
+
 - **A recipe with missing items no longer crashes the game in HEI 4.35.1 and later, the oldest HEI accepted
   now.** HEI gave the call that asks a recipe's move-items button whether it can transfer its old name back,
   and the mod still used the name from 4.35.0.

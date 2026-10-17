@@ -397,6 +397,11 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.cpuTable.isSearchFocused() || this.searchField != null && this.searchField.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (this.cpuTable.keyTyped(character, key)) {
             return;

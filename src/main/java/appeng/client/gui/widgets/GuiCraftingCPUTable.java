@@ -183,6 +183,10 @@ public class GuiCraftingCPUTable extends Gui {
         return true;
     }
 
+    public boolean isSearchFocused() {
+        return this.searchField != null && this.searchField.isFocused();
+    }
+
     /**
      * @return true when the search field took the key, so the screen must not act on it.
      */

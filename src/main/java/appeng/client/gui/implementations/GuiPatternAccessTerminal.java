@@ -509,6 +509,12 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchFieldInputs.isFocused() || this.searchFieldOutputs.isFocused()
+                || this.searchFieldNames.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (character == ' ') {

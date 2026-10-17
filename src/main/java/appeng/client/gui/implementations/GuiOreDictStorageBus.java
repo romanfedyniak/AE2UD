@@ -130,6 +130,11 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.searchFieldInputs != null && this.searchFieldInputs.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {

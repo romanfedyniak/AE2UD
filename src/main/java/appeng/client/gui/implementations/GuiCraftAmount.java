@@ -268,6 +268,11 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return this.amountToCraft != null && this.amountToCraft.isFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {

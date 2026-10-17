@@ -110,6 +110,11 @@ public class GuiCraftingStatus extends GuiCraftingCPU {
     }
 
     @Override
+    public boolean isTextFieldFocused() {
+        return super.isTextFieldFocused() || this.cpuTable.isSearchFocused();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (this.cpuTable.keyTyped(character, key)) {
             return;
