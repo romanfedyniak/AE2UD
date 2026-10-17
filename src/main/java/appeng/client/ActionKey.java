@@ -15,6 +15,7 @@ import appeng.util.Platform;
 public enum ActionKey {
     TOGGLE_FOCUS(Keyboard.KEY_TAB, KeyConflictContext.GUI),
     VIEW_PATTERN(Keyboard.KEY_P, KeyConflictContext.GUI),
+    SEARCH_HOVERED(Keyboard.KEY_T, KeyConflictContext.GUI),
 
     JEI_RETRIEVE(Mouse.MIDDLE, KeyConflictContext.GUI, KeyModifier.CONTROL,
             () -> isEnabledWithJei(AEFeature.JEI_RETRIEVE)),

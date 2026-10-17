@@ -1013,6 +1013,7 @@ stat.ae2.TurnedCranks=Turned Cranks
 key.appliedenergistics2.category=Applied Energistics 2
 key.toggle_focus.desc=Toggle search box focus
 key.view_pattern.desc=View pattern under cursor
+key.search_hovered.desc=Search for hovered item
 key.jei_retrieve.desc=Take Ingredient From Network
 key.jei_craft.desc=Order Ingredient From Network
 key.open_wireless_terminal.desc=Open Wireless Terminal

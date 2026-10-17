@@ -434,6 +434,26 @@ public class ClientHelper extends ServerHelper {
     }
 
     /**
+     * Puts the name of what the cursor is over into the open screen's search box. Ahead of the screen's own
+     * keyTyped, which would otherwise type the key into a box that has the keyboard.
+     */
+    @SubscribeEvent
+    public void onSearchHoveredKey(final GuiScreenEvent.KeyboardInputEvent.Pre event) {
+        if (!Keyboard.getEventKeyState() || !this.isActionKey(ActionKey.SEARCH_HOVERED, Keyboard.getEventKey())
+                || !(event.getGui() instanceof AEBaseGui gui)) {
+            return;
+        }
+
+        final Minecraft mc = Minecraft.getMinecraft();
+        final int mouseX = Mouse.getX() * gui.width / mc.displayWidth;
+        final int mouseY = gui.height - Mouse.getY() * gui.height / mc.displayHeight - 1;
+
+        if (gui.searchForHovered(mouseX, mouseY)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
      * Opens the pattern view for the encoded pattern under the cursor, from whatever screen the player is
      * in - ours, a vanilla one or another mod's. The stack comes from {@code getSlotUnderMouse()}, which is
      * vanilla and covers the ME terminal too, because a terminal row is a real slot.

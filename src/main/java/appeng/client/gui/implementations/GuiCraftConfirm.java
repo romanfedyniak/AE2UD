@@ -469,6 +469,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     }
 
     @Override
+    public boolean isTypingInSearch() {
+        return this.searchField != null && this.searchField.isTypedIn();
+    }
+
+    @Override
     public void onGuiClosed() {
         memoryText = this.searchField != null && AEClientConfig.instance().keepsSearch()
                 ? this.searchField.getText() : "";

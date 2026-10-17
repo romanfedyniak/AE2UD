@@ -498,6 +498,12 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     }
 
     @Override
+    public boolean isTypingInSearch() {
+        return this.searchFieldInputs != null
+                && (this.searchFieldInputs.isTypedIn() || this.searchFieldNames.isTypedIn());
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
             if (character == ' '

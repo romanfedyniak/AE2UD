@@ -420,6 +420,11 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
     }
 
     @Override
+    public boolean isTypingInSearch() {
+        return this.searchField != null && this.searchField.isTypedIn();
+    }
+
+    @Override
     public void onGuiClosed() {
         memoryText = AEClientConfig.instance().keepsSearch() ? this.searchField.getText() : "";
         super.onGuiClosed();

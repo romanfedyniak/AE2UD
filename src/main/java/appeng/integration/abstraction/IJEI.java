@@ -19,6 +19,9 @@
 package appeng.integration.abstraction;
 
 
+import javax.annotation.Nullable;
+
+import appeng.api.stacks.AEKey;
 import appeng.integration.IIntegrationModule;
 
 
@@ -32,6 +35,12 @@ public interface IJEI extends IIntegrationModule {
     }
 
     default void setSearchText(String searchText) {
+    }
+
+    /** What the cursor is over in HEI's ingredient list or its bookmarks, if anything. */
+    @Nullable
+    default AEKey getHoveredKey() {
+        return null;
     }
 
     class Stub extends IIntegrationModule.Stub implements IJEI {

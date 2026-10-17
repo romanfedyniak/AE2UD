@@ -997,11 +997,17 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
     }
 
     @Override
+    public boolean isTypingInSearch() {
+        return this.searchField != null && this.searchField.isTypedIn();
+    }
+
+    @Override
     protected void keyTyped(final char character, final int key) throws IOException {
 
         if (!this.checkHotbarKeys(key)) {
             if (AppEng.proxy.isActionKey(ActionKey.TOGGLE_FOCUS, key)) {
                 this.searchField.setFocused(!this.searchField.isFocused());
+                this.searchField.setTypedIn(true);
                 return;
             }
 

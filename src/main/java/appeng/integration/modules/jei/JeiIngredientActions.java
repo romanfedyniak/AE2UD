@@ -114,7 +114,7 @@ public final class JeiIngredientActions {
 
     /** What the cursor is over in JEI's own list, or failing that in its bookmarks. */
     @Nullable
-    private static AEKey hoveredKey() {
+    static AEKey hoveredKey() {
         if (JEIPlugin.runtime == null) {
             return null;
         }

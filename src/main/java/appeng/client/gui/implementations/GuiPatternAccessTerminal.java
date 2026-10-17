@@ -96,6 +96,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     private final MEGuiTooltipTextField searchFieldOutputs;
     private final MEGuiTooltipTextField searchFieldInputs;
     private final MEGuiTooltipTextField searchFieldNames;
+    /** Of the two item boxes, the one the player was last in; where the search key writes. */
+    private MEGuiTooltipTextField lastItemField;
 
     /** The two boxes that ask about items read the terminals' grammar; the third is a plain name. */
     private final RepoSearch inputSearch = new RepoSearch();
@@ -133,6 +135,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
         searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
+        lastItemField = searchFieldOutputs;
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);
@@ -158,6 +161,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 () -> RepoSearch.syntaxTooltip(ButtonToolTips.SearchFieldOutputs.getLocal()));
         searchFieldNames = createTextField(71, 12, () -> ButtonToolTips.SearchFieldNames.getLocal());
         searchFieldInputs.setFocused(AEClientConfig.instance().focusesSearchOnOpen());
+        lastItemField = searchFieldOutputs;
 
         guiButtonAssemblersOnly = new GuiImgButton(0, 0, Settings.ACTIONS, null);
         guiButtonHideFull = new GuiImgButton(0, 0, Settings.ACTIONS, null);
@@ -194,6 +198,14 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             @Override
             public void onTextChange(String oldText) {
                 refreshList();
+            }
+
+            @Override
+            public void setFocused(boolean focus) {
+                super.setFocused(focus);
+                if (focus && (this == searchFieldInputs || this == searchFieldOutputs)) {
+                    lastItemField = this;
+                }
             }
         };
         textField.setEnableBackgroundDrawing(false);
@@ -268,6 +280,21 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         boxes.add(searchBox(this.searchFieldInputs));
         boxes.add(searchBox(this.searchFieldOutputs));
         return boxes;
+    }
+
+    @Override
+    public boolean isTypingInSearch() {
+        return this.searchFieldInputs.isTypedIn() || this.searchFieldOutputs.isTypedIn()
+                || this.searchFieldNames.isTypedIn();
+    }
+
+    /**
+     * The item box the player was last in, the outputs one until then: a name searched for here is more
+     * often a pattern's product than one of its ingredients.
+     */
+    @Override
+    protected KeySearchTarget getSearchTargetForKey() {
+        return searchBox(this.lastItemField);
     }
 
     private static KeySearchTarget searchBox(final MEGuiTooltipTextField field) {

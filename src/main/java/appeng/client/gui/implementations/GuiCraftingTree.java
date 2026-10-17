@@ -454,6 +454,11 @@ public class GuiCraftingTree extends AEBaseGui implements IKeyUnderMouse {
         super.handleMouseInput();
     }
 
+    @Override
+    public boolean isTypingInSearch() {
+        return this.searchField != null && this.searchField.isTypedIn();
+    }
+
     /**
      * The one screen whose field is built in the window's coordinates rather than the screen's, so its
      * rectangle is the only one that has to be moved.

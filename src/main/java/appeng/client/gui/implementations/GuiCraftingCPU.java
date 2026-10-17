@@ -640,6 +640,11 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     }
 
     @Override
+    public boolean isTypingInSearch() {
+        return this.searchField != null && this.searchField.isTypedIn();
+    }
+
+    @Override
     public void onGuiClosed() {
         memoryText = this.searchField != null && AEClientConfig.instance().keepsSearch()
                 ? this.searchField.getText() : "";

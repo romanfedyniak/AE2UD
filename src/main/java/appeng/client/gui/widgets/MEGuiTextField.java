@@ -51,6 +51,7 @@ public class MEGuiTextField extends GuiTextField {
     private final int _height;
     private final int _fontPad;
     private int selectionColor = 0xFF00FF00;
+    private boolean typedIn;
 
     /**
      * Uses the values to instantiate a padded version of a text field.
@@ -83,8 +84,28 @@ public class MEGuiTextField extends GuiTextField {
         if (!this.isFocused()) {
             this.setFocused(requiresFocus);
         }
+        this.typedIn = this.isFocused();
 
         return true;
+    }
+
+    @Override
+    public void setFocused(final boolean focused) {
+        super.setFocused(focused);
+        this.typedIn = false;
+    }
+
+    /**
+     * Whether the player has the keyboard here on purpose - clicked in or typed something - rather than the
+     * screen handing the field its focus, or text having been put in for them since.
+     */
+    public boolean isTypedIn() {
+        return this.isFocused() && this.typedIn;
+    }
+
+    /** For a field built again in place of this one, or one a focus key put the keyboard in. */
+    public void setTypedIn(final boolean typedIn) {
+        this.typedIn = typedIn;
     }
 
     /**
@@ -126,6 +147,7 @@ public class MEGuiTextField extends GuiTextField {
         }
 
         if (handled) {
+            this.typedIn = true;
             onTextChange(oldText);
         }
 
@@ -168,6 +190,7 @@ public class MEGuiTextField extends GuiTextField {
 
         super.setText(text);
         super.setCursorPositionEnd();
+        this.typedIn = false;
 
         if (!ignoreTrigger) {
             onTextChange(oldText);

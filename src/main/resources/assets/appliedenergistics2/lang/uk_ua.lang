@@ -1013,6 +1013,7 @@ stat.ae2.TurnedCranks=Поворотів ручки
 key.appliedenergistics2.category=Applied Energistics 2
 key.toggle_focus.desc=Перемикання фокуса поля пошуку
 key.view_pattern.desc=Перегляд шаблону під курсором
+key.search_hovered.desc=Шукати предмет під курсором
 key.jei_retrieve.desc=Взяти інгредієнт з мережі
 key.jei_craft.desc=Замовити інгредієнт з мережі
 key.open_wireless_terminal.desc=Відкрити бездротовий термінал

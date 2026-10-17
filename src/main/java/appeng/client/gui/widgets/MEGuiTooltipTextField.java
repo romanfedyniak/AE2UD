@@ -25,6 +25,7 @@ public class MEGuiTooltipTextField implements ITooltip {
     private static MEGuiTooltipTextField previousKeyboardRepeatEnabledField;
     private Supplier<String> tooltip;
     private int fontPad;
+    private boolean typedIn;
 
     public int x;
     public int y;
@@ -91,9 +92,15 @@ public class MEGuiTooltipTextField implements ITooltip {
             setText("");
         } else {
             field.mouseClicked(xPos, yPos, button);
+            this.typedIn = true;
         }
 
         field.setCanLoseFocus(true);
+    }
+
+    /** The same as {@link MEGuiTextField#isTypedIn()}. */
+    public boolean isTypedIn() {
+        return isFocused() && this.typedIn;
     }
 
     /**
@@ -124,6 +131,7 @@ public class MEGuiTooltipTextField implements ITooltip {
         }
 
         if (handled) {
+            this.typedIn = true;
             onTextChange(oldText);
         }
 
@@ -152,6 +160,7 @@ public class MEGuiTooltipTextField implements ITooltip {
         int currentCursorPos = field.getCursorPosition();
         field.setText(text);
         field.setCursorPosition(currentCursorPos);
+        this.typedIn = false;
 
         if (!ignoreTrigger) {
             onTextChange(oldText);
@@ -167,6 +176,7 @@ public class MEGuiTooltipTextField implements ITooltip {
     }
 
     public void setFocused(boolean focus) {
+        this.typedIn = false;
         if (field.isFocused() == focus) {
             return;
         }

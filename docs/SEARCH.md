@@ -89,6 +89,14 @@ the Crafting Plan's field is built in the window's coordinates while every other
 What goes in is `RepoSearch.termFor(key)`: the display name, stripped of formatting codes and quoted, so
 the whole name is one term. The two boxes that search interface *names* are deliberately not targets.
 
+The search key (`ActionKey.SEARCH_HOVERED`, T) is the third way in. `ClientHelper.onSearchHoveredKey` hands
+it to `AEBaseGui.searchForHovered`, which asks HEI's list and bookmarks first, then `IKeyUnderMouse`, then
+the slot under the cursor with a placeholder unwrapped, and writes into `getSearchTargetForKey()` - the
+first target, or in the Pattern Access Terminal the item box last focused. It stands aside while
+`isTypingInSearch()` says the player is typing: the fields remember whether they were clicked into or typed
+in (`isTypedIn`), and a focus the screen gave them on opening or text put in for them does not count, so
+in auto-search the key still works until the first letter is typed.
+
 ## What the tooltip says
 
 `RepoSearch.syntaxTooltip(fieldName)` writes the whole grammar out, one line to a rule, and every field

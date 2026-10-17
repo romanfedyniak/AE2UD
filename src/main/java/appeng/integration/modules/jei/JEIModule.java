@@ -19,6 +19,7 @@
 package appeng.integration.modules.jei;
 
 import appeng.api.integrations.hei.IngredientConverters;
+import appeng.api.stacks.AEKey;
 import appeng.integration.abstraction.IJEI;
 
 
@@ -50,6 +51,11 @@ public class JEIModule implements IJEI {
     @Override
     public void setSearchText(String searchText) {
         this.jei.setSearchText(searchText);
+    }
+
+    @Override
+    public AEKey getHoveredKey() {
+        return JeiIngredientActions.hoveredKey();
     }
 
     @Override

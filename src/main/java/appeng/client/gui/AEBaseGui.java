@@ -48,6 +48,7 @@ import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.core.sync.packets.PacketSwapSlots;
 import appeng.helpers.InventoryAction;
+import appeng.integration.Integrations;
 import appeng.util.Platform;
 import appeng.api.config.Settings;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -263,6 +264,71 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         return false;
+    }
+
+    /**
+     * Whether a search box on this screen has the keyboard because the player put it there - clicked in or
+     * typed. A box focused by the screen itself, on opening, does not count: there the search key would
+     * otherwise only ever be typed as a letter.
+     */
+    public boolean isTypingInSearch() {
+        return false;
+    }
+
+    /**
+     * The box the search key writes into. The first one by default; a screen with several says which.
+     */
+    @Nullable
+    protected KeySearchTarget getSearchTargetForKey() {
+        final List<KeySearchTarget> targets = this.getKeySearchTargets();
+        return targets.isEmpty() ? null : targets.get(0);
+    }
+
+    /**
+     * What the cursor is over: something in HEI's list or bookmarks, a key the screen draws outside slots, or
+     * a slot, with a placeholder read as the key it stands for.
+     */
+    @Nullable
+    private AEKey getHoveredKey(final int mouseX, final int mouseY) {
+        final AEKey inHei = Integrations.jei().getHoveredKey();
+        if (inHei != null) {
+            return inHei;
+        }
+
+        if (this instanceof IKeyUnderMouse source) {
+            final AEKey drawn = source.getKeyUnderMouse(mouseX, mouseY);
+            if (drawn != null) {
+                return drawn;
+            }
+        }
+
+        final Slot slot = this.getSlotUnderMouse();
+        final GenericStack inSlot = slot == null ? null : GenericStack.resolveItemStack(slot.getStack());
+        return inSlot == null ? null : inSlot.what();
+    }
+
+    /**
+     * Puts the name of what the cursor is over into this screen's search box, for the search key.
+     *
+     * @return whether it did, so the key goes no further.
+     */
+    public boolean searchForHovered(final int mouseX, final int mouseY) {
+        if (this.isTypingInSearch()) {
+            return false;
+        }
+
+        final KeySearchTarget target = this.getSearchTargetForKey();
+        if (target == null) {
+            return false;
+        }
+
+        final AEKey hovered = this.getHoveredKey(mouseX, mouseY);
+        if (hovered == null) {
+            return false;
+        }
+
+        target.accept(hovered);
+        return true;
     }
 
     /**
@@ -696,6 +762,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         to.setCursorPosition(from.getCursorPosition());
         to.setSelectionPos(from.getSelectionEnd());
         to.setFocused(from.isFocused());
+        to.setTypedIn(from.isTypedIn());
     }
 
     /**
