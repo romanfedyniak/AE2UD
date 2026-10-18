@@ -18,6 +18,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
 import appeng.api.AEApi;
 import appeng.api.behaviors.PlacementStrategy;
@@ -189,8 +190,16 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
 
     @Override
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
-        if (!this.isActiveMode() || this.isSleeping() || !this.getProxy().isActive()) {
+        if (!this.isActiveMode()) {
             return TickRateModulation.SLEEP;
+        }
+
+        // An active plane places for as long as the network has what it is meant to place, so it never leaves the
+        // tick queue: a plane put to sleep while the network was down or the redstone said stop waited for a wake
+        // that nothing sent (the block in front doesn't change while nothing is placed). Idle, it slows down to
+        // the slowest rate instead and looks again then; whatever wakes it brings it back to the fastest at once.
+        if (this.isSleeping() || !this.getProxy().isActive()) {
+            return TickRateModulation.SLOWER;
         }
 
         return this.placeFromNetwork() ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
@@ -199,7 +208,12 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
     /** The slots are read as a list of what to fetch, not as a filter, so an inverter card means nothing here. */
     private boolean placeFromNetwork() {
         if (this.blocked) {
-            return false;
+            // The flag follows neighbour updates, and a block taken away without one (some mods' machines set the
+            // block quietly) left the plane blocked in front of an empty space. The world says how it really is.
+            this.refreshBlocked();
+            if (this.blocked) {
+                return false;
+            }
         }
 
         final MEStorage storage;
@@ -392,6 +406,11 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
             this.wasActive = currentActive;
             this.remountStorage();
             this.getHost().markForUpdate();
+            // An active plane idled at its slowest rate while the network was down (channels being handed out
+            // again, power gone); it goes back to the fastest as soon as the network is back.
+            if (currentActive) {
+                this.wake();
+            }
         }
     }
 
@@ -484,18 +503,27 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         return PlaneConnections.of(up, right, down, left);
     }
 
+    /** Whether the block in front leaves room, read from the world, for the plane and its placement strategies. */
+    private void refreshBlocked() {
+        final TileEntity te = this.getHost().getTile();
+        final World w = te.getWorld();
+        final BlockPos tePos = te.getPos().offset(this.getSide().getFacing());
+
+        this.blocked = !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
+        if (this.placementStrategy != null) {
+            this.placementStrategy.clearBlocked();
+        }
+    }
+
     @Override
     public void onNeighborChanged(IBlockAccess w, BlockPos pos, BlockPos neighbor) {
+        // With a redstone card the plane idles while the signal says so; a change of the signal comes from any
+        // side, and the wake has it look at once rather than at its slow idle rate.
+        if (this.isInstalled(CardTraits.REDSTONE)) {
+            this.wake();
+        }
         if (pos.offset(this.getSide().getFacing()).equals(neighbor)) {
-            final TileEntity te = this.getHost().getTile();
-            final AEPartLocation side = this.getSide();
-            final BlockPos tePos = te.getPos().offset(side.getFacing());
-
-            this.blocked = !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
-            if (this.placementStrategy != null) {
-                this.placementStrategy.clearBlocked();
-            }
-
+            this.refreshBlocked();
             if (!this.blocked) {
                 this.wake();
             }
