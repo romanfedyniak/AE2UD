@@ -472,11 +472,15 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     /**
      * An item's own tooltip with the slot's hints under it. Every screen of the mod that draws an item
      * tooltip by hand goes through here, so the hints are always the last lines of it rather than landing
-     * in the middle of whatever that screen adds.
+     * in the middle of whatever that screen adds. The stack goes to the tooltip events as vanilla's own item
+     * tooltip passes it, so mods that draw over a tooltip (Thaumcraft's aspects) know what it is for.
      */
-    protected final void drawSlotTooltip(final List<String> lines, final int x, final int y) {
+    protected final void drawSlotTooltip(final ItemStack stack, final List<String> lines, final int x, final int y) {
         lines.addAll(this.slotHints(this.hoveredSlot));
-        this.drawHoveringText(lines, x, y, this.fontRenderer);
+        final FontRenderer font = stack.getItem().getFontRenderer(stack);
+        GuiUtils.preItemToolTip(stack);
+        this.drawHoveringText(lines, x, y, font == null ? this.fontRenderer : font);
+        GuiUtils.postItemToolTip();
     }
 
     @Override
