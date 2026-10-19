@@ -1598,7 +1598,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return types == null ? Collections.emptySet() : types;
     }
 
-    private static Set<AEKeyType> typesOf(final GenericStack[] stacks) {
+    public static Set<AEKeyType> typesOf(final GenericStack[] stacks) {
         if (stacks.length == 0) {
             return Collections.emptySet();
         }
@@ -1620,11 +1620,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * it registers how to read a neighbour and not only how to push into one.
      */
     private boolean holdsAnyOf(final EnumFacing side, final Set<AEKeyType> types) {
+        return holdsAnyOf(this.iHost.getTileEntity(), side, types);
+    }
+
+    /** The same for a block pushing from {@code self}, which an interface tunnel's output does too. */
+    public static boolean holdsAnyOf(final TileEntity self, final EnumFacing side, final Set<AEKeyType> types) {
         if (types.isEmpty()) {
             return false;
         }
 
-        final TileEntity self = this.iHost.getTileEntity();
         final Map<AEKeyType, ExternalStorageStrategy> strategies = StackWorldBehaviors
                 .createExternalStorageStrategies(self.getWorld(), self.getPos().offset(side), side.getOpposite());
 
@@ -1691,11 +1695,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * is, and a key type an addon registers works the moment it registers a strategy.
      */
     private boolean acceptsExtras(final EnumFacing side, final GenericStack[] extraInputs) {
+        return acceptsExtras(this.iHost.getTileEntity(), side, extraInputs);
+    }
+
+    public static boolean acceptsExtras(final TileEntity self, final EnumFacing side, final GenericStack[] extraInputs) {
         if (extraInputs.length == 0) {
             return true;
         }
 
-        final List<StackExportStrategy> export = this.getExportStrategies(side);
+        final List<StackExportStrategy> export = getExportStrategies(self, side);
         for (final GenericStack extra : extraInputs) {
             if (pushThrough(export, extra, Actionable.SIMULATE) != extra.amount()) {
                 return false;
@@ -1705,11 +1713,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     private void pushExtras(final EnumFacing side, final GenericStack[] extraInputs) {
+        pushExtras(this.iHost.getTileEntity(), side, extraInputs);
+    }
+
+    public static void pushExtras(final TileEntity self, final EnumFacing side, final GenericStack[] extraInputs) {
         if (extraInputs.length == 0) {
             return;
         }
 
-        final List<StackExportStrategy> export = this.getExportStrategies(side);
+        final List<StackExportStrategy> export = getExportStrategies(self, side);
         for (final GenericStack extra : extraInputs) {
             pushThrough(export, extra, Actionable.MODULATE);
         }
@@ -1730,8 +1742,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      * Built per push rather than cached: the neighbour may have been replaced since the last one, and a
      * strategy holds the position and side it was created for.
      */
-    private List<StackExportStrategy> getExportStrategies(final EnumFacing side) {
-        final TileEntity self = this.iHost.getTileEntity();
+    private static List<StackExportStrategy> getExportStrategies(final TileEntity self, final EnumFacing side) {
         return StackWorldBehaviors.createExportStrategies(self.getWorld(), self.getPos().offset(side),
                 side.getOpposite());
     }

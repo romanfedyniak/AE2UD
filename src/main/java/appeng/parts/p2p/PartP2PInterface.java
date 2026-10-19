@@ -281,7 +281,8 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     /**
      * Takes a pattern the interface has already laid out and hands it to the machine in front, all or
      * nothing. A machine that speaks {@link ICraftingMachine} - including another tunnel's input - is given
-     * the table directly; anything else is loaded through the send queue, which carries items only.
+     * the table directly; anything else is loaded through the send queue, which carries items only, and
+     * has its fluids poured straight in.
      */
     private boolean accept(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
             final GenericStack[] extraInputs, final BlockingMode blocking) {
@@ -299,21 +300,25 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         if (machine != null && machine.acceptsPlans()) {
             return machine.pushPattern(patternDetails, table, extraInputs, facing);
         }
-        if (extraInputs.length > 0) {
-            return false;
-        }
+        // The non-item inputs go straight into the machine the way the interface fills a neighbour of its own;
+        // a pattern of fluids alone needs no slots at all.
+        final TileEntity self = this.getTile();
+        final EnumFacing toMachine = this.getSide().getFacing();
+        final boolean hasItems = !table.isEmpty();
 
         final InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, facing);
-        if (ad == null) {
+        if (ad == null && hasItems) {
             return false;
         }
 
-        if (blocking != BlockingMode.NO && ad.containsItems()
-                && !(blocking == BlockingMode.SMART && this.ranLast(patternDetails))) {
+        if (blocking != BlockingMode.NO && !(blocking == BlockingMode.SMART && this.ranLast(patternDetails))
+                && ((ad != null && ad.containsItems())
+                        || DualityInterface.holdsAnyOf(self, toMachine, DualityInterface.typesOf(extraInputs)))) {
             return false;
         }
 
-        if (!DualityInterface.acceptsItems(ad, table)) {
+        if ((hasItems && !DualityInterface.acceptsItems(ad, table))
+                || !DualityInterface.acceptsExtras(self, toMachine, extraInputs)) {
             return false;
         }
 
@@ -323,6 +328,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
                 this.waitingToSend.add(is.copy());
             }
         }
+        DualityInterface.pushExtras(self, toMachine, extraInputs);
 
         this.lastRan = patternDetails;
         this.pushItemsOut();
