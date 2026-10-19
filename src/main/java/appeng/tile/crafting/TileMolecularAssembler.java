@@ -84,7 +84,6 @@ import net.minecraftforge.items.IItemHandler;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
@@ -614,8 +613,8 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
     private void pushOut(ItemStack output) {
         if (this.pushDirection == AEPartLocation.INTERNAL) {
-            for (final Map.Entry<EnumFacing, Object> d : neighbors.entrySet()) {
-                output = this.pushTo(output, d.getKey());
+            for (final EnumFacing d : EnumFacing.VALUES) {
+                output = this.pushTo(output, d);
                 if (output.isEmpty()) {
                     break;
                 }
@@ -637,6 +636,10 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
             return output;
         }
 
+        // An interface tunnel offers its inventory only once it is linked, and linking sends no block update.
+        if (!neighbors.containsKey(d)) {
+            this.updateNeighbors(this.world, this.pos, this.pos.offset(d));
+        }
         Object capability = neighbors.get(d);
         if (capability instanceof MEStorage) {
             // Prioritize a handler to directly link to another ME network
