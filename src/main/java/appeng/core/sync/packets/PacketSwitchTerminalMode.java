@@ -31,6 +31,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
+import appeng.helpers.WirelessTerminalAccess;
 import appeng.helpers.WirelessTerminalModes;
 import appeng.util.Platform;
 
@@ -97,6 +98,9 @@ public class PacketSwitchTerminalMode extends AppEngPacket {
         // Told which slot rather than letting it be worked out: the overload that works it out loses the
         // bauble flag on the way, and a terminal worn as a bauble would be looked for in the backpack.
         final IInventorySlotAware where = (IInventorySlotAware) player.openContainer;
+        if (where.isBaubleSlot()) {
+            WirelessTerminalAccess.resendBauble(player, where.getInventorySlot());
+        }
         Platform.openGUI(player, where.getInventorySlot(), (GuiBridge) handler.getGuiHandler(terminal),
                 where.isBaubleSlot());
     }

@@ -137,6 +137,9 @@ public class PacketTerminalUse extends AppEngPacket {
 
         // Written before the screen is asked for, because the screen is chosen by reading it back off the item.
         WirelessTerminalModes.setModeId(itemStack, this.mode);
+        if (isBauble) {
+            WirelessTerminalAccess.resendBauble(player, slotIdx);
+        }
         Platform.openGUI(player, slotIdx, (GuiBridge) handler.getGuiHandler(itemStack), isBauble);
         return true;
     }

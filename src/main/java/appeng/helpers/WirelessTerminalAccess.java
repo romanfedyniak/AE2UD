@@ -176,6 +176,21 @@ public final class WirelessTerminalAccess {
         return Platform.isModLoaded("baubles") && carriesBauble(player);
     }
 
+    /**
+     * Sends a worn terminal to its client again. Baubles sends a slot only when told it changed, and a mode
+     * written onto the terminal in place tells it nothing, so the client went on showing the mode before.
+     */
+    public static void resendBauble(final EntityPlayer player, final int slot) {
+        if (Platform.isModLoaded("baubles")) {
+            markBaubleChanged(player, slot);
+        }
+    }
+
+    @Optional.Method(modid = "baubles")
+    private static void markBaubleChanged(final EntityPlayer player, final int slot) {
+        BaublesApi.getBaublesHandler(player).setChanged(slot, true);
+    }
+
     @Optional.Method(modid = "baubles")
     private static boolean carriesBauble(final EntityPlayer player) {
         for (int i = 0; i < BaublesApi.getBaublesHandler(player).getSlots(); i++) {

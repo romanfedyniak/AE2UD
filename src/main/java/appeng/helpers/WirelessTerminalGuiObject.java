@@ -63,7 +63,10 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.common.Optional;
 import net.minecraftforge.items.IItemHandler;
+
+import baubles.api.BaublesApi;
 
 
 public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, IInventorySlotAware, IViewCellStorage,
@@ -183,9 +186,33 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         return 0.0;
     }
 
+    /**
+     * On the client, the terminal in its slot now rather than the one the screen was opened with: a terminal
+     * opened by a key has its mode written on the server, and the item carrying it reaches the client as a new
+     * stack a tick after the screen, so the one held here would keep showing the mode before.
+     */
     @Override
     public ItemStack getItemStack() {
+        if (this.myPlayer.world.isRemote) {
+            final ItemStack live = this.isBaubleSlot
+                    ? (Platform.isModLoaded("baubles") ? this.baubleStack() : ItemStack.EMPTY)
+                    : this.inventorySlot >= 0 && this.inventorySlot < this.myPlayer.inventory.getSizeInventory()
+                            ? this.myPlayer.inventory.getStackInSlot(this.inventorySlot)
+                            : ItemStack.EMPTY;
+            if (!live.isEmpty() && live.getItem() == this.effectiveItem.getItem()
+                    && this.encryptionKey.equals(this.wth.getEncryptionKey(live))) {
+                return live;
+            }
+        }
         return this.effectiveItem;
+    }
+
+    @Optional.Method(modid = "baubles")
+    private ItemStack baubleStack() {
+        final IItemHandler baubles = BaublesApi.getBaublesHandler(this.myPlayer);
+        return this.inventorySlot >= 0 && this.inventorySlot < baubles.getSlots()
+                ? baubles.getStackInSlot(this.inventorySlot)
+                : ItemStack.EMPTY;
     }
 
     @Override
