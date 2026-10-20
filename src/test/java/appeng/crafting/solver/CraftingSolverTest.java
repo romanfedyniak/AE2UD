@@ -657,6 +657,80 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void aBucketHandedBackByTheCraftItFillsForIsNoBucketToStartWith() {
+        // A lava crystal takes a lava bucket and hands the bucket back; the bucket is filled from an empty
+        // one. The network does not list the crystal under buckets, so the loop looked like a byproduct
+        // paying for its own ingredient - a job that started with no bucket anywhere and never moved.
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("fill", "filled", "bucket", "lava");
+        network.patternUnlisted("crystal", new GenericStack[] { network.stack("crystal", 1),
+                network.stack("bucket", 1) }, Collections.singletonList(SolverIngredient.of(network.key("filled"), 1)));
+        network.inStorage("lava", 100);
+
+        final SolverPlan plan = network.solve("crystal", 10);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(plan.getMissing().get(network.key("bucket")), is(1L));
+    }
+
+    @Test
+    public void oneBucketTurnsTheWholeFillAndEmptyLoop() {
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("fill", "filled", "bucket", "lava");
+        network.patternUnlisted("crystal", new GenericStack[] { network.stack("crystal", 1),
+                network.stack("bucket", 1) }, Collections.singletonList(SolverIngredient.of(network.key("filled"), 1)));
+        network.inStorage("lava", 100);
+        network.inStorage("bucket", 1);
+
+        final SolverPlan plan = network.solve("crystal", 10);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "crystal"), is(10L));
+        assertThat(crafts(plan, "fill"), is(10L));
+        assertThat(plan.getUsed().get(network.key("bucket")), is(1L));
+    }
+
+    @Test
+    public void aCraftTakingThreeBucketsNeedsThreeToStart() {
+        // Blood Magic's lava crystal: three lava buckets in three slots, three buckets back
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("fill", "filled", "bucket", "lava");
+        network.patternUnlisted("crystal", new GenericStack[] { network.stack("crystal", 1),
+                network.stack("bucket", 3) }, Arrays.asList(SolverIngredient.of(network.key("filled"), 1),
+                SolverIngredient.of(network.key("filled"), 1), SolverIngredient.of(network.key("filled"), 1)));
+        network.inStorage("lava", 100);
+        network.inStorage("bucket", 1);
+
+        final SolverPlan plan = network.solve("crystal", 10);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(plan.getMissing().get(network.key("bucket")), is(2L));
+
+        network.inStorage("bucket", 2);
+        final SolverPlan enough = network.solve("crystal", 10);
+
+        assertThat(enough.isComplete(), is(true));
+        assertThat(crafts(enough, "fill"), is(30L));
+        assertThat(enough.getUsed().get(network.key("bucket")), is(3L));
+    }
+
+    @Test
+    public void bucketsInStorageAllGoIntoTheLoopSoItFillsThemAtOnce() {
+        final SolverTestNetwork network = new SolverTestNetwork()
+                .pattern("fill", "filled", "bucket", "lava");
+        network.patternUnlisted("crystal", new GenericStack[] { network.stack("crystal", 1),
+                network.stack("bucket", 1) }, Collections.singletonList(SolverIngredient.of(network.key("filled"), 1)));
+        network.inStorage("lava", 100);
+        network.inStorage("bucket", 100);
+
+        final SolverPlan plan = network.solve("crystal", 10);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "fill"), is(10L));
+        assertThat(plan.getUsed().get(network.key("bucket")), is(10L));
+    }
+
+    @Test
     public void aToolIsCountedInUsesRatherThanInCrafts() {
         // A hammer lasts sixty crafts. A hundred crafts wear out two of them, not a hundred - and the plan
         // says two hammers rather than listing sixty stages of wear nobody asked to see.

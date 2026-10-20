@@ -179,6 +179,10 @@ public final class CraftingSolver {
         private final KeyCounter stock = new KeyCounter();
         private final KeyCounter demand = new KeyCounter();
         private final KeyCounter surplus = new KeyCounter();
+        /** Handed back by a pattern that first had to borrow it: see {@link #takeLoaned}. */
+        private final KeyCounter loaned = new KeyCounter();
+        private final Map<AEKey, Long> loanPerCraft = new LinkedHashMap<>();
+        private final Map<AEKey, Set<SolverPattern>> lenders = new LinkedHashMap<>();
         private final KeyCounter used = new KeyCounter();
         private final KeyCounter produced = new KeyCounter();
         private final KeyCounter missing = new KeyCounter();
@@ -221,6 +225,7 @@ public final class CraftingSolver {
 
             final long wanted = need;
             need -= this.takeSurplus(key, need);
+            need -= this.takeLoaned(key, need);
             need -= this.takeStock(key, need);
 
             if (need > 0 && this.graph.isEmitted(key)) {
@@ -663,15 +668,86 @@ public final class CraftingSolver {
             }
 
             for (final GenericStack out : pattern.getOutputs()) {
-                final long net = out.amount() - handedBack.get(out.what());
+                final AEKey what = out.what();
+                final long net = out.amount() - handedBack.get(what);
 
-                if (net > 0) {
-                    final long total = multiply(net, runs);
+                if (net <= 0) {
+                    continue;
+                }
 
-                    this.surplus.add(out.what(), total);
-                    this.produced.add(out.what(), total);
+                final long total = multiply(net, runs);
+
+                // Only a byproduct can be borrowed: what the pattern was run for is made from things below it,
+                // and anything on a cycle the graph can see is the cycle handling's business
+                if (!what.equals(this.servedBy.get(pattern)) && !this.graph.isOnCycle(what)
+                        && this.graph.dependsOn(pattern, what)) {
+                    this.loaned.add(what, total);
+                    this.loanPerCraft.merge(what, net, Math::max);
+                    this.lenders.computeIfAbsent(what, k -> new LinkedHashSet<>()).add(pattern);
+                } else {
+                    this.surplus.add(what, total);
+                }
+
+                this.produced.add(what, total);
+            }
+        }
+
+        /**
+         * Pays for a key out of what a pattern handed back after borrowing it, as far as that can be true.
+         * <p>
+         * A lava crystal hands back the bucket its lava came in, and the lava bucket was filled in an empty
+         * one: the bucket goes round, and the books balance with no bucket at all. The crafts do not - the
+         * first fill has nothing to fill. So when the demand comes from inside the loop, one craft's worth is
+         * left to be found the ordinary way, out of storage or a pattern of its own, and the loop turns on
+         * that. Demand from outside the loop takes the handed-back ones freely: they come back in time for it.
+         */
+        private long takeLoaned(final AEKey key, final long need) {
+            final long available = this.loaned.get(key);
+
+            if (available <= 0 || need <= 0) {
+                return 0;
+            }
+
+            long left = need;
+            long seed = 0;
+
+            // A job works only with what it took at the start, so buckets left in storage would not speed it
+            // up: what storage has goes in first and the loop covers only the rest
+            if (this.drawnInsideTheLoop(key)) {
+                final long fromStock = this.takeStock(key, left);
+
+                left -= fromStock;
+                seed = Math.min(left, Math.max(0, this.loanPerCraft.get(key) - fromStock));
+            }
+
+            final long taken = Math.min(left - seed, available);
+
+            if (taken > 0) {
+                this.loaned.remove(key, taken);
+            }
+
+            return need - left + Math.max(0, taken);
+        }
+
+        /**
+         * Whether anything drawing this key was run to make something a lender of it depends on.
+         */
+        private boolean drawnInsideTheLoop(final AEKey key) {
+            for (final Map.Entry<SolverPattern, KeyCounter> entry : this.patternInputs.entrySet()) {
+                final AEKey served = this.servedBy.get(entry.getKey());
+
+                if (served == null || entry.getValue().get(key) <= 0) {
+                    continue;
+                }
+
+                for (final SolverPattern lender : this.lenders.get(key)) {
+                    if (this.graph.dependsOn(lender, served)) {
+                        return true;
+                    }
                 }
             }
+
+            return false;
         }
 
         /**

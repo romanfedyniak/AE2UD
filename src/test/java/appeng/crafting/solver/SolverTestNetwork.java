@@ -97,6 +97,17 @@ final class SolverTestNetwork implements ICraftingSource {
         return this;
     }
 
+    /**
+     * Listed under its first output only, as the grid lists a pattern: a container it hands back is not
+     * something the grid offers it for.
+     */
+    SolverTestNetwork patternUnlisted(final String name, final GenericStack[] outputs,
+            final List<SolverIngredient> inputs) {
+        final SolverPattern pattern = new SolverPattern(name, inputs, Arrays.asList(outputs), 0);
+        this.patterns.computeIfAbsent(outputs[0].what(), k -> new ArrayList<>()).add(pattern);
+        return this;
+    }
+
     private List<SolverIngredient> ingredients(final String... inputs) {
         final List<SolverIngredient> list = new ArrayList<>(inputs.length);
 

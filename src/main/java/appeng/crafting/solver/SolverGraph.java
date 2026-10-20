@@ -49,21 +49,34 @@ public final class SolverGraph {
      */
     private final Set<AEKey> exclusive;
     private final Set<AEKey> emitted;
+    /** What each key is made from, byproducts left out. */
+    private final Map<AEKey, Set<AEKey>> ingredients;
+    private final Set<AEKey> cyclic = new LinkedHashSet<>();
+    private final Map<SolverPattern, Map<AEKey, Boolean>> dependencies = new LinkedHashMap<>();
 
     private SolverGraph(final Map<AEKey, List<SolverPattern>> patterns, final Map<AEKey, Set<AEKey>> edges,
             final List<List<AEKey>> components, final Set<AEKey> selfLoops, final Set<AEKey> exclusive,
-            final Set<AEKey> emitted) {
+            final Set<AEKey> emitted, final Map<AEKey, Set<AEKey>> ingredients) {
         this.patterns = patterns;
         this.edges = edges;
         this.components = Collections.unmodifiableList(components);
         this.selfLoops = Collections.unmodifiableSet(selfLoops);
         this.exclusive = Collections.unmodifiableSet(exclusive);
         this.emitted = Collections.unmodifiableSet(emitted);
+        this.ingredients = ingredients;
+        this.cyclic.addAll(selfLoops);
+
+        for (final List<AEKey> component : components) {
+            if (component.size() > 1) {
+                this.cyclic.addAll(component);
+            }
+        }
     }
 
     public static SolverGraph of(final AEKey root, final ICraftingSource source, final SolverLimits limits) {
         final Map<AEKey, List<SolverPattern>> patterns = new LinkedHashMap<>();
         final Map<AEKey, Set<AEKey>> edges = new LinkedHashMap<>();
+        final Map<AEKey, Set<AEKey>> ingredients = new LinkedHashMap<>();
         final Set<AEKey> exclusive = new LinkedHashSet<>();
         final Set<AEKey> emitted = new LinkedHashSet<>();
         final Deque<AEKey> pending = new ArrayDeque<>();
@@ -88,6 +101,7 @@ public final class SolverGraph {
 
             patterns.put(key, made);
             final Set<AEKey> out = edges.computeIfAbsent(key, k -> new LinkedHashSet<>());
+            final Set<AEKey> from = ingredients.computeIfAbsent(key, k -> new LinkedHashSet<>());
 
             for (final SolverPattern pattern : made) {
                 for (final SolverIngredient ingredient : pattern.getInputs()) {
@@ -97,6 +111,7 @@ public final class SolverGraph {
 
                     for (final GenericStack option : ingredient.getOptions()) {
                         edgeCount += visit(key, option.what(), out, patterns, pending);
+                        from.add(option.what());
                     }
                 }
 
@@ -148,7 +163,54 @@ public final class SolverGraph {
             components.addAll(tarjan(patterns.keySet(), edges));
         }
 
-        return new SolverGraph(patterns, edges, components, selfLoops, exclusive, emitted);
+        return new SolverGraph(patterns, edges, components, selfLoops, exclusive, emitted, ingredients);
+    }
+
+    /**
+     * Whether a key is among what this pattern is made from, however far down. A pattern that hands back such
+     * a key - a lava crystal giving back the bucket its lava bucket was filled in - hands back something it
+     * first had to borrow, which the graph does not show: the grid lists a pattern under what it makes, never
+     * under the container it returns, so no cycle is drawn.
+     */
+    public boolean dependsOn(final SolverPattern pattern, final AEKey what) {
+        return this.dependencies.computeIfAbsent(pattern, p -> new LinkedHashMap<>())
+                .computeIfAbsent(what, w -> this.searchDependency(pattern, w));
+    }
+
+    private boolean searchDependency(final SolverPattern pattern, final AEKey what) {
+        final Set<AEKey> seen = new LinkedHashSet<>();
+        final Deque<AEKey> pending = new ArrayDeque<>();
+
+        for (final SolverIngredient ingredient : pattern.getInputs()) {
+            for (final GenericStack option : ingredient.getOptions()) {
+                if (seen.add(option.what())) {
+                    pending.add(option.what());
+                }
+            }
+        }
+
+        while (!pending.isEmpty()) {
+            final AEKey at = pending.poll();
+
+            if (at.equals(what)) {
+                return true;
+            }
+
+            for (final AEKey next : this.ingredients.getOrDefault(at, Collections.emptySet())) {
+                if (seen.add(next)) {
+                    pending.add(next);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the graph itself sees this key go round a cycle, which the cycle handling then takes care of.
+     */
+    public boolean isOnCycle(final AEKey what) {
+        return this.cyclic.contains(what);
     }
 
     /**
