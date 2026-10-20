@@ -80,6 +80,7 @@ import appeng.core.stats.PartItemPredicate;
 import appeng.core.stats.Stats;
 import appeng.core.worlddata.SpatialDimensionManager;
 import appeng.hooks.ItemSpawnCapture;
+import appeng.hooks.PatternClearHook;
 import appeng.hooks.TickHandler;
 import appeng.hooks.WrenchClickHook;
 import appeng.integration.modules.groovyscript.GroovyScriptReload;
@@ -369,6 +370,8 @@ final class Registration {
         registerMultiblockLimits();
 
         MinecraftForge.EVENT_BUS.register(new WrenchClickHook());
+
+        MinecraftForge.EVENT_BUS.register(new PatternClearHook());
 
         MinecraftForge.EVENT_BUS.register(ItemSpawnCapture.INSTANCE);
 
