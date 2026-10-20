@@ -366,6 +366,12 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 return;
             }
 
+            if (ItemStack.areItemStacksEqual(back, single)) {
+                // Comes back exactly as it went in, the way a blood orb does: lent, not spent.
+                this.returned = GenericStack.fromItemStack(back);
+                return;
+            }
+
             if (!single.isItemStackDamageable()) {
                 // The same item in a different state, and no damage bar to measure it by - a tool that keeps
                 // its wear somewhere of its own. Counted one per craft, which is what it always was.
