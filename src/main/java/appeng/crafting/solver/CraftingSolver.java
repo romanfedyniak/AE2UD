@@ -12,6 +12,7 @@ package appeng.crafting.solver;
 
 
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import com.google.common.math.LongMath;
@@ -833,10 +834,11 @@ public final class CraftingSolver {
 
         /**
          * A job is charged per thing, and for a fluid the thing is a bucket rather than a millibucket - the
-         * same rule the tree used, applied once per key instead of at six places that each had to remember.
+         * same rule the tree used, applied once per key instead of at six places that each had to remember. A
+         * type may charge in larger steps than it displays: see {@link AEKeyType#getAmountPerCraftingByte()}.
          */
         private void chargeBytes(final AEKey key, final long amount) {
-            this.bytes += amount / Math.max(1, key.getType().getAmountPerUnit());
+            this.bytes += amount / Math.max(1, key.getType().getAmountPerCraftingByte());
         }
 
         private long craftsOf(final SolverPattern pattern) {

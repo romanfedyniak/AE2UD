@@ -745,6 +745,21 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void aTypeMayChargeInLargerStepsThanItShows() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("t", new GenericStack[] { network.stack("t", 1) },
+                Collections.singletonList(new SolverIngredient(
+                        Collections.singletonList(new GenericStack(network.thousands("mana"), 500_000)))));
+        network.getStock().add(network.thousands("mana"), 5_000_000);
+
+        final SolverPlan plan = network.solve("t", 10);
+
+        assertThat(plan.isComplete(), is(true));
+        // Five million of it shown one at a time is five thousand bytes, not five million.
+        assertThat(plan.getBytes(), is(10L + 5_000L + 80L));
+    }
+
+    @Test
     public void anOrderTooBigForALongIsRefusedRatherThanWrapped() {
         final SolverTestNetwork network = new SolverTestNetwork();
         network.pattern("t", new GenericStack[] { network.stack("t", 1) },

@@ -60,6 +60,11 @@ final class SolverTestNetwork implements ICraftingSource {
         return this.keys.computeIfAbsent(name, n -> new TestKey(n, TestKeyType.FLUIDS));
     }
 
+    /** A thing shown one at a time but charged by the thousand, like mana. */
+    AEKey thousands(final String name) {
+        return this.keys.computeIfAbsent(name, n -> new TestKey(n, TestKeyType.THOUSANDS));
+    }
+
     GenericStack stack(final String name, final long amount) {
         return new GenericStack(this.key(name), amount);
     }
@@ -191,19 +196,27 @@ final class SolverTestNetwork implements ICraftingSource {
 
     private static final class TestKeyType extends AEKeyType {
 
-        private static final AEKeyType ITEMS = new TestKeyType("items", 1);
-        private static final AEKeyType FLUIDS = new TestKeyType("fluids", 1000);
+        private static final AEKeyType ITEMS = new TestKeyType("items", 1, 1);
+        private static final AEKeyType FLUIDS = new TestKeyType("fluids", 1000, 1000);
+        private static final AEKeyType THOUSANDS = new TestKeyType("thousands", 1, 1000);
 
         private final int amountPerUnit;
+        private final int amountPerCraftingByte;
 
-        private TestKeyType(final String name, final int amountPerUnit) {
+        private TestKeyType(final String name, final int amountPerUnit, final int amountPerCraftingByte) {
             super(new ResourceLocation("test", name), TestKey.class, new TextComponentString(name));
             this.amountPerUnit = amountPerUnit;
+            this.amountPerCraftingByte = amountPerCraftingByte;
         }
 
         @Override
         public int getAmountPerUnit() {
             return this.amountPerUnit;
+        }
+
+        @Override
+        public int getAmountPerCraftingByte() {
+            return this.amountPerCraftingByte;
         }
 
         @Override

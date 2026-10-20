@@ -139,6 +139,17 @@ public abstract class AEKeyType extends IForgeRegistryEntry.Impl<AEKeyType> {
     }
 
     /**
+     * How much of this type a crafting job charges one byte of its crafting CPU for. One displayed unit: an
+     * item, a bucket.
+     * <p>
+     * Not present in upstream AE2, which charges per displayed unit. Named here so a type shown one at a time
+     * but used by the thousand can say so - a recipe needing half a million mana cost half a million bytes.
+     */
+    public int getAmountPerCraftingByte() {
+        return this.getAmountPerUnit();
+    }
+
+    /**
      * Symbol appended to displayed amounts, such as "B" for buckets. Empty for items.
      */
     public String getUnitSymbol() {
