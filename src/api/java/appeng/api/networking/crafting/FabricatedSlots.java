@@ -123,7 +123,8 @@ public final class FabricatedSlots {
         return context.getContainer();
     }
 
-    private static InventoryCrafting copyOf(final InventoryCrafting grid) {
+    /** A detached copy of a grid, for a recipe to be asked about without touching the real one. */
+    public static InventoryCrafting copyOf(final InventoryCrafting grid) {
         final InventoryCrafting copy = new InventoryCrafting(NO_CONTAINER, grid.getWidth(), grid.getHeight());
 
         for (int x = 0; x < grid.getSizeInventory(); x++) {

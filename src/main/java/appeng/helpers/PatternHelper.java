@@ -352,7 +352,10 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
             final ItemStack single = encoded.copy();
             single.setCount(1);
-            final ItemStack back = Platform.getContainerItem(single.copy());
+            final ItemStack back = PatternHelper.this.standardRecipe == null
+                    ? Platform.getContainerItem(single.copy())
+                    : PatternHelper.this.standardRecipe.getRemainingItems(FabricatedSlots.copyOf(PatternHelper.this.crafting))
+                            .get(this.slot);
 
             if (back.isEmpty()) {
                 // It has something to hand back and hands back nothing, which is a tool breaking.
@@ -543,6 +546,19 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     @Override
     public boolean isCraftable() {
         return this.isCrafting;
+    }
+
+    /**
+     * What the recipe itself leaves behind, as a crafting table asks it: a recipe may keep a tool whose item
+     * would hand one back (GroovyScript's noReturn).
+     */
+    @Override
+    public NonNullList<ItemStack> getRemainingItems(final InventoryCrafting craftingInv, final World world) {
+        if (!this.isCrafting || this.standardRecipe == null) {
+            return null;
+        }
+
+        return this.standardRecipe.getRemainingItems(FabricatedSlots.copyOf(craftingInv));
     }
 
     @Override
