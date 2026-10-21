@@ -190,6 +190,8 @@ public final class CraftingSolver {
         private final Map<SolverPattern, Long> crafts = new LinkedHashMap<>();
         private final Map<SolverPattern, KeyCounter> patternInputs = new LinkedHashMap<>();
         private final Map<SolverPattern, AEKey> servedBy = new LinkedHashMap<>();
+        /** What each pattern only borrows: per key, how many make one set and how many sets it was given. */
+        private final Map<SolverPattern, Map<AEKey, long[]>> lent = new LinkedHashMap<>();
         private long bytes;
 
         private Pass(final SolverGraph graph, final KeyCounter stock, final Runnable onProgress) {
@@ -213,7 +215,33 @@ public final class CraftingSolver {
                 }
             }
 
+            this.lendSpares();
             return this;
+        }
+
+        /**
+         * One set of a borrowed thing runs the crafts one at a time; a thousand petals behind one mortar take all
+         * day. Once everything else has had its share, what storage still holds of it goes out too, up to a set
+         * per craft, so the crafts can run side by side. Only what is stored: none is made for this, and none is
+         * taken that anything else needs.
+         */
+        private void lendSpares() {
+            for (final Map.Entry<SolverPattern, Map<AEKey, long[]>> entry : this.lent.entrySet()) {
+                final SolverPattern pattern = entry.getKey();
+
+                for (final Map.Entry<AEKey, long[]> borrowed : entry.getValue().entrySet()) {
+                    final AEKey key = borrowed.getKey();
+                    final long perSet = borrowed.getValue()[0];
+                    final long wanted = this.craftsOf(pattern) - borrowed.getValue()[1];
+                    final long sets = Math.min(wanted, this.stock.get(key) / perSet);
+
+                    if (sets > 0) {
+                        final long taken = this.takeStock(key, multiply(perSet, sets));
+                        this.patternInputs.get(pattern).add(key, taken);
+                        this.chargeBytes(key, taken);
+                    }
+                }
+            }
         }
 
         private void settle(final AEKey key, final Map<SolverPattern, Long> caps) {
@@ -779,6 +807,8 @@ public final class CraftingSolver {
 
                     // Lent and nothing more: a mould, or a pattern giving back all of what it took.
                     if (back >= encoded.amount()) {
+                        this.lent.computeIfAbsent(pattern, p -> new LinkedHashMap<>()).merge(encoded.what(),
+                                new long[] { back, 1 }, (had, more) -> new long[] { had[0], had[1] + 1 });
                         return;
                     }
                 }

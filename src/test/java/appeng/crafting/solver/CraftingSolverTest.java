@@ -270,6 +270,79 @@ public final class CraftingSolverTest {
         assertThat(plan.producedOf(network.key("mould")), is(0L));
     }
 
+    private static SolverTestNetwork casting() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("cast", new GenericStack[] { network.stack("out", 1), network.stack("mould", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("mould"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.inStorage("base", 1000);
+        return network;
+    }
+
+    @Test
+    public void spareCatalystsAreLentForCraftsSideBySide() {
+        // Ten moulds in storage: all ten go out with the job, so ten machines can cast at once.
+        final SolverTestNetwork network = casting().inStorage("mould", 10);
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("mould")), is(10L));
+        assertThat(plan.producedOf(network.key("mould")), is(0L));
+    }
+
+    @Test
+    public void noMoreCatalystsAreLentThanThereAreCrafts() {
+        final SolverTestNetwork network = casting().inStorage("mould", 500);
+
+        final SolverPlan plan = network.solve("out", 3);
+
+        assertThat(plan.getUsed().get(network.key("mould")), is(3L));
+    }
+
+    @Test
+    public void onlyOneCatalystIsMadeWhenNoneIsStored() {
+        // Spares are only ever taken from storage: with none there, one is made, as before.
+        final SolverTestNetwork network = casting().pattern("pm", "mould", "metal").inStorage("metal", 100);
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pm"), is(1L));
+    }
+
+    @Test
+    public void aMissingCatalystIsMissingOnce() {
+        final SolverTestNetwork network = casting();
+
+        final SolverPlan plan = network.solve("out", 100);
+
+        assertThat(plan.isComplete(), is(false));
+        assertThat(plan.getMissing().get(network.key("mould")), is(1L));
+    }
+
+    @Test
+    public void twoPatternsLendingOneCatalystAskForNoMoreThanIsThere() {
+        // Both castings borrow the moulds. The spares are shared out once each has its one, so the job never
+        // asks for more than there are.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("castA", new GenericStack[] { network.stack("a", 1), network.stack("mould", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("mould"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.pattern("castB", new GenericStack[] { network.stack("b", 1), network.stack("mould", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("mould"), 1),
+                        SolverIngredient.of(network.key("base"), 1)));
+        network.pattern("join", new GenericStack[] { network.stack("c", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 1), SolverIngredient.of(network.key("b"), 1)));
+        network.inStorage("mould", 4);
+        network.inStorage("base", 1000);
+
+        final SolverPlan plan = network.solve("c", 50);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("mould")), is(4L));
+    }
+
     @Test
     public void aCatalystListedFirstIsStillOnlyACatalyst() {
         // The same casting, written with the mould in the first output slot. Nothing says a player will put
