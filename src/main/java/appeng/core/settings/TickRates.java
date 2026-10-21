@@ -34,7 +34,7 @@ public enum TickRates {
 
     FluidExportBus(5, 60),
 
-    AnnihilationPlane(2, 120),
+    AnnihilationPlane(2, 20),
 
     FormationPlane(5, 60),
 
