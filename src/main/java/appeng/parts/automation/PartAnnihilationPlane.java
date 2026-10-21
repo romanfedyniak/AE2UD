@@ -513,15 +513,18 @@ public class PartAnnihilationPlane extends PartUpgradeable
 
     @Override
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
+        // The plane never leaves the tick queue: put to sleep, it waited for a neighbour update that a block set
+        // quietly (some mods' machines do), a claim that let it in later or a network back up never sent. Idle, it
+        // looks again at its slowest rate; whatever wakes it brings it back to the fastest at once.
         if (!this.getProxy().isActive()) {
-            return TickRateModulation.SLEEP;
+            return TickRateModulation.IDLE;
         }
 
         final IEnergySource energy;
         try {
             energy = this.getProxy().getEnergy();
         } catch (final GridAccessException e) {
-            return TickRateModulation.SLEEP;
+            return TickRateModulation.IDLE;
         }
 
         for (final PickupStrategy strategy : this.getPickupStrategies()) {
@@ -538,13 +541,13 @@ public class PartAnnihilationPlane extends PartUpgradeable
             }
         }
 
-        return TickRateModulation.SLEEP;
+        return TickRateModulation.IDLE;
     }
 
     /**
-     * Wakes the plane and forgets any half-broken block. A plane that found nothing to take goes to sleep, so
-     * anything that widens what it may take - a filter, a card, a key type - has to say so, or the block that
-     * was standing in front of it all along goes on standing there.
+     * Wakes the plane and forgets any half-broken block. A plane that found nothing to take slows down to its
+     * slowest rate, so anything that widens what it may take - a filter, a card, a key type - says so, or the
+     * block that was standing in front of it all along waits for the next slow look.
      */
     private void refresh() {
         for (final PickupStrategy strategy : this.getPickupStrategies()) {
