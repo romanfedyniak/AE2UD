@@ -312,7 +312,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         }
 
         if (blocking != BlockingMode.NO && !(blocking == BlockingMode.SMART && this.ranLast(patternDetails))
-                && ((ad != null && ad.containsItems())
+                && ((ad != null && DualityInterface.invIsBlocked(ad, te, facing))
                         || DualityInterface.holdsAnyOf(self, toMachine, DualityInterface.typesOf(extraInputs)))) {
             return false;
         }
@@ -418,7 +418,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         }
 
         final InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, facing);
-        return ad != null && !(blocking && ad.containsItems());
+        return ad != null && !(blocking && DualityInterface.invIsBlocked(ad, te, facing));
     }
 
     /**

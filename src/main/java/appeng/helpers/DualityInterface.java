@@ -90,6 +90,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.init.Items;
+import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -106,6 +107,7 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.wrapper.SidedInvWrapper;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -1113,8 +1115,22 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return new InterfaceInventory(this);
     }
 
-    private boolean invIsBlocked(InventoryAdaptor inv) {
-        return (inv.containsItems());
+    /**
+     * Whether what the machine shows on this face still holds something. A sided machine also shows slots it never
+     * lets anything into or out of from here - IC2's upgrades - and those would leave it busy for good.
+     */
+    public static boolean invIsBlocked(InventoryAdaptor inv, TileEntity te, EnumFacing face) {
+        if (te instanceof ISidedInventory sided
+                && te.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, face) instanceof SidedInvWrapper) {
+            for (int slot : sided.getSlotsForFace(face)) {
+                ItemStack stack = sided.getStackInSlot(slot);
+                if (!stack.isEmpty() && (sided.canInsertItem(slot, stack, face) || sided.canExtractItem(slot, stack, face))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return inv.containsItems();
     }
 
     @Override
@@ -1384,7 +1400,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             visitedFaces.remove(s);
                             continue;
                         }
-                    } else if (ad != null && invIsBlocked(ad)) {
+                    } else if (ad != null && invIsBlocked(ad, te, s.getOpposite())) {
                         visitedFaces.remove(s);
                         continue;
                     }
@@ -1548,7 +1564,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             break;
                         }
                     } else {
-                        if (!invIsBlocked(ad) && !this.holdsAnyOf(s, this.pushedTypes)) {
+                        if (!invIsBlocked(ad, te, s.getOpposite()) && !this.holdsAnyOf(s, this.pushedTypes)) {
                             allAreBusy = false;
                             break;
                         }
