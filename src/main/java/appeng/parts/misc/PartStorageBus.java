@@ -412,7 +412,7 @@ public class PartStorageBus extends PartUpgradeable
         if (ITEM_REPOSITORY_CAPABILITY != null && target.hasCapability(ITEM_REPOSITORY_CAPABILITY, targetSide)) {
             final IItemRepository repo = target.getCapability(ITEM_REPOSITORY_CAPABILITY, targetSide);
             if (repo != null) {
-                return new ItemRepositoryAdapter(repo, changeListener);
+                return new ItemRepositoryAdapter(repo);
             }
         }
 

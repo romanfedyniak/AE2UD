@@ -14,7 +14,8 @@ import appeng.me.storage.StorageChangeListeners;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
 import net.minecraft.item.ItemStack;
 
-import javax.annotation.Nullable;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 
 /**
@@ -27,9 +28,10 @@ import javax.annotation.Nullable;
  */
 class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
     private final IItemRepository itemRepository;
-    @Nullable
-    private final Runnable changeListener;
     private KeyCounter currentlyCached = new KeyCounter();
+    // The key of each drawer's prototype stack, which a drawer keeps as one object while it holds that item: a
+    // rescan of a few hundred drawers otherwise spent most of its time hashing the same stacks into keys again.
+    private Map<ItemStack, AEItemKey> keys = new IdentityHashMap<>();
     private final StorageChangeListeners listeners = new StorageChangeListeners();
 
     @Override
@@ -43,9 +45,8 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
     }
 
 
-    ItemRepositoryAdapter(final IItemRepository itemRepository, @Nullable final Runnable changeListener) {
+    ItemRepositoryAdapter(final IItemRepository itemRepository) {
         this.itemRepository = itemRepository;
-        this.changeListener = changeListener;
         this.updateCache();
     }
 
@@ -62,8 +63,7 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
         final long inserted = toInsertCount - remaining.getCount();
 
         if (inserted > 0 && mode == Actionable.MODULATE) {
-            this.updateCache();
-            this.notifyChange();
+            this.moved(itemKey, inserted);
         }
 
         return inserted;
@@ -90,8 +90,7 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
         }
 
         if (mode == Actionable.MODULATE) {
-            this.updateCache();
-            this.notifyChange();
+            this.moved(itemKey, -extracted.getCount());
         }
 
         return extracted.getCount();
@@ -111,20 +110,34 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
         return keyCountersEqual(before, this.currentlyCached) ? TickRateModulation.SLOWER : TickRateModulation.URGENT;
     }
 
-    private void notifyChange() {
-        if (this.changeListener != null) {
-            this.changeListener.run();
-        }
+    /**
+     * Counts what this adapter itself moved under its own key only, and leaves the bus's ticking alone. A full
+     * rescan after every insertion, and the bus woken for another one next tick, cost a storage bus on a few hundred
+     * drawers far more than the drawers' own work while items kept flowing. The bus's own rescans still catch what
+     * else changed with it, such as the other tiers of a compacting drawer.
+     */
+    private void moved(final AEItemKey key, final long delta) {
+        this.currentlyCached.set(key, Math.max(0, this.currentlyCached.get(key) + delta));
+        this.listeners.post(key, delta);
     }
 
     private void updateCache() {
         final KeyCounter fresh = new KeyCounter();
+        final Map<ItemStack, AEItemKey> freshKeys = new IdentityHashMap<>();
         for (final IItemRepository.ItemRecord entry : this.itemRepository.getAllItems()) {
-            final AEItemKey key = AEItemKey.of(entry.itemPrototype);
-            if (key != null && entry.count > 0) {
+            if (entry.count <= 0) {
+                continue;
+            }
+            AEItemKey key = this.keys.get(entry.itemPrototype);
+            if (key == null || !key.matches(entry.itemPrototype)) {
+                key = AEItemKey.of(entry.itemPrototype);
+            }
+            if (key != null) {
+                freshKeys.put(entry.itemPrototype, key);
                 fresh.add(key, entry.count);
             }
         }
+        this.keys = freshKeys;
         // Every change this adapter can see passes through here - its own insertions as much as a
         // hopper filling the box next door - so this is the one place that has to say what moved.
         this.listeners.postDiff(this.currentlyCached, fresh);
