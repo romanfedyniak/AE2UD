@@ -24,6 +24,8 @@ import appeng.core.crash.CrashInfo;
 import appeng.core.crash.IntegrationCrashEnhancement;
 import appeng.core.crash.ModCrashEnhancement;
 import appeng.core.features.AEFeature;
+import appeng.core.migration.LegacyWorld;
+import appeng.core.migration.Migration;
 import appeng.core.stats.AdvancementTriggers;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
@@ -161,6 +163,7 @@ public final class AppEng {
         }
 
         this.registration.preInitialize(event);
+        Migration.preInit();
 
         if (Platform.isClient()) {
             AppEng.proxy.preinit();
@@ -241,6 +244,11 @@ public final class AppEng {
     }
 
     @EventHandler
+    private void serverStarted(final FMLServerStartedEvent evt) {
+        LegacyWorld.onServerStarted();
+    }
+
+    @EventHandler
     private void serverStopping(final FMLServerStoppingEvent event) {
         if (WorldData.isRunning()) {
             WorldData.instance().onServerStopping();
@@ -252,6 +260,7 @@ public final class AppEng {
         if (WorldData.isRunning()) {
             WorldData.instance().onServerStoppped();
         }
+        LegacyWorld.onServerStopped();
         TickHandler.INSTANCE.shutdown();
         NetworkVisualiserService.INSTANCE.onServerStopped();
     }

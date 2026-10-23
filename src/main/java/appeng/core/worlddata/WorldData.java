@@ -20,6 +20,7 @@ package appeng.core.worlddata;
 
 
 import appeng.core.AEConfig;
+import appeng.core.migration.LegacyWorld;
 import appeng.me.storage.CellContentsStore;
 import appeng.services.compass.converter.CompassDataConverter;
 import appeng.worldgen.meteorite.converter.MeteoriteDataConverter;
@@ -129,6 +130,7 @@ public final class WorldData implements IWorldData {
         if (worldDirectory == null) {
             worldDirectory = server.getActiveAnvilConverter().getSaveLoader(server.getFolderName(), false).getWorldDirectory();
         }
+        LegacyWorld.onServerAboutToStart(worldDirectory, new File(worldDirectory, AE2_DIRECTORY_NAME));
         final WorldData newInstance = new WorldData(worldDirectory);
 
         instance = newInstance;

@@ -14,6 +14,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### API
 
+- **An addon can say what its UEL-era blocks, items and tile entities become.** `LegacyRewrites` takes
+  renamed and removed ids, a `StackRewriter` per item id and a `TileRewriter` per tile entity id. AE2UD applies
+  them only on a world last saved by AE2 UEL, which it decides on the world's first load and keeps in
+  `AE2/migration.dat`: blocks and tile entities once per chunk, stacks as they are read. What has no
+  equivalent, and every rewriter that throws, with the original NBT, goes to
+  `logs/ae2ud-migration.log`.
+
 - **A pattern terminal mode can line a wireless terminal's cards up in a row.** They hung on a plate beside
   the window, or beside the mode's widest plate. `PatternModePanel.getWirelessCardRow()` names where a row of
   them stands instead, beside plates of the mode's own; null, the default, keeps the plate.
