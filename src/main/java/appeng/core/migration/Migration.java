@@ -10,6 +10,8 @@
 
 package appeng.core.migration;
 
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -18,6 +20,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockAir;
+import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -241,6 +245,11 @@ public final class Migration {
 
     /**
      * Built on the first chunk: the blocks' own numbers are final only once the world's registries have loaded.
+     * <p>
+     * A block missing on the first load is reported as missing, but Forge saves it as a dummy and on every load
+     * after puts an air block of that name back under its old number, without asking again. A chunk the game
+     * never changed is not saved again either, so it is rewritten on every load, and its old blocks are found
+     * by those dummies.
      */
     private static Renames renames() {
         Renames renames = blockRenames;
@@ -249,11 +258,30 @@ public final class Migration {
         }
         synchronized (renamedBlocks) {
             final Int2IntMap numbers = new Int2IntOpenHashMap();
+            final Int2IntMap metas = new Int2IntOpenHashMap(renamedMetas);
             for (final Int2ObjectMap.Entry<String> entry : renamedBlocks.int2ObjectEntrySet()) {
                 final Block target = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(entry.getValue()));
                 numbers.put(entry.getIntKey(), Block.getIdFromBlock(target));
             }
-            renames = new Renames(numbers, new Int2IntOpenHashMap(renamedMetas));
+            for (final Map.Entry<String, String> remap : LegacyRewrites.getBlockRemaps().entrySet()) {
+                final ResourceLocation old = new ResourceLocation(remap.getKey());
+                final ResourceLocation target = new ResourceLocation(remap.getValue());
+                if (!ForgeRegistries.BLOCKS.containsKey(old) || !ForgeRegistries.BLOCKS.containsKey(target)) {
+                    continue;
+                }
+                final Block dummy = ForgeRegistries.BLOCKS.getValue(old);
+                // Only a stand-in: a mod that is still installed keeps its blocks.
+                if (!(dummy instanceof BlockAir) || dummy == Blocks.AIR) {
+                    continue;
+                }
+                final int number = Block.getIdFromBlock(dummy);
+                numbers.putIfAbsent(number, Block.getIdFromBlock(ForgeRegistries.BLOCKS.getValue(target)));
+                final int meta = LegacyRewrites.getBlockMeta(remap.getKey());
+                if (meta >= 0) {
+                    metas.putIfAbsent(number, meta);
+                }
+            }
+            renames = new Renames(numbers, metas);
             blockRenames = renames;
             return renames;
         }
