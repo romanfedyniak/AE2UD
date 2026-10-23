@@ -184,15 +184,36 @@ public final class LegacyRewrites {
 
         final NBTTagCompound original = stack.copy();
         try {
-            if (entry.newId != null) {
-                stack.setString("id", entry.newId);
-            }
-            for (final StackRewriter rewriter : entry.rewriters) {
-                rewriter.rewrite(stack);
-            }
+            apply(entry, stack);
         } catch (final RuntimeException | LinkageError e) {
             current.failed("item " + original.getString("id"), original, e);
             clear(stack);
+        }
+    }
+
+    /**
+     * Hands a stack a rewriter has given another id, and that id's UEL shape, to that id's own renaming and
+     * rewriters. Only from inside a {@link StackRewriter}.
+     */
+    public static void forwardStack(final NBTTagCompound stack) {
+        final StackEntry entry = stacks.get(stack.getString("id"));
+        if (entry == null) {
+            return;
+        }
+        if (entry.removed) {
+            log().lost("item " + stack);
+            clear(stack);
+            return;
+        }
+        apply(entry, stack);
+    }
+
+    private static void apply(final StackEntry entry, final NBTTagCompound stack) {
+        if (entry.newId != null) {
+            stack.setString("id", entry.newId);
+        }
+        for (final StackRewriter rewriter : entry.rewriters) {
+            rewriter.rewrite(stack);
         }
     }
 
@@ -213,10 +234,7 @@ public final class LegacyRewrites {
         final NBTTagList spill = new NBTTagList();
         spilled.set(spill);
         try {
-            NBTTagCompound result = tile;
-            for (final TileRewriter rewriter : rewriters) {
-                result = rewriter.rewrite(result);
-            }
+            final NBTTagCompound result = apply(rewriters, tile);
             if (!spill.isEmpty()) {
                 final NBTTagList kept = result.getTagList(SPILL_KEY, Constants.NBT.TAG_COMPOUND);
                 for (int i = 0; i < spill.tagCount(); i++) {
@@ -238,6 +256,39 @@ public final class LegacyRewrites {
             return bare;
         } finally {
             spilled.remove();
+        }
+    }
+
+    /**
+     * Hands a tile a rewriter has given another id, and that id's UEL shape, to that id's rewriters. Only from
+     * inside a {@link TileRewriter}.
+     *
+     * @return the tile's new tag
+     */
+    public static NBTTagCompound forwardTile(final NBTTagCompound tile) {
+        final List<TileRewriter> rewriters = tiles.get(tile.getString("id"));
+        return rewriters == null ? tile : apply(rewriters, tile);
+    }
+
+    private static NBTTagCompound apply(final List<TileRewriter> rewriters, final NBTTagCompound tile) {
+        NBTTagCompound result = tile;
+        for (final TileRewriter rewriter : rewriters) {
+            result = rewriter.rewrite(result);
+        }
+        return result;
+    }
+
+    /**
+     * Hands a part whose item a rewriter has given another id, and whose data that id's UEL shape, to that id's
+     * part rewriters. Only from inside a {@link PartRewriter}.
+     */
+    public static void forwardPart(final NBTTagCompound item, final NBTTagCompound part) {
+        final List<PartRewriter> rewriters = parts.get(item.getString("id"));
+        if (rewriters == null) {
+            return;
+        }
+        for (final PartRewriter rewriter : rewriters) {
+            rewriter.rewrite(item, part);
         }
     }
 

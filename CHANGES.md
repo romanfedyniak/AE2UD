@@ -31,6 +31,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   equivalent, and every rewriter that throws, with the original NBT, goes to
   `logs/ae2ud-migration.log`.
 
+- **A rewriter can hand what it renamed on to the new id's rewriters.** `LegacyRewrites.forwardStack`,
+  `forwardTile` and `forwardPart` run them on a stack, tile or part given the id and the UEL shape of another,
+  so that a mod's copy of an AE2 machine is rewritten as that machine is.
+
 - **What a rewritten tile or part held and has no place for goes into a chest beside it.**
   `LegacyRewrites.spill` takes a stack from inside a `TileRewriter` or `PartRewriter`; once the chunk has
   loaded, AE2UD puts it into a vanilla chest in the air beside the tile, a second one when the first is
