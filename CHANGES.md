@@ -470,6 +470,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ### Fixes
 
+- **A machine that moved things the moment its network told it about a change could crash the server.**
+  A network hands its watchers - level emitters, monitors, interfaces - what changed once a tick, in one batch.
+  A watcher that moved something, or asked what the network held, while that batch was being handed out
+  started it over from inside itself and emptied it under the first pass, which ended the server tick with a
+  NullPointerException. What a watcher moves now waits for the next batch, and the network is counted in full
+  before anyone is told about it.
+
 - **Typing P into a search or name box no longer opens the pattern or cell under the cursor.** The key that
   opens a pattern's view stands aside while a box has the keyboard, but eight places never said that theirs
   had it: the Pattern Access Terminal, the Crafting Plan's tree, the crafting CPU list beside three screens,

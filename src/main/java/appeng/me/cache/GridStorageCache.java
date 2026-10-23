@@ -89,7 +89,7 @@ public class GridStorageCache implements IStorageService, IGridCache {
      * What has moved since the last tick, and by how much. This is the whole point of the change: a network is
      * told what changed instead of counting everything again to find out.
      */
-    private final Object2LongMap<AEKey> pendingChanges = new Object2LongOpenHashMap<>();
+    private Object2LongMap<AEKey> pendingChanges = new Object2LongOpenHashMap<>();
     /** Once a second is often enough to find a mount that lies, and rare enough to be affordable while looking. */
     private static final int AUDIT_INTERVAL = 20;
     private int ticksSinceAudit = 0;
@@ -265,9 +265,14 @@ public class GridStorageCache implements IStorageService, IGridCache {
      * times.
      */
     private void applyPendingChanges() {
+        // A watcher may move things, or read the network and so land back here, while it is being told. Its
+        // changes go into a batch of their own, never into the one being walked.
+        final Object2LongMap<AEKey> changes = this.pendingChanges;
+        this.pendingChanges = new Object2LongOpenHashMap<>();
+
         boolean emptied = false;
 
-        for (final var entry : this.pendingChanges.object2LongEntrySet()) {
+        for (final var entry : changes.object2LongEntrySet()) {
             final AEKey what = entry.getKey();
             final long amount = this.cachedAvailableAmounts.getLong(what) + entry.getLongValue();
 
@@ -279,14 +284,16 @@ public class GridStorageCache implements IStorageService, IGridCache {
                 this.cachedAvailableAmounts.removeLong(what);
                 emptied = true;
             }
-
-            this.postWatcherUpdate(what, Math.max(0, amount));
         }
-
-        this.pendingChanges.clear();
 
         if (emptied) {
             this.cachedAvailableStacks.removeEmptySubmaps();
+        }
+
+        // Only once the whole batch is counted: a recount started by a watcher must not have the rest of it
+        // added on top a second time.
+        for (final AEKey what : changes.keySet()) {
+            this.postWatcherUpdate(what, Math.max(0, this.cachedAvailableAmounts.getLong(what)));
         }
     }
 
