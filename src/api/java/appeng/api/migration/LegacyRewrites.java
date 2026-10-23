@@ -50,6 +50,7 @@ import net.minecraftforge.common.util.Constants;
 public final class LegacyRewrites {
 
     private static final Map<String, String> blockRemaps = new HashMap<>();
+    private static final Map<String, Integer> blockMetas = new HashMap<>();
     private static final Set<String> removed = new HashSet<>();
     private static final Map<String, StackEntry> stacks = new HashMap<>();
     private static final Map<String, List<TileRewriter>> tiles = new HashMap<>();
@@ -93,6 +94,15 @@ public final class LegacyRewrites {
     public static void remapBlock(final String oldId, final String newId) {
         blockRemaps.put(id(oldId), id(newId));
         remapItem(oldId, newId);
+    }
+
+    /**
+     * A block that became one metadata of another, every metadata of it alike. Its item is renamed but keeps its
+     * damage; a {@link StackRewriter} for the old id sets it.
+     */
+    public static void remapBlock(final String oldId, final String newId, final int meta) {
+        remapBlock(oldId, newId);
+        blockMetas.put(id(oldId), meta & 0xF);
     }
 
     /**
@@ -371,6 +381,14 @@ public final class LegacyRewrites {
 
     public static Map<String, String> getBlockRemaps() {
         return Collections.unmodifiableMap(blockRemaps);
+    }
+
+    /**
+     * @return the metadata a renamed block takes, or -1 when it keeps its own
+     */
+    public static int getBlockMeta(final String oldId) {
+        final Integer meta = blockMetas.get(oldId);
+        return meta == null ? -1 : meta;
     }
 
     public static Set<String> getRemoved() {

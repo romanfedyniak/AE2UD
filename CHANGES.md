@@ -39,6 +39,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   being loaded, a renamed block already under its new name, for a mod that gave several blocks one tile
   entity id.
 
+- **A renamed block can take one metadata of the block it becomes.** `LegacyRewrites.remapBlock` takes the
+  metadata as a third argument, for a mod's machine that is now one kind of another mod's machine block.
+
 - **What a rewritten tile or part held and has no place for goes into a chest beside it.**
   `LegacyRewrites.spill` takes a stack from inside a `TileRewriter` or `PartRewriter`; once the chunk has
   loaded, AE2UD puts it into a vanilla chest in the air beside the tile, a second one when the first is

@@ -57,6 +57,11 @@ public final class Migration {
      */
     private static final Int2ObjectMap<String> renamedBlocks = new Int2ObjectOpenHashMap<>();
 
+    /**
+     * The world's own number of each renamed block that takes one metadata, to that metadata.
+     */
+    private static final Int2IntMap renamedMetas = new Int2IntOpenHashMap();
+
     @Nullable
     private static volatile Int2IntMap blockNumbers;
 
@@ -99,6 +104,7 @@ public final class Migration {
     static void onWorldChange() {
         synchronized (renamedBlocks) {
             renamedBlocks.clear();
+            renamedMetas.clear();
             blockNumbers = null;
         }
     }
@@ -116,6 +122,10 @@ public final class Migration {
                 if (ForgeRegistries.BLOCKS.containsKey(new ResourceLocation(target))) {
                     synchronized (renamedBlocks) {
                         renamedBlocks.put(mapping.id, target);
+                        final int meta = LegacyRewrites.getBlockMeta(old);
+                        if (meta >= 0) {
+                            renamedMetas.put(mapping.id, meta);
+                        }
                         blockNumbers = null;
                     }
                 } else {
@@ -149,8 +159,8 @@ public final class Migration {
     }
 
     /**
-     * Sections keep a block as 12 bits, the low 8 in {@code Blocks} and the high 4 in {@code Add}; its metadata,
-     * in {@code Data}, stays.
+     * Sections keep a block as 12 bits, the low 8 in {@code Blocks} and the high 4 in {@code Add}, and its
+     * metadata in {@code Data}, which stays unless the block was renamed into one metadata of another.
      */
     private static void renumberBlocks(final NBTTagCompound chunk) {
         if (!LegacyRewrites.isLegacyWorld()) {
@@ -168,14 +178,21 @@ public final class Migration {
                 continue;
             }
             byte[] add = section.hasKey("Add", Constants.NBT.TAG_BYTE_ARRAY) ? section.getByteArray("Add") : null;
+            final byte[] data = section.getByteArray("Data");
             for (int i = 0; i < blocks.length; i++) {
                 final int high = add == null ? 0 : add[i >> 1] >> ((i & 1) * 4) & 0xF;
                 final int number = high << 8 | blocks[i] & 0xFF;
                 if (!numbers.containsKey(number)) {
                     continue;
                 }
-                final int renumbered = numbers.get(number);
+                final int renamed = numbers.get(number);
+                final int renumbered = renamed & 0xFFFF;
+                final int meta = (renamed >>> 16) - 1;
                 blocks[i] = (byte) renumbered;
+                if (meta >= 0 && data.length == 2048) {
+                    final int shift = (i & 1) * 4;
+                    data[i >> 1] = (byte) (data[i >> 1] & ~(0xF << shift) | meta << shift);
+                }
                 if (add == null && renumbered > 0xFF) {
                     add = new byte[2048];
                     section.setByteArray("Add", add);
@@ -190,6 +207,7 @@ public final class Migration {
 
     /**
      * Built on the first chunk: the blocks' own numbers are final only once the world's registries have loaded.
+     * Each holds the new number in its low 16 bits and, above them, one more than the metadata it takes, or 0.
      */
     private static Int2IntMap blockNumbers() {
         Int2IntMap numbers = blockNumbers;
@@ -200,7 +218,8 @@ public final class Migration {
             numbers = new Int2IntOpenHashMap();
             for (final Int2ObjectMap.Entry<String> entry : renamedBlocks.int2ObjectEntrySet()) {
                 final Block target = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(entry.getValue()));
-                numbers.put(entry.getIntKey(), Block.getIdFromBlock(target));
+                final int meta = renamedMetas.containsKey(entry.getIntKey()) ? renamedMetas.get(entry.getIntKey()) : -1;
+                numbers.put(entry.getIntKey(), Block.getIdFromBlock(target) | meta + 1 << 16);
             }
             blockNumbers = numbers;
             return numbers;
