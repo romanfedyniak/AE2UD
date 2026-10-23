@@ -74,6 +74,9 @@ public final class Migration {
             @Override
             public NBTTagCompound fixTagCompound(final NBTTagCompound chunk) {
                 renumberBlocks(chunk);
+                if (LegacyRewrites.isLegacyWorld()) {
+                    LegacyRewrites.enterChunk(chunk.getCompoundTag("Level"));
+                }
                 return chunk;
             }
         });

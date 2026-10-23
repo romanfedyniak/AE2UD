@@ -35,6 +35,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   `forwardTile` and `forwardPart` run them on a stack, tile or part given the id and the UEL shape of another,
   so that a mod's copy of an AE2 machine is rewritten as that machine is.
 
+- **A tile rewriter can see the block the tile stands in.** `LegacyRewrites.blockAt` reads it from the chunk
+  being loaded, a renamed block already under its new name, for a mod that gave several blocks one tile
+  entity id.
+
 - **What a rewritten tile or part held and has no place for goes into a chest beside it.**
   `LegacyRewrites.spill` takes a stack from inside a `TileRewriter` or `PartRewriter`; once the chunk has
   loaded, AE2UD puts it into a vanilla chest in the air beside the tile, a second one when the first is

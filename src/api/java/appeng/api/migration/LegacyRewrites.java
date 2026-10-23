@@ -33,6 +33,8 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
@@ -75,6 +77,9 @@ public final class LegacyRewrites {
     public static final String SPILL_KEY = "ae2ud:spill";
 
     private static final ThreadLocal<NBTTagList> spilled = new ThreadLocal<>();
+
+    // Kept until the next chunk: the walk over a chunk's tile entities, which comes after it, has no end to hook.
+    private static final ThreadLocal<NBTTagCompound> chunk = new ThreadLocal<>();
 
     @Nullable
     private static volatile MigrationLog log;
@@ -290,6 +295,50 @@ public final class LegacyRewrites {
         for (final PartRewriter rewriter : rewriters) {
             rewriter.rewrite(item, part);
         }
+    }
+
+    /**
+     * The block a tile being rewritten stands in, a renamed one already under its new name. Only from inside a
+     * {@link TileRewriter}; null outside one, or for a tile that came from somewhere other than a chunk.
+     */
+    @Nullable
+    public static Block blockAt(final NBTTagCompound tile) {
+        final NBTTagCompound level = chunk.get();
+        if (level == null) {
+            return null;
+        }
+        final int x = tile.getInteger("x");
+        final int y = tile.getInteger("y");
+        final int z = tile.getInteger("z");
+        if (x >> 4 != level.getInteger("xPos") || z >> 4 != level.getInteger("zPos") || y < 0 || y > 255) {
+            return null;
+        }
+        final NBTTagList sections = level.getTagList("Sections", Constants.NBT.TAG_COMPOUND);
+        for (int s = 0; s < sections.tagCount(); s++) {
+            final NBTTagCompound section = sections.getCompoundTagAt(s);
+            if (section.getByte("Y") != y >> 4) {
+                continue;
+            }
+            final byte[] blocks = section.getByteArray("Blocks");
+            if (blocks.length != 4096) {
+                return null;
+            }
+            final int i = (y & 15) << 8 | (z & 15) << 4 | x & 15;
+            int number = blocks[i] & 0xFF;
+            if (section.hasKey("Add", Constants.NBT.TAG_BYTE_ARRAY)) {
+                number |= (section.getByteArray("Add")[i >> 1] >> ((i & 1) * 4) & 0xF) << 8;
+            }
+            return Block.getBlockById(number);
+        }
+        return Blocks.AIR;
+    }
+
+    /**
+     * AE2UD's own: the chunk, its {@code Level}, whose tile entities are rewritten next on this thread. Its blocks
+     * have been renumbered already.
+     */
+    public static void enterChunk(final NBTTagCompound level) {
+        chunk.set(level);
     }
 
     private static NBTTagCompound rewriteCableBus(final NBTTagCompound bus) {

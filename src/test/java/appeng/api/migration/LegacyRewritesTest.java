@@ -14,8 +14,11 @@ package appeng.api.migration;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.init.Bootstrap;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -170,6 +173,28 @@ public final class LegacyRewritesTest {
         LegacyRewrites.startWorld(this.log);
         assertThat(LegacyRewrites.rewriteTile(tile("legacytest:older_machine")).getString("id"),
                 is("minecraft:chest"));
+    }
+
+    @Test
+    public void blockUnderATileIsReadFromItsChunk() {
+        final NBTTagCompound section = new NBTTagCompound();
+        section.setByte("Y", (byte) 4);
+        final byte[] blocks = new byte[4096];
+        // x 1, y 64, z -2 in chunk 0, -1
+        blocks[0 << 8 | 14 << 4 | 1] = (byte) Block.getIdFromBlock(Blocks.STONE);
+        section.setByteArray("Blocks", blocks);
+        final NBTTagList sections = new NBTTagList();
+        sections.appendTag(section);
+        final NBTTagCompound level = new NBTTagCompound();
+        level.setInteger("xPos", 0);
+        level.setInteger("zPos", -1);
+        level.setTag("Sections", sections);
+        LegacyRewrites.enterChunk(level);
+
+        assertThat(LegacyRewrites.blockAt(tile("legacytest:machine")), is(Blocks.STONE));
+        final NBTTagCompound elsewhere = tile("legacytest:machine");
+        elsewhere.setInteger("x", 40);
+        assertThat(LegacyRewrites.blockAt(elsewhere), is((Block) null));
     }
 
     static NBTTagCompound stack(final String id) {
