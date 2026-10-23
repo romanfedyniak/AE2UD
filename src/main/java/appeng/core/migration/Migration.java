@@ -32,6 +32,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.ModFixs;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.event.world.ChunkDataEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
@@ -55,6 +56,8 @@ public final class Migration {
      * The data version AE2UD writes into every chunk it saves. A chunk saved before it is rewritten once.
      */
     private static final int DATA_VERSION = 1;
+
+    private static final String REWRITTEN = "ae2ud:rewritten";
 
     /**
      * The world's own number of each renamed block, to the name of the block it becomes.
@@ -85,6 +88,7 @@ public final class Migration {
                 renumberBlocks(chunk);
                 if (LegacyRewrites.isLegacyWorld()) {
                     LegacyRewrites.enterChunk(chunk.getCompoundTag("Level"));
+                    chunk.getCompoundTag("Level").setBoolean(REWRITTEN, true);
                 }
                 return chunk;
             }
@@ -140,6 +144,19 @@ public final class Migration {
                 log.lost("block " + old + " has no equivalent; every one is gone");
                 mapping.ignore();
             }
+        }
+    }
+
+    /**
+     * A chunk the game does not change is not saved, and would be rewritten again on every load, spilling what
+     * its tiles held each time; one that was rewritten is saved once, with the data version that marks it done.
+     */
+    @SubscribeEvent
+    public void onChunkLoad(final ChunkDataEvent.Load event) {
+        final NBTTagCompound level = event.getData().getCompoundTag("Level");
+        if (level.getBoolean(REWRITTEN)) {
+            level.removeTag(REWRITTEN);
+            event.getChunk().markDirty();
         }
     }
 
