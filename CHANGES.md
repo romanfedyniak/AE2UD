@@ -12,6 +12,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### UEL worlds
+
+- **A world saved by AE2 UEL keeps its AE2 content.** Cells keep what they hold, interfaces their stock,
+  config and patterns, and every bus, plane, emitter, monitor and cell workbench its filter. Processing
+  patterns written 81 inputs long are cut to the 32 AE2UD lays out; one that really uses more stays unusable
+  and is logged. A crafting job that was running is cancelled, and what its CPU held goes back to the network.
+- **UEL's fluid twins become the parts and blocks they were merged into.** The fluid interface, buses,
+  planes, emitter and terminals keep their settings, and a part that worked with one key type still does. The
+  identity annihilation plane becomes a plain one with Silk Touch, as UEL itself did when it was picked up.
+
 ### API
 
 - **An addon can say what its UEL-era blocks, items and tile entities become.** `LegacyRewrites` takes
@@ -20,6 +30,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   `AE2/migration.dat`: blocks and tile entities once per chunk, stacks as they are read. What has no
   equivalent, and every rewriter that throws, with the original NBT, goes to
   `logs/ae2ud-migration.log`.
+
+- **An addon can say how to read the stacks UEL saved for it.** `LegacyStacks` takes a `LegacyStackReader` for
+  an addon's own entries in cells, filters and crafting CPUs, the items it wrapped a gas or other stack in, and
+  the cells that kept their contents UEL's way. A `PartRewriter` rewrites a part's data on a cable bus, seeing
+  the part's item as it was saved.
 
 - **A pattern terminal mode can line a wireless terminal's cards up in a row.** They hung on a plate beside
   the window, or beside the mode's widest plate. `PatternModePanel.getWirelessCardRow()` names where a row of

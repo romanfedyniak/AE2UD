@@ -49,6 +49,9 @@ public final class LegacyRewrites {
     private static final Set<String> removed = new HashSet<>();
     private static final Map<String, StackEntry> stacks = new HashMap<>();
     private static final Map<String, List<TileRewriter>> tiles = new HashMap<>();
+    private static final Map<String, List<PartRewriter>> parts = new HashMap<>();
+    private static final String[] CABLE_BUS_TILES = { "appliedenergistics2:blockcablebus",
+            "appliedenergistics2:clientonly_tesr_cablebus" };
 
     private static final MigrationLog SILENT = new MigrationLog() {
         @Override
@@ -104,6 +107,18 @@ public final class LegacyRewrites {
 
     public static void addTileRewriter(final String tileId, final TileRewriter rewriter) {
         tiles.computeIfAbsent(id(tileId), k -> new ArrayList<>()).add(rewriter);
+    }
+
+    /**
+     * Rewriters of the parts of one item id, on every cable bus. They run in the order they were added.
+     */
+    public static void addPartRewriter(final String itemId, final PartRewriter rewriter) {
+        if (parts.isEmpty()) {
+            for (final String tile : CABLE_BUS_TILES) {
+                addTileRewriter(tile, LegacyRewrites::rewriteCableBus);
+            }
+        }
+        parts.computeIfAbsent(id(itemId), k -> new ArrayList<>()).add(rewriter);
     }
 
     /**
@@ -190,6 +205,34 @@ public final class LegacyRewrites {
             }
             return bare;
         }
+    }
+
+    private static NBTTagCompound rewriteCableBus(final NBTTagCompound bus) {
+        for (int side = 0; side < 7; side++) {
+            final NBTTagCompound item = bus.getCompoundTag("def:" + side);
+            final List<PartRewriter> rewriters = parts.get(item.getString("id"));
+            if (rewriters == null) {
+                continue;
+            }
+            final NBTTagCompound part = bus.getCompoundTag("extra:" + side);
+            final NBTTagCompound originalItem = item.copy();
+            final NBTTagCompound originalPart = part.copy();
+            try {
+                for (final PartRewriter rewriter : rewriters) {
+                    rewriter.rewrite(item, part);
+                }
+                bus.setTag("extra:" + side, part);
+            } catch (final RuntimeException | LinkageError e) {
+                final NBTTagCompound original = new NBTTagCompound();
+                original.setTag("def", originalItem);
+                original.setTag("extra", originalPart);
+                log().failed("part " + originalItem.getString("id") + "@" + originalItem.getShort("Damage") + " at "
+                        + bus.getInteger("x") + " " + bus.getInteger("y") + " " + bus.getInteger("z"), original, e);
+                bus.removeTag("def:" + side);
+                bus.removeTag("extra:" + side);
+            }
+        }
+        return bus;
     }
 
     public static Map<String, String> getBlockRemaps() {

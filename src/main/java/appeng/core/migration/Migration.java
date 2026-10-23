@@ -35,6 +35,7 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import appeng.api.migration.LegacyRewrites;
 import appeng.api.migration.MigrationLog;
 import appeng.core.AppEng;
+import appeng.core.migration.uel.UelMigration;
 
 /**
  * Applies {@link LegacyRewrites} to a world from UEL: renamed blocks in each chunk's block data and tile entities as
@@ -88,6 +89,7 @@ public final class Migration {
             }
         });
         MinecraftForge.EVENT_BUS.register(new Migration());
+        UelMigration.register();
     }
 
     static void onWorldChange() {
