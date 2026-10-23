@@ -89,6 +89,7 @@ public final class Migration {
             }
         });
         MinecraftForge.EVENT_BUS.register(new Migration());
+        MinecraftForge.EVENT_BUS.register(new Spills());
         UelMigration.register();
     }
 

@@ -48,6 +48,10 @@ public final class LegacyRewritesTest {
             tile.setString("id", "minecraft:chest");
             return tile;
         });
+        LegacyRewrites.addTileRewriter("legacytest:full_machine", tile -> {
+            LegacyRewrites.spill(stack("minecraft:stick"));
+            return tile;
+        });
         LegacyRewrites.addTileRewriter("legacytest:broken_machine", tile -> {
             throw new IllegalStateException("bad shape");
         });
@@ -119,6 +123,15 @@ public final class LegacyRewritesTest {
     public void tileRewriterRuns() {
         LegacyRewrites.startWorld(this.log);
         assertThat(LegacyRewrites.rewriteTile(tile("legacytest:machine")).getString("id"), is("minecraft:chest"));
+    }
+
+    @Test
+    public void spilledStacksRideInTheTile() {
+        LegacyRewrites.startWorld(this.log);
+        final NBTTagCompound result = LegacyRewrites.rewriteTile(tile("legacytest:full_machine"));
+
+        assertThat(result.getTagList(LegacyRewrites.SPILL_KEY, 10).getCompoundTagAt(0).getString("id"),
+                is("minecraft:stick"));
     }
 
     @Test

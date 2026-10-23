@@ -34,7 +34,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.util.Constants;
 
 /**
  * What a world saved by AE2 UEL and its addons turns into on AE2UD. AE2UD, its addons and the migrator register
@@ -66,6 +68,13 @@ public final class LegacyRewrites {
         public void failed(final String what, final NBTTagCompound original, final Throwable error) {
         }
     };
+
+    /**
+     * Where a tile keeps what {@link #spill} was handed for it, until AE2UD puts it into a chest beside the tile.
+     */
+    public static final String SPILL_KEY = "ae2ud:spill";
+
+    private static final ThreadLocal<NBTTagList> spilled = new ThreadLocal<>();
 
     @Nullable
     private static volatile MigrationLog log;
@@ -119,6 +128,20 @@ public final class LegacyRewrites {
             }
         }
         parts.computeIfAbsent(id(itemId), k -> new ArrayList<>()).add(rewriter);
+    }
+
+    /**
+     * Something the tile or part being rewritten held that has no place in what it becomes. AE2UD puts it into a
+     * chest beside the tile once the chunk has loaded, or drops it there when there is no room. Only from inside
+     * a {@link TileRewriter} or a {@link PartRewriter}.
+     */
+    public static void spill(final NBTTagCompound stack) {
+        final NBTTagList list = spilled.get();
+        if (list == null) {
+            log().lost("item with nowhere to go, spilled outside a tile: " + stack);
+            return;
+        }
+        list.appendTag(stack);
     }
 
     /**
@@ -187,10 +210,19 @@ public final class LegacyRewrites {
         }
 
         final NBTTagCompound original = tile.copy();
+        final NBTTagList spill = new NBTTagList();
+        spilled.set(spill);
         try {
             NBTTagCompound result = tile;
             for (final TileRewriter rewriter : rewriters) {
                 result = rewriter.rewrite(result);
+            }
+            if (!spill.isEmpty()) {
+                final NBTTagList kept = result.getTagList(SPILL_KEY, Constants.NBT.TAG_COMPOUND);
+                for (int i = 0; i < spill.tagCount(); i++) {
+                    kept.appendTag(spill.get(i));
+                }
+                result.setTag(SPILL_KEY, kept);
             }
             return result;
         } catch (final RuntimeException | LinkageError e) {
@@ -204,6 +236,8 @@ public final class LegacyRewrites {
                 }
             }
             return bare;
+        } finally {
+            spilled.remove();
         }
     }
 

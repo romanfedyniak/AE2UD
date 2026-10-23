@@ -31,6 +31,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   equivalent, and every rewriter that throws, with the original NBT, goes to
   `logs/ae2ud-migration.log`.
 
+- **What a rewritten tile or part held and has no place for goes into a chest beside it.**
+  `LegacyRewrites.spill` takes a stack from inside a `TileRewriter` or `PartRewriter`; once the chunk has
+  loaded, AE2UD puts it into a vanilla chest in the air beside the tile, a second one when the first is
+  full, and drops it there when there is no room. Each chest is logged with where it is.
+
 - **An addon can say how to read the stacks UEL saved for it.** `LegacyStacks` takes a `LegacyStackReader` for
   an addon's own entries in cells, filters and crafting CPUs, the items it wrapped a gas or other stack in, and
   the cells that kept their contents UEL's way. A `PartRewriter` rewrites a part's data on a cable bus, seeing
