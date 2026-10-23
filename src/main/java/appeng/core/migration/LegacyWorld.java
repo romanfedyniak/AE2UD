@@ -25,6 +25,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
 
 import appeng.api.migration.LegacyRewrites;
+import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
 
@@ -46,6 +47,11 @@ public final class LegacyWorld {
     }
 
     public static void onServerAboutToStart(final File worldDirectory, final File ae2Directory) {
+        if (!AEConfig.instance().isUelMigrationEnabled()) {
+            LegacyRewrites.startWorld(null);
+            warnIfLegacy(worldDirectory, new File(ae2Directory, FLAG_FILE));
+            return;
+        }
         Migration.onWorldChange();
         final String from = migratedFrom(worldDirectory, new File(ae2Directory, FLAG_FILE));
         if (from == null || from.isEmpty()) {
@@ -74,6 +80,28 @@ public final class LegacyWorld {
             log.summarise();
             log.close();
             log = null;
+        }
+    }
+
+    /**
+     * Migration is switched off. The flag is neither read as a promise nor written, so that switching it back
+     * on still judges the world.
+     */
+    private static void warnIfLegacy(final File worldDirectory, final File flagFile) {
+        String from = null;
+        if (flagFile.isFile()) {
+            try (InputStream in = new FileInputStream(flagFile)) {
+                from = CompressedStreamTools.readCompressed(in).getString(MIGRATED_FROM);
+            } catch (final IOException e) {
+                return;
+            }
+        } else {
+            final String saved = savedVersion(worldDirectory);
+            from = saved != null && isUel(saved) ? saved : null;
+        }
+        if (from != null && !from.isEmpty()) {
+            AELog.error("This world was saved by AE2 %s, but migrateUelWorlds is off in the AE2 config: nothing of"
+                    + " it is carried over, and what AE2UD reads differently is lost", from);
         }
     }
 

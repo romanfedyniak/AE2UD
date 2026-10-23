@@ -23,6 +23,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   identity annihilation plane becomes a plain one with Silk Touch, as UEL itself did when it was picked up.
 - **A world saved with RoughlyEnoughIDs is carried over too.** Its chunks keep their blocks as a palette
   of block states, and the blocks a migration renames are renamed in that palette.
+- **Migration can be switched off.** `migrateUelWorlds` in the config's `general` section, on by default.
+  Off, AE2UD registers no data fixer and rewrites no chunk, tile or stack, for a server whose worlds were
+  never on UEL; a UEL world opened with it off is logged as an error.
 
 ### API
 

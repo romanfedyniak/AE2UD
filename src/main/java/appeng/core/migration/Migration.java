@@ -39,6 +39,7 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import appeng.api.migration.LegacyRewrites;
 import appeng.api.migration.MigrationLog;
+import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.migration.uel.UelMigration;
 
@@ -76,6 +77,9 @@ public final class Migration {
     }
 
     public static void preInit() {
+        if (!AEConfig.instance().isUelMigrationEnabled()) {
+            return;
+        }
         final ModFixs fixes = FMLCommonHandler.instance().getDataFixer().init(AppEng.MOD_ID, DATA_VERSION);
         fixes.registerFix(FixTypes.CHUNK, new IFixableData() {
             @Override
