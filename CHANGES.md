@@ -21,6 +21,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **UEL's fluid twins become the parts and blocks they were merged into.** The fluid interface, buses,
   planes, emitter and terminals keep their settings, and a part that worked with one key type still does. The
   identity annihilation plane becomes a plain one with Silk Touch, as UEL itself did when it was picked up.
+- **A world saved with RoughlyEnoughIDs is carried over too.** Its chunks keep their blocks as a palette
+  of block states, and the blocks a migration renames are renamed in that palette.
 
 ### API
 

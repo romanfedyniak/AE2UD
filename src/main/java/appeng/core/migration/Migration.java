@@ -63,7 +63,7 @@ public final class Migration {
     private static final Int2IntMap renamedMetas = new Int2IntOpenHashMap();
 
     @Nullable
-    private static volatile Int2IntMap blockNumbers;
+    private static volatile Renames blockRenames;
 
     private Migration() {
     }
@@ -105,7 +105,7 @@ public final class Migration {
         synchronized (renamedBlocks) {
             renamedBlocks.clear();
             renamedMetas.clear();
-            blockNumbers = null;
+            blockRenames = null;
         }
     }
 
@@ -126,7 +126,7 @@ public final class Migration {
                         if (meta >= 0) {
                             renamedMetas.put(mapping.id, meta);
                         }
-                        blockNumbers = null;
+                        blockRenames = null;
                     }
                 } else {
                     log.lost("block " + old + ": " + target + ", which it becomes, is not registered; every one is gone");
@@ -159,70 +159,117 @@ public final class Migration {
     }
 
     /**
-     * Sections keep a block as 12 bits, the low 8 in {@code Blocks} and the high 4 in {@code Add}, and its
-     * metadata in {@code Data}, which stays unless the block was renamed into one metadata of another.
+     * A section keeps its blocks one of two ways. Saved plainly, a block is its number in {@code Blocks}, with
+     * the high bits in {@code Add} and, past 4095, in {@code Add2}, and its metadata in {@code Data}. Saved by
+     * RoughlyEnoughIDs, it has a {@code Palette} of block states, number and metadata, and the other arrays
+     * only point into it; then only the palette changes.
      */
     private static void renumberBlocks(final NBTTagCompound chunk) {
         if (!LegacyRewrites.isLegacyWorld()) {
             return;
         }
-        final Int2IntMap numbers = blockNumbers();
-        if (numbers.isEmpty()) {
+        final Renames renames = renames();
+        if (renames.numbers.isEmpty()) {
             return;
         }
         final NBTTagList sections = chunk.getCompoundTag("Level").getTagList("Sections", Constants.NBT.TAG_COMPOUND);
         for (int s = 0; s < sections.tagCount(); s++) {
             final NBTTagCompound section = sections.getCompoundTagAt(s);
-            final byte[] blocks = section.getByteArray("Blocks");
-            if (blocks.length != 4096) {
-                continue;
-            }
-            byte[] add = section.hasKey("Add", Constants.NBT.TAG_BYTE_ARRAY) ? section.getByteArray("Add") : null;
-            final byte[] data = section.getByteArray("Data");
-            for (int i = 0; i < blocks.length; i++) {
-                final int high = add == null ? 0 : add[i >> 1] >> ((i & 1) * 4) & 0xF;
-                final int number = high << 8 | blocks[i] & 0xFF;
-                if (!numbers.containsKey(number)) {
-                    continue;
-                }
-                final int renamed = numbers.get(number);
-                final int renumbered = renamed & 0xFFFF;
-                final int meta = (renamed >>> 16) - 1;
-                blocks[i] = (byte) renumbered;
-                if (meta >= 0 && data.length == 2048) {
-                    final int shift = (i & 1) * 4;
-                    data[i >> 1] = (byte) (data[i >> 1] & ~(0xF << shift) | meta << shift);
-                }
-                if (add == null && renumbered > 0xFF) {
-                    add = new byte[2048];
-                    section.setByteArray("Add", add);
-                }
-                if (add != null) {
-                    final int shift = (i & 1) * 4;
-                    add[i >> 1] = (byte) (add[i >> 1] & ~(0xF << shift) | (renumbered >> 8 & 0xF) << shift);
-                }
+            if (section.hasKey("Palette", Constants.NBT.TAG_INT_ARRAY)) {
+                renumberPalette(section, renames);
+            } else {
+                renumberPlain(section, renames);
             }
         }
     }
 
+    private static void renumberPalette(final NBTTagCompound section, final Renames renames) {
+        final int[] palette = section.getIntArray("Palette").clone();
+        for (int p = 0; p < palette.length; p++) {
+            final int number = palette[p] >>> 4;
+            if (renames.numbers.containsKey(number)) {
+                final int meta = renames.metas.containsKey(number) ? renames.metas.get(number) : palette[p] & 0xF;
+                palette[p] = renames.numbers.get(number) << 4 | meta;
+            }
+        }
+        section.setIntArray("Palette", palette);
+    }
+
+    private static void renumberPlain(final NBTTagCompound section, final Renames renames) {
+        final byte[] blocks = section.getByteArray("Blocks");
+        final byte[] data = section.getByteArray("Data");
+        if (blocks.length != 4096 || data.length != 2048) {
+            return;
+        }
+        byte[] add = section.hasKey("Add", Constants.NBT.TAG_BYTE_ARRAY) ? section.getByteArray("Add") : null;
+        byte[] add2 = section.hasKey("Add2", Constants.NBT.TAG_BYTE_ARRAY) ? section.getByteArray("Add2") : null;
+        for (int i = 0; i < blocks.length; i++) {
+            final int number = nibble(add2, i) << 12 | nibble(add, i) << 8 | blocks[i] & 0xFF;
+            if (!renames.numbers.containsKey(number)) {
+                continue;
+            }
+            final int renumbered = renames.numbers.get(number);
+            blocks[i] = (byte) renumbered;
+            if (renames.metas.containsKey(number)) {
+                setNibble(data, i, renames.metas.get(number));
+            }
+            if (add == null && renumbered > 0xFF) {
+                add = new byte[2048];
+                section.setByteArray("Add", add);
+            }
+            if (add != null) {
+                setNibble(add, i, renumbered >> 8);
+            }
+            if (add2 == null && renumbered > 0xFFF) {
+                add2 = new byte[2048];
+                section.setByteArray("Add2", add2);
+            }
+            if (add2 != null) {
+                setNibble(add2, i, renumbered >> 12);
+            }
+        }
+    }
+
+    private static int nibble(final byte[] array, final int i) {
+        return array == null ? 0 : array[i >> 1] >> ((i & 1) * 4) & 0xF;
+    }
+
+    private static void setNibble(final byte[] array, final int i, final int value) {
+        final int shift = (i & 1) * 4;
+        array[i >> 1] = (byte) (array[i >> 1] & ~(0xF << shift) | (value & 0xF) << shift);
+    }
+
     /**
      * Built on the first chunk: the blocks' own numbers are final only once the world's registries have loaded.
-     * Each holds the new number in its low 16 bits and, above them, one more than the metadata it takes, or 0.
      */
-    private static Int2IntMap blockNumbers() {
-        Int2IntMap numbers = blockNumbers;
-        if (numbers != null) {
-            return numbers;
+    private static Renames renames() {
+        Renames renames = blockRenames;
+        if (renames != null) {
+            return renames;
         }
         synchronized (renamedBlocks) {
-            numbers = new Int2IntOpenHashMap();
+            final Int2IntMap numbers = new Int2IntOpenHashMap();
             for (final Int2ObjectMap.Entry<String> entry : renamedBlocks.int2ObjectEntrySet()) {
                 final Block target = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(entry.getValue()));
-                final int meta = renamedMetas.containsKey(entry.getIntKey()) ? renamedMetas.get(entry.getIntKey()) : -1;
-                numbers.put(entry.getIntKey(), Block.getIdFromBlock(target) | meta + 1 << 16);
+                numbers.put(entry.getIntKey(), Block.getIdFromBlock(target));
             }
-            blockNumbers = numbers;
-            return numbers;
+            renames = new Renames(numbers, new Int2IntOpenHashMap(renamedMetas));
+            blockRenames = renames;
+            return renames;
+        }
+    }
+
+    /**
+     * The world's number of each renamed block, to the number of the block it becomes and, when it becomes one
+     * metadata of it, to that metadata.
+     */
+    private static final class Renames {
+        private final Int2IntMap numbers;
+        private final Int2IntMap metas;
+
+        private Renames(final Int2IntMap numbers, final Int2IntMap metas) {
+            this.numbers = numbers;
+            this.metas = metas;
         }
     }
 }

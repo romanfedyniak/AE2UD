@@ -330,17 +330,31 @@ public final class LegacyRewrites {
                 continue;
             }
             final byte[] blocks = section.getByteArray("Blocks");
-            if (blocks.length != 4096) {
+            final byte[] data = section.getByteArray("Data");
+            if (blocks.length != 4096 || data.length != 2048) {
                 return null;
             }
             final int i = (y & 15) << 8 | (z & 15) << 4 | x & 15;
+            // Saved by RoughlyEnoughIDs, the arrays point into a palette of block states.
+            if (section.hasKey("Palette", Constants.NBT.TAG_INT_ARRAY)) {
+                final int[] palette = section.getIntArray("Palette");
+                final int index = (blocks[i] & 0xFF) << 4 | nibble(data, i);
+                return index < palette.length ? Block.getBlockById(palette[index] >>> 4) : null;
+            }
             int number = blocks[i] & 0xFF;
             if (section.hasKey("Add", Constants.NBT.TAG_BYTE_ARRAY)) {
-                number |= (section.getByteArray("Add")[i >> 1] >> ((i & 1) * 4) & 0xF) << 8;
+                number |= nibble(section.getByteArray("Add"), i) << 8;
+            }
+            if (section.hasKey("Add2", Constants.NBT.TAG_BYTE_ARRAY)) {
+                number |= nibble(section.getByteArray("Add2"), i) << 12;
             }
             return Block.getBlockById(number);
         }
         return Blocks.AIR;
+    }
+
+    private static int nibble(final byte[] array, final int i) {
+        return array[i >> 1] >> ((i & 1) * 4) & 0xF;
     }
 
     /**

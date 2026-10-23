@@ -183,6 +183,7 @@ public final class LegacyRewritesTest {
         // x 1, y 64, z -2 in chunk 0, -1
         blocks[0 << 8 | 14 << 4 | 1] = (byte) Block.getIdFromBlock(Blocks.STONE);
         section.setByteArray("Blocks", blocks);
+        section.setByteArray("Data", new byte[2048]);
         final NBTTagList sections = new NBTTagList();
         sections.appendTag(section);
         final NBTTagCompound level = new NBTTagCompound();
@@ -195,6 +196,29 @@ public final class LegacyRewritesTest {
         final NBTTagCompound elsewhere = tile("legacytest:machine");
         elsewhere.setInteger("x", 40);
         assertThat(LegacyRewrites.blockAt(elsewhere), is((Block) null));
+    }
+
+    @Test
+    public void blockUnderATileIsReadFromAPalette() {
+        final NBTTagCompound section = new NBTTagCompound();
+        section.setByte("Y", (byte) 4);
+        final byte[] blocks = new byte[4096];
+        final byte[] data = new byte[2048];
+        // Palette entry 1 at x 1, y 64, z -2; the low nibble of the entry index sits in Data.
+        final int i = 0 << 8 | 14 << 4 | 1;
+        data[i >> 1] = (byte) (1 << ((i & 1) * 4));
+        section.setByteArray("Blocks", blocks);
+        section.setByteArray("Data", data);
+        section.setIntArray("Palette", new int[] { 0, Block.getIdFromBlock(Blocks.GOLD_BLOCK) << 4 });
+        final NBTTagList sections = new NBTTagList();
+        sections.appendTag(section);
+        final NBTTagCompound level = new NBTTagCompound();
+        level.setInteger("xPos", 0);
+        level.setInteger("zPos", -1);
+        level.setTag("Sections", sections);
+        LegacyRewrites.enterChunk(level);
+
+        assertThat(LegacyRewrites.blockAt(tile("legacytest:machine")), is(Blocks.GOLD_BLOCK));
     }
 
     static NBTTagCompound stack(final String id) {
