@@ -50,6 +50,7 @@ import net.minecraft.util.math.Vec3d;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 
 public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicState {
@@ -199,6 +200,7 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
                             e.printStackTrace();
                         }
 
+                        this.dropContents();
                         this.getHost().removePart(this.getSide(), true);
 
                         final AEPartLocation dir = this.getHost().addPart(newType, this.getSide(), player, hand);
@@ -240,6 +242,7 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
                     e.printStackTrace();
                 }
 
+                this.dropContents();
                 this.getHost().removePart(this.getSide(), false);
 
                 final AEPartLocation dir = this.getHost().addPart(newType, this.getSide(), player, hand);
@@ -263,6 +266,15 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
         }
 
         return false;
+    }
+
+    /** What the tunnel holds goes out before it is swapped for another, as it would were it broken. */
+    private void dropContents() {
+        final List<ItemStack> drops = new ArrayList<>();
+        this.getDrops(drops, false);
+        if (!drops.isEmpty()) {
+            Platform.spawnDrops(this.getTile().getWorld(), this.getTile().getPos(), drops);
+        }
     }
 
     @Override
@@ -304,6 +316,7 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
                         e.printStackTrace();
                     }
 
+                    this.dropContents();
                     this.getHost().removePart(this.getSide(), false);
 
                     final AEPartLocation dir = this.getHost().addPart(newType, this.getSide(), player, hand);
