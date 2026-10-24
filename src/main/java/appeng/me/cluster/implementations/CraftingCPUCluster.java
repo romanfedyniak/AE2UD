@@ -58,6 +58,7 @@ import com.google.common.math.LongMath;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.NonNullList;
 import net.minecraft.nbt.NBTTagCompound;
@@ -70,6 +71,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nullable;
 
 
 /**
@@ -134,9 +137,14 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private long availableStorage = 0;
     /**
      * The tools this job holds, by the key they were reserved as. What comes back from a machine is a worn
-     * version of one of these and is claimed rather than let go - see {@link #isReturningTool(AEKey)}.
+     * version of one of these and is claimed rather than let go - see {@link #returningTool(AEKey)}.
      */
     private final Set<AEKey> tools = new HashSet<>();
+    /**
+     * How many of each tool are out at a machine, by the key in {@link #tools}: only that many coming back are
+     * claimed, so a player's own pickaxe put into the network stays theirs.
+     */
+    private KeyCounter toolsOut = new KeyCounter();
     private MachineSource machineSrc = null;
     private int accelerator = 0;
     private boolean isComplete = true;
@@ -344,17 +352,20 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         final long waitingAmount = this.waitingFor.get(what);
         if (waitingAmount <= 0) {
-            if (!deliver || !this.isReturningTool(what)) {
+            final AEKey tool = deliver && !src.player().isPresent() ? this.returningTool(what) : null;
+            if (tool == null) {
                 return 0;
             }
 
             // Not progress, so nothing about the job moves - the tool is simply back where it belongs.
+            final long back = Math.min(amount, this.toolsOut.get(tool));
             if (type == Actionable.MODULATE) {
-                this.inventory.insert(what, amount, Actionable.MODULATE, src);
+                this.toolsOut.remove(tool, back);
+                this.inventory.insert(what, back, Actionable.MODULATE, src);
                 this.postChange(what, src);
             }
 
-            return amount;
+            return back;
         }
 
         final long used = Math.min(waitingAmount, amount);
@@ -972,6 +983,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     this.recordPush(details, m, pushed);
 
                     if (pushed) {
+                        this.toolsSent(ic);
                         this.somethingChanged = true;
                         this.remainingOperations--;
 
@@ -1121,6 +1133,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.somethingChanged = true;
         this.remainingOperations -= copies;
+        this.toolsSent(table);
 
         for (final GenericStack out : details.getCondensedOutputs()) {
             if (out != null) {
@@ -1517,6 +1530,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private void clearTasks() {
         this.tasks.clear();
         this.tools.clear();
+        this.toolsOut.clear();
     }
 
     public void addCrafting(final ICraftingPatternDetails details, final long crafts) {
@@ -1555,19 +1569,40 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * A tool leaves the cpu whole and returns a little more worn, which is a different key - so nothing is
      * waiting for it, and without this it would drift off into network storage while the job that owns it
      * kept asking for another. It is claimed back instead, and is spent for as long as it lasts.
+     *
+     * @return the tool it is a worn version of, while one of those is still out, or null
      */
-    private boolean isReturningTool(final AEKey what) {
-        if (this.tools.isEmpty() || !(what instanceof AEItemKey worn)) {
-            return false;
+    @Nullable
+    private AEKey returningTool(final AEKey what) {
+        if (this.toolsOut.isEmpty() || !(what instanceof AEItemKey worn)) {
+            return null;
         }
+        final AEKey tool = this.toolOf(worn.getItem());
+        return tool != null && this.toolsOut.get(tool) > 0 ? tool : null;
+    }
 
+    @Nullable
+    private AEKey toolOf(final Item item) {
         for (final AEKey tool : this.tools) {
-            if (tool instanceof AEItemKey whole && whole.getItem() == worn.getItem()) {
-                return true;
+            if (tool instanceof AEItemKey whole && whole.getItem() == item) {
+                return tool;
             }
         }
+        return null;
+    }
 
-        return false;
+    /** Counts the tools a pushed table took to the machine. */
+    private void toolsSent(@Nullable final InventoryCrafting table) {
+        if (this.tools.isEmpty() || table == null) {
+            return;
+        }
+        for (int x = 0; x < table.getSizeInventory(); x++) {
+            final ItemStack is = table.getStackInSlot(x);
+            final AEKey tool = is.isEmpty() ? null : this.toolOf(is.getItem());
+            if (tool != null) {
+                this.toolsOut.add(tool, is.getCount());
+            }
+        }
     }
 
     public GenericStack getItemStack(final AEKey what, final CraftingItemList storage2) {
@@ -1625,6 +1660,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         data.setTag("waitingFor", this.writeKeyCounter(this.waitingFor));
         data.setTag("promised", this.writeKeyCounter(this.promised));
+        data.setTag("toolsOut", this.writeKeyCounter(this.toolsOut));
 
         data.setLong("elapsedTime", this.getElapsedTime());
         data.setLong("requestedAmount", this.requestedAmount);
@@ -1718,6 +1754,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.waitingFor = this.readKeyCounter((NBTTagList) data.getTag("waitingFor"));
         this.promised = this.readKeyCounter((NBTTagList) data.getTag("promised"));
+        this.toolsOut = this.readKeyCounter((NBTTagList) data.getTag("toolsOut"));
         for (final var entry : this.waitingFor) {
             this.postCraftingStatusChange(entry.getKey());
         }
