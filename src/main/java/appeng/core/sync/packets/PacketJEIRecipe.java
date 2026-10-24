@@ -119,6 +119,7 @@ public class PacketJEIRecipe extends AppEngPacket {
     private ResourceLocation mode;
     private Map<String, Map<Integer, List<ItemStack>>> grids;
     static ItemStack[] emptyArray = {ItemStack.EMPTY};
+    private static final int MAX_SLOTS = 256;
 
     /**
      * Set by a Ctrl+Move Items transfer - see RecipeTransferHandler. Craft whatever this recipe is
@@ -165,6 +166,9 @@ public class PacketJEIRecipe extends AppEngPacket {
                     continue;
                 }
                 final int x = Integer.parseInt(key.substring(1));
+                if (x < 0 || x >= MAX_SLOTS) {
+                    continue;
+                }
                 while (this.recipe.size() <= x) {
                     this.recipe.add(emptyArray);
                 }
@@ -246,12 +250,11 @@ public class PacketJEIRecipe extends AppEngPacket {
             final MEStorage storage = inv.getInventory();
             final AEKeyFilter filter = ItemViewCell.createFilter(cct.getViewCells());
 
+            while (this.recipe.size() < craftMatrix.getSlots()) {
+                this.recipe.add(emptyArray);
+            }
             for (int x = 0; x < craftMatrix.getSlots(); x++) {
                 ItemStack currentItem = craftMatrix.getStackInSlot(x);
-
-                if (x >= this.recipe.size()) {
-                    currentItem = ItemStack.EMPTY;
-                }
 
                 // prepare slots
                 if (!currentItem.isEmpty()) {
