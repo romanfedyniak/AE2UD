@@ -206,7 +206,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
     @Override
     public void doAction(final EntityPlayerMP player, final InventoryAction action, final int slot, final long id) {
         final ConfigTracker inv = this.byId.get(id);
-        if (inv != null) {
+        if (inv != null && slot >= 0 && slot < inv.server.getSlots()) {
             final boolean hasItemInHand = !player.inventory.getItemStack().isEmpty();
             final IItemHandler theSlot = new WrapperRangeItemHandler(inv.server, slot, slot + 1);
 

@@ -190,6 +190,10 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
                 return;
             }
 
+            if (slot < 0 || slot >= inv.usableSlots) {
+                return;
+            }
+
             final ItemStack is = inv.server.getStackInSlot(slot);
             final boolean hasItemInHand = !player.inventory.getItemStack().isEmpty();
 

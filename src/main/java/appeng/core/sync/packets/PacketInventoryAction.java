@@ -88,7 +88,11 @@ public class PacketInventoryAction extends AppEngPacket {
 
     // automatic.
     public PacketInventoryAction(final ByteBuf stream) throws IOException {
-        this.action = InventoryAction.values()[stream.readInt()];
+        final int action = stream.readInt();
+        if (action < 0 || action >= InventoryAction.values().length) {
+            throw new IOException("Unknown inventory action " + action);
+        }
+        this.action = InventoryAction.values()[action];
         this.slot = stream.readInt();
         this.id = stream.readLong();
         final boolean hasItem = stream.readBoolean();
@@ -213,11 +217,14 @@ public class PacketInventoryAction extends AppEngPacket {
             } else if (this.action == InventoryAction.PLACE_JEI_GHOST_ITEM) {
                 if (sender.openContainer instanceof ContainerInterfaceConfigurationTerminal) {
                     ConfigTracker inv = ((ContainerInterfaceConfigurationTerminal) sender.openContainer).getSlotByID(this.id);
+                    if (inv == null || this.slot < 0 || this.slot >= inv.getServer().getSlots()) {
+                        return;
+                    }
                     final IItemHandler theSlot = new WrapperRangeItemHandler(inv.getServer(), 0, slot + 1);
 
                     ItemHandlerUtil.setStackInSlot(theSlot, this.slot, GenericStack.wrapInItemStack(this.slotItem));
 
-                } else if (this.slot < sender.openContainer.inventorySlots.size()) {
+                } else if (this.slot >= 0 && this.slot < sender.openContainer.inventorySlots.size()) {
                     Slot senderSlot = sender.openContainer.inventorySlots.get(this.slot);
                     if (senderSlot instanceof SlotFake && baseContainer.canChangeSlot(this.slot)) {
                         if (this.slotItem != null) {
