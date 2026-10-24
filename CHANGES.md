@@ -532,6 +532,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   NullPointerException. What a watcher moves now waits for the next batch, and the network is counted in full
   before anyone is told about it.
 
+- **A block whose chunk unloaded before it was ready no longer leaves a ghost of itself on the network.** A
+  machine joins its network at the end of the tick in which its chunk loads. A chunk that loaded late in one
+  tick and unloaded early in the next let it join anyway, after it had already been unloaded, and nothing
+  ever took that ghost off again until the server restarted. Most ghosts sat alone and unseen, but a wireless
+  connector's kept linking itself to its hub, so the network visualiser drew a dozen dead beams beside the
+  real one, and each ghost drew the link's power.
+
 - **Typing P into a search or name box no longer opens the pattern or cell under the cursor.** The key that
   opens a pattern's view stands aside while a box has the keyboard, but eight places never said that theirs
   had it: the Pattern Access Terminal, the Crafting Plan's tree, the crafting CPU list beside three screens,

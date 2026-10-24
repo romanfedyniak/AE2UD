@@ -186,7 +186,7 @@ public class TickHandler {
             final HandlerRep repo = this.getRepo();
             while (!repo.tiles.isEmpty()) {
                 final AEBaseTile bt = repo.tiles.poll();
-                if (!bt.isInvalid()) {
+                if (!bt.isInvalid() && !bt.isUnloaded()) {
                     bt.onReady();
                 }
             }

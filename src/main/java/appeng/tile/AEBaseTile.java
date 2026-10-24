@@ -71,6 +71,7 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
     private EnumFacing up = null;
     private IBlockState state;
     private boolean markDirtyQueued = false;
+    private boolean unloaded;
 
     @Override
     public boolean shouldRefresh(final World world, final BlockPos pos, final IBlockState oldState, final IBlockState newSate) {
@@ -158,6 +159,25 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
         if (pkt.getTileEntityType() == 64) {
             this.handleUpdateTag(pkt.getNbtCompound());
         }
+    }
+
+    @Override
+    public void validate() {
+        super.validate();
+        this.unloaded = false;
+    }
+
+    @Override
+    public void onChunkUnload() {
+        super.onChunkUnload();
+        this.unloaded = true;
+    }
+
+    /**
+     * Whether its chunk let it go. Such a tile must not be readied: nothing would ever destroy the node it made.
+     */
+    public boolean isUnloaded() {
+        return this.unloaded;
     }
 
     public void onReady() {
