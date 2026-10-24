@@ -37,6 +37,7 @@ import appeng.core.settings.TickRates;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.ItemStackHelper;
+import appeng.helpers.PendingExtras;
 import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.util.InventoryAdaptor;
@@ -82,6 +83,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
      * interface, so a machine that has backed up does not stop the interface feeding the other outputs.
      */
     private final List<ItemStack> waitingToSend = new ArrayList<>();
+    private final PendingExtras pendingExtras = new PendingExtras();
 
     /** Input side: which output to try first, so consecutive pushes spread over the machines. */
     private int nextOutput;
@@ -328,10 +330,16 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
                 this.waitingToSend.add(is.copy());
             }
         }
-        DualityInterface.pushExtras(self, toMachine, extraInputs);
+        this.pendingExtras.addAll(DualityInterface.pushExtras(self, toMachine, extraInputs));
 
         this.lastRan = patternDetails;
         this.pushItemsOut();
+        if (this.hasItemsToSend()) {
+            try {
+                this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+            } catch (final GridAccessException ignored) {
+            }
+        }
         return true;
     }
 
@@ -342,7 +350,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     }
 
     public boolean hasItemsToSend() {
-        return !this.waitingToSend.isEmpty();
+        return !this.waitingToSend.isEmpty() || !this.pendingExtras.isEmpty();
     }
 
     /**
@@ -351,6 +359,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
      * interface answers as a machine and is fed the table whole.
      */
     private void pushItemsOut() {
+        this.pendingExtras.push(this.getTile(), this.getSide().getFacing());
         if (this.waitingToSend.isEmpty()) {
             return;
         }
@@ -596,6 +605,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
                 this.waitingToSend.add(is);
             }
         }
+        this.pendingExtras.readFromNBT(data, "waitingExtras");
     }
 
     @Override
@@ -609,6 +619,7 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             waiting.appendTag(ItemStackHelper.stackToNBT(is));
         }
         data.setTag("waitingToSend", waiting);
+        this.pendingExtras.writeToNBT(data, "waitingExtras");
     }
 
     @Override

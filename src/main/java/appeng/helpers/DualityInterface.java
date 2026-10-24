@@ -161,6 +161,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private int isWorking = -1;
     private EnumSet<EnumFacing> visitedFaces = EnumSet.noneOf(EnumFacing.class);
     private EnumMap<EnumFacing, List<ItemStack>> waitingToSendFacing = new EnumMap<>(EnumFacing.class);
+    /** The non-item ingredients each face did not take in full, waiting to go in. */
+    private final EnumMap<EnumFacing, PendingExtras> pendingExtras = new EnumMap<>(EnumFacing.class);
     /** The last pattern each face was handed, which is what smart blocking lets through a second time. */
     private final EnumMap<EnumFacing, ICraftingPatternDetails> lastRan = new EnumMap<>(EnumFacing.class);
     /** Set when the last refused push met only a busy machine that makes the pattern. */
@@ -318,6 +320,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
         }
         data.setTag("sidedWaitList", sidedWaitList);
+
+        final NBTTagCompound sidedExtras = new NBTTagCompound();
+        this.pendingExtras.forEach((side, extras) -> extras.writeToNBT(sidedExtras, side.name()));
+        data.setTag("sidedWaitExtras", sidedExtras);
     }
 
     public void readFromNBT(final NBTTagCompound data) {
@@ -345,6 +351,18 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         final ItemStack is = stackFromNBT(c);
                         this.addToSendListFacing(is, EnumFacing.byIndex(s.getIndex()));
                     }
+                }
+            }
+        }
+
+        this.pendingExtras.clear();
+        final NBTTagCompound sidedExtras = data.getCompoundTag("sidedWaitExtras");
+        for (final EnumFacing s : EnumFacing.values()) {
+            if (sidedExtras.hasKey(s.name())) {
+                final PendingExtras extras = new PendingExtras();
+                extras.readFromNBT(sidedExtras, s.name());
+                if (!extras.isEmpty()) {
+                    this.pendingExtras.put(s, extras);
                 }
             }
         }
@@ -545,7 +563,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return true;
         }
 
-        if (hasItemsToSendFacing()) {
+        if (hasItemsToSendFacing() || !this.pendingExtras.isEmpty()) {
             return true;
         }
 
@@ -761,6 +779,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         if (hasItemsToSendFacing()) {
             for (EnumFacing enumFacing : waitingToSendFacing.keySet()) {
                 this.pushItemsOut(enumFacing);
+            }
+        }
+
+        if (!this.pendingExtras.isEmpty()) {
+            for (final EnumFacing side : EnumSet.copyOf(this.pendingExtras.keySet())) {
+                this.pushExtrasOut(side);
             }
         }
 
@@ -1243,7 +1267,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     private boolean pushPatternToFaces(final ICraftingPatternDetails patternDetails, final InventoryCrafting table,
             final GenericStack[] extraInputs) {
-        if (this.hasItemsToSend() || this.hasItemsToSendFacing() || !this.gridProxy.isActive() || !this.craftingList.contains(patternDetails)) {
+        if (this.hasItemsToSend() || this.hasItemsToSendFacing() || !this.pendingExtras.isEmpty() || !this.gridProxy.isActive() || !this.craftingList.contains(patternDetails)) {
             return false;
         }
 
@@ -1331,10 +1355,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                                 }
                             }
                             // Straight in rather than through the send queue, which holds ItemStacks. It
-                            // was simulated as fitting a moment ago.
+                            // was simulated as fitting a moment ago; whatever still does not fit waits.
+                            final List<GenericStack> leftovers = new ArrayList<>();
                             for (final GenericStack extra : extraInputs) {
-                                inv.insert(extra.what(), extra.amount(), Actionable.MODULATE, this.mySource);
+                                final long inserted = inv.insert(extra.what(), extra.amount(), Actionable.MODULATE, this.mySource);
+                                if (inserted < extra.amount()) {
+                                    leftovers.add(new GenericStack(extra.what(), extra.amount() - inserted));
+                                }
                             }
+                            this.queueExtras(s, leftovers);
                             onPushPatternSuccess(patternDetails);
                             pushItemsOut(s);
 
@@ -1416,7 +1445,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             addToSendListFacing(is, s);
                         }
                     }
-                    this.pushExtras(s, extraInputs);
+                    this.queueExtras(s, pushExtras(tile, s, extraInputs));
                     this.lastRan.put(s, patternDetails);
                     onPushPatternSuccess(patternDetails);
                     pushItemsOut(s);
@@ -1721,46 +1750,109 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return true;
         }
 
-        final List<StackExportStrategy> export = getExportStrategies(self, side);
+        // The same key twice has to fit as its sum.
+        final Map<AEKey, Long> wanted = new LinkedHashMap<>();
         for (final GenericStack extra : extraInputs) {
-            if (pushThrough(export, extra, Actionable.SIMULATE) != extra.amount()) {
+            wanted.merge(extra.what(), extra.amount(), Long::sum);
+        }
+
+        final List<StackExportStrategy> export = getExportStrategies(self, side);
+        for (final Map.Entry<AEKey, Long> extra : wanted.entrySet()) {
+            final GenericStack stack = new GenericStack(extra.getKey(), extra.getValue());
+            if (pushThrough(export, stack, Actionable.SIMULATE) != stack.amount()) {
                 return false;
             }
         }
         return true;
     }
 
-    private void pushExtras(final EnumFacing side, final GenericStack[] extraInputs) {
-        pushExtras(this.iHost.getTileEntity(), side, extraInputs);
-    }
-
-    public static void pushExtras(final TileEntity self, final EnumFacing side, final GenericStack[] extraInputs) {
+    /**
+     * Pushes every non-item ingredient into the block on {@code side}.
+     *
+     * @return what did not go in, to be pushed again later: two fluids that each fit an empty tank alone do not
+     *         fit it together, and nothing can say so before the first is in
+     */
+    public static List<GenericStack> pushExtras(final TileEntity self, final EnumFacing side,
+            final GenericStack[] extraInputs) {
         if (extraInputs.length == 0) {
-            return;
+            return Collections.emptyList();
         }
 
         final List<StackExportStrategy> export = getExportStrategies(self, side);
+        final List<GenericStack> leftovers = new ArrayList<>();
         for (final GenericStack extra : extraInputs) {
-            pushThrough(export, extra, Actionable.MODULATE);
+            final long pushed = pushThrough(export, extra, Actionable.MODULATE);
+            if (pushed < extra.amount()) {
+                leftovers.add(new GenericStack(extra.what(), extra.amount() - pushed));
+            }
+        }
+        return leftovers;
+    }
+
+    static long pushThrough(final List<StackExportStrategy> strategies, final GenericStack what,
+            final Actionable mode) {
+        long pushed = 0;
+        for (final StackExportStrategy strategy : strategies) {
+            pushed += strategy.push(what.what(), what.amount() - pushed, mode);
+            if (pushed >= what.amount()) {
+                break;
+            }
+        }
+        return pushed;
+    }
+
+    private void queueExtras(final EnumFacing side, final List<GenericStack> leftovers) {
+        if (leftovers.isEmpty()) {
+            return;
+        }
+        this.pendingExtras.computeIfAbsent(side, k -> new PendingExtras()).addAll(leftovers);
+        try {
+            this.gridProxy.getTick().wakeDevice(this.gridProxy.getNode());
+        } catch (final GridAccessException e) {
+            // :P
         }
     }
 
-    private static long pushThrough(final List<StackExportStrategy> strategies, final GenericStack what,
-            final Actionable mode) {
-        for (final StackExportStrategy strategy : strategies) {
-            final long pushed = strategy.push(what.what(), what.amount(), mode);
-            if (pushed > 0) {
-                return pushed;
-            }
+    /** The waiting non-item ingredients of one face, into the machine there or the network it pushed them to. */
+    private void pushExtrasOut(final EnumFacing s) {
+        final PendingExtras extras = this.pendingExtras.get(s);
+        if (extras == null) {
+            return;
         }
-        return 0;
+
+        final TileEntity tile = this.iHost.getTileEntity();
+        final TileEntity te = tile.getWorld().getTileEntity(tile.getPos().offset(s));
+        if (te == null) {
+            return;
+        }
+
+        final var mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
+        final IGridProxyable proxyable = mon == null ? null : networkNodeOf(te, s.getOpposite());
+        if (proxyable != null) {
+            try {
+                if (proxyable.getProxy().getGrid() != this.gridProxy.getGrid()) {
+                    final MEStorage inv = mon.getInventory(this.mySource);
+                    if (inv != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
+                        extras.insert(inv, this.mySource);
+                    }
+                }
+            } catch (final GridAccessException e) {
+                return;
+            }
+        } else {
+            extras.push(tile, s);
+        }
+
+        if (extras.isEmpty()) {
+            this.pendingExtras.remove(s);
+        }
     }
 
     /**
      * Built per push rather than cached: the neighbour may have been replaced since the last one, and a
      * strategy holds the position and side it was created for.
      */
-    private static List<StackExportStrategy> getExportStrategies(final TileEntity self, final EnumFacing side) {
+    static List<StackExportStrategy> getExportStrategies(final TileEntity self, final EnumFacing side) {
         return StackWorldBehaviors.createExportStrategies(self.getWorld(), self.getPos().offset(side),
                 side.getOpposite());
     }
