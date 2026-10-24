@@ -21,6 +21,7 @@ package appeng.container.implementations;
 
 import javax.annotation.Nullable;
 
+import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.IPatternContainer;
@@ -36,7 +37,6 @@ import appeng.core.sync.packets.PacketInventoryAction;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.PatternContainers;
 import appeng.helpers.WirelessTerminalGuiObject;
-import appeng.items.misc.ItemEncodedPattern;
 import appeng.parts.reporting.PartPatternAccessTerminal;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.InventoryAdaptor;
@@ -440,7 +440,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
 
         @Override
         public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
-            return !stack.isEmpty() && stack.getItem() instanceof ItemEncodedPattern;
+            return !stack.isEmpty() && stack.getItem() instanceof ICraftingPatternItem;
         }
     }
     @Nullable

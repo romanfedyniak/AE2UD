@@ -21,9 +21,9 @@ package appeng.util;
 
 import appeng.api.AEApi;
 import appeng.api.definitions.IMaterials;
+import appeng.api.implementations.ICraftingPatternItem;
 import appeng.core.localization.PlayerMessages;
 import appeng.items.contents.NetworkToolViewer;
-import appeng.items.misc.ItemEncodedPattern;
 import appeng.items.tools.ToolNetworkTool;
 import appeng.tile.inventory.AppEngInternalInventory;
 import net.minecraft.entity.player.EntityPlayer;
@@ -161,7 +161,7 @@ public final class MemoryCardSettings {
         for (int slot = 0; slot < target.getSlots(); slot++) {
             final ItemStack current = target.getStackInSlot(slot);
 
-            if (current.getItem() instanceof ItemEncodedPattern) {
+            if (current.getItem() instanceof ICraftingPatternItem) {
                 if (!creative) {
                     final ItemStack blank = materials.blankPattern().maybeStack(current.getCount()).get();
                     if (!player.addItemStackToInventory(blank)) {
@@ -178,12 +178,12 @@ public final class MemoryCardSettings {
         for (int slot = 0; slot < Math.min(usableSlots, desired.getSlots()); slot++) {
             final ItemStack pattern = desired.getStackInSlot(slot);
 
-            if (!(pattern.getItem() instanceof ItemEncodedPattern)) {
+            if (!(pattern.getItem() instanceof ICraftingPatternItem item)) {
                 continue;
             }
 
             // A recipe that no longer decodes is the source's junk, not a shortage of the player's.
-            if (((ItemEncodedPattern) pattern.getItem()).getPatternForItem(pattern, player.world) == null) {
+            if (item.getPatternForItem(pattern, player.world) == null) {
                 continue;
             }
 
