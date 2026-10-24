@@ -19,6 +19,9 @@
 
 package appeng.parts.automation;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
+
 import javax.annotation.Nonnull;
 
 import com.google.common.math.IntMath;
@@ -43,6 +46,8 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
 
     private final IAEAppEngInventory parent;
     private final IUpgradeInventoryListener listener;
+    /** A bus asks several times a tick; the cards only change when someone moves one. */
+    private final Map<CardTrait, Integer> installedPoints = new IdentityHashMap<>();
 
     protected UpgradeInventory(final IAEAppEngInventory parent, final int slots) {
         this(parent, slots, null);
@@ -84,7 +89,12 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
 
     @Override
     public int getInstalledPoints(final CardTrait trait) {
-        return registry().getInstalledPoints(this, this.getUpgradableItem(), trait);
+        Integer points = this.installedPoints.get(trait);
+        if (points == null) {
+            points = registry().getInstalledPoints(this, this.getUpgradableItem(), trait);
+            this.installedPoints.put(trait, points);
+        }
+        return points;
     }
 
     /** What this would be worth in that trait if the card in one slot were taken out. */
@@ -113,6 +123,19 @@ public abstract class UpgradeInventory extends AppEngInternalInventory
         if (this.parent != null && Platform.isServer()) {
             this.parent.onChangeInventory(inv, slot, operation, removedStack, newStack);
         }
+    }
+
+    @Override
+    protected void onContentsChanged(final int slot) {
+        // Before the listeners hear of it: they read the counts back straight away
+        this.installedPoints.clear();
+        super.onContentsChanged(slot);
+    }
+
+    @Override
+    public void deserializeNBT(final NBTTagCompound nbt) {
+        this.installedPoints.clear();
+        super.deserializeNBT(nbt);
     }
 
     @Override

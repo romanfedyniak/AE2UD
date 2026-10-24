@@ -1330,6 +1330,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - A block the filter rejects is left standing rather than broken into nothing. The plane asks whether the whole drop can be stored before it breaks anything, and the filter answers on that same path, so refusing costs the block nothing. A block dropping several things of which one is filtered out is left alone too, for the same reason - the plane never breaks what it cannot take in full.
 - The One Probe lists an annihilation plane's enchantments, under the same "Enchanted with:" heading Waila already showed. They decide what the plane does - silk touch and fortune change what it gets back, efficiency and unbreaking what it costs in power - and a placed plane looks the same with or without them, so with The One Probe the only way to find out was to break the plane and read the item.
 - **A storage bus on Storage Drawers keeps up with a steady flow of items.** After every item it put in or took out it read the whole drawer group again, a few hundred drawers behind one controller, and woke itself to read it once more the next tick, so under a constant flow each such bus rescanned every tick and paid several times what the drawers themselves cost. It now counts what it moved under that item alone and leaves its ticking as it was; its own rescans, from every five ticks to every three seconds, still pick up what changed beside it - a hopper filling the drawers, or the other tiers of a compacting drawer.
+- **A machine counts its upgrade cards once, not every time it asks.** An import or export bus asked how many cards
+  of each kind it held about six times a tick - for its slots, its speed, whether it should sleep, whether it
+  pulses - and each answer walked every card slot and built a fresh item to look the host up by. On a server
+  profile with many buses that came to 0.7% of the whole tick. The count is kept now and taken again only when
+  a card goes in or comes out.
 
 ### Storage cells
 
