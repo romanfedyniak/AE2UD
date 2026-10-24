@@ -23,6 +23,8 @@ import javax.annotation.Nullable;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
+import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -47,6 +49,7 @@ import appeng.core.localization.PlayerMessages;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.PatternHelper;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.items.misc.ItemEncodedPattern;
 import appeng.parts.reporting.PartPatternAccessTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
@@ -722,13 +725,30 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             final ArrayList<ClientDCInternalInv> clientInventories = new ArrayList<>(this.byName.get(n));
             Collections.sort(clientInventories);
             for (final ClientDCInternalInv inv : clientInventories) {
-                for (int row = 0; row <= this.extraLinesMap.get(inv); row++) {
-                    this.lines.add(new Row(inv, row));
+                // A search shows the rows holding what it found; a machine of an addon can have dozens of rows.
+                final int last = this.extraLinesMap.get(inv);
+                boolean anyMatched = false;
+                for (int row = 0; row <= last && !anyMatched; row++) {
+                    anyMatched = this.rowMatched(inv, row);
+                }
+                for (int row = 0; row <= last; row++) {
+                    if (!anyMatched || this.rowMatched(inv, row)) {
+                        this.lines.add(new Row(inv, row));
+                    }
                 }
             }
         }
 
         this.setScrollBar();
+    }
+
+    private boolean rowMatched(final ClientDCInternalInv inv, final int row) {
+        for (int slot = row * 9; slot < (row + 1) * 9 && slot < inv.getInventory().getSlots(); slot++) {
+            if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(slot))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean recipeIsBroken(final ItemStack stack) {
@@ -769,6 +789,26 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     }
 
     private static List<AEKey> ingredientsOf(final ItemStack pattern, final String side) {
+        // An addon's pattern keeps its recipe in a tag of its own; only its details say what it takes and makes.
+        if (!(pattern.getItem() instanceof ItemEncodedPattern) && pattern.getItem() instanceof ICraftingPatternItem item) {
+            final List<AEKey> keys = new ArrayList<>();
+            final World w = AppEng.proxy.getWorld();
+            final ICraftingPatternDetails details;
+            try {
+                details = w == null ? null : item.getPatternForItem(pattern, w);
+            } catch (final RuntimeException e) {
+                return keys;
+            }
+            if (details != null) {
+                for (final GenericStack stack : side.equals("in") ? details.getInputs() : details.getOutputs()) {
+                    if (stack != null) {
+                        keys.add(stack.what());
+                    }
+                }
+            }
+            return keys;
+        }
+
         final NBTTagList tag = pattern.getTagCompound().getTagList(side, Constants.NBT.TAG_COMPOUND);
         final List<AEKey> keys = new ArrayList<>(tag.tagCount());
 
