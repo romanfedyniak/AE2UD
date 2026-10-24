@@ -19,6 +19,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
@@ -125,6 +126,8 @@ public final class DualityExposer {
 
         private final AEKeyType type;
         private final List<AEKey> order = new ArrayList<>();
+        /** Where each key stands in {@link #order}, so a key comes and goes without a walk over all of them. */
+        private final Object2IntOpenHashMap<AEKey> index = new Object2IntOpenHashMap<>();
         private final Object2LongOpenHashMap<AEKey> amounts = new Object2LongOpenHashMap<>();
         private boolean stale = true;
         private int version;
@@ -140,9 +143,11 @@ public final class DualityExposer {
             if (this.stale) {
                 try {
                     this.order.clear();
+                    this.index.clear();
                     this.amounts.clear();
                     for (final Object2LongMap.Entry<AEKey> entry : DualityExposer.this.proxy.getStorage().getCachedInventory()) {
                         if (entry.getKey().getType() == this.type && entry.getLongValue() > 0) {
+                            this.index.put(entry.getKey(), this.order.size());
                             this.order.add(entry.getKey());
                             this.amounts.put(entry.getKey(), entry.getLongValue());
                         }
@@ -159,14 +164,33 @@ public final class DualityExposer {
         private void set(final AEKey key, final long amount) {
             if (amount > 0) {
                 if (!this.amounts.containsKey(key)) {
+                    this.index.put(key, this.order.size());
                     this.order.add(key);
                 }
                 this.amounts.put(key, amount);
             } else if (this.amounts.containsKey(key)) {
                 this.amounts.removeLong(key);
-                this.order.remove(key);
+                // The last key takes its place.
+                final int at = this.index.removeInt(key);
+                final AEKey last = this.order.remove(this.order.size() - 1);
+                if (at < this.order.size()) {
+                    this.order.set(at, last);
+                    this.index.put(last, at);
+                }
             }
             this.version++;
+        }
+
+        /** Swaps the key into the first slot, where a drain that names nothing takes from. */
+        private void toFront(final AEKey key) {
+            final int at = this.index.getInt(key);
+            if (at > 0) {
+                final AEKey first = this.order.get(0);
+                this.order.set(0, key);
+                this.order.set(at, first);
+                this.index.put(key, 0);
+                this.index.put(first, at);
+            }
         }
 
         @Override
@@ -199,9 +223,8 @@ public final class DualityExposer {
                 // The grid's own count arrives at the end of the tick; until then the next caller sees this.
                 if (taken > 0 && mode == Actionable.MODULATE) {
                     this.set(key, this.amounts.getLong(key) - taken);
-                    if (this.amounts.containsKey(key) && this.order.get(0) != key) {
-                        this.order.remove(key);
-                        this.order.add(0, key);
+                    if (this.amounts.containsKey(key)) {
+                        this.toFront(key);
                     }
                 }
                 return taken;
