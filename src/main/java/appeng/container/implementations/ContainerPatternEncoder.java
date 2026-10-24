@@ -486,6 +486,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         if (encoded.isEmpty()) {
             return;
         }
+        // An addon's mode writes its own tag and leaves the author out, which the tooltip reads.
+        if (encoded.hasTagCompound() && !encoded.getTagCompound().hasKey("author")) {
+            encoded.getTagCompound().setString("author", this.getPlayerInv().player.getName());
+        }
 
         if (output.isEmpty()) {
             final ItemStack blanks = this.patternSlotIN.getStack();
