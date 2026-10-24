@@ -14,6 +14,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+### Storage cells
+
+- A cell file the disk refused to write is written again on the next world save, even if the cell has not
+  changed since. Before, it stayed out of date on disk until something in the cell moved, and a cell nobody
+  touched again came back after a restart without what had changed in it.
+- A cell file is flushed to disk before it replaces the old one, so a power cut can no longer leave a cell's
+  file empty.
+
 ## 1.6.0 - 2026-10-24
 
 ### Pattern Multi-Tool

@@ -312,6 +312,29 @@ public final class CellFileStorageTest {
     }
 
     @Test
+    public void aWriteTheDiskRefusedIsTriedAgain() throws Exception {
+        final UUID id = UUID.randomUUID();
+        final CellContents contents = this.store.getOrLoad(id);
+        contents.add(apple, 3);
+        contents.markDirty();
+
+        // A file where the cell's folder should be, so the write cannot make it.
+        final File folder = this.store.fileFor(id).getParentFile();
+        assertTrue(folder.createNewFile());
+        this.store.save();
+        this.store.awaitWrites();
+
+        // Nothing changed since, and an idle cell can be collected: only the retry can still save it.
+        assertTrue(folder.delete());
+        this.store.save();
+        this.store.awaitWrites();
+        assertTrue(this.store.fileFor(id).isFile());
+
+        this.reopenStore();
+        assertEquals(3, this.store.getOrLoad(id).amounts().getLong(apple));
+    }
+
+    @Test
     public void aCellWithSomethingInItIsNotPutInsideAnother() throws Throwable {
         if (!StorageCells.isCellHandled(newCell())) {
             StorageCells.addCellHandler(new BasicCellHandler());

@@ -19,12 +19,13 @@
 package appeng.me.storage;
 
 
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -32,6 +33,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
+import java.util.zip.GZIPOutputStream;
 
 import javax.annotation.Nullable;
 
@@ -90,6 +93,8 @@ public final class CellContentsStore {
     private final Map<UUID, WeakReference<CellContents>> idle = new HashMap<>();
     // Handed to the writer and not on disk yet. A load reads these first, or it would read the file being replaced.
     private final Map<UUID, NBTTagCompound> pending = new ConcurrentHashMap<>();
+    // Writes the disk refused. Their snapshot stays pending, and the next save tries it again.
+    private final Set<UUID> failed = ConcurrentHashMap.newKeySet();
     private final ExecutorService writer;
 
     CellContentsStore(final File directory, final LongSupplier clock) {
@@ -180,6 +185,15 @@ public final class CellContentsStore {
     public void save() {
         final long now = this.clock.getAsLong();
 
+        for (final Iterator<UUID> retry = this.failed.iterator(); retry.hasNext();) {
+            final UUID id = retry.next();
+            retry.remove();
+            final NBTTagCompound tag = this.pending.get(id);
+            if (tag != null) {
+                this.queue(id, tag);
+            }
+        }
+
         final Iterator<CellContents> it = this.active.values().iterator();
         while (it.hasNext()) {
             final CellContents contents = it.next();
@@ -259,11 +273,11 @@ public final class CellContentsStore {
                 } else {
                     this.writeFile(id, tag);
                 }
-            } catch (final IOException | RuntimeException e) {
-                AELog.error(e, "Could not save storage cell " + id);
-            } finally {
                 // Only if nothing newer was queued meanwhile.
                 this.pending.remove(id, tag);
+            } catch (final IOException | RuntimeException e) {
+                AELog.error(e, "Could not save storage cell " + id + "; trying again on the next save");
+                this.failed.add(id);
             }
         });
     }
@@ -277,14 +291,26 @@ public final class CellContentsStore {
 
         // Written beside and moved over, so a crash mid-write leaves the old file whole.
         final File temp = new File(parent, file.getName() + ".tmp");
-        try (OutputStream out = new FileOutputStream(temp)) {
-            CompressedStreamTools.writeCompressed(tag, out);
-        }
         try {
-            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
-        } catch (final AtomicMoveNotSupportedException e) {
-            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            try (FileOutputStream out = new FileOutputStream(temp)) {
+                // Not writeCompressed: it closes the file, and the file has to be synced first.
+                final GZIPOutputStream zip = new GZIPOutputStream(out);
+                final DataOutputStream data = new DataOutputStream(new BufferedOutputStream(zip));
+                CompressedStreamTools.write(tag, data);
+                data.flush();
+                zip.finish();
+                // On disk before the rename, or a power cut can leave the new name over unwritten blocks.
+                out.getFD().sync();
+                data.close();
+            }
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
+            } catch (final AtomicMoveNotSupportedException e) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temp.toPath());
         }
     }
 
