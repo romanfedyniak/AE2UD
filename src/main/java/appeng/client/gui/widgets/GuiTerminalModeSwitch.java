@@ -242,6 +242,10 @@ public final class GuiTerminalModeSwitch {
         this.setOpen(false);
     }
 
+    public boolean isOpen() {
+        return this.open;
+    }
+
     /** Shut, so that another panel opening over the same strip of screen does not collide with this one. */
     public void close() {
         this.setOpen(false);

@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.ArrayList;
 import appeng.api.config.Actionable;
@@ -44,6 +46,7 @@ import appeng.helpers.encoding.EncoderGrids;
 import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.util.Platform;
 import appeng.util.inv.InvOperation;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import baubles.api.BaublesApi;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -140,6 +143,7 @@ public class ContainerWirelessPatternTerminal extends ContainerPatternEncoder
         this.bindPlayerInventory(ip, 0, 0);
 
         this.setupUpgrades();
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     @Override

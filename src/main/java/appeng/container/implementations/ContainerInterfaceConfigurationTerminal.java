@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import javax.annotation.Nullable;
+
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
@@ -42,6 +44,9 @@ import appeng.tile.misc.TileInterface;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
 import appeng.util.inv.WrapperRangeItemHandler;
+import appeng.helpers.patternmultiplier.IPatternMultiplierPanelHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
@@ -58,7 +63,10 @@ import java.util.Map.Entry;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 
-public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
+public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer implements IPatternMultiplierPanelHost {
+
+    @Nullable
+    private final PatternMultiplierHost patternMultiplier;
 
     /**
      * this stuff is all server side..
@@ -78,6 +86,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
         }
 
         this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     /**
@@ -98,6 +107,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
         if (bindInventory) {
             this.bindPlayerInventory(ip, 14, 235 - /* height of player inventory */82);
         }
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     @Override
@@ -421,5 +431,10 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer {
         public IItemHandler getServer() {
             return server;
         }
+    }
+    @Nullable
+    @Override
+    public PatternMultiplierHost getPatternMultiplier() {
+        return this.patternMultiplier;
     }
 }

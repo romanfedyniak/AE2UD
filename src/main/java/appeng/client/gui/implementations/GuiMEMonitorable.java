@@ -71,6 +71,7 @@ import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
 import appeng.util.ItemToggle;
 import appeng.util.Platform;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -518,7 +519,7 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
         craftingGridOffsetY = Integer.MAX_VALUE;
 
         for (final Object s : this.inventorySlots.inventorySlots) {
-            if (s instanceof AppEngSlot) {
+            if (s instanceof AppEngSlot && !(s instanceof PatternMultiplierPanel.PanelSlot)) {
                 if (((Slot) s).xPos < 197) {
                     this.repositionSlot((AppEngSlot) s);
                 }
@@ -1154,5 +1155,11 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
     void setStandardSize(final int standardSize) {
         this.standardSize = standardSize;
+    }
+    /**
+     * Whether the settings drawer or the terminal mode fan is open over the strip left of the window.
+     */
+    protected boolean isSidePanelOpen() {
+        return this.settings.isOpen() || this.modeSwitch.isOpen();
     }
 }

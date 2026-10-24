@@ -18,6 +18,8 @@
 
 package appeng.container.implementations;
 
+import javax.annotation.Nullable;
+
 import appeng.api.AEApi;
 import appeng.api.upgrades.CardTraits;
 
@@ -29,13 +31,19 @@ import appeng.container.slot.*;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
 import appeng.util.Platform;
+import appeng.helpers.patternmultiplier.IPatternMultiplierPanelHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
 
-public class ContainerInterface extends ContainerUpgradeable implements IOptionalSlotHost {
+public class ContainerInterface extends ContainerUpgradeable implements IPatternMultiplierPanelHost, IOptionalSlotHost {
+
+    @Nullable
+    private final PatternMultiplierHost patternMultiplier;
 
     private final DualityInterface myDuality;
 
@@ -73,6 +81,8 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
         for (int x = 0; x < DualityInterface.NUMBER_OF_STORAGE_SLOTS; x++) {
             this.addSlotToContainer(new SlotGenericStorage(this.myDuality.getStorageForDisplay(), this.myDuality.getStorageInv(), x, 8 + 18 * x, 35 + 18));
         }
+
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     @Override
@@ -204,5 +214,10 @@ public class ContainerInterface extends ContainerUpgradeable implements IOptiona
 
     public LockCraftingMode getCraftingLockedReason() {
         return lockReason;
+    }
+    @Nullable
+    @Override
+    public PatternMultiplierHost getPatternMultiplier() {
+        return this.patternMultiplier;
     }
 }

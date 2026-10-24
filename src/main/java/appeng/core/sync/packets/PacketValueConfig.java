@@ -30,6 +30,9 @@ import appeng.container.implementations.*;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.helpers.IMouseWheelItem;
+import appeng.helpers.patternmultiplier.IPatternMultiplierPanelHost;
+import appeng.helpers.patternmultiplier.PatternEdits;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
 import appeng.helpers.patternmultiplier.PatternMultiplierTab;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -141,7 +144,14 @@ public class PacketValueConfig extends AppEngPacket {
             final ContainerSecurityStation sc = (ContainerSecurityStation) c;
             sc.toggleSetting(this.Value, player);
         } else if (this.Name.startsWith("PatternMultiplier.")) {
-            if (c instanceof ContainerPatternMultiplier) {
+            if (c instanceof IPatternMultiplierPanelHost && this.Name.equals(ContainerPatternMultiplier.ACTION)) {
+                final PatternMultiplierHost tool = ((IPatternMultiplierPanelHost) c).getPatternMultiplier();
+                if (tool != null) {
+                    PatternEdits.applyAll(tool.getPatterns(), tool.getRows() * PatternMultiplierHost.COLUMNS,
+                            this.Value, ItemStack.EMPTY, ItemStack.EMPTY, player.world);
+                    tool.saveChanges();
+                }
+            } else if (c instanceof ContainerPatternMultiplier) {
                 final ContainerPatternMultiplier multiplier = (ContainerPatternMultiplier) c;
                 if (this.Name.equals(ContainerPatternMultiplier.ACTION)) {
                     multiplier.act(this.Value);

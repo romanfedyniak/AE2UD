@@ -19,6 +19,11 @@
 package appeng.client.gui.implementations;
 
 
+import java.util.List;
+import java.util.ArrayList;
+import java.awt.Rectangle;
+import javax.annotation.Nullable;
+
 import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.Settings;
@@ -30,6 +35,7 @@ import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiImgLabel;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.GuiToggleButton;
+import appeng.client.gui.widgets.GuiPatternMultiplierPanel;
 import appeng.container.implementations.ContainerInterface;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.OptionalSlotRestrictedInput;
@@ -50,6 +56,9 @@ import java.io.IOException;
 
 
 public class GuiInterface extends GuiUpgradeable {
+
+    @Nullable
+    private GuiPatternMultiplierPanel multiplierPanel;
 
     private GuiTabButton priority;
     private GuiCraftPriorityButton craftPriority;
@@ -74,6 +83,10 @@ public class GuiInterface extends GuiUpgradeable {
     public void initGui() {
         super.initGui();
         this.addLabel();
+        this.multiplierPanel = GuiPatternMultiplierPanel.of(this.inventorySlots);
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
+        }
     }
 
     @Override
@@ -199,6 +212,9 @@ public class GuiInterface extends GuiUpgradeable {
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.multiplierPanel != null && this.multiplierPanel.actionPerformed(btn)) {
+            return;
+        }
         super.actionPerformed(btn);
 
         final boolean backwards = Mouse.isButtonDown(1);
@@ -226,4 +242,27 @@ public class GuiInterface extends GuiUpgradeable {
         }
     }
 
+    /** A click on the pattern multi-tool beside the window is not a click outside it. */
+    @Override
+    protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
+        return (this.multiplierPanel == null || !this.multiplierPanel.contains(mouseX, mouseY))
+                && super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
+
+    @Override
+    public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        super.drawBG(offsetX, offsetY, mouseX, mouseY);
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.draw(this, offsetX, offsetY);
+        }
+    }
+
+    @Override
+    public List<Rectangle> getJEIExclusionArea() {
+        final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addExclusionArea(area);
+        }
+        return area;
+    }
 }

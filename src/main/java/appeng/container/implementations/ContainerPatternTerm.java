@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import javax.annotation.Nullable;
+
 import appeng.api.patterns.PatternEncodingModes;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.slot.OptionalSlotFake;
@@ -28,6 +30,7 @@ import appeng.container.slot.SlotPatternOutputs;
 import appeng.container.slot.SlotPatternTerm;
 import appeng.container.slot.SlotRestrictedInput;
 import appeng.util.Platform;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.items.IItemHandler;
@@ -89,6 +92,7 @@ public class ContainerPatternTerm extends ContainerPatternEncoder {
 
         this.bindPlayerInventory(ip, 0, 0);
         this.updateSlotVisibility();
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
 

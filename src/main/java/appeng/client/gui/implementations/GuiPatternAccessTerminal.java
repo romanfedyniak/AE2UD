@@ -18,6 +18,8 @@
 
 package appeng.client.gui.implementations;
 
+import javax.annotation.Nullable;
+
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
@@ -28,6 +30,7 @@ import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.GuiWirelessToggleButton;
 import appeng.client.gui.widgets.MEGuiTooltipTextField;
+import appeng.client.gui.widgets.GuiPatternMultiplierPanel;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
 import appeng.container.implementations.ContainerPatternAccessTerminal;
@@ -47,6 +50,7 @@ import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.parts.reporting.PartPatternAccessTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import com.google.common.collect.HashMultimap;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -74,6 +78,9 @@ import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 public class GuiPatternAccessTerminal extends AEBaseGui {
+
+    @Nullable
+    private GuiPatternMultiplierPanel multiplierPanel;
 
     protected static final int OFFSET_X = 21;
     protected final GuiText guiTitle;
@@ -233,6 +240,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.rows = calculateRowsCount();
 
         super.initGui();
+        this.multiplierPanel = GuiPatternMultiplierPanel.of(this.inventorySlots);
 
         this.ySize = MAGIC_HEIGHT_NUMBER + this.rows * 18;
         final int unusedSpace = this.height - this.ySize;
@@ -263,7 +271,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
     protected void repositionSlots() {
         for (final Object obj : this.inventorySlots.inventorySlots) {
-            if (obj instanceof AppEngSlot slot) {
+            if (obj instanceof AppEngSlot slot && !(slot instanceof PatternMultiplierPanel.PanelSlot)) {
                 slot.yPos = this.ySize + slot.getY() - 78 - 7;
                 slot.xPos = slot.getX() + 14;
             }
@@ -311,6 +319,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         addButtonArea(area, this.guiButtonAssemblersOnly);
         addButtonArea(area, this.searchKeepBtn);
         this.settings.addExclusionAreas(area);
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addExclusionArea(area);
+        }
         return area;
     }
 
@@ -373,6 +384,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.settings.addTo(buttonList);
 
         this.addExtraButtons();
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
+        }
 
         int offset = 51;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
@@ -411,6 +425,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.multiplierPanel != null && this.multiplierPanel.actionPerformed(btn)) {
+            return;
+        }
         if (this.toggleSearchKeep(btn, this.searchKeepBtn)) {
             return;
         }
@@ -469,6 +486,10 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.setHidden(this.isSidePanelOpen());
+            this.multiplierPanel.draw(this, offsetX, offsetY);
+        }
         this.bindTexture("guis/newinterfaceterminal.png");
 
         // draw the top portion of the background, above the interface list
@@ -820,5 +841,17 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         public int hashCode() {
             return this.name.hashCode() * 31 + (this.icon.isEmpty() ? 0 : this.icon.getItem().hashCode());
         }
+    }
+    /** A click on the pattern multi-tool beside the window is not a click outside it. */
+    @Override
+    protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
+        return (this.multiplierPanel == null || !this.multiplierPanel.contains(mouseX, mouseY))
+                && super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
+    /**
+     * Whether the settings drawer is open over the strip left of the window, where the pattern multi-tool stands.
+     */
+    protected boolean isSidePanelOpen() {
+        return this.settings.isOpen();
     }
 }

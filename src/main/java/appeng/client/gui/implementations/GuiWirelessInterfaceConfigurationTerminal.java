@@ -105,4 +105,8 @@ public class GuiWirelessInterfaceConfigurationTerminal extends GuiInterfaceConfi
         this.modeSwitch.addExclusionAreas(area);
         return area;
     }
+    @Override
+    protected boolean isSidePanelOpen() {
+        return super.isSidePanelOpen() || this.modeSwitch.isOpen();
+    }
 }

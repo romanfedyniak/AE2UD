@@ -33,6 +33,7 @@ import appeng.client.gui.widgets.GuiScrollbar;
 import appeng.client.gui.widgets.GuiSettingsDrawer;
 import appeng.client.gui.widgets.GuiWirelessToggleButton;
 import appeng.client.gui.widgets.MEGuiTextField;
+import appeng.client.gui.widgets.GuiPatternMultiplierPanel;
 import appeng.client.me.ClientDCInternalInv;
 import appeng.client.me.SlotDisconnected;
 import javax.annotation.Nullable;
@@ -49,6 +50,7 @@ import appeng.helpers.InventoryAction;
 import appeng.parts.reporting.PartInterfaceConfigurationTerminal;
 import appeng.util.BlockPosUtils;
 import appeng.util.Platform;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import com.google.common.collect.HashMultimap;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
@@ -74,6 +76,9 @@ import static appeng.client.render.BlockPosHighlighter.turnPlayerTowards;
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
 public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEIGhostIngredients {
+
+    @Nullable
+    private GuiPatternMultiplierPanel multiplierPanel;
 
     private static final int MIN_ROWS = 6;
     private static final int ROW_HEIGHT = 18;
@@ -145,6 +150,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
         super.initGui();
+        this.multiplierPanel = GuiPatternMultiplierPanel.of(this.inventorySlots);
 
         this.getScrollBar().setLeft(189);
         this.getScrollBar().setHeight(this.rows * ROW_HEIGHT - 2);
@@ -157,7 +163,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         GuiWirelessToggleButton.forScreen(this.inventorySlots).forEach(this.settings::take);
 
         for (final Object obj : this.inventorySlots.inventorySlots) {
-            if (obj instanceof appeng.container.slot.AppEngSlot slot) {
+            if (obj instanceof appeng.container.slot.AppEngSlot slot
+                    && !(slot instanceof PatternMultiplierPanel.PanelSlot)) {
                 slot.yPos = slot.getY() + this.ySize - 235;
             }
         }
@@ -215,6 +222,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         addButtonArea(area, this.terminalStyleBox);
         addButtonArea(area, this.searchKeepBtn);
         this.settings.addExclusionAreas(area);
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addExclusionArea(area);
+        }
         return area;
     }
 
@@ -330,6 +340,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     protected void actionPerformed(final GuiButton btn) throws IOException {
+        if (this.multiplierPanel != null && this.multiplierPanel.actionPerformed(btn)) {
+            return;
+        }
         if (this.settings.actionPerformed(btn)) {
             return;
         }
@@ -405,6 +418,9 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
         this.settings.addTo(this.buttonList);
         this.addExtraButtons();
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
+        }
 
         int offset = 30;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
@@ -437,6 +453,10 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.setHidden(this.isSidePanelOpen());
+            this.multiplierPanel.draw(this, offsetX, offsetY);
+        }
         this.bindTexture("guis/interfaceconfigurationterminal.png");
         // The list's top border belongs to the header, not to the rows: a row strip taken from the
         // border itself repeats it every eighteen pixels and boxes in each empty row.
@@ -753,5 +773,17 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public Map<IGhostIngredientHandler.Target<?>, Object> getFakeSlotTargetMap() {
         return IJEIGhostIngredients.super.getFakeSlotTargetMap();
+    }
+    /** A click on the pattern multi-tool beside the window is not a click outside it. */
+    @Override
+    protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
+        return (this.multiplierPanel == null || !this.multiplierPanel.contains(mouseX, mouseY))
+                && super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
+    /**
+     * Whether the settings drawer is open over the strip left of the window, where the pattern multi-tool stands.
+     */
+    protected boolean isSidePanelOpen() {
+        return this.settings.isOpen();
     }
 }

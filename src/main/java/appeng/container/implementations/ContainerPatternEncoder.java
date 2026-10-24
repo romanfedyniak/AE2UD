@@ -1,5 +1,7 @@
 package appeng.container.implementations;
 
+import javax.annotation.Nullable;
+
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
@@ -44,6 +46,9 @@ import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.IAEAppEngInventory;
 import appeng.util.inv.InvOperation;
 import appeng.util.inv.WrapperCursorItemHandler;
+import appeng.helpers.patternmultiplier.IPatternMultiplierPanelHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -66,7 +71,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, IProcessingEncodingHost {
+public abstract class ContainerPatternEncoder extends ContainerMEMonitorable implements IPatternMultiplierPanelHost, IAEAppEngInventory, IOptionalSlotHost, IContainerCraftingPacket, IProcessingEncodingHost {
+
+    @Nullable
+    protected PatternMultiplierHost patternMultiplier;
 
     private static AEItemKey blankPatternKey;
 
@@ -1135,5 +1143,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
                 }
             }
         }
+    }
+    @Nullable
+    @Override
+    public PatternMultiplierHost getPatternMultiplier() {
+        return this.patternMultiplier;
     }
 }

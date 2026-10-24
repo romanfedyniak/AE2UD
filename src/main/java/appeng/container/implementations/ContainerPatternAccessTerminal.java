@@ -19,6 +19,8 @@
 package appeng.container.implementations;
 
 
+import javax.annotation.Nullable;
+
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.IPatternContainer;
@@ -45,6 +47,9 @@ import appeng.util.inv.WrapperCursorItemHandler;
 import appeng.util.inv.WrapperFilteredItemHandler;
 import appeng.util.inv.WrapperRangeItemHandler;
 import appeng.util.inv.filter.IAEItemFilter;
+import appeng.helpers.patternmultiplier.IPatternMultiplierPanelHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -65,7 +70,10 @@ import java.util.Map.Entry;
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
 
-public class ContainerPatternAccessTerminal extends AEBaseContainer {
+public class ContainerPatternAccessTerminal extends AEBaseContainer implements IPatternMultiplierPanelHost {
+
+    @Nullable
+    private final PatternMultiplierHost patternMultiplier;
 
     /**
      * this stuff is all server side..
@@ -85,6 +93,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
         }
 
         this.bindPlayerInventory(ip, 0, 0);
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     public ContainerPatternAccessTerminal(final InventoryPlayer ip, final WirelessTerminalGuiObject guiObject, boolean bindInventory) {
@@ -100,6 +109,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
         if (bindInventory) {
             this.bindPlayerInventory(ip, 0, 0);
         }
+        this.patternMultiplier = PatternMultiplierPanel.attach(ip, 0, this::addSlotToContainer, this::lockPlayerInventorySlot);
     }
 
     @Override
@@ -432,5 +442,10 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer {
         public boolean allowInsert(IItemHandler inv, int slot, ItemStack stack) {
             return !stack.isEmpty() && stack.getItem() instanceof ItemEncodedPattern;
         }
+    }
+    @Nullable
+    @Override
+    public PatternMultiplierHost getPatternMultiplier() {
+        return this.patternMultiplier;
     }
 }

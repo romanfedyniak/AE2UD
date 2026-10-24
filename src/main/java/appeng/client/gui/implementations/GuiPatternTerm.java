@@ -40,6 +40,7 @@ import appeng.core.localization.ButtonToolTips;
 import appeng.client.gui.widgets.GuiImgButton;
 import appeng.client.gui.widgets.GuiTabButton;
 import appeng.client.gui.widgets.ITooltip;
+import appeng.client.gui.widgets.GuiPatternMultiplierPanel;
 import appeng.container.implementations.ContainerPatternEncoder;
 import appeng.container.implementations.ContainerPatternTerm;
 import appeng.container.implementations.ContainerWirelessPatternTerminal;
@@ -60,6 +61,7 @@ import appeng.core.sync.packets.PacketValueConfig;
 import appeng.api.stacks.GenericStack;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.helpers.patternmultiplier.PatternMultiplierPanel;
 import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
@@ -84,6 +86,9 @@ import java.util.*;
 
 
 public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredients, IKeyUnderMouse, IPatternTerminalScreen {
+
+    @Nullable
+    private GuiPatternMultiplierPanel multiplierPanel;
 
     /**
      * The window a panel that paints its own band is given: the plain terminal's, which is the same window
@@ -153,6 +158,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     protected void actionPerformed(final GuiButton btn) {
+        if (this.multiplierPanel != null && this.multiplierPanel.actionPerformed(btn)) {
+            return;
+        }
         super.actionPerformed(btn);
 
         try {
@@ -197,6 +205,10 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public void initGui() {
         super.initGui();
+        this.multiplierPanel = GuiPatternMultiplierPanel.of(this.inventorySlots);
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
+        }
 
         this.modeTabs.clear();
         this.pickerOpen = false;
@@ -240,6 +252,10 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
      */
     @Override
     public void drawBG(final int offsetX, final int offsetY, final int mouseX, final int mouseY) {
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.setHidden(this.isSidePanelOpen());
+            this.multiplierPanel.draw(this, offsetX, offsetY);
+        }
         if (!this.container.getEncodingMode().equals(this.panelMode)) {
             this.buildPanel();
             this.refreshLayout();
@@ -290,6 +306,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
         final Point row = this.cardRow();
         int cardIndex = 0;
         for (final Slot slot : this.inventorySlots.inventorySlots) {
+            if (slot instanceof PatternMultiplierPanel.PanelSlot) {
+                continue;
+            }
             if (slot instanceof AppEngSlot aeSlot && aeSlot.getX() < 197) {
                 aeSlot.xPos = aeSlot.getX();
                 this.repositionSlot(aeSlot);
@@ -808,6 +827,9 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public List<Rectangle> getJEIExclusionArea() {
         final List<Rectangle> area = new ArrayList<>(super.getJEIExclusionArea());
+        if (this.multiplierPanel != null) {
+            this.multiplierPanel.addExclusionArea(area);
+        }
 
         for (final GuiButton button : this.buttonList) {
             if (button.x + button.width > this.guiLeft + this.xSize) {
@@ -1133,5 +1155,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
         return this.panel == null ? null
                 : this.panel.getKeyUnderMouse(mouseX - this.guiLeft, mouseY - this.guiTop);
+    }
+    /** A click on the pattern multi-tool beside the window is not a click outside it. */
+    @Override
+    protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
+        return (this.multiplierPanel == null || !this.multiplierPanel.contains(mouseX, mouseY))
+                && super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
     }
 }
