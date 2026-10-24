@@ -229,6 +229,16 @@ public abstract class AEBaseContainer extends Container {
 
     public void lockPlayerInventorySlot(final int idx) {
         this.locked.add(idx);
+        for (int i = 0; i < this.inventorySlots.size(); i++) {
+            final Slot s = this.inventorySlots.get(i);
+            if ((s instanceof SlotPlayerInv || s instanceof SlotPlayerHotBar) && s.getSlotIndex() == idx) {
+                final AppEngSlot disabled = new SlotDisabled(((AppEngSlot) s).getItemHandler(), idx, s.xPos, s.yPos);
+                disabled.setPlayerSide();
+                disabled.setContainer(this);
+                disabled.slotNumber = s.slotNumber;
+                this.inventorySlots.set(i, disabled);
+            }
+        }
     }
 
     public Object getTarget() {
@@ -1556,6 +1566,9 @@ public abstract class AEBaseContainer extends Container {
 
     @Override
     public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, @NotNull EntityPlayer player) {
+        if (clickTypeIn == ClickType.SWAP && this.locked.contains(dragType)) {
+            return ItemStack.EMPTY;
+        }
         if (slotId >= 0) {
             final var slot = this.getSlot(slotId);
             if (slot instanceof SlotDisabled) {
