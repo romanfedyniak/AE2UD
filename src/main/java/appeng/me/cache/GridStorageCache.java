@@ -110,7 +110,7 @@ public class GridStorageCache implements IStorageService, IGridCache {
 
     public GridStorageCache(final IGrid g) {
         this.myGrid = g;
-        this.storage = new NetworkStorage();
+        this.storage = new NetworkStorage(g);
         this.storage.addChangeListener(this::recordChange);
     }
 

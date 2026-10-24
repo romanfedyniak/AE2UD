@@ -35,7 +35,11 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
 import appeng.api.config.Actionable;
+import appeng.api.config.SecurityPermissions;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageChangeSource;
@@ -78,8 +82,52 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
     private boolean anyStickyMounts = false;
     private final Runnable stickyChanged = () -> this.stickyMountsKnown = false;
 
+    /** The network this storage belongs to, whose Security Station says who may put in and take out. */
+    @Nullable
+    private final IGrid grid;
+    @Nullable
+    private ISecurityGrid security;
+
     public NetworkStorage() {
+        this(null);
+    }
+
+    public NetworkStorage(@Nullable final IGrid grid) {
         this.priorityInventory = new TreeMap<>(PRIORITY_SORTER);
+        this.grid = grid;
+    }
+
+    /**
+     * Whether the Security Station refuses this source: a player by their own card, a machine of another network
+     * by that network's owner. A machine of this network is the network's own.
+     */
+    private boolean denied(final IActionSource src, final SecurityPermissions permission) {
+        if (this.grid == null) {
+            return false;
+        }
+        if (this.security == null) {
+            this.security = this.grid.getCache(ISecurityGrid.class);
+        }
+        if (this.security == null || !this.security.isAvailable()) {
+            return false;
+        }
+
+        if (src.player().isPresent()) {
+            return !this.security.hasPermission(src.player().get(), permission);
+        }
+        if (src.machine().isPresent()) {
+            final IGridNode node = src.machine().get().getActionableNode();
+            if (node == null || node.getGrid() == null) {
+                return true;
+            }
+            if (node.getGrid() != this.grid) {
+                // A network with no station of its own acts as whoever placed the machine.
+                final ISecurityGrid other = node.getGrid().getCache(ISecurityGrid.class);
+                final int who = other != null && other.isAvailable() ? other.getOwner() : node.getPlayerID();
+                return !this.security.hasPermission(who, permission);
+            }
+        }
+        return false;
     }
 
     @Override
@@ -173,6 +221,9 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
         if (this.mountsInUse) {
             return 0; // Prevent recursive use
         }
+        if (this.denied(src, SecurityPermissions.INJECT)) {
+            return 0;
+        }
 
         long remaining = amount;
 
@@ -250,6 +301,9 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
     public long extract(final AEKey what, final long amount, final Actionable mode, final IActionSource source) {
         if (this.mountsInUse) {
             return 0; // Prevent recursive use
+        }
+        if (this.denied(source, SecurityPermissions.EXTRACT)) {
+            return 0;
         }
 
         long extracted = 0L;
