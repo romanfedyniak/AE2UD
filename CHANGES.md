@@ -24,6 +24,48 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - A cell file is flushed to disk before it replaces the old one, so a power cut can no longer leave a cell's
   file empty.
 
+### Security
+
+- **The Security Station checks every insert and extract again.** A player without the Inject or Extract
+  permission can no longer put things in or take them out through a terminal, and a bus of another network is
+  judged by that network's owner, or by whoever placed it when that network has no station of its own.
+- **A player without a biometric card of their own gets what the blank card gives, and nothing without one.**
+  Before, anyone not listed had every permission.
+
+### Planes
+
+- Annihilation and formation planes act as their owner, from where they stand, so a claim decides what they
+  may break and place by the same rules as for a player. Before, it depended on where the last plane in the
+  dimension had left the shared fake player. Fluid planes ask too.
+- A formation plane places blocks through Forge's placement event, so a claim at its border can refuse it.
+
+### Fixes
+
+- The pattern multi-tool carried beside a pattern terminal, an interface or an interface terminal can no longer
+  be moved while its panel is open, which copied the patterns in it.
+- A memory card pasted onto an interface copies addon patterns too, and hands back a blank for each addon
+  pattern it replaces instead of destroying it. The pattern access terminal takes addon patterns as well.
+- A HEI transfer into a crafting grid bigger than the recipe puts what was in the other squares back into the
+  network instead of deleting it.
+- Two fluids a machine cannot take at once (two for one tank) no longer lose the second: what did not go in
+  waits in the interface and goes in when there is room, and is saved with it.
+- Retuning a P2P tunnel drops what an interface tunnel still had to send instead of deleting it.
+- A crafting job takes back only the worn tools it sent out, and never one a player puts into the network.
+- Malformed packets from a client are ignored instead of filling the server log.
+
+### Performance
+
+- The terminal keeps each item's name for sorting, and a change of amounts alone no longer re-sorts the list
+  unless it is sorted by amount. A pin snapshot that only moves a craft's progress leaves the list alone.
+- Crafting calculations run on a few threads at once, with the rest waiting in line, and no longer copy the
+  network's stock for every retry.
+- A storage exposer adds and removes keys without walking the list.
+
+### Migration
+
+- A chest for the contents of a migrated block is placed only in that block's own chunk, so a crash between two
+  chunk saves can no longer hand the contents out twice.
+
 ## 1.6.0 - 2026-10-24
 
 ### Pattern Multi-Tool
