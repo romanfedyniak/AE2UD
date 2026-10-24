@@ -761,6 +761,9 @@ final class Registration {
         support(upgrades, CardTraits.EQUAL_DISTRIBUTION, items.cell16384k(), 1);
         support(upgrades, CardTraits.VOID, items.cell16384k(), 1);
 
+        // Each card opens one more row of patterns.
+        support(upgrades, CardTraits.CAPACITY, definitions.items().patternMultiplier(), 3);
+
         for (final IItemDefinition portableCell : portableCells(items)) {
             support(upgrades, CardTraits.FUZZY, portableCell, 1);
             support(upgrades, CardTraits.INVERTER, portableCell, 1);

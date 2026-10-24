@@ -12,6 +12,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Unreleased
 
+### Pattern Multi-Tool
+
+- **The Pattern Multi-Tool carries four rows of patterns and edits them all at once.** It multiplies or
+  divides every amount in them by two or three, adds or takes one, puts one ingredient in place of another
+  in the same amount, or wipes them back to blank patterns. A capacity card opens each row past the first,
+  up to three. Used on an interface, block or part, it edits that interface's patterns, and switches to its
+  own and back. A pattern that is scaled becomes a
+  processing pattern; a replacement that would leave a crafting pattern with no recipe leaves it alone and
+  shows it red. Adapted from [NAE2](https://github.com/AE2-UEL/NAE2), including its textures and recipe;
+  one AE2UD Migrator carries over from a world saved with NAE2 keeps what it held.
+
 ### UEL worlds
 
 - **A world saved by AE2 UEL keeps its AE2 content.** Cells keep what they hold, interfaces their stock,

@@ -30,6 +30,7 @@ import appeng.container.implementations.*;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.helpers.IMouseWheelItem;
+import appeng.helpers.patternmultiplier.PatternMultiplierTab;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
@@ -139,6 +140,17 @@ public class PacketValueConfig extends AppEngPacket {
         } else if (this.Name.equals("TileSecurityStation.ToggleOption") && c instanceof ContainerSecurityStation) {
             final ContainerSecurityStation sc = (ContainerSecurityStation) c;
             sc.toggleSetting(this.Value, player);
+        } else if (this.Name.startsWith("PatternMultiplier.")) {
+            if (c instanceof ContainerPatternMultiplier) {
+                final ContainerPatternMultiplier multiplier = (ContainerPatternMultiplier) c;
+                if (this.Name.equals(ContainerPatternMultiplier.ACTION)) {
+                    multiplier.act(this.Value);
+                } else if (this.Name.equals(ContainerPatternMultiplier.TAB)) {
+                    multiplier.switchTab(PatternMultiplierTab.of(Integer.parseInt(this.Value)));
+                } else if (this.Name.equals(ContainerPatternMultiplier.VIEW)) {
+                    multiplier.switchView();
+                }
+            }
         } else if (this.Name.startsWith("PatternTerminal.")) {
             if (c instanceof ContainerPatternEncoder) {
                 final ContainerPatternEncoder cpt = (ContainerPatternEncoder) c;

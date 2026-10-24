@@ -116,6 +116,7 @@ public enum AEFeature {
 
     NETWORK_TOOL("NetworkTool", Constants.CATEGORY_NETWORK_TOOL),
     NETWORK_VISUALISER("NetworkVisualiser", Constants.CATEGORY_NETWORK_TOOL),
+    PATTERN_MULTIPLIER("PatternMultiplier", Constants.CATEGORY_NETWORK_TOOL),
     MEMORY_CARD("MemoryCard", Constants.CATEGORY_NETWORK_TOOL),
 
     GLASS_CABLES("GlassCables", Constants.CATEGORY_CABLES),

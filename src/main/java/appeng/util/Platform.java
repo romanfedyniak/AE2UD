@@ -380,7 +380,7 @@ public class Platform {
                 p.openGui(AppEng.instance(), type.ordinal() << 4, p.getEntityWorld(), x, 0, 0);
             } else if (tile == null || type.getType() == GuiHostType.ITEM) {
                 if (tile != null) {
-                    p.openGui(AppEng.instance(), type.ordinal() << 4 | (1 << 3), p.getEntityWorld(), x, y, z);
+                    p.openGui(AppEng.instance(), type.ordinal() << 4 | (1 << 3) | (side == null ? 0 : side.ordinal()), p.getEntityWorld(), x, y, z);
                 } else {
                     p.openGui(AppEng.instance(), type.ordinal() << 4, p.getEntityWorld(), x, y, z);
                 }

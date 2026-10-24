@@ -85,6 +85,7 @@ public final class ApiItems implements IItems {
     private final IItemDefinition memoryCard;
     private final IItemDefinition networkTool;
     private final IItemDefinition networkVisualiser;
+    private final IItemDefinition patternMultiplier;
     private final IItemDefinition portableCell;
     private final IItemDefinition portableCell4k;
     private final IItemDefinition portableCell16k;
@@ -246,6 +247,7 @@ public final class ApiItems implements IItems {
                 .build();
         this.networkTool = registry.item("network_tool", ToolNetworkTool::new).features(AEFeature.NETWORK_TOOL).build();
         this.networkVisualiser = registry.item("network_visualiser", ToolNetworkVisualiser::new).features(AEFeature.NETWORK_VISUALISER).build();
+        this.patternMultiplier = registry.item("pattern_multiplier", ToolPatternMultiplier::new).features(AEFeature.PATTERN_MULTIPLIER).build();
 
         this.cellCreative = registry.item("creative_storage_cell", ItemCreativeStorageCell::new)
                 .features(AEFeature.STORAGE_CELLS, AEFeature.CREATIVE)
@@ -447,6 +449,10 @@ public final class ApiItems implements IItems {
     @Override
     public IItemDefinition networkVisualiser() {
         return this.networkVisualiser;
+    }
+
+    public IItemDefinition patternMultiplier() {
+        return this.patternMultiplier;
     }
 
     @Override

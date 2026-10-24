@@ -48,7 +48,9 @@ import appeng.helpers.ICustomNameObject;
 import appeng.helpers.IInterfaceHost;
 import appeng.helpers.IPatternUploadHost;
 import appeng.helpers.IPriorityHost;
+import appeng.helpers.ISidedGuiItem;
 import appeng.helpers.WirelessTerminalGuiObject;
+import appeng.helpers.patternmultiplier.PatternMultiplierHost;
 import appeng.helpers.ISubMenuHost;
 import appeng.items.contents.QuartzKnifeObj;
 import appeng.parts.automation.PartAnnihilationPlane;
@@ -114,6 +116,8 @@ public enum GuiBridge implements IGuiHandler {
     GUI_NETWORK_TOOL(ContainerNetworkTool.class, INetworkTool.class, GuiHostType.ITEM, null),
 
     GUI_QUARTZ_KNIFE(ContainerQuartzKnife.class, QuartzKnifeObj.class, GuiHostType.ITEM, null),
+
+    GUI_PATTERN_MULTIPLIER(ContainerPatternMultiplier.class, PatternMultiplierHost.class, GuiHostType.ITEM, null),
 
     GUI_DRIVE(ContainerDrive.class, TileDrive.class, GuiHostType.WORLD, SecurityPermissions.BUILD),
 
@@ -285,7 +289,7 @@ public enum GuiBridge implements IGuiHandler {
             } else if (y == 1 && z == Integer.MIN_VALUE) {
                 it = BaublesApi.getBaublesHandler(player).getStackInSlot(x);
             }
-            final Object myItem = this.getGuiObject(it, player, w, x, y, z);
+            final Object myItem = this.getGuiObject(it, player, w, x, y, z, usingItemOnTile ? side : null);
             if (myItem != null && ID.CorrectTileOrPart(myItem)) {
                 return this.updateGui(ID.ConstructContainer(player.inventory, side, myItem), w, x, y, z, side, myItem);
             }
@@ -307,8 +311,15 @@ public enum GuiBridge implements IGuiHandler {
         return new ContainerNull();
     }
 
-    private Object getGuiObject(final ItemStack it, final EntityPlayer player, final World w, final int x, final int y, final int z) {
+    /**
+     * @param side the part of the block the item was used on, or null when it was opened from a slot
+     */
+    private Object getGuiObject(final ItemStack it, final EntityPlayer player, final World w, final int x, final int y, final int z,
+            @Nullable final AEPartLocation side) {
         if (!it.isEmpty()) {
+            if (side != null && it.getItem() instanceof ISidedGuiItem) {
+                return ((ISidedGuiItem) it.getItem()).getGuiObject(it, w, new BlockPos(x, y, z), side);
+            }
             if (it.getItem() instanceof IGuiItem) {
                 return ((IGuiItem) it.getItem()).getGuiObject(it, w, new BlockPos(x, y, z));
             }
@@ -402,7 +413,7 @@ public enum GuiBridge implements IGuiHandler {
             if (y == 1 && z == Integer.MIN_VALUE) {
                 it = BaublesApi.getBaublesHandler(player).getStackInSlot(x);
             }
-            final Object myItem = this.getGuiObject(it, player, w, x, y, z);
+            final Object myItem = this.getGuiObject(it, player, w, x, y, z, usingItemOnTile ? side : null);
             if (myItem != null && ID.CorrectTileOrPart(myItem)) {
                 return ID.ConstructGui(player.inventory, side, myItem);
             }
