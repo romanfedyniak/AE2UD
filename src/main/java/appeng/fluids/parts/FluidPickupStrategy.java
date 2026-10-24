@@ -20,10 +20,14 @@ import net.minecraft.block.BlockLiquid;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.IFluidBlock;
@@ -38,6 +42,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AppEng;
 import appeng.core.sync.packets.PacketTransitionEffect;
+import appeng.util.Platform;
 
 /**
  * Fluid pickup for the annihilation plane: drains an adjacent fluid source block. This is the pre-port
@@ -52,6 +57,9 @@ public class FluidPickupStrategy implements PickupStrategy {
     private final World world;
     private final BlockPos pos;
     private final EnumFacing side;
+    private final TileEntity host;
+    @Nullable
+    private final UUID ownerUuid;
 
     private boolean isAccepting = true;
 
@@ -60,6 +68,8 @@ public class FluidPickupStrategy implements PickupStrategy {
         this.world = world;
         this.pos = pos;
         this.side = side;
+        this.host = host;
+        this.ownerUuid = ownerUuid;
     }
 
     @Override
@@ -98,6 +108,15 @@ public class FluidPickupStrategy implements PickupStrategy {
         AEFluidKey what = AEFluidKey.of(peek);
         if (what == null) {
             return Result.CANT_PICKUP;
+        }
+
+        if (this.world instanceof WorldServer w) {
+            // Asked as for a player breaking it, so a claim decides whether the plane may.
+            EntityPlayer player = Platform.getPlayer(w, this.ownerUuid);
+            Platform.configurePlayer(player, AEPartLocation.fromFacing(this.side.getOpposite()), this.host);
+            if (MinecraftForge.EVENT_BUS.post(new BlockEvent.BreakEvent(w, this.pos, state, player))) {
+                return Result.CANT_PICKUP;
+            }
         }
 
         long amount = peek.amount;

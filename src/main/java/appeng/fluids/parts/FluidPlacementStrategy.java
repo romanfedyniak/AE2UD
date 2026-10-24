@@ -17,10 +17,15 @@ import javax.annotation.Nullable;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockLiquid;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fluids.FluidUtil;
@@ -30,6 +35,8 @@ import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.util.AEPartLocation;
+import appeng.util.Platform;
 
 /**
  * Fluid placement for the formation plane: fills the adjacent space with a fluid source block, one bucket at a
@@ -42,12 +49,19 @@ public class FluidPlacementStrategy implements PlacementStrategy {
 
     private final World world;
     private final BlockPos pos;
+    private final EnumFacing fromSide;
+    private final TileEntity host;
+    @Nullable
+    private final UUID ownerUuid;
 
     private boolean blocked = false;
 
     public FluidPlacementStrategy(World world, BlockPos pos, EnumFacing fromSide, TileEntity host, @Nullable UUID ownerUuid) {
         this.world = world;
         this.pos = pos;
+        this.fromSide = fromSide;
+        this.host = host;
+        this.ownerUuid = ownerUuid;
     }
 
     @Override
@@ -68,6 +82,9 @@ public class FluidPlacementStrategy implements PlacementStrategy {
         }
 
         if (type == Actionable.MODULATE) {
+            if (this.world instanceof WorldServer w && this.refused(w)) {
+                return 0;
+            }
             FluidStack fs = fluidKey.toStack(AEFluidKey.AMOUNT_BUCKET);
             FluidTank tank = new FluidTank(fs, AEFluidKey.AMOUNT_BUCKET);
             if (!FluidUtil.tryPlaceFluid(null, this.world, this.pos, tank, fs)) {
@@ -76,6 +93,14 @@ public class FluidPlacementStrategy implements PlacementStrategy {
         }
 
         return AEFluidKey.AMOUNT_BUCKET;
+    }
+
+    /** Asked as for a player placing it, so a claim decides whether the plane may. */
+    private boolean refused(WorldServer w) {
+        EntityPlayer player = Platform.getPlayer(w, this.ownerUuid);
+        Platform.configurePlayer(player, AEPartLocation.fromFacing(this.fromSide.getOpposite()), this.host);
+        return ForgeEventFactory.onPlayerBlockPlace(player, BlockSnapshot.getBlockSnapshot(w, this.pos),
+                this.fromSide.getOpposite(), EnumHand.MAIN_HAND).isCanceled();
     }
 
     private boolean canReplace() {

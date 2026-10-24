@@ -41,6 +41,7 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.common.IPlantable;
 
 import appeng.api.behaviors.PlacementStrategy;
@@ -114,7 +115,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
             } else if (i instanceof ItemBlock || i instanceof ItemBlockSpecial || i instanceof IPlantable
                     || i instanceof ItemSkull || i instanceof ItemFirework || i instanceof IPartItem
                     || i == Item.getItemFromBlock(Blocks.REEDS)) {
-                EntityPlayer player = Platform.getPlayer((WorldServer) this.world);
+                EntityPlayer player = Platform.getPlayer((WorldServer) this.world, this.ownerUuid);
                 Platform.configurePlayer(player, sideLoc, this.host);
                 EnumHand hand = player.getActiveHand();
                 player.setHeldItem(hand, is);
@@ -126,32 +127,27 @@ class ItemPlacementStrategy implements PlacementStrategy {
                         boolean didWork = false;
 
                         if (sideLoc.xOffset == 0 && sideLoc.zOffset == 0) {
-                            didWork = i.onItemUse(player, this.world, this.pos.offset(hostToExternal), hand,
-                                    hostToExternal.getOpposite(), sideLoc.xOffset, sideLoc.yOffset,
-                                    sideLoc.zOffset) == EnumActionResult.SUCCESS;
+                            didWork = this.use(player, this.pos.offset(hostToExternal), hand, hostToExternal.getOpposite(),
+                                    sideLoc) == EnumActionResult.SUCCESS;
                         }
 
                         if (!didWork && sideLoc.xOffset == 0 && sideLoc.zOffset == 0) {
-                            didWork = i.onItemUse(player, this.world, this.pos.offset(hostToExternal.getOpposite()), hand,
-                                    hostToExternal, sideLoc.xOffset, sideLoc.yOffset,
-                                    sideLoc.zOffset) == EnumActionResult.SUCCESS;
+                            didWork = this.use(player, this.pos.offset(hostToExternal.getOpposite()), hand, hostToExternal,
+                                    sideLoc) == EnumActionResult.SUCCESS;
                         }
 
                         if (!didWork && sideLoc.yOffset == 0) {
-                            didWork = i.onItemUse(player, this.world, this.pos.offset(EnumFacing.DOWN), hand,
-                                    EnumFacing.UP, sideLoc.xOffset, sideLoc.yOffset,
-                                    sideLoc.zOffset) == EnumActionResult.SUCCESS;
+                            didWork = this.use(player, this.pos.offset(EnumFacing.DOWN), hand, EnumFacing.UP,
+                                    sideLoc) == EnumActionResult.SUCCESS;
                         }
 
                         if (!didWork) {
-                            i.onItemUse(player, this.world, this.pos, hand, hostToExternal.getOpposite(),
-                                    sideLoc.xOffset, sideLoc.yOffset, sideLoc.zOffset);
+                            this.use(player, this.pos, hand, hostToExternal.getOpposite(), sideLoc);
                         }
 
                         maxStorage -= is.getCount();
                     } else {
-                        i.onItemUse(player, this.world, this.pos, hand, hostToExternal.getOpposite(), sideLoc.xOffset,
-                                sideLoc.yOffset, sideLoc.zOffset);
+                        this.use(player, this.pos, hand, hostToExternal.getOpposite(), sideLoc);
                         maxStorage -= is.getCount();
                     }
                 } else {
@@ -178,6 +174,13 @@ class ItemPlacementStrategy implements PlacementStrategy {
         this.blocked = !this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
 
         return worked ? maxStorage : 0;
+    }
+
+    /** Places as a player would, so a claim hears of it and may refuse. */
+    private EnumActionResult use(EntityPlayer player, BlockPos at, EnumHand hand, EnumFacing face,
+            AEPartLocation sideLoc) {
+        return ForgeHooks.onPlaceItemIntoWorld(player.getHeldItem(hand), player, this.world, at, face,
+                sideLoc.xOffset, sideLoc.yOffset, sideLoc.zOffset, hand);
     }
 
     private void spawnItemEntity(World w, TileEntity te, AEPartLocation side, ItemStack is) {

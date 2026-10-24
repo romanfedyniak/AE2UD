@@ -70,6 +70,7 @@ import appeng.util.prioritylist.IPartitionList;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.mojang.authlib.GameProfile;
 import gregtech.api.block.machines.BlockMachine;
 import gregtech.api.metatileentity.MetaTileEntity;
 import gregtech.api.util.GTUtility;
@@ -735,6 +736,14 @@ public class Platform {
         final EntityPlayer p = FakePlayerFactory.getMinecraft(w);
         FAKE_PLAYERS.put(w, p);
         return p;
+    }
+
+    /**
+     * The fake player a machine acts through: its owner's, so claims judge it as theirs, or the shared one for a
+     * machine nobody owns. Claims also judge it by where it stands - see {@link #configurePlayer}.
+     */
+    public static EntityPlayer getPlayer(final WorldServer w, @Nullable final UUID owner) {
+        return owner == null ? getPlayer(w) : FakePlayerFactory.get(w, new GameProfile(owner, "[AE2]"));
     }
 
     public static int MC2MEColor(final int color) {

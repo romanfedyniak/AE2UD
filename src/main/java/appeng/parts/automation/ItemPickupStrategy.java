@@ -60,6 +60,7 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.util.AEPartLocation;
 import appeng.hooks.ItemSpawnCapture;
 import appeng.util.Platform;
 
@@ -79,6 +80,7 @@ class ItemPickupStrategy implements PickupStrategy {
     private final World world;
     private final BlockPos pos;
     private final EnumFacing side;
+    private final TileEntity host;
     protected final Map<Enchantment, Integer> enchantments;
     @Nullable
     private final UUID ownerUuid;
@@ -90,6 +92,7 @@ class ItemPickupStrategy implements PickupStrategy {
         this.world = world;
         this.pos = pos;
         this.side = side;
+        this.host = host;
         this.enchantments = enchantments;
         this.ownerUuid = ownerUuid;
     }
@@ -137,7 +140,8 @@ class ItemPickupStrategy implements PickupStrategy {
             return Result.CANT_STORE;
         }
 
-        EntityPlayer player = Platform.getPlayer(w);
+        EntityPlayer player = Platform.getPlayer(w, this.ownerUuid);
+        Platform.configurePlayer(player, AEPartLocation.fromFacing(this.side.getOpposite()), this.host);
         player.setHeldItem(EnumHand.MAIN_HAND, this.createTool());
         try {
             // Asked as for a player breaking it, so a claim decides whether the plane may. The event reads the tool.
