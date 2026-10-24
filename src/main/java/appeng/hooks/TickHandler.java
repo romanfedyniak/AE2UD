@@ -138,6 +138,12 @@ public class TickHandler {
         {
             final List<IGridNode> toDestroy = new ArrayList<>();
 
+            synchronized (this.craftingJobs) {
+                for (final CraftingJob job : this.craftingJobs.removeAll(ev.getWorld())) {
+                    job.abandon();
+                }
+            }
+
             this.getRepo().updateNetworks();
             for (final Grid g : this.getRepo().networks) {
                 for (final IGridNode n : g.getNodes()) {

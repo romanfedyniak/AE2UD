@@ -90,6 +90,8 @@ public class CraftingJob implements Runnable, ICraftingJob {
     private boolean refused;
     private boolean running = false;
     private boolean done = false;
+    /** Its world went away while it slept: see {@link #abandon}. */
+    private volatile boolean abandoned;
     private int time;
     private int incTime;
 
@@ -198,11 +200,23 @@ public class CraftingJob implements Runnable, ICraftingJob {
             }
         }
 
-        if (Thread.interrupted()) {
+        if (Thread.interrupted() || this.abandoned) {
             throw new InterruptedException();
         }
 
         this.incTime++;
+    }
+
+    /**
+     * Its world went away while it slept between ticks: woken to end rather than to go on, so it does not hold
+     * one of the calculator threads for good.
+     */
+    public void abandon() {
+        synchronized (this.monitor) {
+            this.abandoned = true;
+            this.running = true;
+            this.monitor.notify();
+        }
     }
 
     private void finish() {

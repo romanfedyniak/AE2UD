@@ -92,9 +92,16 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     private static final Comparator<ICraftingPatternDetails> COMPARATOR = Comparator.comparingInt(ICraftingPatternDetails::getPriority).reversed();
 
     static {
-        final ThreadFactory factory = ar -> new Thread(ar, "AE Crafting Calculator");
+        final ThreadFactory factory = ar -> {
+            final Thread thread = new Thread(ar, "AE Crafting Calculator");
+            thread.setDaemon(true);
+            return thread;
+        };
 
-        CRAFTING_POOL = Executors.newCachedThreadPool(factory);
+        // A few at once and the rest in line: a player asking for one heavy craft after another used to get a
+        // thread for each, all counting to the end beside the server.
+        final int threads = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+        CRAFTING_POOL = Executors.newFixedThreadPool(threads, factory);
     }
 
     private final Set<CraftingCPUCluster> craftingCPUClusters = new HashSet<>();

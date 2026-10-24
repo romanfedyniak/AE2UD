@@ -169,6 +169,27 @@ public final class CraftingSolver {
     }
 
     /**
+     * What the network holds, less what one pass has taken. Kept as the difference, so a pass costs nothing to
+     * start: a refill used to copy the whole network's stock every time, up to the refill limit.
+     */
+    private static final class Stock {
+        private final KeyCounter held;
+        private final KeyCounter taken = new KeyCounter();
+
+        private Stock(final KeyCounter held) {
+            this.held = held;
+        }
+
+        long get(final AEKey what) {
+            return this.held.get(what) - this.taken.get(what);
+        }
+
+        void remove(final AEKey what, final long amount) {
+            this.taken.add(what, amount);
+        }
+    }
+
+    /**
      * One walk down the order. Kept apart from the solver so a repeat starts from nothing but the caps.
      */
     private static final class Pass {
@@ -176,7 +197,7 @@ public final class CraftingSolver {
         private final SolverGraph graph;
         private final Runnable onProgress;
         private AEKey root;
-        private final KeyCounter stock = new KeyCounter();
+        private final Stock stock;
         private final KeyCounter demand = new KeyCounter();
         private final KeyCounter surplus = new KeyCounter();
         /** Handed back by a pattern that first had to borrow it: see {@link #takeLoaned}. */
@@ -197,7 +218,7 @@ public final class CraftingSolver {
         private Pass(final SolverGraph graph, final KeyCounter stock, final Runnable onProgress) {
             this.graph = graph;
             this.onProgress = onProgress;
-            this.stock.addAll(stock);
+            this.stock = new Stock(stock);
         }
 
         private Pass run(final AEKey root, final long amount, final Map<SolverPattern, Long> caps) {
