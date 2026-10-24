@@ -67,8 +67,10 @@ import appeng.me.GridAccessException;
 import appeng.me.helpers.AENetworkProxy;
 import appeng.me.helpers.IGridProxyable;
 import appeng.me.helpers.MachineSource;
+
 import appeng.me.storage.GenericStackInvStorage;
 import appeng.me.storage.NullInventory;
+import appeng.me.storage.ReportingStorageView;
 import appeng.parts.automation.StackUpgradeInventory;
 import appeng.parts.automation.UpgradeInventory;
 import appeng.parts.misc.PartInterface;
@@ -2201,9 +2203,24 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private class Accessor implements IStorageMonitorableAccessor {
 
         @Nullable
+        private ReportingStorageView view;
+
+        /**
+         * A storage bus of another network reads this. It hears what changes here, the whole network or the
+         * interface's own slots, and a new view is handed out when that changes, so the bus counts afresh.
+         */
+        @Nullable
         @Override
         public MEStorage getInventory(IActionSource src) {
-            return DualityInterface.this.getMonitorable(src, DualityInterface.this);
+            final MEStorage shown = DualityInterface.this.getMonitorable(src, DualityInterface.this);
+            if (shown != DualityInterface.this) {
+                return shown;
+            }
+            final MEStorage source = DualityInterface.this.getInventory();
+            if (this.view == null || this.view.getSource() != source) {
+                this.view = new ReportingStorageView(source);
+            }
+            return this.view;
         }
 
     }
