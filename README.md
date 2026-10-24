@@ -8,7 +8,7 @@
 
 A maintained fork of a Mod about Matter, Energy and using them to conquer the world.
 
-**AE2UD is a heavily reworked, API-breaking fork.** It is not compatible with existing worlds that used AE2 Unofficial Extended Life and is not a drop-in replacement for vanilla AE2 or other AE2 forks. Addons made for AE2 UEL or vanilla AE2 are incompatible unless they explicitly support AE2UD. Back up your world before installing or updating the mod.
+**AE2UD is a heavily reworked, API-breaking fork.** It is not a drop-in replacement for vanilla AE2 or other AE2 forks. A world last saved by AE2 Unofficial Extended Life opens on it from 1.6.0 and its AE2 content is carried over as the world loads; the migration is one-way, and what NAE2, AE2FluidCraft-Rework and the other mods AE2UD took in left behind needs [AE2UD Migrator](https://github.com/romanfedyniak/AE2UD-Migrator). Addons made for AE2 UEL or vanilla AE2 are incompatible unless they explicitly support AE2UD. Back up your world before installing or updating the mod.
 
 This project continues [AE2 Unofficial Extended Life](https://www.curseforge.com/minecraft/mc-mods/ae2-extended-life), which began as a Minecraft 1.12.2 fork of [Applied Energistics 2](https://www.curseforge.com/minecraft/mc-mods/applied-energistics-2) by [PrototypeTrousers](https://github.com/PrototypeTrousers) and was later maintained by the [AE2 Unofficial Extended Life Team](https://github.com/AE2-UEL). AE2UD continues that lineage as an independent, actively developed fork.
 

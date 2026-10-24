@@ -4,13 +4,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 ## Important compatibility notice
 
-- AE2UD is not compatible with worlds created with AE2 Unofficial Extended Life.
+- A world last saved by AE2 Unofficial Extended Life opens on AE2UD from 1.6.0, and its AE2 content is carried
+  over as each part of the world loads. The migration is one-way: back the world up first. What NAE2,
+  AE2FluidCraft-Rework, Wireless Universal Terminal, AE Network Visualization Tool and AE Wireless Channel left
+  in it needs [AE2UD Migrator](https://github.com/romanfedyniak/AE2UD-Migrator); the addons forked for AE2UD
+  carry over their own. A server whose worlds were never on UEL can turn it off with `migrateUelWorlds`.
 - Addons made for standard AE2 or AE2 UEL are not compatible unless they explicitly support AE2UD.
 - AE2UD is a heavily reworked, API-breaking fork and is not a drop-in replacement for another AE2 build.
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
-## Unreleased
+## 1.6.0 - 2026-10-24
 
 ### Pattern Multi-Tool
 
