@@ -36,17 +36,21 @@ import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.KeySorters;
+import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -77,6 +81,13 @@ public class Repo {
 
     private boolean resort = true;
     private boolean changed = false;
+    /** Only amounts moved, and nothing about the order or the filters depends on them. */
+    private boolean amountsChanged = false;
+    /**
+     * Each key's name, as the sort compares it. Formatting one is most of what a sort costs, and a sort compares
+     * every key many times over.
+     */
+    private final Map<AEKey, String> names = new Object2ObjectOpenHashMap<>();
     private final AEKey[] playerPins = new AEKey[IPlayerTerminalPins.MAX_PINS];
     private List<TerminalCraftingPin> craftingPins = Collections.emptyList();
     private int visibleCraftingPinRows;
@@ -124,12 +135,32 @@ public class Repo {
 
     public void setPins(AEKey[] playerPins, List<TerminalCraftingPin> craftingPins,
             int visibleCraftingRows, int visiblePlayerRows) {
+        // A craft's progress comes in a fresh snapshot every time it moves; the list only cares which keys are
+        // pinned where, since those rows leave it.
+        final boolean samePins = this.visibleCraftingPinRows == visibleCraftingRows
+                && this.visiblePlayerPinRows == visiblePlayerRows
+                && Arrays.equals(this.playerPins, Arrays.copyOf(playerPins, this.playerPins.length))
+                && sameKeys(this.craftingPins, craftingPins);
         System.arraycopy(playerPins, 0, this.playerPins, 0,
                 Math.min(playerPins.length, this.playerPins.length));
         this.craftingPins = new ArrayList<>(craftingPins);
         this.visibleCraftingPinRows = visibleCraftingRows;
         this.visiblePlayerPinRows = visiblePlayerRows;
-        this.changed = true;
+        if (!samePins) {
+            this.changed = true;
+        }
+    }
+
+    private static boolean sameKeys(final List<TerminalCraftingPin> a, final List<TerminalCraftingPin> b) {
+        if (a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            if (!Objects.equals(a.get(i).getWhat(), b.get(i).getWhat())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -138,13 +169,36 @@ public class Repo {
      * zero-and-craftable-false stack it left in the list; here we just drop the key.
      */
     public void postUpdate(final GridInventoryEntry entry) {
+        final GridInventoryEntry old;
         if (!entry.isMeaningful()) {
-            this.entries.remove(entry.getWhat());
+            old = this.entries.remove(entry.getWhat());
+            this.names.remove(entry.getWhat());
         } else {
-            this.entries.put(entry.getWhat(), entry);
+            old = this.entries.put(entry.getWhat(), entry);
         }
 
-        changed = true;
+        if (this.movesRows(old, entry)) {
+            this.changed = true;
+        } else {
+            this.amountsChanged = true;
+        }
+    }
+
+    /**
+     * Whether the change can move a row, or bring one in or take it out. Sorted by amount, every change can;
+     * sorted otherwise, only a key that comes or goes, or one that starts or stops being stocked or craftable,
+     * which is what the view modes filter on.
+     */
+    private boolean movesRows(@Nullable final GridInventoryEntry old, final GridInventoryEntry now) {
+        if (old == null || !now.isMeaningful()) {
+            return true;
+        }
+        final Enum sortBy = this.sortSrc.getSortBy();
+        if (sortBy != SortOrder.NAME && sortBy != SortOrder.MOD) {
+            return true;
+        }
+        return old.isCraftable() != now.isCraftable()
+                || (old.getStoredAmount() == 0) != (now.getStoredAmount() == 0);
     }
 
     /**
@@ -223,9 +277,15 @@ public class Repo {
             lastSortDir = sortDir;
         }
 
+        if (!changed && !resort && amountsChanged) {
+            amountsChanged = false;
+            this.refreshViewAmounts();
+        }
+
         if (changed || resort) {
             changed = false;
             resort = false;
+            amountsChanged = false;
 
             view = new ArrayList<>();
 
@@ -264,26 +324,44 @@ public class Repo {
         }
     }
 
-    private static Comparator<GridInventoryEntry> getComparator(Enum sortBy) {
-        final Comparator<Object2LongMap.Entry<AEKey>> c;
-
-        if (sortBy == SortOrder.MOD) {
-            c = KeySorters.CONFIG_BASED_SORT_BY_MOD;
-        } else if (sortBy == SortOrder.AMOUNT) {
-            c = KeySorters.CONFIG_BASED_SORT_BY_SIZE;
-        } else if (sortBy == SortOrder.INVTWEAKS) {
-            if (InventoryBogoSortModule.isLoaded()) {
-                c = InventoryBogoSortModule.COMPARATOR;
-            } else {
-                c = KeySorters.CONFIG_BASED_SORT_BY_INV_TWEAKS;
-            }
-        } else {
-            c = KeySorters.CONFIG_BASED_SORT_BY_NAME;
+    /**
+     * The same orders as {@link KeySorters}, compared on the cached names. Inventory Tweaks and BogoSorter
+     * still go through theirs: they compare stacks, not names.
+     */
+    private Comparator<GridInventoryEntry> getComparator(Enum sortBy) {
+        if (sortBy == SortOrder.INVTWEAKS) {
+            final Comparator<Object2LongMap.Entry<AEKey>> c = InventoryBogoSortModule.isLoaded()
+                    ? InventoryBogoSortModule.COMPARATOR
+                    : KeySorters.CONFIG_BASED_SORT_BY_INV_TWEAKS;
+            // KeySorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
+            // this repo holds GridInventoryEntry rows instead, so adapt rather than touching the wave 1 file.
+            return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
         }
 
-        // KeySorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
-        // this repo holds GridInventoryEntry rows instead, so adapt rather than touching the wave 1 file.
-        return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
+        final Comparator<GridInventoryEntry> byName = (a, b) -> this.nameOf(a.getWhat())
+                .compareToIgnoreCase(this.nameOf(b.getWhat()));
+        final Comparator<GridInventoryEntry> c;
+        if (sortBy == SortOrder.MOD) {
+            c = ((Comparator<GridInventoryEntry>) (a, b) -> a.getWhat().getModId()
+                    .compareToIgnoreCase(b.getWhat().getModId())).thenComparing(byName);
+        } else if (sortBy == SortOrder.AMOUNT) {
+            c = ((Comparator<GridInventoryEntry>) (a, b) -> Long.compare(b.getStoredAmount(), a.getStoredAmount()))
+                    .thenComparing(byName);
+        } else {
+            c = byName;
+        }
+
+        return (a, b) -> {
+            int cmp = c.compare(a, b);
+            if (cmp == 0) {
+                cmp = KeySorters.identityTieBreak(a.getWhat(), b.getWhat());
+            }
+            return KeySorters.applyDirection(cmp);
+        };
+    }
+
+    private String nameOf(final AEKey what) {
+        return this.names.computeIfAbsent(what, Platform::getItemDisplayName);
     }
 
     /**
@@ -369,6 +447,7 @@ public class Repo {
      */
     public void reset() {
         this.entries.clear();
+        this.names.clear();
         this.view = new ArrayList<>();
         this.changed = true;
     }

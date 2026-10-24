@@ -134,12 +134,12 @@ public class KeySorters {
      * fluids both holding exactly one bucket would visibly swap places every time the player pulled an
      * unrelated item out of the terminal.
      */
-    private static int identityTieBreak(final AEKey a, final AEKey b) {
+    public static int identityTieBreak(final AEKey a, final AEKey b) {
         final int cmp = String.valueOf(a.getId()).compareTo(String.valueOf(b.getId()));
         return cmp != 0 ? cmp : Integer.compare(a.hashCode(), b.hashCode());
     }
 
-    private static int applyDirection(int cmp) {
+    public static int applyDirection(int cmp) {
         if (getDirection() == SortDir.ASCENDING) {
             return cmp;
         }
