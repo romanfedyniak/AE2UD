@@ -116,15 +116,18 @@ final class Spills {
     }
 
     /**
-     * Air beside the tile or above it, which a chest can take without breaking anything.
+     * Air beside the tile or above it, which a chest can take without breaking anything. In the tile's own chunk:
+     * that chunk saves the chest together with the tile that no longer holds the items, and a crash between
+     * two chunks' saves would hand them out a second time.
      */
     private static BlockPos freeBeside(final World world, final BlockPos pos) {
         for (int up = 0; up <= 3; up++) {
             final BlockPos centre = pos.up(up);
             for (final EnumFacing facing : EnumFacing.values()) {
                 final BlockPos candidate = centre.offset(facing);
-                if (candidate.getY() > 0 && candidate.getY() < world.getHeight() && world.isBlockLoaded(candidate)
-                        && world.isAirBlock(candidate) && !nextToChest(world, candidate)) {
+                if (candidate.getY() > 0 && candidate.getY() < world.getHeight()
+                        && candidate.getX() >> 4 == pos.getX() >> 4 && candidate.getZ() >> 4 == pos.getZ() >> 4
+                        && world.isBlockLoaded(candidate) && world.isAirBlock(candidate) && !nextToChest(world, candidate)) {
                     return candidate;
                 }
             }
