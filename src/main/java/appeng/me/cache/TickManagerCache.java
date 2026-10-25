@@ -87,6 +87,12 @@ public class TickManagerCache implements ITickManager {
 
                 this.upcomingTicks.poll();
 
+                // A node that left the grid and came back has a new tracker; the old one stays in the queue
+                // (removeNode leaves it there) and would tick its machine, a tile long unloaded among them, forever.
+                if (this.awake.get(tt.getNode()) != tt) {
+                    continue;
+                }
+
                 final int diff = (int) (this.currentTick - tt.getLastTick());
                 final TickRateModulation mod = tt.getGridTickable().tickingRequest(tt.getNode(), diff);
 

@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A machine that left its network and came back ticks once, not once more for every time.** The tick queue kept
+  the old entry of a node that was taken off a grid, so a node that rejoined was ticked twice, three times and
+  more as the server ran, and a machine already unloaded with its chunk kept ticking among them.
+
 ## 1.6.1 - 2026-10-25
 
 ### Storage buses and patterns
