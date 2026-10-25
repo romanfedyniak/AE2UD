@@ -14,7 +14,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
-## Unreleased
+## 1.6.1 - 2026-10-25
+
+### Storage buses and patterns
+
+- A storage bus on an interface of another network hears what changes behind it, so its network sees the
+  other one's stock without waiting for a rescan.
+- An addon's pattern is signed with the player who encoded it, as AE2's own are.
+- The pattern access terminal searches addon patterns by what they make and take, essentia included, and
+  shows only the rows that match.
 
 ### Storage cells
 
