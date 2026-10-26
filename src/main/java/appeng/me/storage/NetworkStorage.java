@@ -99,7 +99,8 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
 
     /**
      * Whether the Security Station refuses this source: a player by their own card, a machine of another network
-     * by that network's owner. A machine of this network is the network's own.
+     * by that network's owner when it takes out. A machine of this network is the network's own, and one of
+     * another network may always put in: an assembler hands back what the network's own interface sent it.
      */
     private boolean denied(final IActionSource src, final SecurityPermissions permission) {
         if (this.grid == null) {
@@ -120,7 +121,7 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
             if (node == null || node.getGrid() == null) {
                 return true;
             }
-            if (node.getGrid() != this.grid) {
+            if (node.getGrid() != this.grid && permission != SecurityPermissions.INJECT) {
                 // A network with no station of its own acts as whoever placed the machine.
                 final ISecurityGrid other = node.getGrid().getCache(ISecurityGrid.class);
                 final int who = other != null && other.isAvailable() ? other.getOwner() : node.getPlayerID();

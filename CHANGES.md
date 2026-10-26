@@ -18,6 +18,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 
 - **A server operator passes every security station**, with all rights on every network. Only the operator in
   person: machines they placed and fake players are still judged by the station.
+- **An assembler on its own network hands its crafts back through a secured interface again.** Since 1.6.1 a
+  machine of another network needed its owner's card to put anything in, so the result of a craft stayed in the
+  assembler whenever whoever placed it had no card at the station. Taking out still needs the card.
 
 ## 1.6.2 - 2026-10-26
 
