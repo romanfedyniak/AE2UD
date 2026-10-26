@@ -24,6 +24,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **An item that writes to its own tag while drawn can be taken out of a terminal again.** The terminal drew the
   item with the tag of its key itself, so a dyed Thaumic Augmentation gauntlet set its default colour on the key,
   and a click asked the network for a gauntlet with a colour it did not hold.
+- **A block or part no player placed joins a secured network again**, as it did before 1.6.1. Since then it
+  broke off at once: a machine or a mod that set it down left it without an owner, and the station refused
+  one. What anyone does through it is still the station's to judge.
 
 ## 1.6.2 - 2026-10-26
 

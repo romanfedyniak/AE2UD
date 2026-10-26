@@ -1252,7 +1252,9 @@ public class Platform {
     }
 
     private static boolean checkPlayerPermissions(final IGrid grid, final int playerID) {
-        if (grid == null) {
+        // A node no player placed (a machine or a mod set it down) joins as it always did; the station still
+        // judges what anyone does through it.
+        if (grid == null || playerID == -1) {
             return true;
         }
 
