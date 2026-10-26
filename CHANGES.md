@@ -21,6 +21,9 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **An assembler on its own network hands its crafts back through a secured interface again.** Since 1.6.1 a
   machine of another network needed its owner's card to put anything in, so the result of a craft stayed in the
   assembler whenever whoever placed it had no card at the station. Taking out still needs the card.
+- **An item that writes to its own tag while drawn can be taken out of a terminal again.** The terminal drew the
+  item with the tag of its key itself, so a dyed Thaumic Augmentation gauntlet set its default colour on the key,
+  and a click asked the network for a gauntlet with a colour it did not hold.
 
 ## 1.6.2 - 2026-10-26
 

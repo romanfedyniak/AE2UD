@@ -59,6 +59,9 @@ public final class AEItemKey extends AEKey {
     @Nullable
     private final NBTTagCompound tag;
     private final int hash;
+    /** The tag {@link #getReadOnlyStack()} hands out: a copy, so a mod that writes to it changes no key. */
+    @Nullable
+    private NBTTagCompound readOnlyTag;
 
     private AEItemKey(Item item, int damage, @Nullable NBTTagCompound tag) {
         this.item = item;
@@ -157,12 +160,17 @@ public final class AEItemKey extends AEKey {
 
     /**
      * A stack of size one that callers must not mutate. Avoids the copy {@link #toStack()} makes
-     * when the stack is only used for rendering or comparison.
+     * when the stack is only used for rendering or comparison. Its tag is the key's own copied once, not the
+     * key's: some items write to their tag while drawn (Thaumic Augmentation's gauntlet sets its default colour),
+     * and a key changed that way names an item the network does not hold, so it cannot be taken out.
      */
     public ItemStack getReadOnlyStack() {
         ItemStack stack = new ItemStack(this.item, 1, this.damage);
         if (this.tag != null) {
-            stack.setTagCompound(this.tag);
+            if (this.readOnlyTag == null) {
+                this.readOnlyTag = this.tag.copy();
+            }
+            stack.setTagCompound(this.readOnlyTag);
         }
         return stack;
     }
