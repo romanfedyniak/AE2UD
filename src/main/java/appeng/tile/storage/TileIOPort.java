@@ -288,7 +288,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     @Override
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
         if (!this.getProxy().isActive()) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
         return this.doWork();
     }
@@ -318,7 +318,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                             shouldMove = this.shouldMove(inv);
 
                             if (itemsToMove > 0) {
-                                ret = TickRateModulation.IDLE;
+                                ret = TickRateModulation.SLOWER;
                             } else {
                                 ret = TickRateModulation.URGENT;
                             }
@@ -334,7 +334,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                 }
             }
         } catch (final GridAccessException e) {
-            ret = TickRateModulation.IDLE;
+            ret = TickRateModulation.SLOWER;
         }
 
         return ret;

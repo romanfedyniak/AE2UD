@@ -155,7 +155,7 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
     @Override
     protected TickRateModulation doBusWork() {
         if (!this.getProxy().isActive() || !this.canDoBusWork()) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         if (this.importStrategy == null) {
@@ -173,7 +173,7 @@ public class PartImportBus extends PartSharedItemBus implements KeyTypeSelection
             internalStorage = this.getProxy().getStorage().getInventory();
             energy = this.getProxy().getEnergy();
         } catch (final GridAccessException e) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         final IPartitionList filter = this.buildFilter();

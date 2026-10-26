@@ -156,7 +156,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     @Override
     protected TickRateModulation doBusWork() {
         if (!this.getProxy().isActive() || !this.canDoBusWork()) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         this.didSomething = false;
@@ -171,7 +171,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
             energy = this.getProxy().getEnergy();
             cg = this.getProxy().getCrafting();
         } catch (final GridAccessException e) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         final FuzzyMode fzMode = (FuzzyMode) this.getConfigManager().getSetting(Settings.FUZZY_MODE);

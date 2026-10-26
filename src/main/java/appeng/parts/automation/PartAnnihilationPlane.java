@@ -515,16 +515,16 @@ public class PartAnnihilationPlane extends PartUpgradeable
     public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
         // The plane never leaves the tick queue: put to sleep, it waited for a neighbour update that a block set
         // quietly (some mods' machines do), a claim that let it in later or a network back up never sent. Idle, it
-        // looks again at its slowest rate; whatever wakes it brings it back to the fastest at once.
+        // slows down a tick at a time to its slowest rate; whatever wakes it brings it back to the fastest at once.
         if (!this.getProxy().isActive()) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         final IEnergySource energy;
         try {
             energy = this.getProxy().getEnergy();
         } catch (final GridAccessException e) {
-            return TickRateModulation.IDLE;
+            return TickRateModulation.SLOWER;
         }
 
         for (final PickupStrategy strategy : this.getPickupStrategies()) {
@@ -537,11 +537,11 @@ public class PartAnnihilationPlane extends PartUpgradeable
             if (result == PickupStrategy.Result.PICKED_UP) {
                 return TickRateModulation.URGENT;
             } else if (result == PickupStrategy.Result.CANT_STORE) {
-                return TickRateModulation.IDLE;
+                return TickRateModulation.SLOWER;
             }
         }
 
-        return TickRateModulation.IDLE;
+        return TickRateModulation.SLOWER;
     }
 
     /**
