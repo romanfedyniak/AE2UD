@@ -33,6 +33,8 @@ import appeng.me.GridNode;
 import com.google.common.base.Preconditions;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.common.util.FakePlayer;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -137,6 +139,11 @@ public class SecurityCache implements ISecurityGrid {
         Preconditions.checkNotNull(perm);
 
         final GameProfile profile = player.getGameProfile();
+        if (player instanceof EntityPlayerMP && !(player instanceof FakePlayer)
+                && ((EntityPlayerMP) player).server.getPlayerList().canSendCommands(profile)) {
+            return true;
+        }
+
         final int playerID = WorldData.instance().playerData().getPlayerID(profile);
 
         return this.hasPermission(playerID, perm);
