@@ -131,8 +131,9 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
             final InvTracker t = this.diList.get(container);
             final MachineIdentity identity = container.getTerminalIdentity();
 
+            // The icon's tag is left out: a Mekanism machine's picked block carries its energy and items.
             if (t == null || !t.unlocalizedName.equals(identity.getName())
-                    || !ItemStack.areItemStacksEqual(t.icon, identity.getIcon())
+                    || !ItemStack.areItemsEqual(t.icon, identity.getIcon())
                     || t.fake != container.isFakeCrafting()) {
                 missing = true;
             }
@@ -296,12 +297,15 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
         }
     }
 
+    /** A container keeps its id across rebuilds, or a click sent just before one would miss its row. */
     private void regenList(final NBTTagCompound data) {
+        final Map<IPatternContainer, InvTracker> previous = new HashMap<>(this.diList);
         this.byId.clear();
         this.diList.clear();
 
         for (final IPatternContainer container : this.patternContainers()) {
-            this.diList.put(container, new InvTracker(container));
+            final InvTracker old = previous.get(container);
+            this.diList.put(container, new InvTracker(container, old == null ? autoBase++ : old.which));
         }
 
         data.setBoolean("clear", true);
@@ -404,7 +408,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
     private static class InvTracker {
 
         private final long sortBy;
-        private final long which = autoBase++;
+        private final long which;
         private final String unlocalizedName;
         private final IItemHandler client;
         private final IItemHandler server;
@@ -414,9 +418,10 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
         private final boolean fake;
         private final ItemStack icon;
 
-        public InvTracker(final IPatternContainer container) {
+        public InvTracker(final IPatternContainer container, final long which) {
             final MachineIdentity identity = container.getTerminalIdentity();
 
+            this.which = which;
             this.server = container.getTerminalPatternInventory();
             this.client = new AppEngInternalInventory(null, this.server.getSlots());
             this.unlocalizedName = identity.getName();
