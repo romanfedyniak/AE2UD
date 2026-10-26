@@ -369,44 +369,40 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
      * bucket of fluid.
      */
     private long transferContents(final IEnergySource energy, final MEStorage src, final MEStorage destination, long itemsToMove) {
-        final KeyCounter myList = src.getAvailableStacks();
+        // One pass, each key moving all it can. Starting the walk over after every key it moved copied and asked
+        // the whole source again each time, and filling a cell from a large network held the server for minutes.
+        for (final var entry : src.getAvailableStacks()) {
+            if (itemsToMove <= 0) {
+                break;
+            }
 
-        boolean didStuff;
+            final AEKey what = entry.getKey();
+            final long totalStackSize = entry.getLongValue();
+            if (totalStackSize <= 0) {
+                continue;
+            }
 
-        do {
-            didStuff = false;
+            final int amountPerOperation = what.getAmountPerOperation();
+            final long insertable = destination.insert(what, totalStackSize, Actionable.SIMULATE, this.mySrc);
+            if (insertable <= 0) {
+                continue;
+            }
 
-            for (final var entry : myList) {
-                final AEKey what = entry.getKey();
-                final long totalStackSize = entry.getLongValue();
-                if (totalStackSize > 0) {
-                    final int amountPerOperation = what.getAmountPerOperation();
-                    final long insertable = destination.insert(what, totalStackSize, Actionable.SIMULATE, this.mySrc);
+            final long possibleBeforeExtract = Math.min(insertable, itemsToMove * amountPerOperation);
+            final long extracted = src.extract(what, possibleBeforeExtract, Actionable.MODULATE, this.mySrc);
+            if (extracted <= 0) {
+                continue;
+            }
 
-                    if (insertable > 0) {
-                        final long possibleBeforeExtract = Math.min(insertable, itemsToMove * amountPerOperation);
-
-                        final long extracted = src.extract(what, possibleBeforeExtract, Actionable.MODULATE, this.mySrc);
-                        if (extracted > 0) {
-                            final long actuallyInserted = Platform.poweredInsert(energy, destination, what, extracted, this.mySrc);
-                            final long failed = extracted - actuallyInserted;
-
-                            if (failed > 0) {
-                                src.insert(what, failed, Actionable.MODULATE, this.mySrc);
-                            }
-
-                            if (actuallyInserted > 0) {
-                                itemsToMove -= Math.max(1, actuallyInserted / amountPerOperation);
-                                didStuff = true;
-                            }
-
-                            break;
-                        }
-                    }
-                }
+            final long actuallyInserted = Platform.poweredInsert(energy, destination, what, extracted, this.mySrc);
+            final long failed = extracted - actuallyInserted;
+            if (failed > 0) {
+                src.insert(what, failed, Actionable.MODULATE, this.mySrc);
+            }
+            if (actuallyInserted > 0) {
+                itemsToMove -= Math.max(1, actuallyInserted / amountPerOperation);
             }
         }
-        while (itemsToMove > 0 && didStuff);
 
         return itemsToMove;
     }

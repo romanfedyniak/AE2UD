@@ -27,6 +27,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **A block or part no player placed joins a secured network again**, as it did before 1.6.1. Since then it
   broke off at once: a machine or a mod that set it down left it without an owner, and the station refused
   one. What anyone does through it is still the station's to judge.
+- **An IO Port filling a cell from a large network no longer holds the server for minutes.** It went back to the
+  start of the network's whole list after every kind of item it moved, copying the list again each time.
 
 ## 1.6.2 - 2026-10-26
 
