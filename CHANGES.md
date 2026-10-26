@@ -14,6 +14,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A server operator passes every security station**, with all rights on every network. Only the operator in
+  person: machines they placed and fake players are still judged by the station.
+
 ## 1.6.2 - 2026-10-26
 
 - **The pattern access terminal keeps its rows while a machine works.** A working machine's icon changes its
