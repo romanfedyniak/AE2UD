@@ -842,13 +842,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                     if (ic == null) {
                         final GenericStack[] input = details.getInputs();
-                        double sum = 0;
-
-                        for (final GenericStack anInput : input) {
-                            if (anInput != null) {
-                                sum += anInput.amount();
-                            }
-                        }
+                        final double sum = patternPower(details);
 
                         // power...
                         if (eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
@@ -1083,6 +1077,17 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return (int) Math.max(1, Math.min(Math.min(offered, this.remainingOperations), remaining));
     }
 
+    /** One power per operation, as storage takes it: a bucket of fluid or 1000 mana is one, not a thousand. */
+    private static double patternPower(final ICraftingPatternDetails details) {
+        double sum = 0;
+        for (final GenericStack input : details.getInputs()) {
+            if (input != null) {
+                sum += (double) input.amount() / Math.max(1, input.what().getAmountPerOperation());
+            }
+        }
+        return sum;
+    }
+
     /**
      * Pushes up to {@code wanted} copies of a pattern in one call. One copy is one operation, as it is for a
      * single push; what is saved is doing the drawing, the power and the bookkeeping once instead of
@@ -1098,12 +1103,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return -1;
         }
 
-        double powerPerCopy = 0;
-        for (final GenericStack input : details.getInputs()) {
-            if (input != null) {
-                powerPerCopy += input.amount();
-            }
-        }
+        final double powerPerCopy = patternPower(details);
 
         int copies = plan.getCopies();
         if (powerPerCopy > 0) {
