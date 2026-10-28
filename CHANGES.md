@@ -14,6 +14,15 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## 1.6.4 - 2026-10-28
+
+- **A crafting job that does not start leaves nothing behind in the CPU.** A job whose ingredient had gone from
+  the network by the time it was started kept what it had already counted in the CPU without taking it from
+  the network, and the CPU later gave it back: each Retry or Replan made another copy.
+- **A crafting CPU charges power per operation of a pattern, not per unit of its inputs.** A pattern with mana
+  or fluids cost one AE per point of mana or per millibucket, so a terrasteel craft took 500 000 AE.
+- The meteorite compass has its Ukrainian name again.
+
 ## 1.6.3 - 2026-10-27
 
 - **A server operator passes every security station**, with all rights on every network. Only the operator in
