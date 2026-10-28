@@ -452,6 +452,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // submitted until the crafting storage was broken and replaced.
         this.waitingFor.clear();
         this.promised.clear();
+        // The next job's patterns are other objects, equal to these: kept as keys, every lookup of them would
+        // compare the whole pattern NBT, and their queues would still hold this job's machines.
+        this.visitedMediums.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
@@ -778,13 +781,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 GenericStack[] extras = EMPTY_EXTRAS;
                 GenericStack[] fabricated = EMPTY_EXTRAS;
 
-                if (!visitedMediums.containsKey(details) || visitedMediums.get(details).isEmpty()) {
-                    visitedMediums.put(details, new ArrayDeque<>(cc.getMediums(details).stream().filter(Objects::nonNull).collect(Collectors.toList())));
+                Queue<ICraftingMedium> mediums = visitedMediums.get(details);
+                if (mediums == null || mediums.isEmpty()) {
+                    mediums = new ArrayDeque<>(cc.getMediums(details).stream().filter(Objects::nonNull).collect(Collectors.toList()));
+                    visitedMediums.put(details, mediums);
                 }
 
-                while (!visitedMediums.get(details).isEmpty()) {
+                while (!mediums.isEmpty()) {
 
-                    ICraftingMedium m = visitedMediums.get(details).poll();
+                    ICraftingMedium m = mediums.poll();
 
                     if (e.getValue().value <= 0 || m == null) {
                         continue;
