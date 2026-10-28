@@ -14,6 +14,13 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **An item keeps what its capabilities hold in a network.** A network knew an item by its tag alone, so what a mod
+  keeps in the item's capabilities was lost on the way in: the augments of a Thaumic Augmentation gauntlet, the
+  biome of a biome selector, the items of an Item Filters filter. What a new item of the kind holds anyway still
+  counts as nothing, so such items stack as before. Whatever a network already took in has lost it.
+
 ## 1.6.4 - 2026-10-28
 
 - **A crafting job that does not start leaves nothing behind in the CPU.** A job whose ingredient had gone from

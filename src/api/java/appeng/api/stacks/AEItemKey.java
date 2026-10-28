@@ -25,10 +25,16 @@
 package appeng.api.stacks;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -50,7 +56,8 @@ import net.minecraftforge.oredict.OreDictionary;
 import appeng.api.storage.AEKeyFilter;
 
 /**
- * Identifies an item: its {@link Item}, metadata and NBT, without a count.
+ * Identifies an item: its {@link Item}, metadata, NBT and what its capabilities hold beyond a new stack's, without a
+ * count.
  */
 public final class AEItemKey extends AEKey {
 
@@ -58,18 +65,83 @@ public final class AEItemKey extends AEKey {
     private final int damage;
     @Nullable
     private final NBTTagCompound tag;
+    /**
+     * The stack's ForgeCaps, or null when they are what a new stack of this item has. Thaumic Augmentation keeps a
+     * gauntlet's augments there, not in the tag, so a key of the tag alone lost them on the way into a network.
+     */
+    @Nullable
+    private final NBTTagCompound caps;
     private final int hash;
     /** The tag {@link #getReadOnlyStack()} hands out: a copy, so a mod that writes to it changes no key. */
     @Nullable
     private NBTTagCompound readOnlyTag;
 
-    private AEItemKey(Item item, int damage, @Nullable NBTTagCompound tag) {
+    /** ForgeCaps of a new stack per item and damage; an empty compound for none. */
+    private static final Map<Item, Map<Integer, NBTTagCompound>> DEFAULT_CAPS = new ConcurrentHashMap<>();
+    /** ItemStack.capabilities, a Forge field with the same name in development and in production. */
+    private static final MethodHandle CAPABILITIES;
+
+    static {
+        try {
+            Field field = ItemStack.class.getDeclaredField("capabilities");
+            field.setAccessible(true);
+            CAPABILITIES = MethodHandles.lookup().unreflectGetter(field)
+                    .asType(MethodType.methodType(Object.class, ItemStack.class));
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private AEItemKey(Item item, int damage, @Nullable NBTTagCompound tag, @Nullable NBTTagCompound caps) {
         this.item = item;
         this.damage = damage;
         // Same normalisation as AEFluidKey: an empty compound is no compound. Item identity is safe here -
         // Item is a true Forge registry singleton, unlike Fluid - so only the tag needed fixing.
         this.tag = tag == null || tag.isEmpty() ? null : tag;
-        this.hash = Objects.hash(item, damage, this.tag);
+        this.caps = caps == null || caps.isEmpty() ? null : caps;
+        this.hash = Objects.hash(item, damage, this.tag, this.caps);
+    }
+
+    /**
+     * @return the stack's ForgeCaps, or null when it has none or they match a new stack's, so the many items other
+     *         mods attach default capabilities to keep one key, and keys saved before caps were kept still match.
+     */
+    @Nullable
+    private static NBTTagCompound capsOf(ItemStack stack) {
+        NBTTagCompound caps = forgeCaps(stack);
+        if (caps == null || caps.isEmpty() || caps.equals(defaultCaps(stack.getItem(), stack.getItemDamage()))) {
+            return null;
+        }
+        return caps;
+    }
+
+    private static NBTTagCompound defaultCaps(Item item, int damage) {
+        return DEFAULT_CAPS.computeIfAbsent(item, i -> new ConcurrentHashMap<>()).computeIfAbsent(damage, d -> {
+            NBTTagCompound caps = forgeCaps(new ItemStack(item, 1, damage));
+            return caps == null ? new NBTTagCompound() : caps;
+        });
+    }
+
+    /** The stack writes its tag by reference and adds ForgeCaps only when it has capabilities. */
+    @Nullable
+    private static NBTTagCompound forgeCaps(ItemStack stack) {
+        try {
+            if ((Object) CAPABILITIES.invokeExact(stack) == null) {
+                return null;
+            }
+        } catch (Throwable e) {
+            throw new IllegalStateException(e);
+        }
+        NBTTagCompound written = stack.serializeNBT();
+        return written.hasKey("ForgeCaps", 10) ? written.getCompoundTag("ForgeCaps") : null;
+    }
+
+    private ItemStack newStack(int count, @Nullable NBTTagCompound tag) {
+        ItemStack stack = new ItemStack(this.item, count, this.damage, this.caps == null ? null : this.caps.copy());
+        if (tag != null) {
+            stack.setTagCompound(tag);
+        }
+        return stack;
     }
 
     /**
@@ -81,15 +153,15 @@ public final class AEItemKey extends AEKey {
             return null;
         }
         NBTTagCompound tag = stack.getTagCompound();
-        return new AEItemKey(stack.getItem(), stack.getItemDamage(), tag == null ? null : tag.copy());
+        return new AEItemKey(stack.getItem(), stack.getItemDamage(), tag == null ? null : tag.copy(), capsOf(stack));
     }
 
     public static AEItemKey of(Item item) {
-        return new AEItemKey(item, 0, null);
+        return new AEItemKey(item, 0, null, null);
     }
 
     public static AEItemKey of(Item item, int damage) {
-        return new AEItemKey(item, damage, null);
+        return new AEItemKey(item, damage, null, null);
     }
 
     public static boolean matches(@Nullable AEKey what, ItemStack stack) {
@@ -121,7 +193,7 @@ public final class AEItemKey extends AEKey {
 
     @Override
     public AEItemKey dropSecondary() {
-        return this.tag == null ? this : new AEItemKey(this.item, this.damage, null);
+        return this.tag == null && this.caps == null ? this : new AEItemKey(this.item, this.damage, null, null);
     }
 
     public Item getItem() {
@@ -151,11 +223,7 @@ public final class AEItemKey extends AEKey {
         if (count <= 0) {
             return ItemStack.EMPTY;
         }
-        ItemStack stack = new ItemStack(this.item, count, this.damage);
-        if (this.tag != null) {
-            stack.setTagCompound(this.tag.copy());
-        }
-        return stack;
+        return this.newStack(count, this.tag == null ? null : this.tag.copy());
     }
 
     /**
@@ -165,14 +233,10 @@ public final class AEItemKey extends AEKey {
      * and a key changed that way names an item the network does not hold, so it cannot be taken out.
      */
     public ItemStack getReadOnlyStack() {
-        ItemStack stack = new ItemStack(this.item, 1, this.damage);
-        if (this.tag != null) {
-            if (this.readOnlyTag == null) {
-                this.readOnlyTag = this.tag.copy();
-            }
-            stack.setTagCompound(this.readOnlyTag);
+        if (this.tag != null && this.readOnlyTag == null) {
+            this.readOnlyTag = this.tag.copy();
         }
-        return stack;
+        return this.newStack(1, this.readOnlyTag);
     }
 
     @Override
@@ -193,7 +257,7 @@ public final class AEItemKey extends AEKey {
         if (stack.isEmpty() || stack.getItem() != this.item || stack.getItemDamage() != this.damage) {
             return false;
         }
-        return Objects.equals(stack.getTagCompound(), this.tag);
+        return Objects.equals(stack.getTagCompound(), this.tag) && Objects.equals(capsOf(stack), this.caps);
     }
 
     public int getMaxStackSize() {
@@ -221,6 +285,9 @@ public final class AEItemKey extends AEKey {
         if (this.tag != null) {
             out.setTag("tag", this.tag.copy());
         }
+        if (this.caps != null) {
+            out.setTag("caps", this.caps.copy());
+        }
     }
 
     @Nullable
@@ -230,7 +297,8 @@ public final class AEItemKey extends AEKey {
             return null;
         }
         NBTTagCompound extra = tag.hasKey("tag") ? tag.getCompoundTag("tag") : null;
-        return new AEItemKey(item, tag.getShort("dmg") & 0xFFFF, extra);
+        NBTTagCompound caps = tag.hasKey("caps") ? tag.getCompoundTag("caps") : null;
+        return new AEItemKey(item, tag.getShort("dmg") & 0xFFFF, extra, caps);
     }
 
     @Override
@@ -239,6 +307,7 @@ public final class AEItemKey extends AEKey {
         buffer.writeVarInt(Item.getIdFromItem(this.item));
         buffer.writeVarInt(this.damage);
         buffer.writeCompoundTag(this.tag);
+        buffer.writeCompoundTag(this.caps);
     }
 
     public static AEItemKey fromPacket(ByteBuf data) throws IOException {
@@ -246,15 +315,17 @@ public final class AEItemKey extends AEKey {
         Item item = Item.getItemById(buffer.readVarInt());
         int damage = buffer.readVarInt();
         NBTTagCompound tag;
+        NBTTagCompound caps;
         try {
             tag = buffer.readCompoundTag();
+            caps = buffer.readCompoundTag();
         } catch (DecoderException e) {
             throw new IOException("Failed to read the NBT of an item key.", e);
         }
         if (item == null) {
             throw new IOException("Received an item key with an unknown item id.");
         }
-        return new AEItemKey(item, damage, tag);
+        return new AEItemKey(item, damage, tag, caps);
     }
 
     @Override
@@ -292,7 +363,8 @@ public final class AEItemKey extends AEKey {
         if (!(o instanceof AEItemKey other)) {
             return false;
         }
-        return this.item == other.item && this.damage == other.damage && Objects.equals(this.tag, other.tag);
+        return this.item == other.item && this.damage == other.damage && Objects.equals(this.tag, other.tag)
+                && Objects.equals(this.caps, other.caps);
     }
 
     @Override
@@ -302,6 +374,7 @@ public final class AEItemKey extends AEKey {
 
     @Override
     public String toString() {
-        return this.item.getRegistryName() + "@" + this.damage + (this.tag != null ? this.tag : "");
+        return this.item.getRegistryName() + "@" + this.damage + (this.tag != null ? this.tag : "")
+                + (this.caps != null ? " caps " + this.caps : "");
     }
 }
