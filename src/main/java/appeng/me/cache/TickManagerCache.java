@@ -86,6 +86,7 @@ public class TickManagerCache implements ITickManager {
                 }
 
                 this.upcomingTicks.poll();
+                tt.setQueued(false);
 
                 // A node that left the grid and came back has a new tracker; the old one stays in the queue
                 // (removeNode leaves it there) and would tick its machine, a tile long unloaded among them, forever.
@@ -130,9 +131,27 @@ public class TickManagerCache implements ITickManager {
         }
     }
 
+    /**
+     * A machine can wake itself from inside its own tick (a level maintainer's refused job, an interface whose
+     * slot changed): it is queued again before the tick is over. A tracker must never sit in the queue twice, nor
+     * change its key while queued, or the heap breaks and a slow tracker on top holds back every other machine.
+     */
     private void addToQueue(final TickTracker tt) {
+        this.dequeue(tt);
         tt.setLastTick(this.currentTick);
+        this.enqueue(tt);
+    }
+
+    private void enqueue(final TickTracker tt) {
         this.upcomingTicks.add(tt);
+        tt.setQueued(true);
+    }
+
+    private void dequeue(final TickTracker tt) {
+        if (tt.isQueued()) {
+            this.upcomingTicks.remove(tt);
+            tt.setQueued(false);
+        }
     }
 
     @Override
@@ -197,13 +216,10 @@ public class TickManagerCache implements ITickManager {
         this.sleeping.remove(node);
         this.awake.put(node, tt);
 
-        // configure sort.
+        this.dequeue(tt);
         tt.setLastTick(tt.getLastTick() - tt.getRequest().maxTickRate);
         tt.setCurrentRate(tt.getRequest().minTickRate);
-
-        // prevent dupes and tick build up.
-        this.upcomingTicks.remove(tt);
-        this.upcomingTicks.add(tt);
+        this.enqueue(tt);
 
         return true;
     }
@@ -231,7 +247,6 @@ public class TickManagerCache implements ITickManager {
             final TickTracker gt = this.sleeping.get(node);
             this.sleeping.remove(node);
             this.awake.put(node, gt);
-            this.upcomingTicks.remove(gt);
             this.addToQueue(gt);
 
             return true;

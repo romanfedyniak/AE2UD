@@ -40,6 +40,7 @@ public class TickTracker implements Comparable<TickTracker> {
 
     private long lastTick;
     private int currentRate;
+    private boolean queued;
 
     public TickTracker(final TickingRequest req, final IGridNode node, final IGridTickable gt, final long currentTick, final TickManagerCache tickManagerCache) {
         this.request = req;
@@ -108,6 +109,14 @@ public class TickTracker implements Comparable<TickTracker> {
 
     public void setLastTick(final long lastTick) {
         this.lastTick = lastTick;
+    }
+
+    public boolean isQueued() {
+        return this.queued;
+    }
+
+    public void setQueued(final boolean queued) {
+        this.queued = queued;
     }
 
     public IGridNode getNode() {
