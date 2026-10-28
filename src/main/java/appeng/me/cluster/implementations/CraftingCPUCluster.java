@@ -1299,11 +1299,19 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         final MEStorage networkStorage = sg.getInventory();
         final MECraftingInventory ci = new MECraftingInventory(networkStorage, true, false, false);
 
+        // setJob puts the job's stock into the cpu key by key before anything leaves the network: into a fresh
+        // inventory, so a job that does not start takes none of it with it.
+        final MECraftingInventory before = this.inventory;
+        this.inventory = new MECraftingInventory();
+
         try {
             this.waitingFor.clear(); // see completeJob()
-        this.promised.clear();
+            this.promised.clear();
             ((CraftingJob) job).setJob(ci, this, src);
             if (ci.commit(src)) {
+                for (final var entry : before.getItemList()) {
+                    this.inventory.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, null);
+                }
                 this.finalOutput = job.getOutput();
                 this.requestedAmount = this.finalOutput == null ? 0 : this.finalOutput.amount();
                 this.waiting = false;
@@ -1350,15 +1358,27 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                 return CraftingSubmitResult.successful(whatLink);
             } else {
-                this.clearTasks();
+                this.abandonSubmit(before);
             }
         } catch (final CraftBranchFailure e) {
-            this.clearTasks();
+            this.abandonSubmit(before);
             // A branch that was there when the job was planned is gone now, so say what went missing.
             return CraftingSubmitResult.missingIngredient(e.getMissing());
         }
 
         return CraftingSubmitResult.missingIngredient(null);
+    }
+
+    /** Undoes what a job that did not start had already put into the cpu. */
+    private void abandonSubmit(final MECraftingInventory before) {
+        this.clearTasks();
+        this.inventory = before;
+        final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
+        this.waitingFor.clear();
+        this.promised.clear();
+        for (final AEKey key : keys) {
+            this.postCraftingStatusChange(key);
+        }
     }
 
     @Override
