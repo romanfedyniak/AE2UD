@@ -43,7 +43,13 @@ public class WrappedGenericStackItemRenderer extends TileEntityItemStackRenderer
             return;
         }
 
+        // A monitor centres a flat item on its panel, and a drawn key is as flat as it gets: it would fight
+        // the panel for every pixel. The offset pulls it towards the eye whichever way the panel faces.
+        GlStateManager.enablePolygonOffset();
+        GlStateManager.doPolygonOffset(-1.0F, -10.0F);
         handler.draw(wrapped.what());
+        GlStateManager.doPolygonOffset(0.0F, 0.0F);
+        GlStateManager.disablePolygonOffset();
         Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
