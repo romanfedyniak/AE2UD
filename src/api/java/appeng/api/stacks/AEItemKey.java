@@ -75,6 +75,8 @@ public final class AEItemKey extends AEKey {
     /** The tag {@link #getReadOnlyStack()} hands out: a copy, so a mod that writes to it changes no key. */
     @Nullable
     private NBTTagCompound readOnlyTag;
+    /** The item's stack limit for this key, worked out once: asking builds a stack, and the CPU asks per slot per tick. */
+    private int maxStackSize = -1;
 
     /** ForgeCaps of a new stack per item and damage; an empty compound for none. */
     private static final Map<Item, Map<Integer, NBTTagCompound>> DEFAULT_CAPS = new ConcurrentHashMap<>();
@@ -261,7 +263,10 @@ public final class AEItemKey extends AEKey {
     }
 
     public int getMaxStackSize() {
-        return this.item.getItemStackLimit(this.getReadOnlyStack());
+        if (this.maxStackSize < 0) {
+            this.maxStackSize = this.item.getItemStackLimit(this.getReadOnlyStack());
+        }
+        return this.maxStackSize;
     }
 
     public boolean isDamaged() {
