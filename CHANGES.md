@@ -14,6 +14,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## 1.6.7 - 2026-10-31
+
+- Crafting with many ingredients takes less of the server: an item's stack size is worked out once instead of on
+  every ingredient of every craft.
+
 ## 1.6.6 - 2026-10-30
 
 - A key drawn on a storage monitor, like Thaumic Energistics essentia, no longer flickers into the panel.
