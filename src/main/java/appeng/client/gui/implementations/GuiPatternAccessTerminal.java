@@ -66,6 +66,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.util.Constants;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.awt.*;
@@ -547,7 +548,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                         || (this.searchFieldNames.getText().isEmpty() && this.searchFieldNames.isFocused())) {
                     return;
                 }
-            } else if (character == '\t') {
+            } else if (key == Keyboard.KEY_TAB) {
                 if (handleTab()) {
                     return;
                 }
