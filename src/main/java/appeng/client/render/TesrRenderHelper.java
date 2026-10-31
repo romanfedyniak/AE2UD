@@ -116,6 +116,12 @@ public class TesrRenderHelper {
     private static final float BLOCK_DEPTH = 0.0001f;
 
     /**
+     * How far out the amount is drawn: past the near half of a flat item's {@link #LAYERED_DEPTH}, or a tall
+     * icon hides the top of the line.
+     */
+    private static final float TEXT_Z = LAYERED_DEPTH / 2 + 0.005f;
+
+    /**
      * How much smaller both lines are drawn once there are two of them, and how far above a lone amount the
      * pair starts. Taken from GregTech: New Horizons' throughput monitor, which solves the same fit by
      * halving the text rather than by moving the icon: it draws its two lines at 1/120 where one line is
@@ -247,9 +253,9 @@ public class TesrRenderHelper {
     private static int renderAmount2d(String text, float spacing, float textScale) {
         final FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
         final int width = fr.getStringWidth(text);
-        GlStateManager.translate(0.0f, spacing, 0);
+        GlStateManager.translate(0.0f, spacing, TEXT_Z);
         GlStateManager.scale(textScale / 62.0f, textScale / 62.0f, textScale / 62.0f);
-        GlStateManager.translate(-0.5f * width, 0.0f, 0.5f);
+        GlStateManager.translate(-0.5f * width, 0.0f, 0.0f);
         fr.drawString(text, 0, 0, 0);
         return width;
     }
