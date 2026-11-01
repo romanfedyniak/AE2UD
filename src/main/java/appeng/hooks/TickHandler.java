@@ -46,13 +46,15 @@ import net.minecraftforge.fml.common.gameevent.TickEvent.Type;
 import net.minecraftforge.fml.common.gameevent.TickEvent.WorldTickEvent;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 
 
 public class TickHandler {
 
     public static final TickHandler INSTANCE = new TickHandler();
-    private final Queue<IWorldCallable<?>> serverQueue = new ArrayDeque<>();
+    // Filled from wherever a grid or a tile works, which on a server that ticks regions at once is any of its threads
+    private final Queue<IWorldCallable<?>> serverQueue = new ConcurrentLinkedQueue<>();
     private final Multimap<World, CraftingJob> craftingJobs = LinkedListMultimap.create();
     private final WeakHashMap<World, Queue<IWorldCallable<?>>> callQueue = new WeakHashMap<>();
     private final HandlerRep server = new HandlerRep();
@@ -85,11 +87,14 @@ public class TickHandler {
         if (w == null) {
             this.serverQueue.add(c);
         } else {
-            Queue<IWorldCallable<?>> queue = this.callQueue.get(w);
+            Queue<IWorldCallable<?>> queue;
+            synchronized (this.callQueue) {
+                queue = this.callQueue.get(w);
 
-            if (queue == null) {
-                queue = new ArrayDeque<>();
-                this.callQueue.put(w, queue);
+                if (queue == null) {
+                    queue = new ConcurrentLinkedQueue<>();
+                    this.callQueue.put(w, queue);
+                }
             }
 
             queue.add(c);
@@ -212,7 +217,10 @@ public class TickHandler {
         // world synced queue(s)
         if (ev.type == Type.WORLD && ev.phase == Phase.START) {
             final World world = ((WorldTickEvent) ev).world;
-            final Queue<IWorldCallable<?>> queue = this.callQueue.get(world);
+            final Queue<IWorldCallable<?>> queue;
+            synchronized (this.callQueue) {
+                queue = this.callQueue.get(world);
+            }
             this.processQueue(queue, world);
         }
     }
@@ -257,13 +265,13 @@ public class TickHandler {
 
     private static class HandlerRep {
 
-        private Queue<AEBaseTile> tiles = new ArrayDeque<>();
+        private Queue<AEBaseTile> tiles = new ConcurrentLinkedQueue<>();
         private Set<Grid> networks = new HashSet<>();
         private Set<Grid> toAdd = new HashSet<>();
         private Set<Grid> toRemove = new HashSet<>();
 
         private void clear() {
-            this.tiles = new ArrayDeque<>();
+            this.tiles = new ConcurrentLinkedQueue<>();
             this.networks = new HashSet<>();
             this.toAdd = new HashSet<>();
             this.toRemove = new HashSet<>();
