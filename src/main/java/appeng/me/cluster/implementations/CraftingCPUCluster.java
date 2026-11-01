@@ -46,6 +46,7 @@ import appeng.core.features.AEFeature;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketCraftingToast;
 import appeng.crafting.*;
+import appeng.helpers.PatternHelper;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.cluster.IAECluster;
 import appeng.me.helpers.MachineSource;
@@ -70,7 +71,6 @@ import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -783,7 +783,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
                 Queue<ICraftingMedium> mediums = visitedMediums.get(details);
                 if (mediums == null || mediums.isEmpty()) {
-                    mediums = new ArrayDeque<>(cc.getMediums(details).stream().filter(Objects::nonNull).collect(Collectors.toList()));
+                    final List<ICraftingMedium> known = cc.getMediums(details);
+                    mediums = new ArrayDeque<>(known.size());
+                    for (final ICraftingMedium medium : known) {
+                        if (medium != null) {
+                            mediums.add(medium);
+                        }
+                    }
                     visitedMediums.put(details, mediums);
                 }
 
@@ -914,9 +920,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                                         if (!(fuzz.what() instanceof AEItemKey fuzzItemKey)) {
                                             continue;
                                         }
-                                        final ItemStack candidate = fuzzItemKey.toStack((int) Math.min(input[x].amount(), fuzzItemKey.getMaxStackSize()));
+                                        final int shown = (int) Math.min(input[x].amount(), fuzzItemKey.getMaxStackSize());
 
-                                        if (details.isValidItemForSlot(x, candidate, this.getWorld())) {
+                                        if (PatternHelper.isValidKeyForSlot(details, x, fuzzItemKey, shown, this.getWorld())) {
                                             final long extracted = this.inventory.extract(fuzzItemKey, input[x].amount(), Actionable.MODULATE, this.machineSrc);
 
                                             if (extracted > 0) {

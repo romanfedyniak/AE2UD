@@ -43,6 +43,9 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.crafting.IShapedRecipe;
 import net.minecraftforge.items.IItemHandler;
 
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
+
 import javax.annotation.Nullable;
 
 import java.util.*;
@@ -118,6 +121,27 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
      */
     private static final Map<AEItemKey, Optional<IRecipe>> RECIPE_CACHE = new ConcurrentHashMap<>();
 
+    /**
+     * One key per encoded pattern, however many interfaces hold a copy of it. The grid keeps a pattern under
+     * the first copy it was offered and a CPU asks with whichever copy planned the job, so without a shared
+     * key every such lookup compared the two patterns' nbt all the way through - several times a medium per
+     * tick on a busy network.
+     */
+    private static final Interner<AEItemKey> PATTERN_KEYS = Interners.newWeakInterner();
+
+    /** Items that keep Item's own getDamage, so a stack of their key reports the key's damage. */
+    private static final ClassValue<Boolean> PLAIN_DAMAGE = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
+            try {
+                return type.getMethod("getDamage", ItemStack.class).getDeclaringClass() == Item.class;
+            } catch (final Throwable e) {
+                // a class whose methods cannot all be resolved here (a client-only type in a signature)
+                return false;
+            }
+        }
+    };
+
     @Nullable
     private static IRecipe recipeFor(final AEItemKey pattern, final InventoryCrafting grid, final World w) {
         final Optional<IRecipe> known = RECIPE_CACHE.get(pattern);
@@ -156,7 +180,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         this.patternItem = is;
         final ItemStack patternForComparison = is.copy();
         patternForComparison.getTagCompound().removeTag("author");
-        this.pattern = AEItemKey.of(patternForComparison);
+        this.pattern = PATTERN_KEYS.intern(AEItemKey.of(patternForComparison));
 
         final List<GenericStack> in = new ArrayList<>();
         final List<GenericStack> out = new ArrayList<>();
@@ -533,6 +557,53 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         return false;
     }
 
+    /**
+     * {@link ICraftingPatternDetails#isValidItemForSlot} for {@code count} of a key. A crafting pattern answers
+     * from what it remembers without the stack being made: the CPU asks this for every candidate of every slot
+     * each pass, and a new stack gathers its item's capabilities each time.
+     */
+    public static boolean isValidKeyForSlot(final ICraftingPatternDetails details, final int slotIndex,
+            final AEItemKey key, final int count, final World w) {
+        if (details instanceof PatternHelper) {
+            final Boolean known = ((PatternHelper) details).rememberedValidity(slotIndex, key, count);
+            if (known != null) {
+                return known;
+            }
+        }
+        return details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+    }
+
+    /**
+     * What {@link #isValidItemForSlot} answers without testing for {@code key.toStack(count)}, or null when it
+     * would have to test - or when the key's stack might be told apart differently than by the key's own item,
+     * damage and nbt, which are all the remembered answers go by.
+     */
+    @Nullable
+    private synchronized Boolean rememberedValidity(final int slotIndex, final AEItemKey key, final int count) {
+        // a stack clamps a negative damage to 0 and counts one past 65535 as empty
+        if (!this.isCrafting || count <= 0 || key.getDamage() < 0 || key.getDamage() > 65535
+                || !PLAIN_DAMAGE.get(key.getItem().getClass())) {
+            return null;
+        }
+
+        // the stack would not be empty
+        if (this.crafting.getStackInSlot(slotIndex).isEmpty()) {
+            return Boolean.FALSE;
+        }
+
+        final TestLookup asked = new TestLookup(slotIndex, key.getItem(), key.getDamage(), key.getTag());
+
+        if (this.passCache.contains(asked)) {
+            return Boolean.TRUE;
+        }
+
+        if (this.failCache.contains(asked)) {
+            return Boolean.FALSE;
+        }
+
+        return null;
+    }
+
     @Override
     public int getTableWidth() {
         return this.isCrafting ? CRAFTING_GRID_DIMENSION : PROCESSING_INPUT_WIDTH;
@@ -777,7 +848,12 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         final PatternHelper other = (PatternHelper) obj;
 
         if (this.pattern != null && other.pattern != null) {
-            return this.pattern.equals(other.pattern);
+            // Equal patterns share one key, so this is the answer for the same pattern; different patterns
+            // mostly part on the hash before their nbt is gone through.
+            if (this.pattern == other.pattern) {
+                return true;
+            }
+            return this.pattern.hashCode() == other.pattern.hashCode() && this.pattern.equals(other.pattern);
         }
         return false;
     }

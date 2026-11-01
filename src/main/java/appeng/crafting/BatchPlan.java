@@ -32,6 +32,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.container.ContainerNull;
+import appeng.helpers.PatternHelper;
 import appeng.util.Platform;
 
 /**
@@ -145,7 +146,7 @@ public final class BatchPlan {
                 continue;
             }
             final int shown = (int) Math.min(input.amount(), itemKey.getMaxStackSize());
-            if (details.isValidItemForSlot(x, itemKey.toStack(shown), world)) {
+            if (PatternHelper.isValidKeyForSlot(details, x, itemKey, shown, world)) {
                 return candidate;
             }
         }
