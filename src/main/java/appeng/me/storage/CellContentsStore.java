@@ -89,6 +89,7 @@ public final class CellContentsStore {
 
     private final File directory;
     private final LongSupplier clock;
+    // Cells change wherever their grid ticks, which on a server that ticks regions at once is any of its threads
     private final Map<UUID, CellContents> active = new HashMap<>();
     private final Map<UUID, WeakReference<CellContents>> idle = new HashMap<>();
     // Handed to the writer and not on disk yet. A load reads these first, or it would read the file being replaced.
@@ -140,7 +141,7 @@ public final class CellContentsStore {
     }
 
     /** The contents with this id, read from disk if they are not in memory, and empty if there are none. */
-    public CellContents getOrLoad(final UUID id) {
+    public synchronized CellContents getOrLoad(final UUID id) {
         final CellContents found = this.find(id);
         if (found != null) {
             return found;
@@ -154,7 +155,7 @@ public final class CellContentsStore {
 
     /** Like {@link #getOrLoad}, but keeps nothing for an id that has no contents saved. */
     @Nullable
-    public CellContents getIfSaved(final UUID id) {
+    public synchronized CellContents getIfSaved(final UUID id) {
         final CellContents found = this.find(id);
         if (found != null) {
             return found;
@@ -168,12 +169,12 @@ public final class CellContentsStore {
     }
 
     /** Gives detached contents an id of their own, so they are saved from now on. */
-    public void attach(final CellContents contents) {
+    public synchronized void attach(final CellContents contents) {
         contents.attach(UUID.randomUUID(), this);
         this.activate(contents);
     }
 
-    void changed(final CellContents contents) {
+    synchronized void changed(final CellContents contents) {
         contents.dirty = true;
         contents.lastAccess = this.clock.getAsLong();
         if (this.active.put(contents.getId(), contents) == null) {
@@ -182,7 +183,7 @@ public final class CellContentsStore {
     }
 
     /** Queues everything that changed, and lets go of what has not been used for a while. */
-    public void save() {
+    public synchronized void save() {
         final long now = this.clock.getAsLong();
 
         for (final Iterator<UUID> retry = this.failed.iterator(); retry.hasNext();) {
@@ -216,7 +217,7 @@ public final class CellContentsStore {
         }
     }
 
-    int countActive() {
+    synchronized int countActive() {
         return this.active.size();
     }
 
