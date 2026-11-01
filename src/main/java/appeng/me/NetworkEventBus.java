@@ -28,18 +28,24 @@ import appeng.core.AELog;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 
 public class NetworkEventBus {
     private static final Collection<Class> READ_CLASSES = new HashSet<>();
-    private static final Map<Class<? extends MENetworkEvent>, Map<Class, MENetworkEventInfo>> EVENTS = new HashMap<>();
+    // Grids post events on whichever thread ticks them, while a node of a new class may join a grid on another
+    private static final Map<Class<? extends MENetworkEvent>, Map<Class, MENetworkEventInfo>> EVENTS = new ConcurrentHashMap<>();
 
     void readClass(final Class listAs, final Class c) {
-        if (READ_CLASSES.contains(c)) {
-            return;
+        synchronized (READ_CLASSES) {
+            if (READ_CLASSES.add(c)) {
+                this.readMethods(listAs, c);
+            }
         }
-        READ_CLASSES.add(c);
+    }
 
+    private void readMethods(final Class listAs, final Class c) {
         try {
             for (final Method m : c.getMethods()) {
                 final MENetworkEventSubscribe s = m.getAnnotation(MENetworkEventSubscribe.class);
@@ -50,7 +56,7 @@ public class NetworkEventBus {
 
                             Map<Class, MENetworkEventInfo> classEvents = EVENTS.get(types[0]);
                             if (classEvents == null) {
-                                EVENTS.put(types[0], classEvents = new HashMap<>());
+                                EVENTS.put(types[0], classEvents = new ConcurrentHashMap<>());
                             }
 
                             MENetworkEventInfo thisEvent = classEvents.get(listAs);
@@ -166,7 +172,7 @@ public class NetworkEventBus {
 
     private class MENetworkEventInfo {
 
-        private final List<EventMethod> methods = new ArrayList<>();
+        private final List<EventMethod> methods = new CopyOnWriteArrayList<>();
 
         private void Add(final Class Event, final Class ObjClass, final Method ObjMethod) {
             this.methods.add(new EventMethod(Event, ObjClass, ObjMethod));

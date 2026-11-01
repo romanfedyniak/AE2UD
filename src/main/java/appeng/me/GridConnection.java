@@ -46,7 +46,6 @@ public class GridConnection implements IGridConnection, IPathItem {
 
     private static final String EXISTING_CONNECTION_MESSAGE = "Connection between node [machine=%s, %s] and [machine=%s, %s] on [%s] already exists.";
 
-    private static final MENetworkChannelsChanged EVENT = new MENetworkChannelsChanged();
     private int usedChannels = 0;
     private int lastUsedChannels = 0;
     private Object visitorIterationNumber = null;
@@ -183,11 +182,11 @@ public class GridConnection implements IGridConnection, IPathItem {
             this.usedChannels = this.lastUsedChannels;
 
             if (this.sideA.getInternalGrid() != null) {
-                this.sideA.getInternalGrid().postEventTo(this.sideA, EVENT);
+                this.sideA.getInternalGrid().postEventTo(this.sideA, new MENetworkChannelsChanged());
             }
 
             if (this.sideB.getInternalGrid() != null) {
-                this.sideB.getInternalGrid().postEventTo(this.sideB, EVENT);
+                this.sideB.getInternalGrid().postEventTo(this.sideB, new MENetworkChannelsChanged());
             }
         }
     }

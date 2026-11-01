@@ -48,12 +48,12 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class GridNode implements IGridNode, IPathItem {
-    private static final MENetworkChannelsChanged EVENT = new MENetworkChannelsChanged();
     /** Tiers already complained about, so that a mistaken node does not fill the log every repath. */
-    private static final Set<ResourceLocation> UNKNOWN_TIERS = new HashSet<>();
+    private static final Set<ResourceLocation> UNKNOWN_TIERS = ConcurrentHashMap.newKeySet();
 
     private final List<IGridConnection> connections = new ArrayList<>();
     private final IGridBlock gridProxy;
@@ -593,7 +593,7 @@ public class GridNode implements IGridNode, IPathItem {
             this.lastUsedChannels = this.usedChannels;
 
             if (this.getInternalGrid() != null) {
-                this.getInternalGrid().postEventTo(this, EVENT);
+                this.getInternalGrid().postEventTo(this, new MENetworkChannelsChanged());
             }
         }
     }
