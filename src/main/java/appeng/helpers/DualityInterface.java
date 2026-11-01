@@ -113,6 +113,7 @@ import net.minecraftforge.items.wrapper.SidedInvWrapper;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static appeng.api.config.LockCraftingMode.LOCK_UNTIL_PULSE;
 import static appeng.api.config.LockCraftingMode.LOCK_UNTIL_RESULT;
@@ -133,7 +134,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public static final int NUMBER_OF_CONFIG_SLOTS = 9;
     public static final int NUMBER_OF_PATTERN_SLOTS = 36;
 
-    private static final Collection<Block> BAD_BLOCKS = new HashSet<>(100);
+    private static final Collection<Block> BAD_BLOCKS = ConcurrentHashMap.newKeySet();
     private final GenericStack[] requireWork = {null, null, null, null, null, null, null, null, null};
     private final MultiCraftingTracker craftingTracker;
     private final AENetworkProxy gridProxy;
