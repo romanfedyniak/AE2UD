@@ -25,45 +25,51 @@ import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Catches every item that enters a world between {@link #start} and {@link #stop}, instead of letting it spawn.
  * A machine breaking a block uses it to take what the block drops - a container's contents included - without
- * the items lying in the world first. Server thread only, and one capture at a time.
+ * the items lying in the world first. One capture at a time on each thread: a server that ticks regions at once
+ * breaks blocks on several, and an item spawning on one thread is not another thread's drop.
  */
 public final class ItemSpawnCapture {
 
     public static final ItemSpawnCapture INSTANCE = new ItemSpawnCapture();
 
-    @Nullable
-    private static World capturing;
-    private static List<ItemStack> captured = new ArrayList<>();
+    private static final ThreadLocal<Capture> CAPTURE = new ThreadLocal<>();
 
     private ItemSpawnCapture() {
     }
 
     public static void start(final World world) {
-        capturing = world;
-        captured = new ArrayList<>();
+        CAPTURE.set(new Capture(world));
     }
 
     public static List<ItemStack> stop() {
-        final List<ItemStack> result = captured;
-        capturing = null;
-        captured = new ArrayList<>();
-        return result;
+        final Capture capture = CAPTURE.get();
+        CAPTURE.remove();
+        return capture != null ? capture.items : new ArrayList<>();
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public void onEntityJoinWorld(final EntityJoinWorldEvent event) {
-        if (capturing != null && event.getWorld() == capturing && event.getEntity() instanceof EntityItem item) {
+        final Capture capture = CAPTURE.get();
+        if (capture != null && event.getWorld() == capture.world && event.getEntity() instanceof EntityItem item) {
             if (!item.getItem().isEmpty()) {
-                captured.add(item.getItem());
+                capture.items.add(item.getItem());
             }
             event.setCanceled(true);
+        }
+    }
+
+    private static final class Capture {
+        private final World world;
+        private final List<ItemStack> items = new ArrayList<>();
+
+        private Capture(final World world) {
+            this.world = world;
         }
     }
 }
