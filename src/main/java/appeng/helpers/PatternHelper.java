@@ -749,7 +749,7 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
 
         NonNullList<Ingredient> ingredients = standardRecipe.getIngredients();
 
-        if (ingredientIndex < 0 || ingredientIndex > ingredients.size()) {
+        if (ingredientIndex < 0 || ingredientIndex >= ingredients.size()) {
             return Ingredient.EMPTY;
         }
 
