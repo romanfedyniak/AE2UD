@@ -147,7 +147,7 @@ public class Platform {
      * random source, use it for item drop locations...
      */
     private static final Random RANDOM_GENERATOR = new Random();
-    private static final WeakHashMap<World, EntityPlayer> FAKE_PLAYERS = new WeakHashMap<>();
+    private static final Map<World, EntityPlayer> FAKE_PLAYERS = Collections.synchronizedMap(new WeakHashMap<>());
     // private static Method getEntry;
 
     private static final ItemComparisonHelper ITEM_COMPARISON_HELPER = new ItemComparisonHelper();
