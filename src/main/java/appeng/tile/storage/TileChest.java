@@ -38,6 +38,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ICellGuiHandler;
+import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.IStorageMonitorableAccessor;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -617,12 +618,30 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
      * Neither {@code MEInventoryHandler} nor {@link DriveWatcher} has a hook for this (it is not part of the
      * frozen {@code MEStorage} contract), so it lives here instead. Machine-sourced access (e.g. this chest's own
      * input slot) always passes, since {@link IActionSource#player()} is empty for it - exactly like before.
+     * <p>
+     * It passes on what the cell reports: the chest's input slot and its own screen write to the cell past the
+     * network, and a network that is not told counts less than the cell holds until something remounts it.
      */
-    private class SecurityAwareCellStorage implements MEStorage {
+    private class SecurityAwareCellStorage implements MEStorage, IStorageChangeSource {
         private final DriveWatcher inner;
 
         SecurityAwareCellStorage(final DriveWatcher inner) {
             this.inner = inner;
+        }
+
+        @Override
+        public boolean reportsChanges() {
+            return this.inner.reportsChanges();
+        }
+
+        @Override
+        public void addChangeListener(final Listener listener) {
+            this.inner.addChangeListener(listener);
+        }
+
+        @Override
+        public void removeChangeListener(final Listener listener) {
+            this.inner.removeChangeListener(listener);
         }
 
         @Override
