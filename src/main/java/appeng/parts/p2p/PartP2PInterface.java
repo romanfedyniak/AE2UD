@@ -46,6 +46,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -490,14 +491,30 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         return te == null ? null : ICraftingMachine.of(te, this.getFacingSide());
     }
 
+    /**
+     * The neighbour this tunnel faces, looked up once a tick: a crafting CPU asks for it on every pattern it pushes and
+     * on every plan check, and a big craft through tunnels spent a twentieth of its time finding the same tile again.
+     */
     @Nullable
     private TileEntity getFacingTile() {
         final TileEntity host = this.getTile();
         if (host == null || host.getWorld() == null) {
             return null;
         }
-        return host.getWorld().getTileEntity(host.getPos().offset(this.getSide().getFacing()));
+        final World world = host.getWorld();
+        final long now = world.getTotalWorldTime();
+        final TileEntity known = this.facingTile;
+        if (this.facingTick == now && (known == null || !known.isInvalid())) {
+            return known;
+        }
+        final TileEntity found = world.getTileEntity(host.getPos().offset(this.getSide().getFacing()));
+        this.facingTile = found;
+        this.facingTick = now;
+        return found;
     }
+
+    private TileEntity facingTile;
+    private long facingTick = Long.MIN_VALUE;
 
     /** The side of the neighbour that faces this tunnel. */
     private EnumFacing getFacingSide() {
