@@ -622,6 +622,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 if (g == null) {
                     continue;
                 }
+                // Mostly the CPU holds the input under the pattern's own key: one look-up answers, where walking every
+                // variant of the item (each charge of an electric tool is one) took an eighth of a big craft's time.
+                if (this.inventory.extract(g.what(), g.amount(), Actionable.SIMULATE, this.machineSrc) >= g.amount()) {
+                    continue;
+                }
                 boolean found = false;
                 long remaining = g.amount();
 
