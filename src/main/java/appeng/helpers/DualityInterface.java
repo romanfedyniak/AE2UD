@@ -44,6 +44,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.behaviors.GenericSlotCapacities;
@@ -106,6 +107,10 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
@@ -147,6 +152,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     /** The item face of {@link #storage}, for the neighbours and GUIs that speak {@code IItemHandler}. */
     private final IItemHandlerModifiable storageItems;
     private final GenericInventoryAdapters.Cache adapters;
+    /** The item and fluid handlers machines push into, built on first use; see {@link ReturnedItems}. */
+    private IItemHandlerModifiable returnedItems;
+    private IFluidHandler returnedFluids;
     private final AppEngInternalInventory patterns = new AppEngInternalInventory(this, NUMBER_OF_PATTERN_SLOTS, 1);
     /** The network's storage, covering every registered key type. Swapped out as the grid connects/disconnects. */
     private MEStorage networkStorage = NullInventory.of();
@@ -757,7 +765,21 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public IItemHandler getInternalInventory() {
         // Network-first, exactly as the old AppEngNetworkInventory was: something pushed into an interface
         // belongs in the network, not in the interface's nine slots.
-        return this.adapters.get(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY);
+        return this.returnedItems();
+    }
+
+    private IItemHandlerModifiable returnedItems() {
+        if (this.returnedItems == null) {
+            this.returnedItems = new ReturnedItems(this.adapters.get(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY));
+        }
+        return this.returnedItems;
+    }
+
+    private IFluidHandler returnedFluids() {
+        if (this.returnedFluids == null) {
+            this.returnedFluids = new ReturnedFluids(this.adapters.get(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY));
+        }
+        return this.returnedFluids;
     }
 
     @Override
@@ -2180,6 +2202,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         // One stock, seen as items, as tanks, or as whatever an addon registered a view for - which is what
         // makes a separate interface per key type unnecessary. Each view is built once and kept: a pipe asks
         // its neighbours for a handler every tick, on every side.
+        if (capabilityClass == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY) {
+            return (T) this.returnedItems();
+        }
+        if (capabilityClass == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY) {
+            return (T) this.returnedFluids();
+        }
         return this.adapters.get(capabilityClass);
     }
 
@@ -2219,6 +2247,94 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             } else {
                 unlockStack = new GenericStack(unlockStack.what(), remainingAmount);
             }
+            saveChanges();
+        }
+    }
+
+    /**
+     * What a machine pushes into the interface, told to {@link #onStackReturnedToNetwork}: "lock until the result
+     * returns" waits for exactly this. The stock that replaced the old AppEngNetworkInventory says nothing about
+     * where an addition came from, so it is caught here, at the handlers the neighbours are given.
+     */
+    private final class ReturnedItems implements IItemHandlerModifiable {
+        private final IItemHandler inner;
+
+        private ReturnedItems(final IItemHandler inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public ItemStack insertItem(final int slot, final ItemStack stack, final boolean simulate) {
+            final ItemStack rest = this.inner.insertItem(slot, stack, simulate);
+            if (!simulate && unlockEvent == UnlockCraftingEvent.RESULT) {
+                final int inserted = stack.getCount() - rest.getCount();
+                if (inserted > 0) {
+                    onStackReturnedToNetwork(new GenericStack(AEItemKey.of(stack), inserted));
+                }
+            }
+            return rest;
+        }
+
+        @Override
+        public void setStackInSlot(final int slot, final ItemStack stack) {
+            if (this.inner instanceof IItemHandlerModifiable modifiable) {
+                modifiable.setStackInSlot(slot, stack);
+            }
+        }
+
+        @Override
+        public int getSlots() {
+            return this.inner.getSlots();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(final int slot) {
+            return this.inner.getStackInSlot(slot);
+        }
+
+        @Override
+        public ItemStack extractItem(final int slot, final int amount, final boolean simulate) {
+            return this.inner.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(final int slot) {
+            return this.inner.getSlotLimit(slot);
+        }
+    }
+
+    /** {@link ReturnedItems} for fluids. */
+    private final class ReturnedFluids implements IFluidHandler {
+        private final IFluidHandler inner;
+
+        private ReturnedFluids(final IFluidHandler inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public int fill(final FluidStack resource, final boolean doFill) {
+            final int filled = this.inner.fill(resource, doFill);
+            if (doFill && filled > 0 && unlockEvent == UnlockCraftingEvent.RESULT) {
+                onStackReturnedToNetwork(new GenericStack(AEFluidKey.of(resource), filled));
+            }
+            return filled;
+        }
+
+        @Override
+        public IFluidTankProperties[] getTankProperties() {
+            return this.inner.getTankProperties();
+        }
+
+        @Nullable
+        @Override
+        public FluidStack drain(final FluidStack resource, final boolean doDrain) {
+            return this.inner.drain(resource, doDrain);
+        }
+
+        @Nullable
+        @Override
+        public FluidStack drain(final int maxDrain, final boolean doDrain) {
+            return this.inner.drain(maxDrain, doDrain);
         }
     }
 
