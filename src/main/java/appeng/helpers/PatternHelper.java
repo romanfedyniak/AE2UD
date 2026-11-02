@@ -103,6 +103,13 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private static final int MAX_REMEMBERED_TESTS = 256;
     private final Set<TestLookup> failCache = new HashSet<>();
     private final Set<TestLookup> passCache = new HashSet<>();
+    /**
+     * Slot answers for items whose class works out its own damage: a stack of such a key may report another damage
+     * than the key, so the caches above, which go by item and damage, cannot take them; these go by the whole key.
+     * Without it a crafting CPU made a stack for every variant it held on every check (an electric tool's charges), a
+     * tenth of a big craft's time on production.
+     */
+    private final Map<KeySlot, Boolean> keyCache = new HashMap<>();
     private final AEItemKey pattern;
     private int priority = 0;
 
@@ -565,12 +572,59 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     public static boolean isValidKeyForSlot(final ICraftingPatternDetails details, final int slotIndex,
             final AEItemKey key, final int count, final World w) {
         if (details instanceof PatternHelper) {
-            final Boolean known = ((PatternHelper) details).rememberedValidity(slotIndex, key, count);
+            final PatternHelper helper = (PatternHelper) details;
+            final Boolean known = helper.rememberedValidity(slotIndex, key, count);
             if (known != null) {
                 return known;
             }
+            final Boolean byKey = helper.rememberedByKey(slotIndex, key, count);
+            if (byKey != null) {
+                return byKey;
+            }
+            final boolean valid = details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+            helper.rememberByKey(slotIndex, key, count, valid);
+            return valid;
         }
         return details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+    }
+
+    /** {@link #keyCache}: only for crafting patterns and items that work out their own damage; null when not known. */
+    @Nullable
+    private synchronized Boolean rememberedByKey(final int slotIndex, final AEItemKey key, final int count) {
+        if (!this.isCrafting || count <= 0 || PLAIN_DAMAGE.get(key.getItem().getClass())) {
+            return null;
+        }
+        return this.keyCache.get(new KeySlot(slotIndex, key));
+    }
+
+    private synchronized void rememberByKey(final int slotIndex, final AEItemKey key, final int count, final boolean valid) {
+        if (!this.isCrafting || count <= 0 || PLAIN_DAMAGE.get(key.getItem().getClass())) {
+            return;
+        }
+        if (this.keyCache.size() >= MAX_REMEMBERED_TESTS) {
+            this.keyCache.clear();
+        }
+        this.keyCache.put(new KeySlot(slotIndex, key), valid);
+    }
+
+    private static final class KeySlot {
+        private final int slot;
+        private final AEItemKey key;
+
+        KeySlot(final int slot, final AEItemKey key) {
+            this.slot = slot;
+            this.key = key;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            return o instanceof KeySlot && ((KeySlot) o).slot == this.slot && ((KeySlot) o).key.equals(this.key);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * this.key.hashCode() + this.slot;
+        }
     }
 
     /**
