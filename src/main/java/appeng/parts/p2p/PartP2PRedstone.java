@@ -117,7 +117,13 @@ public class PartP2PRedstone extends PartP2PTunnel<PartP2PRedstone> {
 
     @Override
     public void onTunnelNetworkChange() {
-        this.setNetworkReady();
+        if (this.isOutput()) {
+            this.setNetworkReady();
+        } else if (this.getTile() != null && this.getTile().getWorld() != null) {
+            // An input linked (or re-made by a memory card) next to a signal that is already there reads it now:
+            // nothing else would until that signal changes.
+            this.onNeighborChanged(this.getTile().getWorld(), this.getTile().getPos(), this.getTile().getPos());
+        }
     }
 
     public float getPowerDrainPerTick() {
