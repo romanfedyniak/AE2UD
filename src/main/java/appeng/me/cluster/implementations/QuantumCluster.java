@@ -107,7 +107,8 @@ public class QuantumCluster implements ILocatable, IAECluster {
             final QuantumCluster sideA = this;
             final QuantumCluster sideB = (QuantumCluster) myOtherSide;
 
-            if (sideA.isActive() && sideB.isActive()) {
+            // A side placed this tick has no node until its onReady; it joins on the update that follows.
+            if (sideA.isActive() && sideB.isActive() && sideA.getNode() != null && sideB.getNode() != null) {
                 if (this.connection != null && this.connection.getConnection() != null) {
                     final IGridNode a = this.connection.getConnection().a();
                     final IGridNode b = this.connection.getConnection().b();
