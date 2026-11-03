@@ -339,6 +339,13 @@ public final class CraftingSolver {
                     need = 0;
                 }
 
+                // What has already come back round is used before the ring is turned for more: a turn also runs
+                // the patterns beside it, and the bricks a nether brick was waiting on cost five turns - five
+                // nether bricks nobody ordered - when the clay those nether bricks give back would have done.
+                if (need > 0 && component.size() > 1) {
+                    need = this.carryRound(key, need, caps, inside);
+                }
+
                 if (need > 0 && component.size() == 1) {
                     need = this.growFromItself(key, need, caps);
                 } else if (need > 0 && cycle != null) {

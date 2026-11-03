@@ -428,15 +428,16 @@ public final class CraftingSolverTest {
     @Test
     public void aGainingRingAlsoCarriesWhatIsMadeBesideIt() {
         // The same with two clay back from every nether brick: the ring gains, and the nether brick ordered
-        // from it is still made. The bricks come from turning the ring, which makes a nether brick of its own
-        // every turn, so there are more crafts than the five strictly needed - but every one is paid for.
+        // from it is made in five crafts - the bricks out of the clay those crafts give back, not out of turns
+        // of the ring, each of which would make a nether brick nobody asked for.
         final SolverTestNetwork network = besideARing(2);
 
         final SolverPlan plan = network.solve("nether", 5);
 
         assertThat(plan.isComplete(), is(true));
-        assertThat(crafts(plan, "pnether") >= 5L, is(true));
-        assertThat(plan.getUsed().get(network.key("rack")), is(crafts(plan, "pnether")));
+        assertThat(crafts(plan, "pnether"), is(5L));
+        assertThat(crafts(plan, "pbrick"), is(5L));
+        assertThat(plan.getUsed().get(network.key("rack")), is(5L));
     }
 
     @Test
