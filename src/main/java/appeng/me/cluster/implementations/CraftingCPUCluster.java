@@ -391,14 +391,23 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.markDirty();
 
         if (this.finalOutput != null && this.finalOutput.what().equals(what)) {
-            long delivered = used;
-
-            if (deliver && this.myLastLink != null) {
-                final GenericStack leftover = ((CraftingLink) this.myLastLink).injectItems(new GenericStack(what, used), type);
-                delivered = used - GenericStack.getStackSizeOrZero(leftover);
+            // A pattern that eats what it makes (a crucible turning 1 gunpowder into 2) feeds the job's next
+            // crafts from what comes back: all of it went to the requester, and the job then waited for good
+            // on an input it had given away.
+            final long kept = deliver ? Math.min(used, this.stillNeeds(what)) : 0;
+            if (kept > 0) {
+                this.inventory.insert(what, kept, Actionable.MODULATE, src);
             }
 
-            this.finalOutput = new GenericStack(what, this.finalOutput.amount() - used);
+            final long toRequester = used - kept;
+            long delivered = toRequester;
+
+            if (deliver && this.myLastLink != null && toRequester > 0) {
+                final GenericStack leftover = ((CraftingLink) this.myLastLink).injectItems(new GenericStack(what, toRequester), type);
+                delivered = toRequester - GenericStack.getStackSizeOrZero(leftover);
+            }
+
+            this.finalOutput = new GenericStack(what, this.finalOutput.amount() - toRequester);
 
             if (this.finalOutput.amount() <= 0) {
                 this.completeJob();
@@ -406,10 +415,23 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
             this.updateCPU();
 
-            return delivered;
+            return kept + delivered;
         }
 
         return deliver ? this.inventory.insert(what, used, Actionable.MODULATE, src) : used;
+    }
+
+    /** How much of {@code what} the crafts still to be pushed take, beyond what the job already holds. */
+    private long stillNeeds(final AEKey what) {
+        long need = 0;
+        for (final Map.Entry<ICraftingPatternDetails, TaskProgress> task : this.tasks.entrySet()) {
+            for (final GenericStack input : task.getKey().getPatternInputs().getCondensed()) {
+                if (input != null && input.what().equals(what)) {
+                    need = LongMath.saturatedAdd(need, LongMath.saturatedMultiply(input.amount(), task.getValue().value));
+                }
+            }
+        }
+        return Math.max(0, need - this.inventory.getItemList().get(what));
     }
 
     private void markDirty() {
