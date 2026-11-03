@@ -14,6 +14,17 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## 1.6.10 - 2026-11-03
+
+- A crafting job through a pattern with substitutions over a shaped recipe that lists no ingredients (some IC2
+  recipes) no longer fails with an IndexOutOfBounds error.
+- The ME chest tells its network what goes in through its input slot and its own screen: a terminal of that network
+  and a storage bus on the chest showed less than the cell held.
+- An ME interface set to lock crafting until the result returns unlocks again when the result comes back.
+- Crafting CPUs and P2P interfaces take less of the server: an input is checked under its own key before its
+  variants, slot checks remember items that work out their own damage, and a P2P interface looks up the tile it faces
+  once a tick.
+
 ## 1.6.9 - 2026-11-02
 
 - Crafting CPUs with many patterns take less of the server: equal patterns share one key, and checking whether an
