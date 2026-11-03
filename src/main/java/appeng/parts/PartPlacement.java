@@ -79,7 +79,8 @@ public class PartPlacement {
         }
 
         AEPartLocation location = host.addPart(partItem, AEPartLocation.fromFacing(side), player, hand);
-        IPart part = host.getPart(location);
+        // No location when the host turned the part down (a secured network it may not join): that crashed the click.
+        IPart part = location == null ? null : host.getPart(location);
         if (part == null) {
             if (host.isEmpty()) {
                 host.cleanup();

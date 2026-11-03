@@ -23,6 +23,7 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.entity.player.EntityPlayer;
 
 import javax.annotation.Nullable;
+import java.util.UUID;
 
 
 /**
@@ -35,4 +36,8 @@ public interface IWorldPlayerData {
     EntityPlayer getPlayerFromID(int playerID);
 
     int getPlayerID(GameProfile profile);
+
+    /** The player behind an id, online or not; null for one the world never gave out. */
+    @Nullable
+    UUID getPlayerUUID(int playerID);
 }

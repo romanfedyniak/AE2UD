@@ -56,6 +56,7 @@ import appeng.core.stats.Stats;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.GuiHostType;
 import appeng.core.sync.GuiWrapper;
+import appeng.core.worlddata.WorldData;
 import appeng.hooks.TickHandler;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
@@ -95,6 +96,7 @@ import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.play.server.SPacketChunkData;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.management.PlayerChunkMap;
 import net.minecraft.server.management.PlayerChunkMapEntry;
 import net.minecraft.tileentity.TileEntity;
@@ -1251,10 +1253,21 @@ public class Platform {
         return eg.isNetworkPowered();
     }
 
+    private static boolean isOperator(final int playerID) {
+        final MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        final UUID uuid = server == null ? null : WorldData.instance().playerData().getPlayerUUID(playerID);
+        return uuid != null && server.getPlayerList().getOppedPlayers().getEntry(new GameProfile(uuid, null)) != null;
+    }
+
     private static boolean checkPlayerPermissions(final IGrid grid, final int playerID) {
         // A node no player placed (a machine or a mod set it down) joins as it always did; the station still
         // judges what anyone does through it.
         if (grid == null || playerID == -1) {
+            return true;
+        }
+
+        // A server operator passes every station in person (SecurityCache), so what one places joins too.
+        if (isOperator(playerID)) {
             return true;
         }
 

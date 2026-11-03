@@ -78,6 +78,12 @@ final class PlayerData implements IWorldPlayerData, IOnWorldStartable, IOnWorldS
         return null;
     }
 
+    @Nullable
+    @Override
+    public UUID getPlayerUUID(final int playerID) {
+        return this.playerMapping.get(playerID).orElse(null);
+    }
+
     @Override
     public int getPlayerID(@Nonnull final GameProfile profile) {
         Preconditions.checkNotNull(profile);
