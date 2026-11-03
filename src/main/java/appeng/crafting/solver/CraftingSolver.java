@@ -355,6 +355,14 @@ public final class CraftingSolver {
                     need = this.runPatterns(key, need, caps, outOfReachFrom(key, component, ranks));
                 }
 
+                // A ring that nets nothing of this thing can still carry it round: brick from clay, and the
+                // clay given back by what the brick was wanted for. What the pattern takes off the cycle must
+                // already be in the plan's hands - made by crafts settled before, or one craft's worth lent
+                // from the network to start.
+                if (need > 0 && component.size() > 1) {
+                    need = this.carryRound(key, need, caps, inside);
+                }
+
                 if (need > 0) {
                     this.missing.add(key, need);
                 }
@@ -470,6 +478,91 @@ public final class CraftingSolver {
             }
 
             return refused;
+        }
+
+        /**
+         * Runs the patterns for a key on a cycle that the cycle's own arithmetic left out - the ones that draw
+         * something else on it - but only as far as what they draw off the cycle is already covered: by what
+         * the plan has made of it so far, with one craft's worth of it in the network to go first. Nothing on
+         * the cycle is asked to be made for this; what it draws is answered here and taken off the demand, so
+         * the cycle's own pass does not answer it again.
+         *
+         * @return what is still wanted afterwards.
+         */
+        private long carryRound(final AEKey key, final long shortfall, final Map<SolverPattern, Long> caps,
+                final Set<AEKey> inside) {
+            long need = shortfall;
+
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                if (need <= 0) {
+                    break;
+                }
+
+                final long per = pattern.outputOf(key);
+
+                if (per <= 0 || !draws(pattern, inside)) {
+                    continue;
+                }
+
+                long runs = Math.min(ceilDiv(need, per), allowance(pattern, caps) - this.craftsOf(pattern));
+
+                final Map<AEKey, Long> perCraft = new LinkedHashMap<>();
+                for (final SolverIngredient ingredient : pattern.getInputs()) {
+                    final GenericStack first = ingredient.getOptions().get(0);
+                    if (inside.contains(first.what()) && !first.what().equals(key)) {
+                        perCraft.merge(first.what(), first.amount(), Long::sum);
+                    }
+                }
+
+                boolean comesBack = !perCraft.isEmpty();
+                for (final Map.Entry<AEKey, Long> e : perCraft.entrySet()) {
+                    final AEKey what = e.getKey();
+                    final long made = this.surplus.get(what);
+
+                    // Only what the plan's own crafts hand back is carried round; the network lends one craft's
+                    // worth to go first, and is not otherwise spent on a cycle that nets nothing.
+                    if (made <= 0 || made + this.stock.get(what) < e.getValue()) {
+                        comesBack = false;
+                        break;
+                    }
+                    // What comes back may come back only after this pattern's own output went where it was
+                    // wanted, so the first craft's worth is taken from the network whenever it is there.
+                    final long seed = this.stock.get(what) >= e.getValue() ? e.getValue() : 0;
+                    runs = Math.min(runs, (made + seed) / e.getValue());
+                }
+
+                if (!comesBack || runs <= 0) {
+                    continue;
+                }
+
+                final Map<AEKey, Long> before = new LinkedHashMap<>();
+                for (final AEKey what : perCraft.keySet()) {
+                    before.put(what, this.demand.get(what));
+                }
+
+                this.servedBy.putIfAbsent(pattern, key);
+                this.expand(pattern, runs);
+
+                for (final Map.Entry<AEKey, Long> e : perCraft.entrySet()) {
+                    final AEKey what = e.getKey();
+                    final long added = this.demand.get(what) - before.get(what);
+                    long open = added;
+
+                    // The seed comes out of the network, so the job has it before the first craft.
+                    if (this.stock.get(what) >= e.getValue()) {
+                        open -= this.drawStock(what, Math.min(open, e.getValue()));
+                    }
+                    open -= this.takeSurplus(what, open);
+                    open -= this.drawStock(what, open);
+
+                    this.demand.remove(what, added - open);
+                    this.chargeBytes(what, added - open);
+                }
+
+                need -= this.takeSurplus(key, need);
+            }
+
+            return need;
         }
 
         /**
@@ -607,6 +700,13 @@ public final class CraftingSolver {
             final AEKey key = cycle.keyAt(0);
             final long before = this.demand.get(key);
 
+            // What the plan had already made of each thing on the cycle, before this cycle's own crafts.
+            final List<AEKey> seeds = cycle.seeds();
+            final long[] madeBefore = new long[seeds.size()];
+            for (int at = 0; at < seeds.size(); at++) {
+                madeBefore[at] = this.surplus.get(seeds.get(at));
+            }
+
             for (int at = 0; at < cycle.size(); at++) {
                 if (cycle.unitRunsAt(at) <= 0) {
                     continue;
@@ -622,9 +722,42 @@ public final class CraftingSolver {
             long need = shortfall + (this.demand.get(key) - before);
 
             need -= this.takeSurplus(key, need);
-            need -= this.drawStock(key, need);
+            final long drawn = this.drawStock(key, need);
+            need -= drawn;
+
+            this.lendSeed(cycle, madeBefore, drawn);
 
             return need;
+        }
+
+        /**
+         * The turns above balance over the whole job, but its first craft runs before the cycle has made
+         * anything: what that craft takes has to be in hand from the start. When nothing earlier in the plan
+         * makes it, one craft's worth is drawn from the network - the job takes it in, and it comes back with
+         * what is left over at the end, as the seed of a loop on one pattern does. Without it a job through a
+         * ring was planned, accepted, and never pushed its first craft.
+         */
+        private void lendSeed(final SolverCycle cycle, final long[] madeBefore, final long drawnForKey) {
+            final List<AEKey> seeds = cycle.seeds();
+
+            // One thing on the ring in hand is enough: the first craft that takes it starts the rest.
+            for (int at = 0; at < seeds.size(); at++) {
+                final long eaten = cycle.eatenOf(seeds.get(at));
+                if (eaten > 0 && madeBefore[at] + (at == 0 ? drawnForKey : 0) >= eaten) {
+                    return;
+                }
+            }
+
+            for (int at = 0; at < seeds.size(); at++) {
+                final AEKey key = seeds.get(at);
+                final long eaten = cycle.eatenOf(key);
+                final long inHand = madeBefore[at] + (at == 0 ? drawnForKey : 0);
+
+                if (eaten > 0 && this.stock.get(key) >= eaten - inHand) {
+                    this.drawStock(key, eaten - inHand);
+                    return;
+                }
+            }
         }
 
         /**
@@ -633,10 +766,9 @@ public final class CraftingSolver {
          * first turn hands that thing back at the end, over and above what the turn netted.
          */
         private boolean canStart(final SolverCycle cycle) {
-            for (int at = 0; at < cycle.size(); at++) {
-                final AEKey key = cycle.keyAt(at);
-
-                if (this.surplus.get(key) + this.stock.get(key) >= cycle.eatenOf(key)) {
+            for (final AEKey key : cycle.seeds()) {
+                // Something the ring never takes is no way to start it.
+                if (cycle.eatenOf(key) > 0 && this.surplus.get(key) + this.stock.get(key) >= cycle.eatenOf(key)) {
                     return true;
                 }
             }

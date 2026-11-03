@@ -69,9 +69,12 @@ final class SolverCycle {
     private final long netPerTurn;
     /** The most any pattern on the cycle takes of a thing in one craft. */
     private final Map<AEKey, Long> eaten;
+    /** Things on the cycle that a pattern already in it makes as well: carried round, not solved for. */
+    private final List<AEKey> carried;
 
     private SolverCycle(final List<AEKey> keys, final List<SolverPattern> patterns, final long[] unitRuns,
-            final long netPerTurn, final Map<AEKey, Long> eaten) {
+            final long netPerTurn, final Map<AEKey, Long> eaten, final List<AEKey> carried) {
+        this.carried = carried;
         this.keys = keys;
         this.patterns = patterns;
         this.unitRuns = unitRuns;
@@ -89,8 +92,9 @@ final class SolverCycle {
         final Set<AEKey> inside = new LinkedHashSet<>(component);
         final List<AEKey> keys = new ArrayList<>();
         final List<SolverPattern> patterns = new ArrayList<>();
+        final List<AEKey> carried = new ArrayList<>();
 
-        if (!gather(from, inside, graph, keys, patterns)) {
+        if (!gather(from, inside, graph, keys, patterns, carried)) {
             return null;
         }
 
@@ -100,7 +104,7 @@ final class SolverCycle {
             return null;
         }
 
-        return size(keys, patterns, runs);
+        return size(keys, patterns, runs, carried);
     }
 
     /**
@@ -114,7 +118,7 @@ final class SolverCycle {
      * @return false when something on the walk cannot be served, or the walk grows past what is worth solving.
      */
     private static boolean gather(final AEKey from, final Set<AEKey> inside, final SolverGraph graph,
-            final List<AEKey> keys, final List<SolverPattern> patterns) {
+            final List<AEKey> keys, final List<SolverPattern> patterns, final List<AEKey> carried) {
         final Set<AEKey> seen = new LinkedHashSet<>();
         final Deque<AEKey> pending = new ArrayDeque<>();
 
@@ -129,6 +133,13 @@ final class SolverCycle {
                 return false;
             }
 
+            // Made by a pattern the cycle already runs for something else (a nether brick and the clay it
+            // gives back): a second column for the same pattern leaves no answer, and the turn's crafts
+            // already decide how much of it there is. It goes round as ordinary demand.
+            if (patterns.contains(serving)) {
+                carried.add(at);
+                continue;
+            }
             keys.add(at);
             patterns.add(serving);
 
@@ -276,7 +287,7 @@ final class SolverCycle {
      */
     @Nullable
     private static SolverCycle size(final List<AEKey> keys, final List<SolverPattern> patterns,
-            final Ratio[] runs) {
+            final Ratio[] runs, final List<AEKey> carried) {
         BigInteger turn = BigInteger.ONE;
 
         for (final Ratio ratio : runs) {
@@ -301,7 +312,9 @@ final class SolverCycle {
 
         final Map<AEKey, Long> eaten = new LinkedHashMap<>();
 
-        for (final AEKey key : keys) {
+        final List<AEKey> all = new ArrayList<>(keys);
+        all.addAll(carried);
+        for (final AEKey key : all) {
             long most = 0;
 
             for (final SolverPattern pattern : patterns) {
@@ -311,7 +324,7 @@ final class SolverCycle {
             eaten.put(key, most);
         }
 
-        return new SolverCycle(keys, patterns, unitRuns, turn.longValue(), eaten);
+        return new SolverCycle(keys, patterns, unitRuns, turn.longValue(), eaten, carried);
     }
 
     int size() {
@@ -341,6 +354,13 @@ final class SolverCycle {
      * The most one craft on the cycle takes of this thing, which is how much has to be in hand for the cycle
      * to start turning there.
      */
+    /** Everything on the cycle a turn's first craft might need in hand: the solved things and the carried. */
+    List<AEKey> seeds() {
+        final List<AEKey> all = new ArrayList<>(this.keys);
+        all.addAll(this.carried);
+        return all;
+    }
+
     long eatenOf(final AEKey key) {
         return this.eaten.getOrDefault(key, 0L);
     }

@@ -399,6 +399,78 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void aRingTakesItsSeedIn() {
+        // The turns balance over the whole job, but the first craft of pa needs its b before pb has made one.
+        // A plan that left the stored b out of what the job takes was accepted and never pushed a craft.
+        final SolverTestNetwork network = ring().inStorage("b", 1);
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("b")), is(1L));
+    }
+
+    @Test
+    public void aRingCarriesWhatIsMadeBesideIt() {
+        // Brick from clay; nether brick (and the clay back) from a brick and a netherrack. The ring nets no
+        // clay and no brick, but every turn makes a nether brick out of the netherrack - so one clay to start
+        // is enough for five, lent out and handed back.
+        final SolverTestNetwork network = besideARing(1);
+
+        final SolverPlan plan = network.solve("nether", 5);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pnether"), is(5L));
+        assertThat(crafts(plan, "pbrick"), is(5L));
+        assertThat(plan.getUsed().get(network.key("clay")), is(1L));
+        assertThat(plan.getUsed().get(network.key("rack")), is(5L));
+    }
+
+    @Test
+    public void aGainingRingAlsoCarriesWhatIsMadeBesideIt() {
+        // The same with two clay back from every nether brick: the ring gains, and the nether brick ordered
+        // from it is still made. The bricks come from turning the ring, which makes a nether brick of its own
+        // every turn, so there are more crafts than the five strictly needed - but every one is paid for.
+        final SolverTestNetwork network = besideARing(2);
+
+        final SolverPlan plan = network.solve("nether", 5);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pnether") >= 5L, is(true));
+        assertThat(plan.getUsed().get(network.key("rack")), is(crafts(plan, "pnether")));
+    }
+
+    @Test
+    public void whatARingMakesBesideItMayBeItsSecondOutput() {
+        // The pattern lists the clay first and the nether brick second; which comes first must not matter.
+        final SolverTestNetwork network = besideARing(1, true);
+
+        final SolverPlan plan = network.solve("nether", 5);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pnether"), is(5L));
+        assertThat(plan.getUsed().get(network.key("clay")), is(1L));
+    }
+
+    private static SolverTestNetwork besideARing(final long clayBack) {
+        return besideARing(clayBack, false);
+    }
+
+    /** brick from clay; nether + clay (this many) from brick + rack; one clay and plenty of rack stored. */
+    private static SolverTestNetwork besideARing(final long clayBack, final boolean clayFirst) {
+        final SolverTestNetwork network = new SolverTestNetwork();
+
+        network.pattern("pbrick", new GenericStack[] { network.stack("brick", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("clay"), 1)));
+        network.pattern("pnether", clayFirst
+                        ? new GenericStack[] { network.stack("clay", clayBack), network.stack("nether", 1) }
+                        : new GenericStack[] { network.stack("nether", 1), network.stack("clay", clayBack) },
+                Arrays.asList(SolverIngredient.of(network.key("brick"), 1),
+                        SolverIngredient.of(network.key("rack"), 1)));
+
+        return network.inStorage("clay", 1).inStorage("rack", 100);
+    }
+
+    @Test
     public void aRingWithNothingToStartFromCannotTurn() {
         // The same ring with nothing on it. Each pattern waits on the other and neither can go first.
         final SolverPlan plan = ring().solve("a", 100);
