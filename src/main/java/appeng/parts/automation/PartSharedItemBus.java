@@ -56,6 +56,10 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
 
     @Override
     public void upgradesChanged() {
+        // Neighbour changes are not followed without a redstone card, so a card going in reads the level afresh.
+        if (this.getHost() != null && this.getHost().getTile() != null && this.getHost().getTile().getWorld() != null) {
+            this.lastRedstone = this.getHost().hasRedstone(this.getSide());
+        }
         this.updateRedstoneState();
     }
 
@@ -110,6 +114,12 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
 
     @Override
     public void onNeighborChanged(IBlockAccess w, BlockPos pos, BlockPos neighbor) {
+        // Every content change of a neighbouring tile lands here (Forge's markDirty tells all six sides), and the
+        // level is read from every side around the cable: on prod 1.8% of the game threads for buses that ignore it.
+        if (!this.followsRedstone()) {
+            return;
+        }
+
         final boolean powered = this.getHost().hasRedstone(this.getSide());
         if (powered == this.lastRedstone) {
             return;
@@ -141,6 +151,10 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
 
         // One tick of work per pulse.
         return this.isSleeping() ? TickRateModulation.SLEEP : worked;
+    }
+
+    private boolean followsRedstone() {
+        return this.isInstalled(CardTraits.REDSTONE) && this.getRSMode() != RedstoneMode.IGNORE;
     }
 
     private boolean isInPulseMode() {
