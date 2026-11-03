@@ -62,7 +62,9 @@ public abstract class AppEngPacket implements Packet {
             throw new IllegalArgumentException("Sorry AE2 made a " + this.p.array().length + " byte packet by accident!");
         }
 
-        final FMLProxyPacket pp = new FMLProxyPacket(this.p, NetworkHandler.instance().getChannel());
+        // A buffer of its own for every send: sending releases the payload, and one packet goes to each player
+        // near an effect in turn - the second would get a buffer the first send had already released.
+        final FMLProxyPacket pp = new FMLProxyPacket(new PacketBuffer(this.p.copy()), NetworkHandler.instance().getChannel());
 
         if (AEConfig.instance().isFeatureEnabled(AEFeature.PACKET_LOGGING)) {
             AELog.info(this.getClass().getName() + " : " + pp.payload().readableBytes());
