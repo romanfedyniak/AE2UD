@@ -14,6 +14,23 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## 1.6.11 - 2026-11-04
+
+- A crafting job whose patterns eat back what the job is making - a crucible recipe that turns one of its outputs
+  into two - no longer stops after the first craft waiting for an input it had handed to the requester.
+- A job through a ring of two patterns (one makes what the other gives back) takes the thing that starts the ring
+  from the network and runs; it used to be accepted and never push its first craft. Something made beside such a
+  ring can be ordered too, and comes out of what the ring gives back rather than extra turns of it.
+- Effects shown to everyone nearby - the charged staff's lightning, the matter cannon, tiny TNT, a plane picking
+  up fluid - no longer fail when two or more players are close; a charged staff's hit was lost to the error.
+- A redstone P2P tunnel linked next to a signal that is already there passes it on at once, not only after the
+  signal changes.
+- A security station placed by something other than a player (a schematic, a deployer) no longer leaves its
+  network open to everyone.
+- Operators' parts and machines join secured networks, and a part the network refuses no longer crashes the click.
+- Item buses without a redstone card no longer read the redstone level on every neighbour change.
+- A quantum bridge given its singularity in the tick it was placed connects once it is ready instead of failing.
+
 ## 1.6.10 - 2026-11-03
 
 - A crafting job through a pattern with substitutions over a shaped recipe that lists no ingredients (some IC2
