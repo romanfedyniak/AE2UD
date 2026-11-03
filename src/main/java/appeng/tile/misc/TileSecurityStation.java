@@ -282,8 +282,12 @@ public class TileSecurityStation extends AENetworkTile implements ITerminalHost,
             }
         }
 
-        // make sure thea admin is Boss.
-        playerPerms.put(this.getProxy().getNode().getPlayerID(), EnumSet.allOf(SecurityPermissions.class));
+        // make sure thea admin is Boss. A station nobody placed (a schematic, a fake player) has no admin: -1 is
+        // what the blank card gives everyone without a card, and must not become every right.
+        final int owner = this.getProxy().getNode().getPlayerID();
+        if (owner != -1) {
+            playerPerms.put(owner, EnumSet.allOf(SecurityPermissions.class));
+        }
     }
 
     @Override
