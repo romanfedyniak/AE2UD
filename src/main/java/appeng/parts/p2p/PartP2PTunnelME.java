@@ -191,6 +191,10 @@ public class PartP2PTunnelME extends PartP2PTunnel<PartP2PTunnelME> implements I
             final List<PartP2PTunnelME> newSides = new ArrayList<>();
             try {
                 for (final PartP2PTunnelME me : this.getOutputs()) {
+                    // While a memory card re-makes a tunnel it can for a moment be listed among its own outputs.
+                    if (me == this) {
+                        continue;
+                    }
                     if (me.getProxy().isActive() && connections.getConnections().get(me.getGridNode()) == null) {
                         newSides.add(me);
                     }
