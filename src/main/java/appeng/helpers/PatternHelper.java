@@ -45,11 +45,13 @@ import net.minecraftforge.items.IItemHandler;
 
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.common.collect.MapMaker;
 
 import javax.annotation.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static appeng.helpers.ItemStackHelper.stackFromNBT;
 
@@ -565,9 +567,9 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     }
 
     /**
-     * {@link ICraftingPatternDetails#isValidItemForSlot} for {@code count} of a key. A crafting pattern answers
-     * from what it remembers without the stack being made: the CPU asks this for every candidate of every slot
-     * each pass, and a new stack gathers its item's capabilities each time.
+     * {@link ICraftingPatternDetails#isValidItemForSlot} for {@code count} of a key. A pattern answers from what
+     * it remembers without the stack being made: the CPU asks this for every candidate of every slot each pass,
+     * and a new stack gathers its item's capabilities each time.
      */
     public static boolean isValidKeyForSlot(final ICraftingPatternDetails details, final int slotIndex,
             final AEItemKey key, final int count, final World w) {
@@ -585,8 +587,35 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             helper.rememberByKey(slotIndex, key, count, valid);
             return valid;
         }
-        return details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+        if (count <= 0) {
+            return details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+        }
+
+        final Map<KeySlot, Boolean> answers = OTHER_PATTERN_ANSWERS.computeIfAbsent(details, d -> new HashMap<>());
+        final KeySlot asked = new KeySlot(slotIndex, key);
+        synchronized (answers) {
+            final Boolean known = answers.get(asked);
+            if (known != null) {
+                return known;
+            }
+        }
+        final boolean valid = details.isValidItemForSlot(slotIndex, key.toStack(count), w);
+        synchronized (answers) {
+            if (answers.size() >= MAX_REMEMBERED_TESTS) {
+                answers.clear();
+            }
+            answers.put(asked, valid);
+        }
+        return valid;
     }
+
+    /**
+     * {@link #keyCache} for patterns of addons (an arcane table, a crucible, an infusion): theirs answer from
+     * the stack alone, through an ingredient or the key it was encoded with, and the stack is the key's. Weak
+     * and by identity, so a pattern taken out of its interface is forgotten with it.
+     */
+    private static final ConcurrentMap<ICraftingPatternDetails, Map<KeySlot, Boolean>> OTHER_PATTERN_ANSWERS =
+            new MapMaker().weakKeys().makeMap();
 
     /** {@link #keyCache}: only for crafting patterns and items that work out their own damage; null when not known. */
     @Nullable

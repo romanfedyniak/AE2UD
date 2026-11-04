@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **Crafting CPUs check an addon's pattern ingredients without building a stack every time.** An arcane, table,
+  crucible or infusion pattern now remembers which items fit its slots, as AE2's own crafting patterns already
+  did; a new stack gathered its capabilities on every check, a few percent of a busy server's crafting time.
+
 ## 1.6.11 - 2026-11-04
 
 - A crafting job whose patterns eat back what the job is making - a crucible recipe that turns one of its outputs
