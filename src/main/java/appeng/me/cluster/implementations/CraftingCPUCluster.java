@@ -113,6 +113,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private final Set<ICraftingMedium> busyMediums = new HashSet<>();
     /** Per pattern and medium: {@code {interval, earliest tick to try again}}. See {@link #backedOff}. */
     private final Map<ICraftingPatternDetails, Map<ICraftingMedium, long[]>> pushBackoff = new HashMap<>();
+    /**
+     * Per key, one craft's worth for a task still to run that eats it and makes more of it back (a crucible's
+     * salis mundus). Kept from every other task, or the seed the loop starts from goes into the first craft that
+     * wants one and the loop never turns. Worked out once a tick, see {@link #keepSeeds}.
+     */
+    private final Map<AEKey, Long> seedKept = new HashMap<>();
     private ICraftingLink myLastLink;
     private String myName = "";
     private boolean isDestroyed = false;
@@ -582,6 +588,48 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return null;
     }
 
+    private void keepSeeds() {
+        this.seedKept.clear();
+        for (final Entry<ICraftingPatternDetails, TaskProgress> e : this.tasks.entrySet()) {
+            if (e.getValue().value <= 0) {
+                continue;
+            }
+            for (final GenericStack in : e.getKey().getPatternInputs().getCondensed()) {
+                if (in != null && madeBy(e.getKey(), in.what()) > in.amount()) {
+                    this.seedKept.merge(in.what(), in.amount(), Math::max);
+                }
+            }
+        }
+    }
+
+    private static long madeBy(final ICraftingPatternDetails details, final AEKey what) {
+        long made = 0;
+        for (final GenericStack out : details.getCondensedOutputs()) {
+            if (out != null && out.what().equals(what)) {
+                made += out.amount();
+            }
+        }
+        return made;
+    }
+
+    /** What of a key this pattern has to leave in the CPU: none when it is the loop the seed is kept for. */
+    private long keptFrom(final ICraftingPatternDetails details, final AEKey what) {
+        final Long kept = this.seedKept.get(what);
+        return kept == null || madeBy(details, what) > 0 ? 0 : kept;
+    }
+
+    private boolean eatsKeptSeed(final ICraftingPatternDetails details) {
+        if (this.seedKept.isEmpty()) {
+            return false;
+        }
+        for (final GenericStack in : details.getPatternInputs().getCondensed()) {
+            if (in != null && this.keptFrom(details, in.what()) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean canCraft(final ICraftingPatternDetails details, final GenericStack[] condensedInputs) {
         if (!details.isCraftable()) {
             // Processing patterns are relatively easy
@@ -589,9 +637,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 if (input == null) {
                     continue;
                 }
-                final long extracted = this.inventory.extract(input.what(), input.amount(), Actionable.SIMULATE, this.machineSrc);
+                final long needed = input.amount() + this.keptFrom(details, input.what());
+                final long extracted = this.inventory.extract(input.what(), needed, Actionable.SIMULATE, this.machineSrc);
 
-                if (extracted < input.amount()) {
+                if (extracted < needed) {
                     return false;
                 }
             }
@@ -615,13 +664,14 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     for (final var entry : this.inventory.getItemList().findFuzzy(substitute.what(), FuzzyMode.IGNORE_ALL)) {
                         final AEKey fuzzKey = entry.getKey();
                         final long alreadyConsumed = consumedCount.getOrDefault(fuzzKey, 0L);
-                        if (entry.getLongValue() - alreadyConsumed < needed) {
+                        final long withKept = needed + this.keptFrom(details, fuzzKey);
+                        if (entry.getLongValue() - alreadyConsumed < withKept) {
                             continue; // Already fully consumed by a previous slot of this recipe
                         }
 
-                        final long extracted = this.inventory.extract(fuzzKey, needed, Actionable.SIMULATE, this.machineSrc);
+                        final long extracted = this.inventory.extract(fuzzKey, withKept, Actionable.SIMULATE, this.machineSrc);
 
-                        if (extracted >= needed) {
+                        if (extracted >= withKept) {
                             consumedCount.merge(fuzzKey, needed, Long::sum);
                             found = true;
                             break;
@@ -646,11 +696,12 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 }
                 // Mostly the CPU holds the input under the pattern's own key: one look-up answers, where walking every
                 // variant of the item (each charge of an electric tool is one) took an eighth of a big craft's time.
-                if (this.inventory.extract(g.what(), g.amount(), Actionable.SIMULATE, this.machineSrc) >= g.amount()) {
+                final long needed = g.amount() + this.keptFrom(details, g.what());
+                if (this.inventory.extract(g.what(), needed, Actionable.SIMULATE, this.machineSrc) >= needed) {
                     continue;
                 }
                 boolean found = false;
-                long remaining = g.amount();
+                long remaining = needed;
 
                 for (final var entry : this.inventory.getItemList().findFuzzy(g.what(), FuzzyMode.IGNORE_ALL)) {
                     final long extracted = this.inventory.extract(entry.getKey(), remaining, Actionable.SIMULATE, this.machineSrc);
@@ -757,6 +808,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.workableTasks.putAll(this.tasks);
         this.busyMediums.clear();
         this.pushBackoff.keySet().retainAll(this.tasks.keySet());
+        this.keepSeeds();
 
         if (this.remainingOperations > 0) {
             do {
@@ -1105,7 +1157,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * ever gets one, since it is handed the last craft of a job and nothing after it.
      */
     private int batchSize(final ICraftingPatternDetails details, final ICraftingMedium medium, final long remaining) {
-        if (medium.isFakeCrafting() || details instanceof VirtualPatternDetails) {
+        if (medium.isFakeCrafting() || details instanceof VirtualPatternDetails || this.eatsKeptSeed(details)) {
             return 1;
         }
         final int offered = medium.maxCopies(details);
