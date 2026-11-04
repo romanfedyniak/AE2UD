@@ -1408,7 +1408,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             if (cm != null && (!fabricated || cm.acceptsFabricatedContainers())) {
                 // A tunnel answers canRun for a plain block too, whose refusal is the expensive kind.
                 this.refusedAsBusy |= cm instanceof PartP2PInterface
-                        ? ((PartP2PInterface) cm).hasPlanTakingOutput(patternDetails)
+                        ? ((PartP2PInterface) cm).hasMachineFor(patternDetails)
                         : cm.canRun(patternDetails);
                 if (cm.acceptsPlans()) {
                     visitedFaces.remove(s);

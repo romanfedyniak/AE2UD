@@ -147,6 +147,35 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         }
     }
 
+    /**
+     * Whether a machine that makes this pattern stands behind the outputs, busy or not: a push it refused is
+     * then a busy machine's refusal, which the crafting CPU asks again the next tick. Told by
+     * {@link #hasPlanTakingOutput}, which says no while the machines work, the CPU put the tunnel off for up to
+     * a second after every craft, and fast machines behind it stood idle half the time.
+     */
+    public boolean hasMachineFor(final ICraftingPatternDetails patternDetails) {
+        if (this.isOutput() || this.visiting) {
+            return false;
+        }
+
+        this.visiting = true;
+        try {
+            for (final PartP2PInterface output : this.getOutputList()) {
+                final ICraftingMachine machine = output.getFacingMachine();
+
+                if (machine instanceof PartP2PInterface
+                        ? ((PartP2PInterface) machine).hasMachineFor(patternDetails)
+                        : machine != null && machine.canRun(patternDetails)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            this.visiting = false;
+        }
+    }
+
     /** Whether any machine behind the outputs makes it; a plain block is left to {@link #accept}. */
     @Override
     public boolean canRun(final ICraftingPatternDetails patternDetails) {
