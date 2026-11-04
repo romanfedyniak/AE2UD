@@ -75,6 +75,7 @@ import appeng.api.util.KeyTypeSelectionHost.Purpose;
 import appeng.api.util.AEPartLocation;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
+import appeng.core.worlddata.WorldData;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.packets.PacketTransitionEffect;
 import appeng.items.parts.PartModels;
@@ -481,10 +482,10 @@ public class PartAnnihilationPlane extends PartUpgradeable
         return this.enchantments;
     }
 
+    /** From the world's player list, so the owner need not be online: an absent owner left the plane anonymous. */
     @Nullable
     private UUID resolveOwnerUuid(int playerId) {
-        EntityPlayer player = AEApi.instance().registries().players().findPlayer(playerId);
-        return player != null ? player.getGameProfile().getId() : null;
+        return playerId < 0 ? null : WorldData.instance().playerData().getPlayerUUID(playerId);
     }
 
     /**

@@ -20,7 +20,6 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
-import appeng.api.AEApi;
 import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.behaviors.StackWorldBehaviors;
 import appeng.api.config.Actionable;
@@ -60,6 +59,7 @@ import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.core.AELog;
 import appeng.core.settings.TickRates;
+import appeng.core.worlddata.WorldData;
 import appeng.helpers.ICraftPriorityTarget;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.MultiCraftingTracker;
@@ -567,10 +567,10 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         return this.placementStrategy;
     }
 
+    /** From the world's player list, so the owner need not be online: an absent owner left the plane anonymous. */
     @Nullable
     private UUID resolveOwnerUuid(int playerId) {
-        var player = AEApi.instance().registries().players().findPlayer(playerId);
-        return player != null ? player.getGameProfile().getId() : null;
+        return playerId < 0 ? null : WorldData.instance().playerData().getPlayerUUID(playerId);
     }
 
     // --- MEStorage: only insert() is meaningfully implemented, matching the pre-port
