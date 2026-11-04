@@ -14,6 +14,16 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## 1.6.13 - 2026-11-04
+
+- **Formation and annihilation planes work while their owner is offline.** A plane asks claims as the player who
+  placed it, but it looked that player up among those online; built while they were away, it acted as nobody, the
+  claim refused, and it placed or broke nothing until the network was rebuilt.
+- **A job no longer spends the seed of its own self-feeding pattern on another craft.** With one salis mundus in
+  the network, a crucible pattern that turns it into two and an infusion that eats it, the infusion could take
+  that one first; the crucible then had nothing to start from and the job never finished. The CPU now keeps one
+  craft's worth for a loop that still has crafts to run.
+
 ## 1.6.12 - 2026-11-04
 
 - **Crafting CPUs check an addon's pattern ingredients without building a stack every time.** An arcane, table,
