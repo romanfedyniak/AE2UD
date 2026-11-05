@@ -114,6 +114,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     /** Per pattern and medium: {@code {interval, earliest tick to try again}}. See {@link #backedOff}. */
     private final Map<ICraftingPatternDetails, Map<ICraftingMedium, long[]>> pushBackoff = new HashMap<>();
     /**
+     * Per pattern, a table laid out from the CPU's inventory but not yet drawn from it. A table no medium takes
+     * used to be drawn, refused and put back on every tick the machines were busy, making a fresh stack for
+     * every ingredient each time; this one is drawn only when a medium takes it, and offered again while what it
+     * holds is still in the inventory. See {@link #draft}.
+     */
+    private final Map<ICraftingPatternDetails, Draft> drafts = new HashMap<>();
+    /**
      * Per key, one craft's worth for a task still to run that eats it and makes more of it back (a crucible's
      * salis mundus). Kept from every other task, or the seed the loop starts from goes into the first craft that
      * wants one and the loop never turns. Worked out once a tick, see {@link #keepSeeds}.
@@ -483,6 +490,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // The next job's patterns are other objects, equal to these: kept as keys, every lookup of them would
         // compare the whole pattern NBT, and their queues would still hold this job's machines.
         this.visitedMediums.clear();
+        this.drafts.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
@@ -747,6 +755,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.clearTasks();
         this.pushBackoff.clear();
         this.visitedMediums.clear();
+        this.drafts.clear();
 
         final List<AEKey> keys = new ArrayList<>(this.waitingFor.keySet());
         this.waitingFor.clear(); // see completeJob(): reset() keeps the keys and isBusy() counts keys
@@ -808,6 +817,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.workableTasks.putAll(this.tasks);
         this.busyMediums.clear();
         this.pushBackoff.keySet().retainAll(this.tasks.keySet());
+        this.drafts.keySet().retainAll(this.tasks.keySet());
         this.keepSeeds();
 
         if (this.remainingOperations > 0) {
@@ -857,6 +867,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 }
 
                 InventoryCrafting ic = null;
+                Draft draft = null;
                 GenericStack[] extras = EMPTY_EXTRAS;
                 GenericStack[] fabricated = EMPTY_EXTRAS;
 
@@ -904,8 +915,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     }
 
                     if (copies > 1) {
-                        // A table laid out for one copy on an earlier medium is no use to a batch.
-                        if (ic != null) {
+                        // A table laid out for one copy on an earlier medium is no use to a batch. A draft
+                        // was never drawn, so it only has to be let go; it stays cached and is checked
+                        // against the inventory before it is offered again.
+                        if (draft != null) {
+                            draft = null;
+                            ic = null;
+                        } else if (ic != null) {
                             this.putBack(details, ic, Arrays.asList(extras), Arrays.asList(fabricated));
                             ic = null;
                             extras = EMPTY_EXTRAS;
@@ -928,6 +944,21 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                             return;
                         }
                         continue;
+                    }
+
+                    if (ic == null && isDraftable(details)) {
+                        draft = this.draft(details);
+                        if (draft == null) {
+                            break;
+                        }
+                        ic = draft.table;
+                    }
+
+                    if (draft != null) {
+                        final double sum = patternPower(details);
+                        if (eg.extractAEPower(sum, Actionable.SIMULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
+                            continue;
+                        }
                     }
 
                     if (ic == null) {
@@ -1066,6 +1097,21 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     final boolean pushed = m.pushPattern(details, ic, extras);
                     this.recordPush(details, m, pushed);
 
+                    if (draft != null) {
+                        if (pushed) {
+                            this.drafts.remove(details);
+                            this.drawDraft(eg, details, draft);
+                            draft = null;
+                        } else if (!draft.intact()) {
+                            // The medium took some of the table and still said no. What left the table is
+                            // in the machine now, so the inventory pays for it, as a drawn table would have.
+                            this.drafts.remove(details);
+                            this.drawTaken(draft);
+                            draft = null;
+                            ic = null;
+                        }
+                    }
+
                     if (pushed) {
                         this.toolsSent(ic);
                         this.somethingChanged = true;
@@ -1140,7 +1186,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     }
                 }
 
-                if (ic != null) {
+                if (ic != null && draft == null) {
                     this.putBack(details, ic, Arrays.asList(extras), Arrays.asList(fabricated));
                 }
             } else {
@@ -1329,6 +1375,208 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         for (final GenericStack g : assembled) {
             this.inventory.insert(g.what(), g.amount(), Actionable.MODULATE, this.machineSrc);
+        }
+    }
+
+    /**
+     * Whether a pattern's table can be laid out before it is drawn: only items, and no container assembled from
+     * other keys. Those two take something out of the inventory to build the table itself, so they keep being
+     * drawn first and put back.
+     */
+    private static boolean isDraftable(final ICraftingPatternDetails details) {
+        final GenericStack[] input = details.getInputs();
+        final IPatternInputs slots = details.getPatternInputs();
+        for (int x = 0; x < input.length; x++) {
+            if (input[x] == null) {
+                continue;
+            }
+            if (!(input[x].what() instanceof AEItemKey)) {
+                return false;
+            }
+            if (details.isCraftable() && slots.get(x).isFabricated()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The cached table for a pattern while the inventory still holds all it shows, else a new one, or null. */
+    @Nullable
+    private Draft draft(final ICraftingPatternDetails details) {
+        final Draft cached = this.drafts.get(details);
+        if (cached != null && cached.intact() && cached.coveredBy(this.inventory.getItemList())) {
+            return cached;
+        }
+        final Draft made = this.layOut(details);
+        if (made == null) {
+            this.drafts.remove(details);
+        } else {
+            this.drafts.put(details, made);
+        }
+        return made;
+    }
+
+    /**
+     * Picks the ingredients as the drawing loop in {@link #executeCrafting} does, against what the inventory
+     * holds less what earlier slots of this table already claimed, and makes the stacks; takes nothing.
+     */
+    @Nullable
+    private Draft layOut(final ICraftingPatternDetails details) {
+        final GenericStack[] input = details.getInputs();
+        final KeyCounter held = this.inventory.getItemList();
+        final Draft d = new Draft(new InventoryCrafting(new ContainerNull(), details.getTableWidth(), details.getTableHeight()), input.length);
+
+        for (int x = 0; x < input.length; x++) {
+            if (input[x] == null) {
+                continue;
+            }
+            final AEItemKey key = (AEItemKey) input[x].what();
+            final long amount = input[x].amount();
+
+            if (!details.isCraftable()) {
+                if (held.get(key) - d.claimed(key, x) < amount) {
+                    return null;
+                }
+                d.put(x, key, (int) amount);
+                continue;
+            }
+
+            final List<AEItemKey> options = new ArrayList<>(1);
+            if (details.canSubstitute()) {
+                for (final GenericStack sub : details.getPatternInputs().get(x).getOptions()) {
+                    for (final var entry : held.findFuzzy(sub.what(), FuzzyMode.IGNORE_ALL)) {
+                        if (entry.getKey() instanceof AEItemKey k) {
+                            options.add(k);
+                        }
+                    }
+                }
+            } else if (held.get(key) > 0) {
+                options.add(key);
+            } else if (key.getItem().isDamageable() || Platform.isGTDamageableItem(key.getItem())) {
+                for (final var entry : held.findFuzzy(key, FuzzyMode.IGNORE_ALL)) {
+                    if (entry.getKey() instanceof AEItemKey k) {
+                        options.add(k);
+                    }
+                }
+            }
+
+            boolean found = false;
+            for (final AEItemKey option : options) {
+                final int shown = (int) Math.min(amount, option.getMaxStackSize());
+                if (!PatternHelper.isValidKeyForSlot(details, x, option, shown, this.getWorld())) {
+                    continue;
+                }
+                final long free = Math.min(amount, held.get(option) - d.claimed(option, x));
+                if (free > 0) {
+                    d.put(x, option, (int) free);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return null;
+            }
+        }
+        return d;
+    }
+
+    /** Draws a taken draft from the inventory: its power, then every stack it was laid out with. */
+    private void drawDraft(final IEnergyGrid eg, final ICraftingPatternDetails details, final Draft draft) {
+        final double sum = patternPower(details);
+        eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        for (int x = 0; x < draft.keys.length; x++) {
+            if (draft.keys[x] != null) {
+                this.drawFromInventory(draft.keys[x], draft.counts[x]);
+            }
+        }
+    }
+
+    /** Draws only what a refusing medium took off the table anyway. */
+    private void drawTaken(final Draft draft) {
+        for (int x = 0; x < draft.keys.length; x++) {
+            if (draft.keys[x] == null) {
+                continue;
+            }
+            final ItemStack now = draft.table.getStackInSlot(x);
+            final int left = now == draft.stacks[x] ? Math.min(now.getCount(), draft.counts[x]) : 0;
+            if (left < draft.counts[x]) {
+                this.drawFromInventory(draft.keys[x], draft.counts[x] - left);
+            }
+        }
+    }
+
+    private void drawFromInventory(final AEItemKey key, final long amount) {
+        final long drawn = this.inventory.extract(key, amount, Actionable.MODULATE, this.machineSrc);
+        this.postChange(key, this.machineSrc);
+        if (drawn < amount) {
+            AELog.warn("Crafting CPU drew %d of %d %s for a pushed table", drawn, amount, key);
+        }
+    }
+
+    /** A table laid out for a pattern, with the key and count each slot was made from. */
+    private static final class Draft {
+        final InventoryCrafting table;
+        final AEItemKey[] keys;
+        final int[] counts;
+        /** The stacks as made, to see a medium that refused the table but took from it anyway. */
+        final ItemStack[] stacks;
+
+        Draft(final InventoryCrafting table, final int size) {
+            this.table = table;
+            this.keys = new AEItemKey[size];
+            this.counts = new int[size];
+            this.stacks = new ItemStack[size];
+        }
+
+        void put(final int slot, final AEItemKey key, final int count) {
+            final ItemStack stack = key.toStack(count);
+            this.keys[slot] = key;
+            this.counts[slot] = count;
+            this.stacks[slot] = stack;
+            this.table.setInventorySlotContents(slot, stack);
+        }
+
+        /** How much of a key the slots before {@code slot} already hold. */
+        long claimed(final AEItemKey key, final int slot) {
+            long sum = 0;
+            for (int x = 0; x < slot; x++) {
+                if (key.equals(this.keys[x])) {
+                    sum += this.counts[x];
+                }
+            }
+            return sum;
+        }
+
+        /** Every slot still holds the very stack it was laid out with, at its count. */
+        boolean intact() {
+            for (int x = 0; x < this.keys.length; x++) {
+                if (this.keys[x] != null) {
+                    final ItemStack now = this.table.getStackInSlot(x);
+                    if (now != this.stacks[x] || now.getCount() != this.counts[x]) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        boolean coveredBy(final KeyCounter held) {
+            for (int x = 0; x < this.keys.length; x++) {
+                final AEItemKey key = this.keys[x];
+                if (key == null || this.claimed(key, x) > 0) {
+                    continue;
+                }
+                long need = 0;
+                for (int y = x; y < this.keys.length; y++) {
+                    if (key.equals(this.keys[y])) {
+                        need += this.counts[y];
+                    }
+                }
+                if (held.get(key) < need) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
