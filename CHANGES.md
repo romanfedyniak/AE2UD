@@ -14,7 +14,7 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
-## Unreleased
+## 1.6.14 - 2026-11-05
 
 - **Machines behind a P2P interface tunnel work as fast as machines beside an interface.** While they were busy
   the crafting CPU took each refusal for a dead end and put the tunnel off for up to a second; fast runic
