@@ -14,6 +14,14 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A crafting CPU waiting on busy machines costs far less.** Every tick the machines refused a pattern, the CPU
+  took its ingredients out, made a fresh item stack of each, offered the table and put it all back; a network
+  with many busy machines behind P2P interface tunnels spent a tenth of its time on that. The table is now laid
+  out once, offered again while the CPU still holds what it shows, and paid for (items and power) only when a
+  machine takes it.
+
 ## 1.6.14 - 2026-11-05
 
 - **Machines behind a P2P interface tunnel work as fast as machines beside an interface.** While they were busy
