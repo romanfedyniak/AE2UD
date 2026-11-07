@@ -21,6 +21,10 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   with many busy machines behind P2P interface tunnels spent a tenth of its time on that. The table is now laid
   out once, offered again while the CPU still holds what it shows, and paid for (items and power) only when a
   machine takes it.
+- **A network with many P2P interface tunnels no longer lags the server for minutes when part of it unloads.**
+  Every tunnel of a frequency that moved to another grid told the whole frequency again, and each of those queued
+  a neighbour update for its block: thousands of the same few updates, worked off at 50 ms a tick. A block now has
+  at most one waiting.
 
 ## 1.6.14 - 2026-11-05
 
