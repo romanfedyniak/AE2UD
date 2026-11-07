@@ -19,19 +19,47 @@
 package appeng.util;
 
 
+import appeng.hooks.TickHandler;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class BlockUpdate implements IWorldCallable<Boolean> {
-    private final BlockPos pos;
+    /**
+     * The blocks of each world with an update still in the queue. A grid splitting on a chunk unload moves every
+     * P2P tunnel of a frequency, and each move tells the whole frequency again: a big base queued thousands of
+     * updates for the same few blocks, and the queue ran at 50 ms a tick for minutes. One is enough, since the
+     * neighbours look at the world when it runs.
+     */
+    private static final Map<World, Set<BlockPos>> QUEUED = new WeakHashMap<>();
 
-    BlockUpdate(final BlockPos pos) {
+    private final BlockPos pos;
+    private final Set<BlockPos> queued;
+
+    private BlockUpdate(final BlockPos pos, final Set<BlockPos> queued) {
         this.pos = pos;
+        this.queued = queued;
+    }
+
+    static void queue(final World world, final BlockPos pos) {
+        final Set<BlockPos> queued;
+        synchronized (QUEUED) {
+            queued = QUEUED.computeIfAbsent(world, w -> ConcurrentHashMap.newKeySet());
+        }
+        final BlockPos at = pos.toImmutable();
+        if (queued.add(at)) {
+            TickHandler.INSTANCE.addCallable(world, new BlockUpdate(at, queued));
+        }
     }
 
     @Override
     public Boolean call(final World world) throws Exception {
+        this.queued.remove(this.pos);
         if (world.isBlockLoaded(this.pos)) {
             world.notifyNeighborsOfStateChange(this.pos, Platform.AIR_BLOCK, true);
         }

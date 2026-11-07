@@ -57,7 +57,6 @@ import appeng.core.sync.GuiBridge;
 import appeng.core.sync.GuiHostType;
 import appeng.core.sync.GuiWrapper;
 import appeng.core.worlddata.WorldData;
-import appeng.hooks.TickHandler;
 import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.integration.modules.gregtech.ToolClass;
@@ -1450,7 +1449,7 @@ public class Platform {
 
     public static void notifyBlocksOfNeighbors(final World world, final BlockPos pos) {
         if (!world.isRemote) {
-            TickHandler.INSTANCE.addCallable(world, new BlockUpdate(pos));
+            BlockUpdate.queue(world, pos);
         }
     }
 
