@@ -33,7 +33,9 @@ import net.minecraft.crash.CrashReport;
 import net.minecraft.crash.CrashReportCategory;
 import net.minecraft.util.ReportedException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.PriorityQueue;
 
 
@@ -73,6 +75,7 @@ public class TickManagerCache implements ITickManager {
     @Override
     public void onUpdateTick() {
         TickTracker tt = null;
+        List<TickTracker> ranAlready = null;
 
         try {
             this.currentTick++;
@@ -93,6 +96,18 @@ public class TickManagerCache implements ITickManager {
                 if (this.awake.get(tt.getNode()) != tt) {
                     continue;
                 }
+
+                // A machine woken by another one's work in this same tick waits for the next tick. A formation
+                // plane placing in front of an annihilation plane that takes the block back into the network wake
+                // each other on every block: run again at once, the two passed the block around in one endless tick.
+                if (tt.getRanTick() == this.currentTick) {
+                    if (ranAlready == null) {
+                        ranAlready = new ArrayList<>();
+                    }
+                    ranAlready.add(tt);
+                    continue;
+                }
+                tt.setRanTick(this.currentTick);
 
                 final int diff = (int) (this.currentTick - tt.getLastTick());
                 final TickRateModulation mod = tt.getGridTickable().tickingRequest(tt.getNode(), diff);
@@ -121,6 +136,14 @@ public class TickManagerCache implements ITickManager {
 
                 if (this.awake.containsKey(tt.getNode())) {
                     this.addToQueue(tt);
+                }
+            }
+
+            if (ranAlready != null) {
+                for (final TickTracker later : ranAlready) {
+                    if (!later.isQueued() && this.awake.get(later.getNode()) == later) {
+                        this.enqueue(later);
+                    }
                 }
             }
         } catch (final Throwable t) {
