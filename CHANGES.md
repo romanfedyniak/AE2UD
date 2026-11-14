@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A fluid on a storage or crafting monitor no longer shows the panel through it in stripes from afar.** It was
+  drawn a ten-thousandth of a block in front of the panel, less than the depth buffer tells apart a dozen blocks
+  away; it now stands as far out as an item's icon.
+
 ## 1.6.16 - 2026-11-14
 
 - **An active formation plane facing an annihilation plane of the same network no longer hangs the server.** The
