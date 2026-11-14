@@ -122,6 +122,12 @@ public class TesrRenderHelper {
     private static final float TEXT_Z = LAYERED_DEPTH / 2 + 0.005f;
 
     /**
+     * How far in front of the panel a fluid is drawn: as far as a flat item's face. A ten-thousandth of a block
+     * is below what the depth buffer tells apart a dozen blocks away, and the panel showed through in stripes.
+     */
+    private static final float FLUID_Z = LAYERED_DEPTH / 2;
+
+    /**
      * How much smaller both lines are drawn once there are two of them, and how far above a lone amount the
      * pair starts. Taken from GregTech: New Horizons' throughput monitor, which solves the same fit by
      * halving the text rather than by moving the icon: it draws its two lines at 1/120 where one line is
@@ -183,7 +189,7 @@ public class TesrRenderHelper {
             float width = scale * 0.5f;
             float height = width;
             float alpha = 1.0f;
-            float z = 0.0001f;
+            float z = FLUID_Z;
             float x = -scale * 0.25f;
             float y = -scale * 0.3125f;
 
