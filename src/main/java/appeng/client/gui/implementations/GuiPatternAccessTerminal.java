@@ -25,6 +25,8 @@ import appeng.api.config.Settings;
 import appeng.api.config.TerminalStyle;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.patterns.PatternEncodingMode;
+import appeng.api.patterns.PatternEncodingModes;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.KeySearchTarget;
 import appeng.client.gui.widgets.GuiImgButton;
@@ -398,8 +400,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         for (int x = 0; x < rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
             if (lineObj instanceof Row line) {
-                // Beside a container's first row, or beside the top one once that has scrolled away
-                if (line.row == 0 || x == 0) {
+                // Beside a container's first shown row: a search may hide its first rows, scrolling may too
+                final Object above = x == 0 ? null : this.lines.get(currentScroll + x - 1);
+                if (!(above instanceof Row prev && prev.inv == line.inv)) {
                     GuiButton guiButton = new GuiImgButton(guiLeft + 4, guiTop + offset + 1, Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
                     guiButtonHashMap.put(guiButton, line.inv);
                     this.buttonList.add(guiButton);
@@ -653,9 +656,10 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             boolean found = inputQuery.isEmpty() && outputQuery.isEmpty();
             boolean interfaceHasFreeSlots = false;
             boolean interfaceHasBrokenRecipes = false;
+            boolean holdsCraftingPattern = false;
 
             // Search if the current inventory holds a pattern containing the search term.
-            if (!found || onlyShowWithSpace || onlyBrokenRecipes) {
+            if (!found || onlyShowWithSpace || onlyBrokenRecipes || onlyMolecularAssemblers) {
                 int slot = 0;
                 for (final ItemStack itemStack : entry.getInventory()) {
                     if (slot > 8 + extraLinesMap.get(entry) * 9) {
@@ -668,6 +672,11 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
                     if (onlyBrokenRecipes && recipeIsBroken(itemStack)) {
                         interfaceHasBrokenRecipes = true;
+                    }
+
+                    if (onlyMolecularAssemblers && !holdsCraftingPattern) {
+                        final PatternEncodingMode mode = PatternEncodingModes.forPattern(itemStack);
+                        holdsCraftingPattern = mode != null && PatternEncodingModes.CRAFTING.equals(mode.getId());
                     }
 
                     final boolean byInput = !inputQuery.isEmpty()
@@ -696,9 +705,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             if (!entry.getName().toLowerCase().contains(nameQuery)) {
                 continue;
             }
-            // Exit if molecular assembler filter is on and this is not a molecular assembler
-            // Forge documantation said unlocalized name shouldn't be use for logic, so we might need a better way......
-            if (onlyMolecularAssemblers && !entry.getUnlocalizedName().equals(MOLECULAR_ASSEMBLER)) {
+            // The crafting filter keeps whatever works crafting table patterns: an assembler matrix of an addon as
+            // well as an interface on a molecular assembler, which is kept even before its first pattern
+            if (onlyMolecularAssemblers && !holdsCraftingPattern && !entry.getUnlocalizedName().equals(MOLECULAR_ASSEMBLER)) {
                 continue;
             }
             // Exit if we are only showing interfaces with free slots and there are none free in this interface
