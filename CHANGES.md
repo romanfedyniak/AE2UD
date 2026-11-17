@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A thing whose recipe takes something it is also made from is crafted from what storage holds of that.**
+  Pyrotheum dust takes redstone, and redstone was also made from ore washed in pyrotheum: the crafting
+  calculator saw a cycle that could not turn and reported the dust missing, with millions of redstone stored.
+
 ## 1.6.18 - 2026-11-17
 
 - **The pattern access terminal shows the button that finds a machine beside the first row a search leaves of it.**

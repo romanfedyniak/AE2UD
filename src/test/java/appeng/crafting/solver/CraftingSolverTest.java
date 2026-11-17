@@ -557,15 +557,31 @@ public final class CraftingSolverTest {
     @Test
     public void aCycleThatBranchesAndLosesIsStillReported() {
         // The same shape making two a instead of three. One turn spends an a on the b and another on the c,
-        // so two out and two back in is no way of having any - and there is a hundred of each on the shelf
-        // to prove the answer does not come from being short of them.
-        final SolverTestNetwork network = branching(2).inStorage("b", 100).inStorage("c", 100);
+        // so two out and two back in is no way of having any, and with one b on the shelf going round is
+        // all there would be.
+        final SolverTestNetwork network = branching(2).inStorage("b", 1);
 
         final SolverPlan plan = network.solve("a", 100);
 
         assertThat(plan.isCyclic(), is(true));
         assertThat(plan.isComplete(), is(false));
-        assertThat(crafts(plan, "pa"), is(0L));
+        assertThat(crafts(plan, "pb"), is(0L));
+        assertThat(crafts(plan, "pc"), is(0L));
+    }
+
+    @Test
+    public void aCycleThatLosesStillMakesWhatTheShelfPaysFor() {
+        // A hundred b and c on the shelf make a hundred a plainly; the losing ring is not turned for it.
+        final SolverTestNetwork network = branching(2).inStorage("b", 100).inStorage("c", 100);
+
+        final SolverPlan plan = network.solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pa"), is(50L));
+        assertThat(crafts(plan, "pb"), is(0L));
+        assertThat(crafts(plan, "pc"), is(0L));
+        assertThat(plan.getUsed().get(network.key("b")), is(50L));
+        assertThat(plan.getUsed().get(network.key("c")), is(50L));
     }
 
     @Test
@@ -1001,6 +1017,38 @@ public final class CraftingSolverTest {
         assertThat(network.solve("k50", 1).isComplete(), is(true));
         assertThrows(SolverTooLargeException.class,
                 () -> network.solve("k50", 1, new SolverLimits(10, 1_000_000, 16)));
+    }
+
+    @Test
+    public void aThingOnACycleIsMadeFromWhatTheCycleHasOnTheShelf() {
+        // Pyrotheum dust takes redstone, and redstone also comes from ore washed in pyrotheum, which melts
+        // from the dust: a cycle, and one that cannot turn on a single ore. Redstone by the million in
+        // storage is still an ordinary ingredient, and the dust was reported missing outright.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pdust", new GenericStack[] { network.stack("dust", 2) },
+                Arrays.asList(SolverIngredient.of(network.key("blaze"), 2), SolverIngredient.of(network.key("redstone"), 1),
+                        SolverIngredient.of(network.key("sulfur"), 1)));
+        network.pattern("pfluid", new GenericStack[] { new GenericStack(network.fluid("pyrotheum"), 250) },
+                Arrays.asList(SolverIngredient.of(network.key("dust"), 1)));
+        network.pattern("pore", new GenericStack[] { network.stack("cinnabar", 1), network.stack("redstone", 12) },
+                Arrays.asList(SolverIngredient.of(network.key("sand"), 1), SolverIngredient.of(network.key("ore"), 1),
+                        SolverIngredient.of(network.fluid("pyrotheum"), 100)));
+        network.pattern("pfromblock", new GenericStack[] { network.stack("redstone", 9) },
+                Arrays.asList(SolverIngredient.of(network.key("rblock"), 1)));
+        network.pattern("pblock", new GenericStack[] { network.stack("rblock", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("redstone"), 9)));
+        network.inStorage("dust", 630).inStorage("blaze", 247261).inStorage("redstone", 2444877)
+                .inStorage("sulfur", 195965).inStorage("rblock", 280).inStorage("sand", 1663857).inStorage("ore", 1);
+        network.getStock().add(network.fluid("pyrotheum"), 500);
+
+        final SolverPlan plan = network.solve("dust", 1000);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(crafts(plan, "pdust"), is(500L));
+        assertThat(plan.getUsed().get(network.key("redstone")), is(500L));
+        assertThat(plan.getUsed().get(network.key("blaze")), is(1000L));
+        assertThat(plan.getUsed().get(network.key("sulfur")), is(500L));
+        assertThat(plan.getUsed().get(network.key("dust")), is(0L));
     }
 
     @Test

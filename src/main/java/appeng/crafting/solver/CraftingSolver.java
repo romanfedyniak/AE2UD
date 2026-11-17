@@ -370,12 +370,91 @@ public final class CraftingSolver {
                     need = this.carryRound(key, need, caps, inside);
                 }
 
+                // A cycle that cannot turn still leaves its things on the shelf, and a pattern drawing one of
+                // them is then an ordinary recipe: pyrotheum dust takes redstone whatever else redstone is made
+                // from, and a million redstone in storage pays for it.
+                if (need > 0 && component.size() > 1) {
+                    need = this.drawFromShelf(key, need, caps, inside);
+                }
+
                 if (need > 0) {
                     this.missing.add(key, need);
                 }
 
                 this.chargeBytes(key, wanted);
             }
+        }
+
+        /**
+         * Runs the patterns for a key on a cycle that draw other things on it, as far as storage and what the
+         * plan already made cover those things. They are taken here and the demand for them is answered at
+         * once, so nothing on the cycle is asked to be made for this. A pattern that eats the key itself is
+         * the loop's business and is left alone.
+         *
+         * @return what is still wanted afterwards.
+         */
+        private long drawFromShelf(final AEKey key, final long shortfall, final Map<SolverPattern, Long> caps,
+                final Set<AEKey> inside) {
+            long need = shortfall;
+
+            for (final SolverPattern pattern : this.graph.patternsFor(key)) {
+                if (need <= 0) {
+                    break;
+                }
+
+                final long per = pattern.outputOf(key);
+
+                if (per <= 0 || this.eatenPerCraft(pattern, key) > 0 || !draws(pattern, inside)) {
+                    continue;
+                }
+
+                long runs = Math.min(ceilDiv(need, per), allowance(pattern, caps) - this.craftsOf(pattern));
+
+                final Map<AEKey, Long> perCraft = new LinkedHashMap<>();
+                for (final SolverIngredient ingredient : pattern.getInputs()) {
+                    final GenericStack first = ingredient.getOptions().get(0);
+                    if (inside.contains(first.what())) {
+                        perCraft.merge(first.what(), first.amount(), Long::sum);
+                    }
+                }
+
+                for (final Map.Entry<AEKey, Long> e : perCraft.entrySet()) {
+                    final AEKey what = e.getKey();
+                    final long onShelf = what.equals(this.root) ? 0 : this.stock.get(what);
+                    runs = Math.min(runs, (this.surplus.get(what) + onShelf) / e.getValue());
+                }
+
+                if (runs <= 0) {
+                    continue;
+                }
+
+                final Map<AEKey, Long> before = new LinkedHashMap<>();
+                for (final AEKey what : inside) {
+                    before.put(what, this.demand.get(what));
+                }
+
+                this.servedBy.putIfAbsent(pattern, key);
+                this.expand(pattern, runs);
+
+                for (final AEKey what : inside) {
+                    final long added = this.demand.get(what) - before.get(what);
+
+                    if (added <= 0 || what.equals(key)) {
+                        continue;
+                    }
+
+                    long open = added;
+                    open -= this.takeSurplus(what, open);
+                    open -= this.takeStock(what, open);
+
+                    this.demand.remove(what, added - open);
+                    this.chargeBytes(what, added - open);
+                }
+
+                need -= this.takeSurplus(key, need);
+            }
+
+            return need;
         }
 
         /**
