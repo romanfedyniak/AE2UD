@@ -50,15 +50,21 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.world.ChunkDataEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.tile.AEBaseTile;
 
 
 /**
@@ -70,8 +76,9 @@ import appeng.core.AELog;
  * still holding them is handed back the same object, never a second copy read from disk that the two would then
  * overwrite each other with.
  * <p/>
- * Writing follows the world's own saves. What changed is copied on the server thread when the overworld saves,
- * and compressed and written on a thread of its own; {@code /save-off} stops it along with everything else.
+ * Writing follows the world's own saves. What changed is copied on the server thread when a world saves, a
+ * chunk with AE machines in it saves (as it does when it unloads) or a player is written, and compressed and
+ * written on a thread of its own; {@code /save-off} stops it along with everything else.
  */
 public final class CellContentsStore {
 
@@ -97,6 +104,8 @@ public final class CellContentsStore {
     // Writes the disk refused. Their snapshot stays pending, and the next save tries it again.
     private final Set<UUID> failed = ConcurrentHashMap.newKeySet();
     private final ExecutorService writer;
+    /** A chunk holding AE machines, or a player, was saved this tick. */
+    private volatile boolean saveRequested;
 
     CellContentsStore(final File directory, final LongSupplier clock) {
         this.directory = directory;
@@ -210,9 +219,47 @@ public final class CellContentsStore {
         this.idle.values().removeIf(ref -> ref.get() == null);
     }
 
+    /**
+     * Every world's save, not only the overworld's: a dimension that unloads saves its chunks and then itself, and
+     * the cells in its drives have to go with them.
+     */
     @SubscribeEvent
     public void onWorldSave(final WorldEvent.Save event) {
-        if (!event.getWorld().isRemote && event.getWorld().provider.getDimension() == 0) {
+        if (!event.getWorld().isRemote) {
+            this.save();
+        }
+    }
+
+    /**
+     * A chunk is saved on its own when it unloads, drives and the chests beside them with it; the cells in those
+     * drives are taken at the end of the same tick rather than at the next world save, which a crash may not
+     * reach.
+     */
+    @SubscribeEvent
+    public void onChunkSave(final ChunkDataEvent.Save event) {
+        if (event.getWorld().isRemote || this.saveRequested) {
+            return;
+        }
+        for (final TileEntity tile : event.getChunk().getTileEntityMap().values()) {
+            if (tile instanceof AEBaseTile) {
+                this.saveRequested = true;
+                return;
+            }
+        }
+    }
+
+    /** A player's inventory, portable cells and what they took out of a network included, is written at once. */
+    @SubscribeEvent
+    public void onPlayerSave(final PlayerEvent.SaveToFile event) {
+        if (event.getEntityPlayer().world instanceof WorldServer world && !world.disableLevelSaving) {
+            this.saveRequested = true;
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerTick(final TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && this.saveRequested) {
+            this.saveRequested = false;
             this.save();
         }
     }
