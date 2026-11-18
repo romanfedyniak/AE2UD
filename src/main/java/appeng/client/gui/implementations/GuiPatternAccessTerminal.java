@@ -103,7 +103,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     private final Set<ClientDCInternalInv> fakeCrafting = new HashSet<>();
     private final ArrayList<Group> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
-    private final Set<Object> matchedStacks = new HashSet<>();
+    /** The pattern slots a search marks, by container and slot: a slot's stack is replaced on every update. */
+    private final Map<ClientDCInternalInv, Set<Integer>> matchedSlots = new HashMap<>();
     private final Map<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
 
     private final MEGuiTooltipTextField searchFieldOutputs;
@@ -349,7 +350,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 }
                 // A container of an addon may end in a short row; the cells past its last slot stay empty.
                 for (int z = 0; z < 9 && z + line.row * 9 < inv.getInventory().getSlots(); z++) {
-                    if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (line.row * 9)))) {
+                    if (this.matchedSlots.getOrDefault(inv, Collections.emptySet()).contains(z + line.row * 9)) {
                         drawRect(z * 18 + 22, 1 + offset, z * 18 + 22 + 16, 1 + offset + 16, 0x2A00FF00);
                     }
                 }
@@ -619,6 +620,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                         final String which = Integer.toString(x);
                         if (invData.hasKey(which)) {
                             current.getInventory().setStackInSlot(x, stackFromNBT(invData.getCompoundTag(which)));
+                            // What the searches and filters found was worked out from the old contents.
+                            this.refreshList = true;
                         }
                     }
                 } catch (final NumberFormatException ignored) {
@@ -640,7 +643,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     private void refreshList() {
         this.byName.clear();
         this.buttonList.clear();
-        this.matchedStacks.clear();
+        this.matchedSlots.clear();
 
         final String inputQuery = this.searchFieldInputs.getText();
         final String outputQuery = this.searchFieldOutputs.getText();
@@ -690,7 +693,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                         // A pattern that qualified only by lacking something is not a pattern to point at.
                         if ((byInput && this.inputSearch.hasPositiveTerms())
                                 || (byOutput && this.outputSearch.hasPositiveTerms())) {
-                            matchedStacks.add(itemStack);
+                            this.matchedSlots.computeIfAbsent(entry, e -> new HashSet<>()).add(slot);
                         }
                     }
 
@@ -754,8 +757,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     }
 
     private boolean rowMatched(final ClientDCInternalInv inv, final int row) {
+        final Set<Integer> matched = this.matchedSlots.getOrDefault(inv, Collections.emptySet());
         for (int slot = row * 9; slot < (row + 1) * 9 && slot < inv.getInventory().getSlots(); slot++) {
-            if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(slot))) {
+            if (matched.contains(slot)) {
                 return true;
             }
         }
