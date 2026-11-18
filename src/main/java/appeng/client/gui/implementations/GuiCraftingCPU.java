@@ -61,7 +61,11 @@ import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -127,6 +131,10 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     private final KeyCounter waiting = new KeyCounter();
 
     private final List<AEKey> visual = new ArrayList<>();
+    /** What {@link #visual} holds, to ask without walking it for every entry an update brings. */
+    private final Set<AEKey> inVisual = new HashSet<>();
+    /** The stack each entry is drawn with, made once rather than every frame. */
+    private final Map<AEKey, ItemStack> displayStacks = new HashMap<>();
     /**
      * What the screen actually shows: {@link #visual} without the rows the filter hides. Kept apart so a
      * filtered-out row still tracks its amounts and comes back when the filter is turned off.
@@ -169,6 +177,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
         this.active.clear();
         this.pending.clear();
         this.visual.clear();
+        this.inVisual.clear();
         this.displayed.clear();
     }
 
@@ -514,7 +523,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
                 final int posX = x * (1 + SECTION_LENGTH) + ITEMSTACK_LEFT_OFFSET + SECTION_LENGTH - 19;
                 final int posY = y * offY + ITEMSTACK_TOP_OFFSET;
 
-                final ItemStack is = refKey.wrapForDisplayOrFilter();
+                final ItemStack is = this.displayStacks.computeIfAbsent(refKey, AEKey::wrapForDisplayOrFilter);
 
                 if (this.tooltip == z - viewStart) {
                     dspToolTip = Platform.getItemDisplayName(refKey);
@@ -677,8 +686,10 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
             final long amt = this.getTotal(l.getWhat());
 
             if (amt <= 0) {
-                this.visual.remove(l.getWhat());
-            } else if (!this.visual.contains(l.getWhat())) {
+                if (this.inVisual.remove(l.getWhat())) {
+                    this.visual.remove(l.getWhat());
+                }
+            } else if (this.inVisual.add(l.getWhat())) {
                 this.visual.add(l.getWhat());
             }
         }

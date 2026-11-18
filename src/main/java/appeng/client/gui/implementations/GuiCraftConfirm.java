@@ -68,8 +68,10 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
@@ -143,6 +145,13 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     private static final int USED_PERCENT_100_COLOR = 0x660F0F;
 
     private final List<AEKey> visual = new ArrayList<>();
+    /** What {@link #visual} holds, to ask without walking it for every entry an update brings. */
+    private final Set<AEKey> inVisual = new HashSet<>();
+    /** The stack each entry is drawn with, made once rather than every frame. */
+    private final Map<AEKey, ItemStack> displayStacks = new HashMap<>();
+    private final NumberFormat bytesFormat = NumberFormat.getInstance();
+    /** By the number of decimals shown. */
+    private static final NumberFormat[] PERCENT_FORMATS = new NumberFormat[5];
     /**
      * What the screen shows: {@link #visual} without the rows the search hides. The saved picture and the
      * Start button still answer for the whole plan, which is why the two lists are kept apart.
@@ -329,7 +338,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
 
         // On the strip the footer leaves above its buttons, across the whole window: the count and the
         // wait message are both wider than anything the header has room for beside a search box.
-        final String byteUsed = NumberFormat.getInstance().format(BytesUsed);
+        final String byteUsed = this.bytesFormat.format(BytesUsed);
         final String bytes = BytesUsed > 0
                 ? byteUsed + ' ' + GuiText.BytesUsed.getLocal()
                 : GuiText.CalculatingWait.getLocal();
@@ -562,8 +571,10 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             final long amt = this.getTotal(l.getWhat());
 
             if (amt <= 0) {
-                this.visual.remove(l.getWhat());
-            } else if (!this.visual.contains(l.getWhat())) {
+                if (this.inVisual.remove(l.getWhat())) {
+                    this.visual.remove(l.getWhat());
+                }
+            } else if (this.inVisual.add(l.getWhat())) {
                 this.visual.add(l.getWhat());
             }
         }
@@ -586,8 +597,11 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
     }
 
     private static String formatUsedPercent(final long fixedPercentage, final int maximumFractionDigits) {
-        final NumberFormat format = NumberFormat.getNumberInstance();
-        format.setMaximumFractionDigits(maximumFractionDigits);
+        NumberFormat format = PERCENT_FORMATS[maximumFractionDigits];
+        if (format == null) {
+            format = PERCENT_FORMATS[maximumFractionDigits] = NumberFormat.getNumberInstance();
+            format.setMaximumFractionDigits(maximumFractionDigits);
+        }
         return format.format((double) fixedPercentage / ContainerCraftConfirm.USED_PERCENT_SCALE);
     }
 
@@ -821,7 +835,7 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
         final int posX = x * (1 + sectionLength) + xo + sectionLength - 19;
         final int posY = y * offY + yo;
 
-        this.drawItem(posX, posY, refKey.wrapForDisplayOrFilter());
+        this.drawItem(posX, posY, this.displayStacks.computeIfAbsent(refKey, AEKey::wrapForDisplayOrFilter));
 
         if (red) {
             final int startX = x * (1 + sectionLength) + xo;
