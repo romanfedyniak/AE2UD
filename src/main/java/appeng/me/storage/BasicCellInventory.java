@@ -515,10 +515,6 @@ public class BasicCellInventory implements StorageCell {
         final long currentAmount = stored.get(what);
         long remainingItemCount = this.getRemainingItemCount(type);
 
-        if (this.equalDistribution) {
-            remainingItemCount = Math.max(0, Math.min(this.getMaxAmountPerType(type) - currentAmount, remainingItemCount));
-        }
-
         if (currentAmount <= 0) {
             if (!this.canHoldNewItem(type)) {
                 // No room for a new type.
@@ -529,6 +525,11 @@ public class BasicCellInventory implements StorageCell {
             if (remainingItemCount <= 0) {
                 return 0;
             }
+        }
+
+        // After the new type's bytes: a share already leaves out the bytes every type costs.
+        if (this.equalDistribution) {
+            remainingItemCount = Math.max(0, Math.min(this.getMaxAmountPerType(type) - currentAmount, remainingItemCount));
         }
 
         long toInsert = amount;
