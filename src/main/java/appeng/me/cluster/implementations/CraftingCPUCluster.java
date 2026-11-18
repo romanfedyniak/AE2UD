@@ -1017,8 +1017,8 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                         final GenericStack[] input = details.getInputs();
                         final double sum = patternPower(details);
 
-                        // power...
-                        if (eg.extractAEPower(sum, Actionable.MODULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
+                        // power... paid once the push goes through, like a draft's
+                        if (eg.extractAEPower(sum, Actionable.SIMULATE, PowerMultiplier.CONFIG) < sum - 0.01) {
                             continue;
                         }
                         ic = new InventoryCrafting(new ContainerNull(), details.getTableWidth(), details.getTableHeight());
@@ -1167,6 +1167,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     if (pushed) {
                         this.toolsSent(ic);
                         this.somethingChanged = true;
+                    if (pushed && draft == null) {
+                        eg.extractAEPower(patternPower(details), Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    }
+
                         this.remainingOperations--;
 
                         // Whatever this push is owed. Only collected for a medium that keeps it: everything
@@ -1305,7 +1309,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         if (!plan.draw(this.inventory, copies, this.machineSrc)) {
             return -1;
         }
-        eg.extractAEPower(powerPerCopy * copies, Actionable.MODULATE, PowerMultiplier.CONFIG);
         for (final AEKey drawn : plan.getDrawnKeys()) {
             this.postChange(drawn, this.machineSrc);
         }
@@ -1337,6 +1340,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 }
             }
         }
+        eg.extractAEPower(powerPerCopy * copies, Actionable.MODULATE, PowerMultiplier.CONFIG);
 
         this.markDirty();
         return copies;
