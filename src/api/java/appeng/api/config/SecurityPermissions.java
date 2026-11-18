@@ -23,6 +23,8 @@
 
 package appeng.api.config;
 
+import java.util.Locale;
+
 
 /**
  * Represent the security systems basic permissions, these are not for anti-griefing, they are part of the mod as a
@@ -57,7 +59,7 @@ public enum SecurityPermissions
 	 */
 	SECURITY;
 
-	private final String unlocalizedName = "gui.appliedenergistics2.security." + this.name().toLowerCase();
+	private final String unlocalizedName = "gui.appliedenergistics2.security." + this.name().toLowerCase(Locale.ROOT);
 
 	public String getUnlocalizedName()
 	{
