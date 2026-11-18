@@ -2050,7 +2050,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         final NBTTagList list = new NBTTagList();
         for (final Entry<ICraftingPatternDetails, TaskProgress> e : this.tasks.entrySet()) {
-            final NBTTagCompound item = e.getKey().getPattern().writeToNBT(new NBTTagCompound());
+            final NBTTagCompound item;
+            if (e.getKey() instanceof VirtualPatternDetails virtual) {
+                // No pattern item stands behind it, and it is the task that ends the job.
+                item = new NBTTagCompound();
+                item.setTag("virtualInputs", this.writeStacks(virtual.getInputs()));
+                item.setTag("virtualOutputs", this.writeStacks(virtual.getOutputs()));
+            } else {
+                item = e.getKey().getPattern().writeToNBT(new NBTTagCompound());
+            }
             item.setLong("craftingProgress", e.getValue().value);
             list.appendTag(item);
         }
@@ -2119,6 +2127,31 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public void readFromNBT(final NBTTagCompound data) {
         this.finalOutput = data.hasKey("finalOutput") ? GenericStack.readTag(data.getCompoundTag("finalOutput")) : null;
+    private NBTTagList writeStacks(final GenericStack[] stacks) {
+        final NBTTagList out = new NBTTagList();
+
+        for (final GenericStack stack : stacks) {
+            final NBTTagCompound tag = new NBTTagCompound();
+            GenericStack.writeTag(tag, stack);
+            out.appendTag(tag);
+        }
+
+        return out;
+    }
+
+    private GenericStack[] readStacks(final NBTTagList tag) {
+        final List<GenericStack> out = new ArrayList<>();
+
+        for (int x = 0; x < tag.tagCount(); x++) {
+            final GenericStack stack = GenericStack.readTag(tag.getCompoundTagAt(x));
+            if (stack != null) {
+                out.add(stack);
+            }
+        }
+
+        return out.toArray(new GenericStack[0]);
+    }
+
 
         for (final var entry : this.readKeyCounter((NBTTagList) data.getTag("inventory"))) {
             this.inventory.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, this.machineSrc);
@@ -2172,6 +2205,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     @Override
+            if (item.hasKey("virtualOutputs")) {
+                final TaskProgress tp = new TaskProgress();
+                tp.value = item.getLong("craftingProgress");
+                this.tasks.put(new VirtualPatternDetails(this.readStacks(item.getTagList("virtualInputs", 10)),
+                        this.readStacks(item.getTagList("virtualOutputs", 10))), tp);
+                continue;
+            }
     public CpuSelectionMode getSelectionMode() {
         return this.selectionMode;
     }
