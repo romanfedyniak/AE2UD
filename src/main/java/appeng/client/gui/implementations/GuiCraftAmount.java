@@ -172,6 +172,8 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
                     GuiText.Back.getLocal(), this.itemRender));
         }
 
+        // initGui runs again on every resize: what the field held then stays.
+        final String typed = this.amountToCraft == null ? null : this.amountToCraft.getText();
         this.amountToCraft = new GuiTextField(0, this.fontRenderer, this.guiLeft + FIELD_X, this.guiTop + FIELD_Y, FIELD_WIDTH, this.fontRenderer.FONT_HEIGHT);
         this.amountToCraft.setEnableBackgroundDrawing(false);
         this.amountToCraft.setMaxStringLength(MAX_FIELD_LENGTH);
@@ -179,7 +181,7 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
         this.amountToCraft.setVisible(true);
         this.amountToCraft.setFocused(true);
         // Stands in for the one tick before the real starting amount arrives, and stays if it never does.
-        this.amountToCraft.setText(this.kept == null ? "1" : this.kept);
+        this.amountToCraft.setText(this.kept != null ? this.kept : typed != null ? typed : "1");
         this.amountToCraft.setSelectionPos(0);
         this.kept = null;
     }
