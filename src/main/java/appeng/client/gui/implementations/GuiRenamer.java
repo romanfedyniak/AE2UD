@@ -204,6 +204,8 @@ public class GuiRenamer extends AEBaseGui implements IJEIGhostIngredients {
             return Collections.emptyList();
         }
 
+        // HEI asks again whenever the hovered ingredient changes; the targets of the last ask are done with.
+        this.mapTargetSlot.clear();
         final List<IGhostIngredientHandler.Target<?>> targets = new ArrayList<>();
 
         for (final Slot slot : this.inventorySlots.inventorySlots) {

@@ -680,6 +680,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public List<Target<?>> getPhantomTargets(Object ingredient) {
+        // HEI asks again whenever the hovered ingredient changes; the targets of the last ask are done with.
+        mapTargetSlot.clear();
         List<Target<?>> targets = new ArrayList<>();
         for (Slot slot : this.inventorySlots.inventorySlots) {
             // A slot scrolled off the page is still in the container; offering it as a drop target would
