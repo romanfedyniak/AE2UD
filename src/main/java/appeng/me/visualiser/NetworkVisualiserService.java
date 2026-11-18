@@ -196,7 +196,8 @@ public final class NetworkVisualiserService {
     }
 
     private void complain(final EntityPlayerMP player, final Watcher watcher, final String message) {
-        if (watcher.sentVersion != -1) {
+        // A first refusal also clears: after a rebind the screen may still hold the picture of the last binding.
+        if (watcher.sentVersion != -1 || watcher.complaint == null) {
             watcher.sentVersion = -1;
             NetworkHandler.instance().sendTo(PacketNetworkVisualiser.clear(), player);
         }

@@ -38,6 +38,12 @@ public final class NetworkVisualiserData {
         version++;
     }
 
+    /** The picture belongs to the server it came from. */
+    public static void clear() {
+        graph = null;
+        version++;
+    }
+
     @Nullable
     public static VisualiserGraph graph() {
         return graph;

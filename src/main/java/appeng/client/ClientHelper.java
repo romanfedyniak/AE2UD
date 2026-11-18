@@ -63,6 +63,7 @@ import appeng.client.gui.implementations.pattern.ProcessingModePanel;
 import appeng.client.gui.implementations.GuiCellView;
 import appeng.client.gui.implementations.GuiPatternView;
 import appeng.entity.RenderTinyTNTPrimed;
+import appeng.client.render.visualiser.NetworkVisualiserData;
 import appeng.client.render.visualiser.NetworkVisualiserRenderer;
 import appeng.helpers.HighlighterHandler;
 import appeng.helpers.IMouseWheelItem;
@@ -154,6 +155,7 @@ public class ClientHelper extends ServerHelper {
             ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities();
             MultiblockLimits.restoreLocal();
             PacketTerminalPins.clearPendingSnapshots();
+            NetworkVisualiserData.clear();
         });
     }
 
