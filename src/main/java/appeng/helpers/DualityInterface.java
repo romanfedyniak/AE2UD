@@ -231,8 +231,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         }
     }
 
-    private static boolean invIsCustomBlocking(BlockingInventoryAdaptor inv) {
-        return (inv.containsBlockingItems());
+    /** No item inventory on that side (a pipe or a cable of the mod), or no tile at all: nothing in it blocks. */
+    private static boolean invIsCustomBlocking(@Nullable BlockingInventoryAdaptor inv) {
+        return inv != null && inv.containsBlockingItems();
     }
 
     @Override
