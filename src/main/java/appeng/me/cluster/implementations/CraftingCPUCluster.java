@@ -108,7 +108,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private final Map<ICraftingCPUListener, Object> listeners = new HashMap<>();
     private final Map<ICraftingPatternDetails, Queue<ICraftingMedium>> visitedMediums = new HashMap<>();
     /** This tick's working copy of {@link #tasks}; a task drops out of it once it is known unworkable. */
-    private final Map<ICraftingPatternDetails, TaskProgress> workableTasks = new HashMap<>();
+    private final List<Entry<ICraftingPatternDetails, TaskProgress>> workableTasks = new ArrayList<>();
+    /** What one call of {@link #canCraft} has set aside per key, kept so the call does not build a map each time. */
+    private final Map<AEKey, Long> consumedCount = new HashMap<>();
+    /** Ticks until a finished job whose leftovers the network would not take tries storing them again. */
+    private int storeRetry;
     /** Mediums already found busy this tick. Cleared every tick, so nothing stays skipped. */
     private final Set<ICraftingMedium> busyMediums = new HashSet<>();
     /** Per pattern and medium: {@code {interval, earliest tick to try again}}. See {@link #backedOff}. */
@@ -285,10 +289,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
     }
 
-    @Override
-    public Iterator<IGridHost> getTiles() {
-        return (Iterator) this.tiles.iterator();
-    }
     /**
      * Lets go of every block without cancelling anything, because part of the CPU is unloading. The job stays
      * with the core: in its chunk's save if the core is the part going away, otherwise written into the core now,
@@ -324,6 +324,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         }
     }
 
+    @Override
+    public Iterator<IGridHost> getTiles() {
+        return (Iterator) this.tiles.iterator();
+    }
 
     void addTile(final TileCraftingTile te) {
         if (this.machineSrc == null || te.isCoreBlock()) {
@@ -358,15 +362,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * @return how much of {@code amount} this job claimed.
      */
     public long injectItems(final AEKey what, final long amount, final Actionable type, final IActionSource src) {
-        return this.settle(what, amount, type, src, true);
-    }
-
-    /**
         // A cluster that has let go of its blocks is still listed until the grid's next tick.
         if (this.isDestroyed) {
             return 0;
         }
 
+        return this.settle(what, amount, type, src, true);
+    }
+
+    /**
      * Whether this pattern is the one that ends the job, which is the only pattern a medium that settles
      * jobs itself may be given. A job with no player behind it is never one of those - see
      * {@link ICraftingMedium#isFakeCrafting()}.
@@ -525,13 +529,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // meaningful iterator that skipped zero-size entries, so resetStatus() did empty it. With reset()
         // here, isBusy() stayed true forever and the CPU was never released - no further job could be
         // submitted until the crafting storage was broken and replaced.
+        final List<AEKey> stillWaited = new ArrayList<>(this.waitingFor.keySet());
         this.waitingFor.clear();
         this.promised.clear();
-        // The next job's patterns are other objects, equal to these: kept as keys, every lookup of them would
-        // compare the whole pattern NBT, and their queues would still hold this job's machines.
-        final List<AEKey> stillWaited = new ArrayList<>(this.waitingFor.keySet());
-        this.visitedMediums.clear();
-        this.drafts.clear();
         // A screen only resends what it is told changed.
         for (final AEKey key : stillWaited) {
             this.postChange(key, this.machineSrc);
@@ -539,6 +539,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // A tool still out belongs to this job; the next one would claim it back from any machine.
         this.tools.clear();
         this.toolsOut.clear();
+        // The next job's patterns are other objects, equal to these: kept as keys, every lookup of them would
+        // compare the whole pattern NBT, and their queues would still hold this job's machines.
+        this.visitedMediums.clear();
+        this.drafts.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
@@ -704,7 +708,8 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             // When substitutions are allowed, we have to keep track of which items we've reserved
             final GenericStack[] inputs = details.getInputs();
             final IPatternInputs patternInputs = details.getPatternInputs();
-            final Map<AEKey, Long> consumedCount = new HashMap<>();
+            final Map<AEKey, Long> consumedCount = this.consumedCount;
+            consumedCount.clear();
             for (int i = 0; i < inputs.length; i++) {
                 final List<GenericStack> substitutes = patternInputs.get(i).getOptions();
                 if (substitutes.isEmpty()) {
@@ -843,8 +848,21 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 return;
             }
 
+            // A full network refuses the leftovers every tick; asking once a second is enough.
+            if (this.storeRetry > 0) {
+                this.storeRetry--;
+                return;
+            }
+
             this.storeItems();
+            if (!this.inventory.getItemList().isEmpty()) {
+                this.storeRetry = 20;
+            }
             return;
+        }
+
+        if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty()) {
+            this.updateElapsedTime();
         }
 
         this.waiting = false;
@@ -862,17 +880,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         // tick and forgotten at the end of it, so nothing stays skipped for longer than that. What a busy
         // medium will take anyway is not remembered with it: that depends on the pattern being offered.
         this.workableTasks.clear();
-        this.workableTasks.putAll(this.tasks);
+        for (final Entry<ICraftingPatternDetails, TaskProgress> task : this.tasks.entrySet()) {
+            this.workableTasks.add(task);
+        }
         this.busyMediums.clear();
         this.pushBackoff.keySet().retainAll(this.tasks.keySet());
         this.drafts.keySet().retainAll(this.tasks.keySet());
         this.keepSeeds();
 
         if (this.remainingOperations > 0) {
-        if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty()) {
-            this.updateElapsedTime();
-        }
-
             do {
                 this.somethingChanged = false;
                 this.executeCrafting(eg, cc);
@@ -896,7 +912,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return;
         }
 
-        final Iterator<Entry<ICraftingPatternDetails, TaskProgress>> i = this.workableTasks.entrySet().iterator();
+        final Iterator<Entry<ICraftingPatternDetails, TaskProgress>> i = this.workableTasks.iterator();
 
         while (i.hasNext()) {
             final Entry<ICraftingPatternDetails, TaskProgress> e = i.next();
@@ -926,13 +942,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 Queue<ICraftingMedium> mediums = visitedMediums.get(details);
                 if (mediums == null || mediums.isEmpty()) {
                     final List<ICraftingMedium> known = cc.getMediums(details);
-                    mediums = new ArrayDeque<>(known.size());
+                    if (mediums == null) {
+                        mediums = new ArrayDeque<>(known.size());
+                        visitedMediums.put(details, mediums);
+                    }
                     for (final ICraftingMedium medium : known) {
                         if (medium != null) {
                             mediums.add(medium);
                         }
                     }
-                    visitedMediums.put(details, mediums);
                 }
 
                 while (!mediums.isEmpty()) {
@@ -1149,6 +1167,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     final boolean pushed = m.pushPattern(details, ic, extras);
                     this.recordPush(details, m, pushed);
 
+                    if (pushed && draft == null) {
+                        eg.extractAEPower(patternPower(details), Actionable.MODULATE, PowerMultiplier.CONFIG);
+                    }
+
                     if (draft != null) {
                         if (pushed) {
                             this.drafts.remove(details);
@@ -1167,10 +1189,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     if (pushed) {
                         this.toolsSent(ic);
                         this.somethingChanged = true;
-                    if (pushed && draft == null) {
-                        eg.extractAEPower(patternPower(details), Actionable.MODULATE, PowerMultiplier.CONFIG);
-                    }
-
                         this.remainingOperations--;
 
                         // Whatever this push is owed. Only collected for a medium that keeps it: everything
@@ -1322,6 +1340,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return 0;
         }
 
+        eg.extractAEPower(powerPerCopy * copies, Actionable.MODULATE, PowerMultiplier.CONFIG);
         this.somethingChanged = true;
         this.remainingOperations -= copies;
         this.toolsSent(table);
@@ -1340,7 +1359,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                 }
             }
         }
-        eg.extractAEPower(powerPerCopy * copies, Actionable.MODULATE, PowerMultiplier.CONFIG);
 
         this.markDirty();
         return copies;
@@ -2109,6 +2127,31 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return out;
     }
 
+    private NBTTagList writeStacks(final GenericStack[] stacks) {
+        final NBTTagList out = new NBTTagList();
+
+        for (final GenericStack stack : stacks) {
+            final NBTTagCompound tag = new NBTTagCompound();
+            GenericStack.writeTag(tag, stack);
+            out.appendTag(tag);
+        }
+
+        return out;
+    }
+
+    private GenericStack[] readStacks(final NBTTagList tag) {
+        final List<GenericStack> out = new ArrayList<>();
+
+        for (int x = 0; x < tag.tagCount(); x++) {
+            final GenericStack stack = GenericStack.readTag(tag.getCompoundTagAt(x));
+            if (stack != null) {
+                out.add(stack);
+            }
+        }
+
+        return out.toArray(new GenericStack[0]);
+    }
+
     private KeyCounter readKeyCounter(final NBTTagList tag) {
         final KeyCounter out = new KeyCounter();
 
@@ -2143,31 +2186,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public void readFromNBT(final NBTTagCompound data) {
         this.finalOutput = data.hasKey("finalOutput") ? GenericStack.readTag(data.getCompoundTag("finalOutput")) : null;
-    private NBTTagList writeStacks(final GenericStack[] stacks) {
-        final NBTTagList out = new NBTTagList();
-
-        for (final GenericStack stack : stacks) {
-            final NBTTagCompound tag = new NBTTagCompound();
-            GenericStack.writeTag(tag, stack);
-            out.appendTag(tag);
-        }
-
-        return out;
-    }
-
-    private GenericStack[] readStacks(final NBTTagList tag) {
-        final List<GenericStack> out = new ArrayList<>();
-
-        for (int x = 0; x < tag.tagCount(); x++) {
-            final GenericStack stack = GenericStack.readTag(tag.getCompoundTagAt(x));
-            if (stack != null) {
-                out.add(stack);
-            }
-        }
-
-        return out.toArray(new GenericStack[0]);
-    }
-
 
         for (final var entry : this.readKeyCounter((NBTTagList) data.getTag("inventory"))) {
             this.inventory.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE, this.machineSrc);
@@ -2187,6 +2205,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         final NBTTagList list = data.getTagList("tasks", 10);
         for (int x = 0; x < list.tagCount(); x++) {
             final NBTTagCompound item = list.getCompoundTagAt(x);
+            if (item.hasKey("virtualOutputs")) {
+                final TaskProgress tp = new TaskProgress();
+                tp.value = item.getLong("craftingProgress");
+                this.tasks.put(new VirtualPatternDetails(this.readStacks(item.getTagList("virtualInputs", 10)),
+                        this.readStacks(item.getTagList("virtualOutputs", 10))), tp);
+                continue;
+            }
             final ItemStack pattern = new ItemStack(item);
             if (!pattern.isEmpty() && pattern.getItem() instanceof ICraftingPatternItem) {
                 final ICraftingPatternItem cpi = (ICraftingPatternItem) pattern.getItem();
@@ -2195,6 +2220,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     final TaskProgress tp = new TaskProgress();
                     tp.value = item.getLong("craftingProgress");
                     this.tasks.put(details, tp);
+                    this.rememberTools(details);
                 }
             }
         }
@@ -2221,13 +2247,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     @Override
-            if (item.hasKey("virtualOutputs")) {
-                final TaskProgress tp = new TaskProgress();
-                tp.value = item.getLong("craftingProgress");
-                this.tasks.put(new VirtualPatternDetails(this.readStacks(item.getTagList("virtualInputs", 10)),
-                        this.readStacks(item.getTagList("virtualOutputs", 10))), tp);
-                continue;
-            }
     public CpuSelectionMode getSelectionMode() {
         return this.selectionMode;
     }
@@ -2236,7 +2255,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * Sets the mode and records it in every block of the CPU, so that it survives the cluster being formed again.
      */
     public void setSelectionMode(final CpuSelectionMode mode) {
-                    this.rememberTools(details);
         this.selectionMode = mode;
         for (final TileCraftingTile te : this.tiles) {
             te.setSelectionMode(mode);
