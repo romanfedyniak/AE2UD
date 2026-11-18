@@ -143,7 +143,12 @@ public class OreDictFilterMatcher {
 
         boolean startWild = filter.startsWith("*"), endWild = filter.endsWith("*");
         if (startWild) {
-            filter = filter.substring(1);
+            // All the leading stars: "* *" arrives here as "**", and a part left empty matches in the same place
+            // over and over.
+            filter = filter.replaceFirst("^\\*+", "");
+            if (filter.isEmpty()) {
+                return true;
+            }
         }
 
         String[] parts = filter.split("\\*+");
