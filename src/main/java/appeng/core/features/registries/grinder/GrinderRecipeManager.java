@@ -22,6 +22,7 @@ package appeng.core.features.registries.grinder;
 import appeng.api.features.*;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.core.features.AEFeature;
 import appeng.recipes.ores.IOreListener;
 import appeng.recipes.ores.OreDictionaryHandler;
 import appeng.util.Platform;
@@ -103,17 +104,23 @@ public final class GrinderRecipeManager implements IGrinderRegistry, IOreListene
         final CacheKey key = new CacheKey(recipe.getInput());
         final IGrinderRecipe removedRecipe = this.recipes.remove(key);
 
-        this.log("Removed Grinding of '%1%s'", Platform.getItemDisplayName(recipe.getInput()));
+        if (logging()) {
+            this.log("Removed Grinding of '%1$s'", Platform.getItemDisplayName(recipe.getInput()));
+        }
 
         return removedRecipe != null;
     }
 
     @Override
     public IGrinderRecipe getRecipeForInput(final ItemStack input) {
-        this.log("Looking up recipe for '%1$s'", Platform.getItemDisplayName(input));
-
         if (input == null) {
             return null;
+        }
+
+        // Asked on every insertion attempt into a grindstone; the names are made only for a log that is on.
+        final boolean logging = logging();
+        if (logging) {
+            this.log("Looking up recipe for '%1$s'", Platform.getItemDisplayName(input));
         }
 
         final IGrinderRecipe recipe = this.recipes.get(new CacheKey(input));
@@ -122,7 +129,9 @@ public final class GrinderRecipeManager implements IGrinderRegistry, IOreListene
             return null;
         }
 
-        this.log("Recipe for '%1$s' found '%2$s'", input.getTranslationKey(), Platform.getItemDisplayName(recipe.getOutput()));
+        if (logging) {
+            this.log("Recipe for '%1$s' found '%2$s'", input.getTranslationKey(), Platform.getItemDisplayName(recipe.getOutput()));
+        }
         return recipe;
     }
 
@@ -286,6 +295,10 @@ public final class GrinderRecipeManager implements IGrinderRegistry, IOreListene
                 this.addRecipe(grinderRecipe);
             }
         }
+    }
+
+    private static boolean logging() {
+        return AEConfig.instance().isFeatureEnabled(AEFeature.GRINDER_LOGGING);
     }
 
     private void log(final String o, Object... params) {
