@@ -19,6 +19,7 @@
 package appeng.container.slot;
 
 
+import appeng.api.stacks.GenericStack;
 import appeng.container.AEBaseContainer;
 import appeng.util.helpers.ItemHandlerUtil;
 import net.minecraft.entity.player.EntityPlayer;
@@ -26,11 +27,14 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -50,6 +54,16 @@ public class AppEngSlot extends Slot {
     private hasCalculatedValidness isValid;
     private boolean isDisplay = false;
     private boolean returnAsSingleStack;
+    /** A stand-in drawn in place of the slot's stack, and its copy at a count of one. */
+    private ItemStack singleFrom = ItemStack.EMPTY;
+    private ItemStack single = ItemStack.EMPTY;
+    /** What the drawn stack stands for, and the stack it was worked out from. */
+    @Nullable
+    private GenericStack resolved;
+    private ItemStack resolvedFrom = ItemStack.EMPTY;
+    private int resolvedCount;
+    @Nullable
+    private NBTTagCompound resolvedTag;
     /** Where the slot was built, which {@link #restoreHome()} puts it back to. */
     private final int homeX;
     private final int homeY;
@@ -119,14 +133,49 @@ public class AppEngSlot extends Slot {
             this.setDisplay(false);
             if (this.returnAsSingleStack()) {
                 setReturnAsSingleStack(false);
-                ItemStack ret = this.getDisplayStack().copy();
-                ret.setCount(1);
-                return ret;
+                return this.singleOf(this.getDisplayStack());
             }
             return this.getDisplayStack();
         }
 
         return this.itemHandler.getStackInSlot(this.index);
+    }
+
+    /**
+     * The display stack at a count of one, for drawing, which asks every frame. A stack of one is drawn as it is.
+     * A stand-in the slot draws in place of its stack (a pattern's output) does not change while it is shown, so
+     * its copy is kept; the slot's own stack is copied, as it may have changed in place.
+     */
+    private ItemStack singleOf(final ItemStack display) {
+        if (display.getCount() == 1) {
+            return display;
+        }
+        if (display == this.singleFrom) {
+            return this.single;
+        }
+        final ItemStack copy = display.copy();
+        copy.setCount(1);
+        if (display != this.itemHandler.getStackInSlot(this.index)) {
+            this.singleFrom = display;
+            this.single = copy;
+        }
+        return copy;
+    }
+
+    /**
+     * What the stack drawn in this slot stands for, for its amount and its craftable mark. Drawing asks every
+     * frame; the key (a copy of the tag, the capabilities written out) is built again only when the stack changed.
+     */
+    @Nullable
+    public GenericStack resolveForDisplay(final ItemStack stack) {
+        if (stack != this.resolvedFrom || stack.getCount() != this.resolvedCount
+                || !Objects.equals(stack.getTagCompound(), this.resolvedTag)) {
+            this.resolved = GenericStack.resolveItemStack(stack);
+            this.resolvedFrom = stack;
+            this.resolvedCount = stack.getCount();
+            this.resolvedTag = stack.getTagCompound() == null ? null : stack.getTagCompound().copy();
+        }
+        return this.resolved;
     }
 
     private boolean returnAsSingleStack() {

@@ -1731,7 +1731,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
                     this.dragSplitting = wasDragSplitting;
                     // Resolve, not fromItemStack: the latter reads a placeholder as the ordinary item it is -
                     // one WrappedGenericStack - so a slot holding a bucket of water drew "1" for "1000".
-                    final GenericStack resolved = GenericStack.resolveItemStack(stackInSlot);
+                    final GenericStack resolved = appEngSlot.resolveForDisplay(stackInSlot);
                     // SlotCraftingMatrix (the crafting terminal's actual grid) holds a real item already
                     // placed there, not a browsable network key - marking it craftable would be
                     // nonsensical. SlotFakePatternGrid (the pattern terminal's ingredient slots) is a
