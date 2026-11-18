@@ -230,10 +230,12 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
      */
     @Override
     public NBTTagCompound getUpdateTag() {
-        final NBTTagCompound data = this.writeUpdateData();
+        NBTTagCompound data = this.writeUpdateData();
 
+        // The position even with nothing to stream: the chunk packet hands the tag to the tile it names, and a tag
+        // without one names whatever stands at 0 0 0.
         if (data == null) {
-            return new NBTTagCompound();
+            data = new NBTTagCompound();
         }
 
         data.setInteger("x", this.pos.getX());
@@ -247,6 +249,10 @@ public class AEBaseTile extends TileEntity implements IOrientable, ICommonTile, 
      */
     @Override
     public void handleUpdateTag(NBTTagCompound tag) {
+        if (!tag.hasKey("X")) {
+            return;
+        }
+
         final ByteBuf stream = Unpooled.copiedBuffer(tag.getByteArray("X"));
 
         if (this.readUpdateData(stream)) {
