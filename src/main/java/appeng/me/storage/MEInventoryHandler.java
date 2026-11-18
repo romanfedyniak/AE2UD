@@ -213,8 +213,10 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         }
 
         // Inventories that already contain some equal stack are also preferred; a simulated extraction of size 1
-        // is enough to check, and avoids forcing sub-inventories to compute a larger simulated extraction.
-        if (super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
+        // is enough to check, and avoids forcing sub-inventories to compute a larger simulated extraction. One that
+        // keeps a count is asked that instead: the extraction walks every slot of a big inventory.
+        if (this.getDelegate() instanceof ICountedStorage counted ? counted.holds(input)
+                : super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
             return true;
         }
 

@@ -30,6 +30,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
 import appeng.api.storage.IStorageChangeSource;
+import appeng.me.storage.ICountedStorage;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.StorageChangeListeners;
 import appeng.util.inv.ItemHandlerIterator;
@@ -55,7 +56,7 @@ import javax.annotation.Nullable;
  * {@link PartStorageBus} can hold onto the {@code Factory} for the part's whole lifetime and only re-resolve the
  * capability when it actually needs to.
  */
-class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
+class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource, ICountedStorage {
     private final IItemHandler itemHandler;
     private final boolean extractableOnly;
     @Nullable
@@ -165,6 +166,11 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         }
 
         return extracted;
+    }
+
+    @Override
+    public boolean holds(final AEKey what) {
+        return this.currentlyCached.get(what) > 0;
     }
 
     @Override

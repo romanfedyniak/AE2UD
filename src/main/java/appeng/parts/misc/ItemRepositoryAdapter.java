@@ -9,6 +9,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
 import appeng.api.storage.IStorageChangeSource;
+import appeng.me.storage.ICountedStorage;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.StorageChangeListeners;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
@@ -26,7 +27,7 @@ import java.util.Map;
  * {@link appeng.api.behaviors.StackWorldBehaviors} because {@code IItemRepository} is not keyed by
  * {@link appeng.api.stacks.AEKeyType} at all, it is a capability specific to one third-party inventory mod.
  */
-class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
+class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource, ICountedStorage {
     private final IItemRepository itemRepository;
     private KeyCounter currentlyCached = new KeyCounter();
     // The key of each drawer's prototype stack, which a drawer keeps as one object while it holds that item: a
@@ -94,6 +95,11 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
         }
 
         return extracted.getCount();
+    }
+
+    @Override
+    public boolean holds(final AEKey what) {
+        return this.currentlyCached.get(what) > 0;
     }
 
     @Override
