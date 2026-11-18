@@ -982,7 +982,6 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     private boolean usePlan(final int x, final GenericStack itemStack) {
-        final InventoryAdaptor adaptor = this.getAdaptor(x);
         this.isWorking = x;
 
         boolean changed = false;
@@ -1014,7 +1013,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
 
             if (this.craftingTracker.isBusy(x)) {
-                changed = this.handleCrafting(x, adaptor, itemStack) || changed;
+                changed = this.handleCrafting(x, itemStack) || changed;
             } else if (itemStack.amount() > 0) {
                 // Make sure the plan isn't stale: the slot must still have room for the whole amount.
                 if (this.storage.insert(x, what, itemStack.amount(), Actionable.SIMULATE) != itemStack.amount()) {
@@ -1029,7 +1028,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         throw new IllegalStateException("bad attempt at managing inventory. ( addItems )");
                     }
                 } else if (this.gridProxy.getCrafting().isCraftable(what)) {
-                    changed = this.handleCrafting(x, adaptor, itemStack) || changed;
+                    changed = this.handleCrafting(x, itemStack) || changed;
                 }
             }
             // else wtf?
@@ -1045,16 +1044,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         return changed;
     }
 
-    private InventoryAdaptor getAdaptor(final int slot) {
-        // Still item-shaped, because the crafting tracker delivers a finished craft through an
-        // InventoryAdaptor. Restricted to the one slot, as before.
-        return new AdaptorItemHandler(new WrapperRangeItemHandler(this.storageItems, slot, slot + 1));
-    }
-
-    private boolean handleCrafting(final int x, final InventoryAdaptor d, final GenericStack itemStack) {
+    /** Orders what the slot lacks, of any key type the slot holds - a fluid as well as an item. */
+    private boolean handleCrafting(final int x, final GenericStack itemStack) {
         try {
             if (this.isInstalled(CardTraits.CRAFTING) && itemStack != null) {
-                return this.craftingTracker.handleCrafting(x, itemStack.amount(), itemStack.what(), d, this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
+                return this.craftingTracker.handleCrafting(x, itemStack.amount(), itemStack.what(),
+                        () -> this.storage.insert(x, itemStack.what(), itemStack.amount(), Actionable.SIMULATE) == itemStack.amount(),
+                        this.iHost.getTileEntity().getWorld(), this.gridProxy.getGrid(), this.gridProxy.getCrafting(), this.mySource);
             }
         } catch (final GridAccessException e) {
             // :P
@@ -2056,17 +2052,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public GenericStack injectCraftedItems(final ICraftingLink link, final GenericStack items, final Actionable mode) {
         final int slot = this.craftingTracker.getSlot(link);
 
-        if (items != null && slot >= 0 && slot <= this.requireWork.length && items.what() instanceof AEItemKey itemKey) {
-            final InventoryAdaptor adaptor = this.getAdaptor(slot);
-            final ItemStack toInsert = itemKey.toStack((int) Math.min(items.amount(), Integer.MAX_VALUE));
-
-            if (mode == Actionable.SIMULATE) {
-                return GenericStack.fromItemStack(adaptor.simulateAdd(toInsert));
-            } else {
-                final GenericStack remainder = GenericStack.fromItemStack(adaptor.addItems(toInsert));
+        if (items != null && slot >= 0 && slot < this.requireWork.length) {
+            final long inserted = this.storage.insert(slot, items.what(), items.amount(), mode);
+            if (mode == Actionable.MODULATE) {
                 this.updatePlan(slot);
-                return remainder;
             }
+            return inserted >= items.amount() ? null : new GenericStack(items.what(), items.amount() - inserted);
         }
 
         return items;
