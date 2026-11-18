@@ -152,6 +152,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         final int oldCellState = this.cellState;
         final boolean oldPowered = this.powered;
 
+        this.cellState = 0;
         for (int x = 0; x < this.getCellCount(); x++) {
             this.cellState |= (this.getCellStatus(x) << (3 * x));
         }
@@ -303,7 +304,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             return false;
         }
 
-        return (this.blinking & (1 << slot)) == 1;
+        return (this.blinking & (1 << slot)) != 0;
     }
 
     @Override

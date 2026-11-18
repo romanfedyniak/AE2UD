@@ -75,6 +75,7 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
     private boolean powered;
     // bit index corresponds to cell index
     private int blinking;
+    private long lastBlink;
 
     public TileDrive() {
         this.mySrc = new MachineSource(this);
@@ -158,7 +159,10 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
 
     @Override
     public boolean isCellBlinking(final int slot) {
-        return (this.blinking & (1 << slot)) == 1;
+        if (this.world == null || this.world.getTotalWorldTime() - this.lastBlink > 8) {
+            return false;
+        }
+        return (this.blinking & (1 << slot)) != 0;
     }
 
     @Override
@@ -195,8 +199,9 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
             }
         }
 
+        this.cellState = 0;
         for (int x = 0; x < this.getCellCount(); x++) {
-            cellState |= (this.getCellStatus(x) << (3 * x));
+            this.cellState |= (this.getCellStatus(x) << (3 * x));
         }
 
         if (oldCellState != this.cellState || oldPowered != this.powered) {
@@ -303,6 +308,11 @@ public class TileDrive extends AENetworkInvTile implements IChestOrDrive, IPrior
      * creates in {@link #mountInventories(IStorageMounts)}.
      */
     public void blinkCell(final int slot) {
+        final long now = this.world.getTotalWorldTime();
+        if (now - this.lastBlink > 8) {
+            this.blinking = 0;
+        }
+        this.lastBlink = now;
         this.blinking |= (1 << slot);
 
         this.recalculateDisplay();
