@@ -66,6 +66,7 @@ import appeng.me.helpers.AENetworkProxy;
 import appeng.util.helpers.ItemComparisonHelper;
 import appeng.util.helpers.P2PHelper;
 import appeng.util.item.OreHelper;
+import appeng.util.item.OreReference;
 import appeng.util.prioritylist.IPartitionList;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -1397,13 +1398,22 @@ public class Platform {
             final boolean checkFuzzy = OreHelper.INSTANCE.getOre(providedTemplate).isPresent() || providedTemplate.getItemDamage() == OreDictionary.WILDCARD_VALUE || providedTemplate.hasTagCompound() || providedTemplate.isItemStackDamageable();
 
             if (items != null && checkFuzzy) {
+                // Every entry of the network is looked at: no stack is made for one until it is the same item or
+                // shares an ore name, both answered from the key.
+                final OreReference reqOre = OreHelper.INSTANCE.getOre(ae_req);
                 for (final Object2LongMap.Entry<AEKey> entry : items) {
                     if (!(entry.getKey() instanceof AEItemKey x)) {
                         continue;
                     }
 
+                    final boolean sameItem = x.getItem() == providedTemplate.getItem();
+                    final boolean sameOre = reqOre != null && OreHelper.INSTANCE.sameOre(reqOre, OreHelper.INSTANCE.getOre(x));
+                    if (!sameItem && !sameOre) {
+                        continue;
+                    }
+
                     final ItemStack sh = x.getReadOnlyStack();
-                    if ((Platform.itemComparisons().isEqualItemType(providedTemplate, sh) || OreHelper.INSTANCE.sameOre(ae_req, x)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
+                    if ((sameOre || Platform.itemComparisons().isEqualItemType(providedTemplate, sh)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
                         final ItemStack cp = sh.copy();
                         cp.setCount(1);
                         ci.setInventorySlotContents(slot, cp);
