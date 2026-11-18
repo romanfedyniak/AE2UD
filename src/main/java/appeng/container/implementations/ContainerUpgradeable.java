@@ -239,7 +239,7 @@ public abstract class ContainerUpgradeable extends AEBaseContainer implements IO
 
             if (currentItem != this.tbInventory.getItemStack()) {
                 if (!currentItem.isEmpty()) {
-                    if (ItemStack.areItemsEqual(this.tbInventory.getItemStack(), currentItem)) {
+                    if (mayRestoreHeld(this.getPlayerInv(), this.tbInventory.getItemStack(), currentItem)) {
                         this.getPlayerInv().setInventorySlotContents(this.tbSlot, this.tbInventory.getItemStack());
                     } else {
                         this.setValidContainer(false);

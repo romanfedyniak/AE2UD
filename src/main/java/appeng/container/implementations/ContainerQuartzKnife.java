@@ -40,6 +40,7 @@ import javax.annotation.Nonnull;
 public class ContainerQuartzKnife extends AEBaseContainer {
 
     private final QuartzKnifeObj toolInv;
+    private final int toolSlot;
 
     private final IItemHandler inSlot = new AppEngInternalInventory(null, 1, 1);
     private String myName = "";
@@ -47,6 +48,7 @@ public class ContainerQuartzKnife extends AEBaseContainer {
     public ContainerQuartzKnife(final InventoryPlayer ip, final QuartzKnifeObj te) {
         super(ip, null, null);
         this.toolInv = te;
+        this.toolSlot = ip.currentItem;
 
         this.addSlotToContainer(new SlotRestrictedInput(SlotRestrictedInput.PlacableItemType.METAL_INGOTS, this.inSlot, 0, 94, 44, ip));
         this.addSlotToContainer(new QuartzKniveSlot(this.inSlot, 0, 134, 44, -1));
@@ -62,15 +64,14 @@ public class ContainerQuartzKnife extends AEBaseContainer {
 
     @Override
     public void detectAndSendChanges() {
-        final ItemStack currentItem = this.getPlayerInv().getCurrentItem();
+        // The knife lives in the slot it was opened from; see ContainerNetworkTool.
+        final ItemStack currentItem = this.getPlayerInv().getStackInSlot(this.toolSlot);
 
-        if (currentItem != this.toolInv.getItemStack()) {
-            if (!currentItem.isEmpty()) {
-                if (ItemStack.areItemsEqual(this.toolInv.getItemStack(), currentItem)) {
-                    this.getPlayerInv().setInventorySlotContents(this.getPlayerInv().currentItem, this.toolInv.getItemStack());
-                } else {
-                    this.setValidContainer(false);
-                }
+        if (this.getPlayerInv().currentItem != this.toolSlot) {
+            this.setValidContainer(false);
+        } else if (currentItem != this.toolInv.getItemStack()) {
+            if (!currentItem.isEmpty() && mayRestoreHeld(this.getPlayerInv(), this.toolInv.getItemStack(), currentItem)) {
+                this.getPlayerInv().setInventorySlotContents(this.toolSlot, this.toolInv.getItemStack());
             } else {
                 this.setValidContainer(false);
             }
@@ -139,7 +140,7 @@ public class ContainerQuartzKnife extends AEBaseContainer {
 
                     if (item.getCount() == 0) {
                         ContainerQuartzKnife.this.getPlayerInv()
-                                .setInventorySlotContents(ContainerQuartzKnife.this.getPlayerInv().currentItem, ItemStack.EMPTY);
+                                .setInventorySlotContents(ContainerQuartzKnife.this.toolSlot, ItemStack.EMPTY);
                         MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(ContainerQuartzKnife.this.getPlayerInv().player, before, null));
                     }
 

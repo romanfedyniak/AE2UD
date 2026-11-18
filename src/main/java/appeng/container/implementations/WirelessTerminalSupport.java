@@ -105,7 +105,7 @@ public final class WirelessTerminalSupport implements IAEAppEngInventory {
         if (currentItem.isEmpty()) {
             this.container.setValidContainer(false);
         } else if (!this.terminal.getItemStack().isEmpty() && currentItem != this.terminal.getItemStack()) {
-            if (ItemStack.areItemsEqual(this.terminal.getItemStack(), currentItem)) {
+            if (AEBaseContainer.mayRestoreHeld(this.container.getPlayerInv(), this.terminal.getItemStack(), currentItem)) {
                 if (this.terminal.isBaubleSlot()) {
                     BaublesApi.getBaublesHandler(this.container.getPlayerInv().player)
                             .setStackInSlot(this.slot, this.terminal.getItemStack());

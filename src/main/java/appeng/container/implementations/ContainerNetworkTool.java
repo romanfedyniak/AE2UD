@@ -33,6 +33,7 @@ import net.minecraft.nbt.NBTTagCompound;
 public class ContainerNetworkTool extends AEBaseContainer {
 
     private final INetworkTool toolInv;
+    private final int toolSlot;
 
     @GuiSync(1)
     public boolean facadeMode;
@@ -40,6 +41,7 @@ public class ContainerNetworkTool extends AEBaseContainer {
     public ContainerNetworkTool(final InventoryPlayer ip, final INetworkTool te) {
         super(ip, null, null);
         this.toolInv = te;
+        this.toolSlot = ip.currentItem;
 
         this.lockPlayerInventorySlot(ip.currentItem);
 
@@ -61,22 +63,22 @@ public class ContainerNetworkTool extends AEBaseContainer {
 
     @Override
     public void detectAndSendChanges() {
-        final ItemStack currentItem = this.getPlayerInv().getCurrentItem();
+        // The tool lives in the slot it was opened from. Another slot selected meanwhile (the server takes that
+        // packet whatever screen is open) is not the tool, even when it holds an equal one.
+        final ItemStack currentItem = this.getPlayerInv().getStackInSlot(this.toolSlot);
 
-        if (currentItem != this.toolInv.getItemStack()) {
-            if (!currentItem.isEmpty()) {
-                if (ItemStack.areItemsEqual(this.toolInv.getItemStack(), currentItem)) {
-                    this.getPlayerInv().setInventorySlotContents(this.getPlayerInv().currentItem, this.toolInv.getItemStack());
-                } else {
-                    this.setValidContainer(false);
-                }
+        if (this.getPlayerInv().currentItem != this.toolSlot) {
+            this.setValidContainer(false);
+        } else if (currentItem != this.toolInv.getItemStack()) {
+            if (!currentItem.isEmpty() && mayRestoreHeld(this.getPlayerInv(), this.toolInv.getItemStack(), currentItem)) {
+                this.getPlayerInv().setInventorySlotContents(this.toolSlot, this.toolInv.getItemStack());
             } else {
                 this.setValidContainer(false);
             }
         }
 
         if (this.isValidContainer()) {
-            final NBTTagCompound data = Platform.openNbtData(currentItem);
+            final NBTTagCompound data = Platform.openNbtData(this.toolInv.getItemStack());
             this.setFacadeMode(data.getBoolean("hideFacades"));
         }
 

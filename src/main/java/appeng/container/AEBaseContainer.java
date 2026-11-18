@@ -261,6 +261,24 @@ public abstract class AEBaseContainer extends Container {
         return allowed.length() > MAX_NAME_LENGTH ? allowed.substring(0, MAX_NAME_LENGTH) : allowed;
     }
 
+    /**
+     * Whether the stack a screen was opened with may be put back into its slot, which now holds another
+     * instance. Only over an exact copy (something swapped the instance), and only while the original is nowhere
+     * else in the inventory: written back while it still sits in another slot, two slots would share one stack,
+     * and whatever the slot held instead would be gone.
+     */
+    public static boolean mayRestoreHeld(final InventoryPlayer inv, final ItemStack original, final ItemStack current) {
+        if (!ItemStack.areItemStacksEqual(original, current)) {
+            return false;
+        }
+        for (int i = 0; i < inv.getSizeInventory(); i++) {
+            if (inv.getStackInSlot(i) == original) {
+                return false;
+            }
+        }
+        return inv.getItemStack() != original;
+    }
+
     public Object getTarget() {
         if (this.tileEntity != null) {
             return this.tileEntity;

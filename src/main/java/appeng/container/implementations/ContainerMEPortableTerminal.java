@@ -113,7 +113,7 @@ public class ContainerMEPortableTerminal extends ContainerMEMonitorable implemen
             if (currentItem.isEmpty()) {
                 this.setValidContainer(false);
             } else if (!this.wirelessTerminalGUIObject.getItemStack().isEmpty() && currentItem != this.wirelessTerminalGUIObject.getItemStack()) {
-                if (ItemStack.areItemsEqual(this.wirelessTerminalGUIObject.getItemStack(), currentItem)) {
+                if (mayRestoreHeld(this.getPlayerInv(), this.wirelessTerminalGUIObject.getItemStack(), currentItem)) {
                     if (wirelessTerminalGUIObject.isBaubleSlot()) {
                         BaublesApi.getBaublesHandler(this.getPlayerInv().player).setStackInSlot(this.slot, this.wirelessTerminalGUIObject.getItemStack());
                     } else {
