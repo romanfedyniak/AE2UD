@@ -26,7 +26,7 @@ import appeng.core.AEConfig;
 import appeng.core.features.AEFeature;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketNetworkPickBlock;
-import appeng.core.transformer.PickBlockPatch;
+import appeng.hooks.ColorApplicatorPickBlock;
 
 /**
  * The vanilla pick block key, once vanilla itself has had its turn and found nothing.
@@ -55,7 +55,7 @@ public final class NetworkPickBlock {
         }
 
         // The color applicator takes this same click to read a color off a block, and has already had it.
-        if (PickBlockPatch.isColorApplicatorPickBlock(hit, player)) {
+        if (ColorApplicatorPickBlock.isColorApplicatorPickBlock(hit, player)) {
             return;
         }
 

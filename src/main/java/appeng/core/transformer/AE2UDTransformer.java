@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import net.minecraft.launchwrapper.IClassTransformer;
-import net.minecraft.launchwrapper.Launch;
 import net.minecraftforge.fml.common.Loader;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -52,10 +51,11 @@ public class AE2UDTransformer implements IClassTransformer {
         transformedName = transformedName.replace('/', '.');
 
         if ("net.minecraftforge.common.ForgeHooks".equals(transformedName)) {
+            // The frames are kept as read: recomputing them would load classes from inside the transformer.
             ClassReader cr = new ClassReader(basicClass);
-            ClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES);
+            ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
             ClassVisitor cv = new PickBlockPatch(cw);
-            cr.accept(cv, ClassReader.EXPAND_FRAMES);
+            cr.accept(cv, 0);
             return cw.toByteArray();
         }
 
@@ -194,41 +194,6 @@ public class AE2UDTransformer implements IClassTransformer {
                     nodeData.fields.add(mn);
                     added = true;
                 }
-            }
-        }
-
-    }
-
-    private static class SafeClassWriter extends ClassWriter {
-
-        public SafeClassWriter(int flags) {
-            super(flags);
-        }
-
-        @Override
-        protected String getCommonSuperClass(final String type1, final String type2) {
-            Class<?> c, d;
-            // clueless
-            ClassLoader classLoader = Launch.classLoader;
-            try {
-                c = Class.forName(type1.replace('/', '.'), false, classLoader);
-                d = Class.forName(type2.replace('/', '.'), false, classLoader);
-            } catch (Exception e) {
-                throw new RuntimeException(e.toString());
-            }
-            if (c.isAssignableFrom(d)) {
-                return type1;
-            }
-            if (d.isAssignableFrom(c)) {
-                return type2;
-            }
-            if (c.isInterface() || d.isInterface()) {
-                return "java/lang/Object";
-            } else {
-                do {
-                    c = c.getSuperclass();
-                } while (!c.isAssignableFrom(d));
-                return c.getName().replace('.', '/');
             }
         }
 
