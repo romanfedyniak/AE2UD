@@ -398,6 +398,19 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
             final ClickType clickType) {
     }
 
+    /** Shift and the wheel would roll amounts in and out of the window underneath on the server. */
+    @Override
+    protected void mouseWheelEvent(final int x, final int y, final int wheel) {
+    }
+
+    /** A drag moves the scroll bar and nothing else; over the cell's icon it would set a filter underneath. */
+    @Override
+    protected void mouseClickMove(final int x, final int y, final int button, final long time) {
+        if (this.getScrollBar() != null) {
+            this.getScrollBar().click(this, x - this.guiLeft, y - this.guiTop);
+        }
+    }
+
     /**
      * Escape and the inventory key would ordinarily tell the server to close a window, but this screen never
      * opened one - the player's real container is still the screen underneath. Put that back instead.
