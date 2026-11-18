@@ -650,7 +650,9 @@ public abstract class AEBaseContainer extends Container {
         if (slot >= 0 && slot < this.inventorySlots.size()) {
             final Slot s = this.getSlot(slot);
 
-            if (s instanceof SlotCraftingTerm) {
+            // The pattern terminal's preview is a crafting slot too, but over a grid of ghosts: crafting from it
+            // would hand out the result of ingredients nobody paid for. Its screen never sends these.
+            if (s instanceof SlotCraftingTerm && !(s instanceof SlotPatternTerm)) {
                 switch (action) {
                     case CRAFT_SHIFT:
                     case CRAFT_ITEM:
