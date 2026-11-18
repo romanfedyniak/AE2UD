@@ -105,6 +105,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.fluids.FluidStack;
@@ -184,6 +185,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private Set<AEKeyType> pushedTypes = Collections.emptySet();
     private boolean resetConfigCache = true;
     private MEStorage configCachedHandler;
+    /** What a neighbour without access is shown: the interface's own slots. */
+    private MEStorage restrictedView;
 
     private YesNo redstoneState = YesNo.UNDECIDED;
 
@@ -892,9 +895,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
                 if (!targetTE.getInterfaceDuality().sameGrid(this.gridProxy.getGrid())) {
                     IStorageMonitorableAccessor mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
-                    if (mon != null) {
+                    if (mon != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
                         MEStorage inv = mon.getInventory(this.mySource);
-                        if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
+                        if (inv != null) {
                             this.insertWaiting(s, inv);
                         }
                     }
@@ -1169,7 +1172,10 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             return myInterface;
         }
 
-        return new InterfaceInventory(this);
+        if (this.restrictedView == null) {
+            this.restrictedView = new InterfaceInventory(this);
+        }
+        return this.restrictedView;
     }
 
     /**
@@ -1345,8 +1351,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         continue;
                     }
 
-                    MEStorage inv = mon.getInventory(this.mySource);
-                    if (inv != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
+                    MEStorage inv = Platform.canAccess(proxyable.getProxy(), this.mySource) ? mon.getInventory(this.mySource) : null;
+                    if (inv != null) {
                         if (this.isBlocking() && !inv.isEmpty()) {
                             continue;
                         } else {
@@ -1579,15 +1585,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
                         if (targetTE.getInterfaceDuality().sameGrid(this.gridProxy.getGrid())) {
                             continue;
-                        } else {
+                        } else if (Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
                             IStorageMonitorableAccessor mon = te.getCapability(Capabilities.STORAGE_MONITORABLE_ACCESSOR, s.getOpposite());
                             if (mon != null) {
                                 MEStorage inv = mon.getInventory(this.mySource);
-                                if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
-                                    if (inv.isEmpty()) {
-                                        allAreBusy = false;
-                                        break;
-                                    }
+                                if (inv != null && inv.isEmpty()) {
+                                    allAreBusy = false;
+                                    break;
                                 }
                             }
                         }
@@ -1870,9 +1874,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final IGridProxyable proxyable = mon == null ? null : networkNodeOf(te, s.getOpposite());
         if (proxyable != null) {
             try {
-                if (proxyable.getProxy().getGrid() != this.gridProxy.getGrid()) {
+                if (proxyable.getProxy().getGrid() != this.gridProxy.getGrid() && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
                     final MEStorage inv = mon.getInventory(this.mySource);
-                    if (inv != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
+                    if (inv != null) {
                         extras.insert(inv, this.mySource);
                     }
                 }
@@ -2398,7 +2402,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     private class InterfaceInventory extends GenericStackInvStorage {
 
         public InterfaceInventory(final DualityInterface tileInterface) {
-            super(tileInterface.storage, tileInterface.getTermName());
+            super(tileInterface.storage, (ITextComponent) null);
+        }
+
+        /** Named when asked: the name is found by looking at the neighbours, and the view is made far more often. */
+        @Override
+        public ITextComponent getDescription() {
+            return new TextComponentString(DualityInterface.this.getTermName());
         }
 
         @Override
