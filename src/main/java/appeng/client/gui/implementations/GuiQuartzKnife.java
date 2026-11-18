@@ -37,6 +37,8 @@ public class GuiQuartzKnife extends AEBaseGui {
     private static final int WELL_PADDING = 2;
 
     private GuiTextField name;
+    /** What the server was last told: the field also handles caret keys, selection and copying. */
+    private String sentName;
 
     public GuiQuartzKnife(final InventoryPlayer inventoryPlayer, final QuartzKnifeObj te) {
         super(new ContainerQuartzKnife(inventoryPlayer, te));
@@ -109,6 +111,10 @@ public class GuiQuartzKnife extends AEBaseGui {
     private void sendName() {
         try {
             final String out = this.name.getText();
+            if (out.equals(this.sentName)) {
+                return;
+            }
+            this.sentName = out;
             ((ContainerQuartzKnife) this.inventorySlots).setName(out);
             NetworkHandler.instance().sendToServer(new PacketValueConfig("QuartzKnife.Name", out));
         } catch (final IOException e) {
