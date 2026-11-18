@@ -832,6 +832,21 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         super.mouseClicked(xCoord, yCoord, btn);
     }
 
+    /**
+     * A button beside the window is part of it: vanilla would count a click on one as a click outside, and the
+     * stack on the cursor would be thrown out.
+     */
+    @Override
+    protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
+        for (final GuiButton button : this.buttonList) {
+            if (button.visible && mouseX >= button.x && mouseY >= button.y && mouseX < button.x + button.width
+                    && mouseY < button.y + button.height) {
+                return false;
+            }
+        }
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
+
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         // After the release is handled: it asks whether a drag already did its work.
