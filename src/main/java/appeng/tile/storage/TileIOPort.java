@@ -39,6 +39,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageCells;
+import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
@@ -91,8 +92,11 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
     private final UpgradeInventory upgrades;
     private final IActionSource mySrc;
     private YesNo lastRedstoneState;
-    private ItemStack currentCell;
-    private StorageCell cachedCell;
+    private final ItemStack[] cellStacks = new ItemStack[NUMBER_OF_CELL_SLOTS];
+    private final StorageCell[] cells = new StorageCell[NUMBER_OF_CELL_SLOTS];
+    /** Whether the cell being worked on changed; it is written into its item once, when the port is done with it. */
+    private boolean cellChanged;
+    private final ISaveProvider cellSaver = () -> this.cellChanged = true;
 
     private boolean isActive = false;
 
@@ -308,7 +312,7 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                     if (itemsToMove > 0) {
                         final IStorageService storage = this.getProxy().getStorage();
                         final MEStorage network = storage.getInventory();
-                        final StorageCell inv = this.getInv(is);
+                        final StorageCell inv = this.getInv(x, is);
 
                         if (inv != null) {
                             if (this.manager.getSetting(Settings.OPERATION_MODE) == OperationMode.EMPTY) {
@@ -316,6 +320,12 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                             } else {
                                 // The running total, not a count of every storage on the network for every cell.
                                 itemsToMove = this.transferContents(energy, network, storage.getCachedInventory(), inv, itemsToMove);
+                            }
+
+                            if (this.cellChanged) {
+                                this.cellChanged = false;
+                                inv.persist();
+                                this.saveChanges();
                             }
 
                             shouldMove = this.shouldMove(inv);
@@ -351,17 +361,14 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
         return this.upgrades.getInstalledPoints(trait);
     }
 
-    /**
-     * A {@link StorageCell} is not tied to one channel any more, so unlike the old per-channel
-     * {@code Map<IStorageChannel<?>, IMEInventory<?>>} there is only ever a single cached cell to resolve here.
-     */
-    private StorageCell getInv(final ItemStack is) {
-        if (this.currentCell != is) {
-            this.currentCell = is;
-            this.cachedCell = StorageCells.getCellInventory(is, null);
+    /** The cell in an input slot, opened once for as long as the same stack stays there. */
+    private StorageCell getInv(final int slot, final ItemStack is) {
+        if (this.cellStacks[slot] != is) {
+            this.cellStacks[slot] = is;
+            this.cells[slot] = StorageCells.getCellInventory(is, this.cellSaver);
         }
 
-        return this.cachedCell;
+        return this.cells[slot];
     }
 
     /**
