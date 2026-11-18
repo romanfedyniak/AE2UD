@@ -28,6 +28,7 @@ import appeng.container.interfaces.IInventorySlotAware;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.INetworkInfo;
+import appeng.helpers.ISubMenuHost;
 import appeng.util.Platform;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -35,8 +36,16 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.tileentity.TileEntity;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 
 public class PacketSwitchGuis extends AppEngPacket {
+
+    /** The screens a client opens over the one it has: whichever host they are asked of has to answer them. */
+    private static final Set<GuiBridge> SUB_SCREENS = EnumSet.of(GuiBridge.GUI_PRIORITY, GuiBridge.GUI_KEY_TYPES,
+            GuiBridge.GUI_CRAFTING_STATUS, GuiBridge.GUI_CRAFTING_TREE, GuiBridge.GUI_CRAFTING_AMOUNT,
+            GuiBridge.GUI_CRAFTING_CONFIRM);
 
     private final GuiBridge newGui;
 
@@ -61,6 +70,13 @@ public class PacketSwitchGuis extends AppEngPacket {
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
         final Container c = player.openContainer;
         if (!(c instanceof AEBaseContainer)) {
+            return;
+        }
+
+        // The host's own screen is the only other one a client asks for. Any other screen the host's class
+        // fits would open too: a wireless terminal as a portable cell (no range), or in a mode never unlocked.
+        final Object host = ((AEBaseContainer) c).getTarget();
+        if (!SUB_SCREENS.contains(this.newGui) && !(host instanceof ISubMenuHost h && h.getGuiBridge() == this.newGui)) {
             return;
         }
 
