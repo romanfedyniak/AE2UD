@@ -321,7 +321,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
         // Are we clicking from the player's inventory?
         final boolean isPlayerInventorySlot = this.inventorySlots.get(idx) instanceof SlotPlayerInv || this.inventorySlots.get(idx) instanceof SlotPlayerHotBar;
-        if (!isPlayerInventorySlot) {
+        if (!isPlayerInventorySlot || !this.canAccessViewCells) {
             return super.transferStackInSlot(p, idx);
         }
 
