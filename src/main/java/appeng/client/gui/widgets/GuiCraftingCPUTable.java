@@ -57,6 +57,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 
@@ -104,6 +105,14 @@ public class GuiCraftingCPUTable extends Gui {
 
     /** Whether the filters and the query left anything - the selected CPU is shown regardless. */
     private boolean anyMatched = true;
+    /** What the shown list was built from; it is filtered and sorted again only when one of these moves. */
+    private final List<CraftingCPUStatus> builtFrom = new ArrayList<>();
+    private Enum<?> builtActivity;
+    private Enum<?> builtMode;
+    private Enum<?> builtOrder;
+    private Enum<?> builtDirection;
+    private int builtSelected;
+    private String builtSearch;
 
     private MEGuiTooltipTextField searchField;
     private GuiImgButton activityFilter;
@@ -199,8 +208,42 @@ public class GuiCraftingCPUTable extends Gui {
      * Kept in step every frame rather than on update, since rows can change with the window.
      */
     public void updateScrollRange() {
-        this.rebuildDisplayed();
+        if (this.inputsMoved()) {
+            this.rebuildDisplayed();
+        }
         this.scrollbar.setRange(0, Math.max(0, this.getRowCount() - this.rows), 1);
+    }
+
+    /**
+     * Whether the CPUs, the filters, the order or the query changed since the list was last built. A screen asks
+     * every frame, and building it filters every CPU and sorts them.
+     */
+    private boolean inputsMoved() {
+        final IConfigManager config = AEClientConfig.instance().getConfigManager();
+        final List<CraftingCPUStatus> cpus = this.host.getCPUTable().getCPUs();
+        boolean moved = cpus.size() != this.builtFrom.size();
+        for (int i = 0; !moved && i < cpus.size(); i++) {
+            moved = cpus.get(i) != this.builtFrom.get(i);
+        }
+        final Enum<?> activity = config.getSetting(Settings.CPU_FILTER_ACTIVITY);
+        final Enum<?> mode = config.getSetting(Settings.CPU_FILTER_MODE);
+        final Enum<?> order = config.getSetting(Settings.CPU_SORT_BY);
+        final Enum<?> direction = config.getSetting(Settings.CPU_SORT_DIRECTION);
+        final int selected = this.host.getSelectedCpuSerial();
+        final String search = this.searchField == null ? "" : this.searchField.getText();
+        if (!moved && activity == this.builtActivity && mode == this.builtMode && order == this.builtOrder
+                && direction == this.builtDirection && selected == this.builtSelected && search.equals(this.builtSearch)) {
+            return false;
+        }
+        this.builtFrom.clear();
+        this.builtFrom.addAll(cpus);
+        this.builtActivity = activity;
+        this.builtMode = mode;
+        this.builtOrder = order;
+        this.builtDirection = direction;
+        this.builtSelected = selected;
+        this.builtSearch = search;
+        return true;
     }
 
     /**
@@ -212,7 +255,7 @@ public class GuiCraftingCPUTable extends Gui {
         final IConfigManager config = AEClientConfig.instance().getConfigManager();
         final CpuActivityFilter activity = (CpuActivityFilter) config.getSetting(Settings.CPU_FILTER_ACTIVITY);
         final CpuModeFilter mode = (CpuModeFilter) config.getSetting(Settings.CPU_FILTER_MODE);
-        final String search = this.searchField == null ? "" : this.searchField.getText().trim().toLowerCase();
+        final String search = this.searchField == null ? "" : this.searchField.getText().trim().toLowerCase(Locale.ROOT);
         final int selected = this.host.getSelectedCpuSerial();
 
         this.displayed.clear();
@@ -243,7 +286,7 @@ public class GuiCraftingCPUTable extends Gui {
             return true;
         }
 
-        if (displayName(cpu).toLowerCase().contains(search)) {
+        if (displayName(cpu).toLowerCase(Locale.ROOT).contains(search)) {
             return true;
         }
 
@@ -251,7 +294,7 @@ public class GuiCraftingCPUTable extends Gui {
         // usually asked, and the row already says the answer.
         final GenericStack crafting = cpu.getCrafting();
         return crafting != null
-                && Platform.getItemDisplayName(crafting.what()).toLowerCase().contains(search);
+                && Platform.getItemDisplayName(crafting.what()).toLowerCase(Locale.ROOT).contains(search);
     }
 
     private static Comparator<CraftingCPUStatus> comparator(final IConfigManager config) {
@@ -268,7 +311,7 @@ public class GuiCraftingCPUTable extends Gui {
                 // Unnamed CPUs last, as they are in the list the server sends.
                 comparator = Comparator
                         .comparing((CraftingCPUStatus cpu) -> cpu.getName() == null || cpu.getName().isEmpty())
-                        .thenComparing(cpu -> displayName(cpu).toLowerCase());
+                        .thenComparing(cpu -> displayName(cpu).toLowerCase(Locale.ROOT));
                 break;
         }
 
