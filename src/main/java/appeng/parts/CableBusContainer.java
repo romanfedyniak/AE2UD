@@ -59,14 +59,23 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class CableBusContainer extends CableBusStorage implements AEMultiTile, ICableBusContainer {
 
     private static final ThreadLocal<Boolean> IS_LOADING = new ThreadLocal<>();
+    // One part of each kind, built once to say what kind it is: whether it is a cable and what it may sit on. The
+    // placement preview asks every frame, and building the part (an interface, with all its inventories) each time
+    // only to read that was garbage by the kilobyte.
+    private static final Map<Item, Int2ObjectMap<Object>> PART_PROBES = new ConcurrentHashMap<>();
+    private static final Object NO_PART = new Object();
     private static final AEPartLocation[] LOCATIONS = AEPartLocation.values();
     private YesNo hasRedstone = YesNo.UNDECIDED;
     // Client collision shapes; a facade is shaped differently for a living entity.
@@ -122,12 +131,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
         }
 
         if (is.getItem() instanceof IPartItem) {
-            final IPartItem bi = (IPartItem) is.getItem();
-
-            is = is.copy();
-            is.setCount(1);
-
-            final IPart bp = bi.createPartFromItemStack(is);
+            final IPart bp = probePart(is);
             if (bp != null) {
                 if (bp instanceof IPartCable) {
                     boolean canPlace = true;
@@ -153,6 +157,32 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
             }
         }
         return false;
+    }
+
+    /**
+     * A part of the kind this stack makes, shared and never placed: only for reading what the kind allows, or for
+     * drawing its outline.
+     */
+    @Nullable
+    public static IPart probePart(final ItemStack is) {
+        if (!(is.getItem() instanceof IPartItem)) {
+            return null;
+        }
+        final Int2ObjectMap<Object> byDamage = PART_PROBES.computeIfAbsent(is.getItem(), item -> new Int2ObjectOpenHashMap<>());
+        Object probe;
+        synchronized (byDamage) {
+            probe = byDamage.get(is.getItemDamage());
+        }
+        if (probe == null) {
+            final ItemStack one = is.copy();
+            one.setCount(1);
+            final IPart part = ((IPartItem<?>) is.getItem()).createPartFromItemStack(one);
+            probe = part == null ? NO_PART : part;
+            synchronized (byDamage) {
+                byDamage.put(is.getItemDamage(), probe);
+            }
+        }
+        return probe == NO_PART ? null : (IPart) probe;
     }
 
     @Override

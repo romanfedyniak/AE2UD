@@ -13,6 +13,7 @@ import appeng.facade.FacadePart;
 import appeng.facade.IFacadeItem;
 import appeng.items.parts.ItemFacade;
 import appeng.parts.BusCollisionHelper;
+import appeng.parts.CableBusContainer;
 import appeng.parts.PartPlacement;
 import appeng.parts.PartPlacement.Placement;
 import net.minecraft.client.renderer.GlStateManager;
@@ -92,13 +93,13 @@ public class RenderBlockOutlineHook {
 
     /** Render a placement preview for a part item, if possible. */
     private static void renderPartPlacementPreview(EntityPlayer player, RayTraceResult hitResult, ItemStack stack, float partialTicks) {
-        if (!(stack.getItem() instanceof IPartItem<?> partItem)) return;
+        if (!(stack.getItem() instanceof IPartItem<?>)) return;
 
         Placement placement = PartPlacement.getPartPlacement(player, player.world, stack, hitResult.getBlockPos(), hitResult.sideHit);
         if (placement == null) return;
         if (!player.world.getWorldBorder().contains(placement.pos())) return;
 
-        IPart part = partItem.createPartFromItemStack(stack);
+        IPart part = CableBusContainer.probePart(stack);
         if (part == null) return;
 
         // Render with two depth passes to render behind blocks
