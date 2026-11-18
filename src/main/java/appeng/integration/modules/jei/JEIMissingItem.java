@@ -51,7 +51,7 @@ public class JEIMissingItem implements IRecipeTransferError {
 
     JEIMissingItem(Container container, @Nonnull IRecipeLayout recipeLayout) {
         if (container instanceof ContainerMEMonitorable) {
-            AvailableItems available = AvailableItems.merge((ContainerMEMonitorable) container);
+            AvailableItems available = AvailableItems.cached((ContainerMEMonitorable) container);
 
             boolean found;
             this.errored = false;
@@ -124,7 +124,7 @@ public class JEIMissingItem implements IRecipeTransferError {
 
             if (System.currentTimeMillis() - lastUpdate > 1000) {
                 lastUpdate = System.currentTimeMillis();
-                available = AvailableItems.merge(container);
+                available = AvailableItems.cached(container);
                 this.foundSlots.clear();
                 this.craftableSlots.clear();
             } else {

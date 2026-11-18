@@ -30,10 +30,10 @@ public class CraftableCallBack implements ITooltipCallback<ItemStack> {
     public void onTooltip(int slotIndex, boolean input, ItemStack ingredient, List<String> tooltip) {
         if (!input) return;
 
-        // Rebuilt per tooltip, as before. The old signature took a pre-merged list and then merged it a
+        // At most a second old rather than rebuilt for every frame of the tooltip. The old signature took a pre-merged list and then merged it a
         // second time on top of itself, double-counting the player inventory; the reason it merged at all
         // was to pick up inventory changes made while the recipe screen stayed open, and that is kept.
-        final AvailableItems available = AvailableItems.merge(this.container);
+        final AvailableItems available = AvailableItems.cached(this.container);
 
         AEItemKey search = AEItemKey.of(ingredient);
         if (ingredient.getItem().isDamageable() || Platform.isGTDamageableItem(ingredient.getItem())) {

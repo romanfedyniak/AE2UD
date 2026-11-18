@@ -22,6 +22,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 
 import javax.annotation.Nullable;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -48,6 +49,16 @@ import java.util.Map;
  * a fuzzy search scans the variants of one item rather than the whole network.
  */
 class AvailableItems {
+    /**
+     * HEI asks for the missing-item picture of the hovered recipe every frame, and a tooltip of an ingredient
+     * every frame too: one merge of the terminal's whole listing serves them for this long.
+     */
+    private static final long CACHE_MILLIS = 1000;
+    @Nullable
+    private static AvailableItems lastMerged;
+    private static WeakReference<ContainerMEMonitorable> lastMergedFor = new WeakReference<>(null);
+    private static long lastMergedAt;
+
 
     /**
      * One row. Mutable in the amount, like the {@code IAEItemStack} it replaces — the merge below adds
@@ -120,6 +131,17 @@ class AvailableItems {
             }
         }
         return matches;
+    }
+
+    /** {@link #merge}, at most once per {@link #CACHE_MILLIS} for the same terminal. */
+    static AvailableItems cached(ContainerMEMonitorable container) {
+        final long now = System.currentTimeMillis();
+        if (lastMerged == null || lastMergedFor.get() != container || now - lastMergedAt > CACHE_MILLIS) {
+            lastMerged = merge(container);
+            lastMergedFor = new WeakReference<>(container);
+            lastMergedAt = now;
+        }
+        return lastMerged;
     }
 
     /**
