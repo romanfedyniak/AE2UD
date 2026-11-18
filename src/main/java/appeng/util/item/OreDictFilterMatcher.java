@@ -10,6 +10,31 @@ import java.util.List;
  */
 public class OreDictFilterMatcher {
 
+    /** What the bus's screen lets a player type. */
+    public static final int MAX_LENGTH = 512;
+
+    /** Deeper than anyone writes by hand; each level is a frame of the parser. */
+    public static final int MAX_DEPTH = 32;
+
+    /**
+     * Whether an expression is one the bus will take: no longer than its screen allows and no deeper than
+     * {@link #MAX_DEPTH}. The expression comes from a packet, and the parser recurses once per bracket.
+     */
+    public static boolean isAcceptable(String expression) {
+        if (expression.length() > MAX_LENGTH) {
+            return false;
+        }
+        int depth = 0;
+        for (int i = 0; i < expression.length(); i++) {
+            if (expression.charAt(i) == '(' && ++depth > MAX_DEPTH) {
+                return false;
+            } else if (expression.charAt(i) == ')') {
+                depth = Math.max(0, depth - 1);
+            }
+        }
+        return true;
+    }
+
     /**
      * Parses the given expression and creates a List.
      *
@@ -30,17 +55,22 @@ public class OreDictFilterMatcher {
      * @return the position of the expr. Is only relevant for sub rules
      */
     public static int parseExpression(List<MatchRule> rules, String expression) {
+        return parseExpression(rules, expression, 0);
+    }
+
+    /** Parses from {@code start} on, without copying the rest of the expression for every bracket. */
+    private static int parseExpression(List<MatchRule> rules, String expression, int start) {
         rules.clear();
 
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < expression.length(); i++) {
+        for (int i = start; i < expression.length(); i++) {
             char c = expression.charAt(i);
             if (c == ' ') {
                 continue;
             }
             if (c == '(') {
                 List<MatchRule> subRules = new ArrayList<>();
-                i = parseExpression(subRules, expression.substring(i + 1)) + i;
+                i = parseExpression(subRules, expression, i + 1) - 1;
                 rules.add(MatchRule.group(subRules, builder.toString()));
                 builder = new StringBuilder();
             } else {

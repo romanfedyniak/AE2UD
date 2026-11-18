@@ -44,7 +44,9 @@ public class PartOreDicStorageBus extends PartStorageBus {
     @Override
     public void readFromNBT(NBTTagCompound data) {
         super.readFromNBT(data);
-        this.oreExp = data.getString("oreMatch");
+        // One saved before the bus checked what it was sent would not load; it was never anything a player typed.
+        final String saved = data.getString("oreMatch");
+        this.oreExp = OreDictFilterMatcher.isAcceptable(saved) ? saved : "";
 
         var rulesList = OreDictFilterMatcher.parseExpression(oreExp);
         this.priorityList = new OreDictPriorityList(rulesList);
@@ -90,10 +92,9 @@ public class PartOreDicStorageBus extends PartStorageBus {
     }
 
     public void saveOreMatch(String oreMatch) {
-        if (!this.oreExp.equals(oreMatch)) {
-            this.oreExp = oreMatch;
-
+        if (!this.oreExp.equals(oreMatch) && OreDictFilterMatcher.isAcceptable(oreMatch)) {
             var ruleList = OreDictFilterMatcher.parseExpression(oreMatch);
+            this.oreExp = oreMatch;
             this.priorityList = new OreDictPriorityList(ruleList);
             this.resetCache(true);
             this.getHost().markForSave();
