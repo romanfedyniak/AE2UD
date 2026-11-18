@@ -82,7 +82,8 @@ public class ContainerQuartzKnife extends AEBaseContainer {
 
     @Override
     public void onContainerClosed(final EntityPlayer par1EntityPlayer) {
-        if (this.inSlot.getStackInSlot(0) != null) {
+        super.onContainerClosed(par1EntityPlayer);
+        if (!this.inSlot.getStackInSlot(0).isEmpty()) {
             par1EntityPlayer.dropItem(this.inSlot.getStackInSlot(0), false);
         }
     }
