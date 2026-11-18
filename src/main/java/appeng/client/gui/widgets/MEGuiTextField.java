@@ -236,8 +236,8 @@ public class MEGuiTextField extends GuiTextField {
         BufferBuilder bufferbuilder = tessellator.getBuffer();
 
         float red = (this.selectionColor >> 16 & 255) / 255.0F;
-        float blue = (this.selectionColor >> 8 & 255) / 255.0F;
-        float green = (this.selectionColor & 255) / 255.0F;
+        float green = (this.selectionColor >> 8 & 255) / 255.0F;
+        float blue = (this.selectionColor & 255) / 255.0F;
         float alpha = (this.selectionColor >> 24 & 255) / 255.0F;
 
         GlStateManager.color(red, green, blue, alpha);
