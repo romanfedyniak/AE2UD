@@ -163,12 +163,13 @@ public class ContainerInterface extends ContainerUpgradeable implements IPattern
     public void detectAndSendChanges() {
         this.verifyPermissions(SecurityPermissions.BUILD, false);
 
-        if (patternExpansions != getPatternUpgrades()) {
-            patternExpansions = getPatternUpgrades();
-            this.myDuality.dropExcessPatterns();
-        }
+        if (Platform.isServer()) {
+            // Not on a client, for the reason onUpdate gives: there is nothing to drop, only its copy to lose.
+            if (patternExpansions != getPatternUpgrades()) {
+                patternExpansions = getPatternUpgrades();
+                this.myDuality.dropExcessPatterns();
+            }
 
-        if (Platform.isServer()){
             lockReason = myDuality.getCraftingLockedReason();
         }
         super.detectAndSendChanges();
