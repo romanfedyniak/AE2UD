@@ -69,6 +69,10 @@ public class ItemFacade extends AEBaseItem implements IFacadeItem, IAlphaPassIte
         }
 
         FacadePart facade = createPartFromItemStack(stack, AEPartLocation.fromFacing(side));
+        // No texture (no tag, or its mod is gone): nothing to put on.
+        if (facade == null) {
+            return EnumActionResult.PASS;
+        }
         if (!placeFacade(facade, world, pos)) {
             return EnumActionResult.FAIL;
         }
