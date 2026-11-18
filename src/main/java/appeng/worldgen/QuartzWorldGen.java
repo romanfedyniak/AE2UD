@@ -79,7 +79,8 @@ public final class QuartzWorldGen implements IWorldGenerator {
             final WorldGenMinable whichOre = isCharged ? this.oreCharged : this.oreNormal;
             if (whichOre != null && shouldGenerate(isCharged, w)) {
                 final int cx = chunkX * 16 + r.nextInt(16);
-                final int cy = r.nextInt(40 * seaLevel / 64) + r.nextInt(22 * seaLevel / 64) + 12 * seaLevel / 64;
+                final int cy = r.nextInt(Math.max(1, 40 * seaLevel / 64)) + r.nextInt(Math.max(1, 22 * seaLevel / 64))
+                        + 12 * seaLevel / 64;
                 final int cz = chunkZ * 16 + r.nextInt(16);
                 whichOre.generate(w, r, new BlockPos(cx, cy, cz));
             }
