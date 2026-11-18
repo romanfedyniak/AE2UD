@@ -24,6 +24,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
+import appeng.client.gui.Size1Slot;
 import appeng.client.render.crafting.EncodedPatternPreview;
 
 /**
@@ -63,9 +64,10 @@ public abstract class MixinGuiContainer extends GuiScreen {
 
     @Inject(method = "drawSlot", at = @At("TAIL"))
     private void ae2ud$drawPreviewedAmount(final Slot slot, final CallbackInfo ci) {
-        if (this.ae2ud$previewedOutput != null) {
+        // An ME grid slot writes its stored count in that corner itself, after this.
+        if (this.ae2ud$previewedOutput != null && !(slot instanceof Size1Slot)) {
             EncodedPatternPreview.drawAmount(this.fontRenderer, this.ae2ud$previewedOutput, slot.xPos, slot.yPos);
-            this.ae2ud$previewedOutput = null;
         }
+        this.ae2ud$previewedOutput = null;
     }
 }
