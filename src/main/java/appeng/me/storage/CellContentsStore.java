@@ -103,6 +103,8 @@ public final class CellContentsStore {
     private final Map<UUID, NBTTagCompound> pending = new ConcurrentHashMap<>();
     // Writes the disk refused. Their snapshot stays pending, and the next save tries it again.
     private final Set<UUID> failed = ConcurrentHashMap.newKeySet();
+    // Cells with a write waiting for the writer, which will take whatever snapshot is pending by then.
+    private final Set<UUID> queued = ConcurrentHashMap.newKeySet();
     private final ExecutorService writer;
     /** A chunk holding AE machines, or a player, was saved this tick. */
     private volatile boolean saveRequested;
@@ -280,11 +282,15 @@ public final class CellContentsStore {
         done.await();
     }
 
+    /**
+     * Waits however long the disk takes: the writer is a daemon thread, and what it has not written when the game
+     * exits is lost.
+     */
     private void close() {
         this.writer.shutdown();
         try {
-            if (!this.writer.awaitTermination(1, TimeUnit.MINUTES)) {
-                AELog.warn("Storage cells were still being written a minute after the server stopped");
+            while (!this.writer.awaitTermination(1, TimeUnit.MINUTES)) {
+                AELog.warn("Storage cells are still being written a minute on; waiting for them");
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -312,17 +318,29 @@ public final class CellContentsStore {
         this.active.put(contents.getId(), contents);
     }
 
+    /**
+     * Writes the newest snapshot of a cell, once: a cell that changes at every save while the disk is slow would
+     * otherwise have every one of its snapshots waiting in line, each written over the last.
+     */
     private void queue(final UUID id, final NBTTagCompound tag) {
         this.pending.put(id, tag);
+        if (!this.queued.add(id)) {
+            return; // a write of this cell has not started yet, and takes the snapshot just put
+        }
         this.writer.execute(() -> {
+            this.queued.remove(id);
+            final NBTTagCompound latest = this.pending.get(id);
+            if (latest == null) {
+                return;
+            }
             try {
-                if (tag == DELETED) {
+                if (latest == DELETED) {
                     Files.deleteIfExists(this.fileFor(id).toPath());
                 } else {
-                    this.writeFile(id, tag);
+                    this.writeFile(id, latest);
                 }
                 // Only if nothing newer was queued meanwhile.
-                this.pending.remove(id, tag);
+                this.pending.remove(id, latest);
             } catch (final IOException | RuntimeException e) {
                 AELog.error(e, "Could not save storage cell " + id + "; trying again on the next save");
                 this.failed.add(id);
