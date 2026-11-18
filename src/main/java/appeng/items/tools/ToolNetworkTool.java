@@ -103,8 +103,10 @@ public class ToolNetworkTool extends AEBaseItem implements IGuiItem, IAEWrench, 
             return EnumActionResult.FAIL;
         }
 
-        if (Platform.isClient()) {
-            NetworkHandler.instance().sendToServer(new PacketClick(pos, side, hitX, hitY, hitZ, hand));
+        // The game's own use packet brings the click here, after its reach check and the click event that claims
+        // answer; a position the client named in a packet of ours would have neither.
+        if (!world.isRemote) {
+            this.serverSideToolLogic(player.getHeldItem(hand), player, hand, world, pos, side, hitX, hitY, hitZ);
         }
 
         return EnumActionResult.SUCCESS;

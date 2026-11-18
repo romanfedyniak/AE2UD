@@ -32,6 +32,7 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.common.ForgeHooks;
 
 
 public class PacketClick extends AppEngPacket {
@@ -95,15 +96,32 @@ public class PacketClick extends AppEngPacket {
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
         final BlockPos pos = new BlockPos(this.x, this.y, this.z);
         if (this.leftClick) {
+            if (!withinReach(player, pos)) {
+                return;
+            }
             final Block block = player.world.getBlockState(pos).getBlock();
             if (block instanceof BlockCableBus) {
-                ((BlockCableBus) block).onBlockClickPacket(player.world, pos, player, this.hand, new Vec3d(this.hitX, this.hitY, this.hitZ));
+                final Vec3d hitVec = new Vec3d(this.hitX, this.hitY, this.hitZ);
+                if (ForgeHooks.onLeftClickBlock(player, pos, this.side, hitVec).isCanceled()) {
+                    return;
+                }
+                ((BlockCableBus) block).onBlockClickPacket(player.world, pos, player, this.hand, hitVec);
             }
-        } else {
+        } else if (this.side == null) {
+            // The network tool used on nothing: its own screen. A use on a block arrives as the game's own packet.
             final ItemStack is = player.inventory.getCurrentItem();
             if (!is.isEmpty() && is.getItem() instanceof ToolNetworkTool tnt) {
-                tnt.serverSideToolLogic(is, player, hand, player.world, pos, side, hitX, hitY, hitZ);
+                tnt.serverSideToolLogic(is, player, hand, player.world, pos, null, hitX, hitY, hitZ);
             }
         }
+    }
+
+    /** The block is loaded and as near as a click on it may be (the game's own limit for digging). */
+    private static boolean withinReach(final EntityPlayer player, final BlockPos pos) {
+        if (!player.world.isBlockLoaded(pos)) {
+            return false;
+        }
+        final double reach = player.getEntityAttribute(EntityPlayer.REACH_DISTANCE).getAttributeValue() + 1;
+        return player.getDistanceSq(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= reach * reach;
     }
 }
