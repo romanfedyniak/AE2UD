@@ -45,7 +45,7 @@ public class BlockDefinition extends ItemDefinition implements IBlockDefinition 
 
     @Override
     public final Optional<ItemBlock> maybeItemBlock() {
-        return this.block.map(ItemBlock::new);
+        return this.maybeItem().filter(ItemBlock.class::isInstance).map(ItemBlock.class::cast);
     }
 
     @Override
