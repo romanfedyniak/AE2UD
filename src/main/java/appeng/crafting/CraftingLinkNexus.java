@@ -124,7 +124,7 @@ public class CraftingLinkNexus {
     }
 
     public boolean isMachine(final IGridHost machine) {
-        return this.getRequest() == machine;
+        return this.getRequest() != null && this.getRequest().getRequester() == machine;
     }
 
     public void removeNode() {
