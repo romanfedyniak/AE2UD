@@ -102,6 +102,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
     private final List<InternalSlotME> meSlots = new ArrayList<>();
     // drag y
     private final Set<Slot> drag_click = new HashSet<>();
+    /**
+     * The remote slots a drag has passed over, by interface id and index: the terminals that show them build new
+     * slot objects every frame, so the objects themselves never repeat.
+     */
+    private final Set<Map.Entry<Long, Integer>> dragRemote = new HashSet<>();
+    @Nullable
+    private SlotDisconnected dragFirstRemote;
     private boolean ignoreGhostDropClick;
 
     /**
@@ -785,6 +792,18 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         this.drag_click.clear();
+        this.dragRemote.clear();
+        this.dragFirstRemote = null;
+
+        // The slot pressed is where a drag starts: the drag does not send it again, and while the drag stays on
+        // it the release is the one click.
+        final Slot pressed = this.getSlot(xCoord, yCoord);
+        if (pressed instanceof SlotFake) {
+            this.drag_click.add(pressed);
+        } else if (pressed instanceof SlotDisconnected remote) {
+            this.dragRemote.add(remoteKey(remote));
+            this.dragFirstRemote = remote;
+        }
 
         if (btn == 0 && this.searchForCarried(xCoord, yCoord)) {
             return;
@@ -815,10 +834,13 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
-        this.drag_click.clear();
-        this.haltDragging = false;
-
+        // After the release is handled: it asks whether a drag already did its work.
         super.mouseReleased(mouseX, mouseY, state);
+
+        this.drag_click.clear();
+        this.dragRemote.clear();
+        this.dragFirstRemote = null;
+        this.haltDragging = false;
     }
 
     @Override
@@ -830,40 +852,58 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
             this.getScrollBar().click(this, x - this.guiLeft, y - this.guiTop);
         }
 
+        // A drag that stays on the slot it started on is no drag: the release sends the click. Once it reaches a
+        // second slot, the first is sent with it, each further one as it is entered, and the release sends nothing.
         if (slot instanceof SlotFake && !itemstack.isEmpty()) {
             if (this.drag_click.add(slot)) {
-                final PacketInventoryAction p = new PacketInventoryAction(c == 0 ? InventoryAction.PICKUP_OR_SET_DOWN : InventoryAction.PLACE_SINGLE, slot.slotNumber, 0);
-                NetworkHandler.instance().sendToServer(p);
-            }
-        } else if (slot instanceof SlotDisconnected) {
-            if (!haltDragging && this.drag_click.add(slot)) {
-                if (!itemstack.isEmpty()) {
-                    if (slot.getStack().isEmpty()) {
-                        InventoryAction action;
-                        if (slot.getSlotStackLimit() == 1) {
-                            action = InventoryAction.SPLIT_OR_PLACE_SINGLE;
-                        } else {
-                            action = InventoryAction.PICKUP_OR_SET_DOWN;
-                        }
-                        final PacketInventoryAction p = new PacketInventoryAction(action, slot.getSlotIndex(), ((SlotDisconnected) slot).getSlot().getId());
-                        NetworkHandler.instance().sendToServer(p);
+                if (this.drag_click.size() == 2) {
+                    for (final Slot dr : this.drag_click) {
+                        this.sendFakeDrag(dr, c);
                     }
+                } else if (this.drag_click.size() > 2) {
+                    this.sendFakeDrag(slot, c);
                 }
-            } else if (isShiftKeyDown()) {
-                for (final Slot dr : this.drag_click) {
-                    InventoryAction action = null;
-                    if (!slot.getStack().isEmpty()) {
-                        action = InventoryAction.SHIFT_CLICK;
+            }
+        } else if (slot instanceof SlotDisconnected remote) {
+            if (!haltDragging && this.dragRemote.add(remoteKey(remote))) {
+                if (this.dragFirstRemote == null) {
+                    this.dragFirstRemote = remote;
+                }
+                if (!itemstack.isEmpty()) {
+                    if (this.dragRemote.size() == 2) {
+                        this.placeRemote(this.dragFirstRemote);
                     }
-                    if (action != null) {
-                        final PacketInventoryAction p = new PacketInventoryAction(action, dr.getSlotIndex(), ((SlotDisconnected) slot).getSlot().getId());
-                        NetworkHandler.instance().sendToServer(p);
+                    if (this.dragRemote.size() >= 2) {
+                        this.placeRemote(remote);
                     }
+                } else if (isShiftKeyDown() && !slot.getStack().isEmpty()) {
+                    // Each slot passed over once, by its own interface: the press already took the first one.
+                    NetworkHandler.instance().sendToServer(new PacketInventoryAction(InventoryAction.SHIFT_CLICK,
+                            slot.getSlotIndex(), remote.getSlot().getId()));
                 }
             }
         } else {
             super.mouseClickMove(x, y, c, d);
         }
+    }
+
+    private void sendFakeDrag(final Slot slot, final int button) {
+        final InventoryAction action = button != 0 ? InventoryAction.PLACE_SINGLE
+                : this.setsToHeldContents(slot) ? InventoryAction.EMPTY_ITEM : InventoryAction.PICKUP_OR_SET_DOWN;
+        NetworkHandler.instance().sendToServer(new PacketInventoryAction(action, slot.slotNumber, 0));
+    }
+
+    private void placeRemote(final SlotDisconnected slot) {
+        if (slot.getStack().isEmpty()) {
+            final InventoryAction action = slot.getSlotStackLimit() == 1
+                    ? InventoryAction.SPLIT_OR_PLACE_SINGLE
+                    : InventoryAction.PICKUP_OR_SET_DOWN;
+            NetworkHandler.instance().sendToServer(new PacketInventoryAction(action, slot.getSlotIndex(), slot.getSlot().getId()));
+        }
+    }
+
+    private static Map.Entry<Long, Integer> remoteKey(final SlotDisconnected slot) {
+        return new AbstractMap.SimpleImmutableEntry<>(slot.getSlot().getId(), slot.getSlotIndex());
     }
 
     // TODO 1.9.4 aftermath - Whole ClickType thing, to be checked.
@@ -979,7 +1019,7 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
         }
 
         if (slot instanceof SlotDisconnected) {
-            if (this.drag_click.size() >= 1) {
+            if (this.dragRemote.size() > 1) {
                 return;
             }
 
