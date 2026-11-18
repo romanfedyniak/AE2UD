@@ -27,6 +27,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraft.world.gen.ChunkGeneratorOverworld;
 
 import java.util.ArrayList;
@@ -66,14 +67,27 @@ public class StorageChunkProvider extends ChunkGeneratorOverworld {
         return chunk;
     }
 
+    /**
+     * Straight into the sections, with the light worked out once at the end: block by block through
+     * {@link Chunk#setBlockState} redoes the height map and the sky light 65,536 times.
+     */
     private void fillChunk(Chunk chunk, IBlockState defaultState) {
-        for (int cx = 0; cx < 16; cx++) {
-            for (int cz = 0; cz < 16; cz++) {
-                for (int cy = 0; cy < 256; cy++) {
-                    chunk.setBlockState(new BlockPos(cx, cy, cz), defaultState);
+        final ExtendedBlockStorage[] storage = chunk.getBlockStorageArray();
+        final boolean skyLight = this.world.provider.hasSkyLight();
+
+        for (int section = 0; section < storage.length; section++) {
+            final ExtendedBlockStorage blocks = new ExtendedBlockStorage(section << 4, skyLight);
+            for (int cy = 0; cy < 16; cy++) {
+                for (int cz = 0; cz < 16; cz++) {
+                    for (int cx = 0; cx < 16; cx++) {
+                        blocks.set(cx, cy, cz, defaultState);
+                    }
                 }
             }
+            storage[section] = blocks;
         }
+
+        chunk.generateSkylightMap();
     }
 
     @Override
