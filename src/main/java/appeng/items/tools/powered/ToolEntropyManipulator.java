@@ -281,7 +281,10 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
                             }
                         }
                         hasFurnaceable = true;
-                        out.add(result);
+                        // One result per item smelted: a drop of several gives as many.
+                        final ItemStack smelted = result.copy();
+                        smelted.setCount(result.getCount() * i.getCount());
+                        out.add(smelted);
                     } else {
                         canFurnaceable = false;
                         out.add(i);
