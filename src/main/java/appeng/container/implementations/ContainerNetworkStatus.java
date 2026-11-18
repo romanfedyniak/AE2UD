@@ -27,8 +27,6 @@ import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.energy.IPowerUsageReporter;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.KeyCounter;
 import appeng.api.util.AEPartLocation;
 import appeng.client.gui.implementations.GuiNetworkStatus;
 import appeng.container.AEBaseContainer;
@@ -37,12 +35,18 @@ import appeng.container.me.GridInventoryEntry;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketMEInventoryUpdate;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 
 
@@ -57,6 +61,9 @@ public class ContainerNetworkStatus extends AEBaseContainer {
     @GuiSync(3)
     public long maxPower;
     private IGrid network;
+    /** The key of every plain machine picture seen, kept for the screen's life: a key copies its stack's tag
+     * and capabilities, and the same few pictures come back for every cable on every refresh. */
+    private final Map<Item, Int2ObjectMap<AEItemKey>> plainKeys = new HashMap<>();
     private int delay = 40;
     private GuiNetworkStatus guiNetworkStatus;
 
@@ -74,6 +81,19 @@ public class ContainerNetworkStatus extends AEBaseContainer {
         if (this.network == null && Platform.isServer()) {
             this.setValidContainer(false);
         }
+    }
+
+    private AEItemKey keyOf(final ItemStack is) {
+        if (is.hasTagCompound()) {
+            return AEItemKey.of(is);
+        }
+        final Int2ObjectMap<AEItemKey> byDamage = this.plainKeys.computeIfAbsent(is.getItem(), item -> new Int2ObjectOpenHashMap<>());
+        AEItemKey key = byDamage.get(is.getItemDamage());
+        if (key == null) {
+            key = AEItemKey.of(is.getItem(), is.getItemDamage());
+            byDamage.put(is.getItemDamage(), key);
+        }
+        return key;
     }
 
     private void findNode(final IGridHost host, final AEPartLocation d) {
@@ -107,26 +127,27 @@ public class ContainerNetworkStatus extends AEBaseContainer {
                     // storedAmount and that machine's power drain (x100), idle and active, into requestableAmount - see
                     // CONTRACT.md §10/§9's wave 4 prerequisites. Matching representations are merged the
                     // same way the old IItemList.add() merge did: counts and power both summed per key.
-                    final KeyCounter counts = new KeyCounter();
-                    final KeyCounter power = new KeyCounter();
+                    // Count and power per picture.
+                    final Map<AEItemKey, long[]> totals = new LinkedHashMap<>();
                     for (final IGridNode machine : this.network.getMachines(machineClass)) {
                         final IGridBlock blk = machine.getGridBlock();
                         final ItemStack is = blk.getMachineRepresentation();
                         if (!is.isEmpty()) {
-                            final AEItemKey key = AEItemKey.of(is);
+                            final AEItemKey key = this.keyOf(is);
                             if (key != null) {
-                                counts.add(key, 1);
+                                final long[] total = totals.computeIfAbsent(key, k -> new long[2]);
+                                total[0]++;
                                 // What a machine takes while it works, on top of what it declares idle
                                 final double active = machine.getMachine() instanceof IPowerUsageReporter
                                         ? ((IPowerUsageReporter) machine.getMachine()).getActivePowerUsage()
                                         : 0;
-                                power.add(key, (long) ((blk.getIdlePowerUsage() + active) * 100.0));
+                                total[1] += (long) ((blk.getIdlePowerUsage() + active) * 100.0);
                             }
                         }
                     }
 
-                    for (final AEKey what : counts.keySet()) {
-                        piu.appendItem(new GridInventoryEntry(what, counts.get(what), power.get(what), false));
+                    for (final Map.Entry<AEItemKey, long[]> e : totals.entrySet()) {
+                        piu.appendItem(new GridInventoryEntry(e.getKey(), e.getValue()[0], e.getValue()[1], false));
                     }
                 }
 
