@@ -34,6 +34,8 @@ import net.minecraft.util.EnumFacing;
 import net.minecraftforge.common.property.IExtendedBlockState;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -54,9 +56,14 @@ class SpatialPylonBakedModel implements IBakedModel {
 
     @Override
     public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
+        if (side == null) {
+            return Collections.emptyList();
+        }
+
         int flags = this.getFlags(state);
 
         CubeBuilder builder = new CubeBuilder(this.format);
+        builder.setDrawFaces(EnumSet.of(side));
 
         if (flags != 0) {
             EnumFacing ori = null;

@@ -34,6 +34,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.bootstrap.IItemRendering;
 import appeng.bootstrap.ItemRenderingCustomizer;
 import appeng.client.render.WrappedGenericStackModel;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 
 /**
@@ -47,9 +49,25 @@ public class WrappedGenericStackRendering extends ItemRenderingCustomizer {
     @Override
     public void customize(IItemRendering rendering) {
         rendering.builtInModel("models/item/wrapped_generic_stack", new WrappedGenericStackModel());
-        rendering.color((s, i) -> {
-            final GenericStack wrapped = s.getItem() instanceof WrappedGenericStack wrapper ? wrapper.unwrap(s) : null;
-            return wrapped == null ? AEKeyRendering.NO_TINT : AEKeyRendering.getTint(wrapped.what());
-        });
+        rendering.color((s, i) -> tintOf(s));
+    }
+
+    // Asked once per quad of the icon: the stack's key is read from its tag once per stack drawn, not per quad.
+    private static ItemStack lastStack;
+    private static NBTTagCompound lastTag;
+    private static int lastTint;
+
+    private static int tintOf(final ItemStack s) {
+        final NBTTagCompound tag = s.getTagCompound();
+        if (s == lastStack && tag == lastTag) {
+            return lastTint;
+        }
+
+        final GenericStack wrapped = s.getItem() instanceof WrappedGenericStack wrapper ? wrapper.unwrap(s) : null;
+        final int tint = wrapped == null ? AEKeyRendering.NO_TINT : AEKeyRendering.getTint(wrapped.what());
+        lastStack = s;
+        lastTag = tag;
+        lastTint = tint;
+        return tint;
     }
 }

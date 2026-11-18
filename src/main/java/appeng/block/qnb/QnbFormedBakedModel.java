@@ -18,6 +18,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.property.IExtendedBlockState;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -76,6 +77,10 @@ class QnbFormedBakedModel implements IBakedModel {
 
         IExtendedBlockState extendedBlockState = (IExtendedBlockState) state;
         QnbFormedState formedState = extendedBlockState.getValue(BlockQuantumBase.FORMED_STATE);
+
+        if (side != null) {
+            return Collections.emptyList();
+        }
 
         return this.getQuads(formedState, state, side, rand);
     }

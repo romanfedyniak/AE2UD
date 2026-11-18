@@ -48,7 +48,7 @@ public class SpriteBakedModel implements IBakedModel {
 
     @Override
     public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
-        return this.quads;
+        return side == null ? this.quads : ImmutableList.of();
     }
 
     @Override
@@ -73,6 +73,6 @@ public class SpriteBakedModel implements IBakedModel {
 
     @Override
     public ItemOverrideList getOverrides() {
-        return null;
+        return ItemOverrideList.NONE;
     }
 }
