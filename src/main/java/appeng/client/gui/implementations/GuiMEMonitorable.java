@@ -741,14 +741,17 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
 
         int rows = this.playerPinRows;
         int availableRows = Math.max(0, this.rows - 1 - this.visibleCraftingPinRows);
+        boolean firstRow = false;
         if (rows == 0) {
             if (availableRows > 0) {
                 rows = 1;
                 this.setPinRows(this.craftingPinRows, rows, true);
+                firstRow = true;
             }
         }
+        // The row just asked for is laid out only once the click has been handled.
         int capacity = Math.min(this.terminalPlayerPins.length,
-                this.visiblePlayerPinRows * IPlayerTerminalPins.SLOTS_PER_ROW);
+                (firstRow ? rows : this.visiblePlayerPinRows) * IPlayerTerminalPins.SLOTS_PER_ROW);
         for (int i = 0; i < capacity; i++) {
             if (this.terminalPlayerPins[i] == null) {
                 this.sendPlayerPin(i, key);
