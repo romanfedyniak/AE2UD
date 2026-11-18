@@ -62,6 +62,9 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
     private final ByteBuf data;
     @Nullable
     private final GZIPOutputStream compressFrame;
+    /** One entry at a time is written here before it is compressed. */
+    @Nullable
+    private final ByteBuf entryBuffer;
 
     private int writtenBytes = 0;
     private boolean empty = true;
@@ -70,6 +73,7 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
     public PacketMEInventoryUpdate(final ByteBuf stream) throws IOException {
         this.data = null;
         this.compressFrame = null;
+        this.entryBuffer = null;
         this.list = new ArrayList<>();
         this.ref = stream.readByte();
 
@@ -122,7 +126,13 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
             public void write(final int value) throws IOException {
                 PacketMEInventoryUpdate.this.data.writeByte(value);
             }
+
+            @Override
+            public void write(final byte[] b, final int off, final int len) throws IOException {
+                PacketMEInventoryUpdate.this.data.writeBytes(b, off, len);
+            }
         });
+        this.entryBuffer = Unpooled.buffer(OPERATION_BYTE_LIMIT);
 
         this.list = null;
     }
@@ -165,10 +175,10 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
     }
 
     public void appendItem(final GridInventoryEntry is) throws IOException, BufferOverflowException {
-        final ByteBuf tmp = Unpooled.buffer(OPERATION_BYTE_LIMIT);
+        final ByteBuf tmp = this.entryBuffer;
+        tmp.clear();
         is.writeToPacket(tmp);
 
-        this.compressFrame.flush();
         // An entry bigger than the limit still goes, alone in a packet of its own.
         if (this.writtenBytes > 0 && this.writtenBytes + tmp.readableBytes() > UNCOMPRESSED_PACKET_BYTE_LIMIT) {
             throw new BufferOverflowException();
