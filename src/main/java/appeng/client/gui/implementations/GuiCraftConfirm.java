@@ -614,14 +614,17 @@ public class GuiCraftConfirm extends AEBaseGui implements IKeyUnderMouse {
             return;
         }
 
-        if (this.searchField != null && this.searchField.isFocused()
-                && this.searchField.textboxKeyTyped(character, key)) {
+        final boolean searching = this.searchField != null && this.searchField.isFocused();
+        if (searching && this.searchField.textboxKeyTyped(character, key)) {
             this.setScrollBar();
             return;
         }
 
         if (!this.checkHotbarKeys(key)) {
-            if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+            // Enter starts the job as the button would: not when it only ended a search, not while the button is
+            // off, and once per press - a held Enter from the amount screen keeps repeating into this one.
+            if ((key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) && !searching && this.start.enabled
+                    && !Keyboard.isRepeatEvent()) {
                 this.actionPerformed(this.start);
             }
             super.keyTyped(character, key);
