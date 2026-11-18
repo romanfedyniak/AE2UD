@@ -24,6 +24,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -141,6 +143,9 @@ public class TesrRenderHelper {
     /** The gap between the two lines, in the font's own pixels. */
     private static final int PAIRED_TEXT_GAP = 3;
 
+    /** Weak keys compare by identity, which is what is wanted here. */
+    private static final Cache<AEKey, Object> DISPLAY = CacheBuilder.newBuilder().weakKeys().maximumSize(1024).build();
+
     /**
      * Render an item in 2D.
      */
@@ -228,17 +233,11 @@ public class TesrRenderHelper {
      */
     public static void renderKey2dWithAmount(AEKey what, long amount, float scale, float spacing,
             @Nullable String rate, int rateColor) {
-        if (what instanceof AEItemKey itemKey) {
-            // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
-            TesrRenderHelper.renderItem2d(itemKey.toStack(), scale);
-        } else if (what instanceof AEFluidKey fluidKey) {
-            // Identity only, like the item above: toStack(0) is null, and a monitor whose network has run
-            // out should still show what it is watching.
-            TesrRenderHelper.renderFluid2d(fluidKey.toStack(1), scale);
+        final Object shown = displayOf(what);
+        if (shown instanceof FluidStack fluidStack) {
+            TesrRenderHelper.renderFluid2d(fluidStack, scale);
         } else {
-            // An addon's kind of content, drawn the way a terminal draws it: wrapped as an item, whose model
-            // asks the key type's registered renderer.
-            TesrRenderHelper.renderItem2d(GenericStack.wrapInItemStack(what, 1), scale);
+            TesrRenderHelper.renderItem2d((ItemStack) shown, scale);
         }
 
         // Two lines do not fit where one did. The lit panel of a display part is twelve pixels of the
@@ -252,6 +251,29 @@ public class TesrRenderHelper {
         if (rate != null) {
             renderRate2d(rate, rateColor, width);
         }
+    }
+
+    /**
+     * What a face shows for a key, made once per key object: a monitor keeps its key while it watches it, and
+     * the face is drawn every frame.
+     */
+    private static Object displayOf(final AEKey what) {
+        Object shown = DISPLAY.getIfPresent(what);
+        if (shown == null) {
+            if (what instanceof AEItemKey itemKey) {
+                shown = itemKey.getReadOnlyStack();
+            } else if (what instanceof AEFluidKey fluidKey) {
+                // Identity only, like the item above: toStack(0) is null, and a monitor whose network has run
+                // out should still show what it is watching.
+                shown = fluidKey.toStack(1);
+            } else {
+                // An addon's kind of content, drawn the way a terminal draws it: wrapped as an item, whose model
+                // asks the key type's registered renderer.
+                shown = GenericStack.wrapInItemStack(what, 1);
+            }
+            DISPLAY.put(what, shown);
+        }
+        return shown;
     }
 
     /** @return how wide the line came out, which is what a line under it has to be centred against. */

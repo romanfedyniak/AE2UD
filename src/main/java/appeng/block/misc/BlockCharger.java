@@ -174,9 +174,14 @@ public class BlockCharger extends AEBaseTileBlock implements ICustomCollision {
 
     @SideOnly(Side.CLIENT)
     private static Pair<ItemStack, Matrix4f> getRenderedItem(TileCharger tile) {
-        Matrix4f transform = new Matrix4f();
-        transform.translate(new Vector3f(0.5f, 0.4f, 0.5f));
-        return new ImmutablePair<>(tile.getInternalInventory().getStackInSlot(0), transform);
+        final ItemStack stack = tile.getInternalInventory().getStackInSlot(0);
+        return stack.isEmpty() ? null : new ImmutablePair<>(stack, RenderedItem.TRANSFORM);
+    }
+
+    /** Apart from the block, so that a dedicated server never loads the vector classes. */
+    @SideOnly(Side.CLIENT)
+    private static final class RenderedItem {
+        private static final Matrix4f TRANSFORM = new Matrix4f().translate(new Vector3f(0.5f, 0.4f, 0.5f));
     }
 
 }

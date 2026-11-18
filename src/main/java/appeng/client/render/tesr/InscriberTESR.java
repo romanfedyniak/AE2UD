@@ -140,7 +140,7 @@ public final class InscriberTESR extends TileEntitySpecialRenderer<TileInscriber
             if (is.isEmpty()) {
                 final IInscriberRecipe ir = tile.getTask();
                 if (ir != null) {
-                    is = ir.getOutput().copy();
+                    is = ir.getOutput();
                 }
             }
 
@@ -158,8 +158,6 @@ public final class InscriberTESR extends TileEntitySpecialRenderer<TileInscriber
 
     private void renderItem(final ItemStack stack, final float o, final AEBaseTile tile, final double x, final double y, final double z) {
         if (!stack.isEmpty()) {
-            final ItemStack sis = stack.copy();
-
             GlStateManager.pushMatrix();
             // move to center
             GlStateManager.translate(0.5f, 0.5f + o, 0.5f);
@@ -168,11 +166,11 @@ public final class InscriberTESR extends TileEntitySpecialRenderer<TileInscriber
             GlStateManager.scale(ITEM_RENDER_SCALE, ITEM_RENDER_SCALE, ITEM_RENDER_SCALE);
 
             // heuristic to scale items down much further than blocks
-            if (!(sis.getItem() instanceof ItemBlock)) {
+            if (!(stack.getItem() instanceof ItemBlock)) {
                 GlStateManager.scale(0.5, 0.5, 0.5);
             }
 
-            Minecraft.getMinecraft().getRenderItem().renderItem(sis, ItemCameraTransforms.TransformType.FIXED);
+            Minecraft.getMinecraft().getRenderItem().renderItem(stack, ItemCameraTransforms.TransformType.FIXED);
             GlStateManager.popMatrix();
         }
     }

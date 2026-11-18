@@ -35,6 +35,8 @@ import java.util.function.Function;
 
 public class ItemRenderable<T extends TileEntity> implements Renderable<T> {
 
+    private static final FloatBuffer MATRIX = BufferUtils.createFloatBuffer(16);
+
     private final Function<T, Pair<ItemStack, Matrix4f>> f;
 
     public ItemRenderable(Function<T, Pair<ItemStack, Matrix4f>> f) {
@@ -44,13 +46,13 @@ public class ItemRenderable<T extends TileEntity> implements Renderable<T> {
     @Override
     public void renderTileEntityAt(T te, double x, double y, double z, float partialTicks, int destroyStage) {
         Pair<ItemStack, Matrix4f> pair = this.f.apply(te);
-        if (pair != null && pair.getLeft() != null) {
+        if (pair != null && pair.getLeft() != null && !pair.getLeft().isEmpty()) {
             GlStateManager.pushMatrix();
             if (pair.getRight() != null) {
-                FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
-                pair.getRight().store(matrix);
-                matrix.flip();
-                GlStateManager.multMatrix(matrix);
+                MATRIX.clear();
+                pair.getRight().store(MATRIX);
+                MATRIX.flip();
+                GlStateManager.multMatrix(MATRIX);
             }
             Minecraft.getMinecraft().getRenderItem().renderItem(pair.getLeft(), TransformType.GROUND);
             GlStateManager.popMatrix();
