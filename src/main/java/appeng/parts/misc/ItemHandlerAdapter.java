@@ -98,7 +98,7 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         final long inserted = toInsertCount - remaining.getCount();
 
         if (inserted > 0 && mode == Actionable.MODULATE) {
-            this.updateCache();
+            this.cacheMoved(itemKey, inserted);
             this.notifyChange();
         }
 
@@ -160,7 +160,7 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         }
 
         if (extracted > 0 && mode == Actionable.MODULATE) {
-            this.updateCache();
+            this.cacheMoved(itemKey, -extracted);
             this.notifyChange();
         }
 
@@ -185,6 +185,29 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         if (this.changeListener != null) {
             this.changeListener.run();
         }
+    }
+
+    /**
+     * Our own insert or extract: only {@code what} moved, so the rest of the inventory is not scanned again. With
+     * extractable-only the key is recounted, as an insert may land in a slot that gives nothing back; otherwise the
+     * delta is applied. Whatever the handler did differently comes out at the next {@link #onTick()}.
+     */
+    private void cacheMoved(final AEItemKey what, final long delta) {
+        final long before = this.currentlyCached.get(what);
+        final long after = this.extractableOnly ? this.countExtractable(what) : Math.max(0, before + delta);
+        this.currentlyCached.set(what, after);
+        this.listeners.post(what, after - before);
+    }
+
+    private long countExtractable(final AEItemKey what) {
+        long count = 0;
+        for (int i = 0; i < this.itemHandler.getSlots(); i++) {
+            final ItemStack stack = this.itemHandler.getStackInSlot(i);
+            if (what.matches(stack) && !this.itemHandler.extractItem(i, Integer.MAX_VALUE, true).isEmpty()) {
+                count += stack.getCount();
+            }
+        }
+        return count;
     }
 
     private void updateCache() {
