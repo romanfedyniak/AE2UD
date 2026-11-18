@@ -313,7 +313,8 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
     private final class Slot implements IPatternInput {
 
         private final int slot;
-        private boolean wearKnown;
+        /** Set last, once the rest is filled in: calculator threads and the server thread ask at once. */
+        private volatile boolean wearKnown;
         private long uses = CONSUMED;
         private int wearPerCraft;
         private GenericStack returned;
@@ -374,7 +375,20 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 return;
             }
 
-            this.wearKnown = true;
+            synchronized (this) {
+                if (!this.wearKnown) {
+                    this.readWear();
+                    this.wearKnown = true;
+                }
+            }
+        }
+
+        private void readWear() {
+            // A machine is not known to hand anything back, and the crafting CPU does not wait for it: what a
+            // processing pattern takes, it consumes.
+            if (!PatternHelper.this.isCrafting) {
+                return;
+            }
 
             final ItemStack encoded = PatternHelper.this.crafting.getStackInSlot(this.slot);
 
