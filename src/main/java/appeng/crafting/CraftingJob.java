@@ -221,7 +221,12 @@ public class CraftingJob implements Runnable, ICraftingJob {
 
     private void finish() {
         if (this.callback != null) {
-            this.callback.calculationComplete(this);
+            // The callback promises to run in step with the world, and this is the calculator thread.
+            final ICraftingCallback callback = this.callback;
+            TickHandler.INSTANCE.addCallable(null, world -> {
+                callback.calculationComplete(this);
+                return null;
+            });
         }
 
         synchronized (this.monitor) {
