@@ -1665,7 +1665,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return CraftingSubmitResult.failed(CraftingSubmitErrorCode.INCOMPLETE_PLAN);
         }
 
-        if (!this.isActive()) {
+        if (this.isDestroyed || !this.isActive()) {
             return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_OFFLINE);
         }
 

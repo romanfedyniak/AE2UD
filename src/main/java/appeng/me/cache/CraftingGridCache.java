@@ -603,6 +603,15 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             int excluded = 0;
             for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
                 if (!cpu.isActive()) {
+            // A reference kept from before the CPU formed anew, or one from another network: a job put there
+            // would sit in a cluster nothing ticks or saves.
+            if (cpuCluster.isDestroyed()) {
+                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_OFFLINE);
+            }
+            if (!this.hasCpu(cpuCluster)) {
+                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
+            }
+
                     offline++;
                 } else if (cpu.isBusy()) {
                     busy++;
