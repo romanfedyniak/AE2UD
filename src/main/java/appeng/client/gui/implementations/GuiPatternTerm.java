@@ -597,6 +597,11 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
                 }
                 return;
             }
+            // Its frame closes it and goes no further: the picker covered what lies under it.
+            if (this.inPicker(xCoord - this.guiLeft, yCoord - this.guiTop)) {
+                this.pickerOpen = false;
+                return;
+            }
             // Anywhere else closes it, and still does what a click there does - unless it was the button that
             // opens it, which would open it again.
             if (this.modesBtn == null || !this.modesBtn.isMouseOver()) {
