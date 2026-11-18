@@ -103,8 +103,12 @@ public class PortableCellViewer extends DelegatingMEInventory implements IPortab
 
     @Override
     public IConfigManager getConfigManager() {
+        final boolean[] loading = {false};
         final ConfigManager out = new ConfigManager((manager, settingName, newValue) ->
         {
+            if (loading[0]) {
+                return;
+            }
             final NBTTagCompound data = Platform.openNbtData(PortableCellViewer.this.target);
             manager.writeToNBT(data);
         });
@@ -113,7 +117,13 @@ public class PortableCellViewer extends DelegatingMEInventory implements IPortab
         out.registerSetting(Settings.VIEW_MODE, ViewItems.ALL);
         out.registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING);
 
-        out.readFromNBT(Platform.openNbtData(this.target).copy());
+        // Read without writing: putting each read setting would write the whole set back into the tag being read.
+        final NBTTagCompound data = this.target.getTagCompound();
+        if (data != null) {
+            loading[0] = true;
+            out.readFromNBT(data);
+            loading[0] = false;
+        }
         return out;
     }
 }
