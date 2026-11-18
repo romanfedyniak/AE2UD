@@ -106,6 +106,11 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     /** The pattern slots a search marks, by container and slot: a slot's stack is replaced on every update. */
     private final Map<ClientDCInternalInv, Set<Integer>> matchedSlots = new HashMap<>();
     private final Map<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
+    /**
+     * What each pattern takes and makes, and whether it decodes at all, read once per stack: every keystroke in a
+     * search box asks again of every pattern on the network, and a slot holds a new stack whenever it changes.
+     */
+    private final Map<ItemStack, Decoded> decoded = new WeakHashMap<>();
 
     private final MEGuiTooltipTextField searchFieldOutputs;
     private final MEGuiTooltipTextField searchFieldInputs;
@@ -559,11 +564,10 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 }
             }
 
-            if (this.searchFieldInputs.textboxKeyTyped(character, key)
-                    || this.searchFieldOutputs.textboxKeyTyped(character, key)
-                    || this.searchFieldNames.textboxKeyTyped(character, key)) {
-                this.refreshList();
-            } else {
+            // A field filters the list itself when its text changes.
+            if (!this.searchFieldInputs.textboxKeyTyped(character, key)
+                    && !this.searchFieldOutputs.textboxKeyTyped(character, key)
+                    && !this.searchFieldNames.textboxKeyTyped(character, key)) {
                 super.keyTyped(character, key);
             }
         }
@@ -684,9 +688,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                     }
 
                     final boolean byInput = !inputQuery.isEmpty()
-                            && patternMatches(itemStack, this.inputSearch, "in", inputQuery);
+                            && this.patternMatches(itemStack, this.inputSearch, "in", inputQuery);
                     final boolean byOutput = !outputQuery.isEmpty()
-                            && patternMatches(itemStack, this.outputSearch, "out", outputQuery);
+                            && this.patternMatches(itemStack, this.outputSearch, "out", outputQuery);
 
                     if (byInput || byOutput) {
                         found = true;
@@ -770,6 +774,14 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         if (stack == null) return false;
         if (stack.isEmpty()) return false;
 
+        final Decoded d = this.decodedOf(stack);
+        if (d.broken == null) {
+            d.broken = decodesBroken(stack);
+        }
+        return d.broken;
+    }
+
+    private static boolean decodesBroken(final ItemStack stack) {
         final NBTTagCompound encodedValue = stack.getTagCompound();
         if (encodedValue == null) return true;
 
@@ -789,7 +801,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
      * once rather than of each ingredient: {@code -iron} means no ingredient is iron, which is not
      * something a single ingredient can answer.
      */
-    private static boolean patternMatches(final ItemStack pattern, final RepoSearch search,
+    private boolean patternMatches(final ItemStack pattern, final RepoSearch search,
             final String side, final String query) {
         if (pattern.isEmpty()) {
             return false;
@@ -800,7 +812,28 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             return query.equalsIgnoreCase(GuiText.InvalidPattern.getLocal());
         }
 
-        return search.matchesAny(ingredientsOf(pattern, side));
+        final Decoded d = this.decodedOf(pattern);
+        if (side.equals("in")) {
+            if (d.in == null) {
+                d.in = ingredientsOf(pattern, side);
+            }
+            return search.matchesAny(d.in);
+        }
+        if (d.out == null) {
+            d.out = ingredientsOf(pattern, side);
+        }
+        return search.matchesAny(d.out);
+    }
+
+    private Decoded decodedOf(final ItemStack pattern) {
+        return this.decoded.computeIfAbsent(pattern, p -> new Decoded());
+    }
+
+    /** One pattern stack, read as far as anything has asked of it. */
+    private static final class Decoded {
+        private List<AEKey> in;
+        private List<AEKey> out;
+        private Boolean broken;
     }
 
     private static List<AEKey> ingredientsOf(final ItemStack pattern, final String side) {

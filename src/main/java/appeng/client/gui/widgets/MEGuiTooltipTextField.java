@@ -132,7 +132,10 @@ public class MEGuiTooltipTextField implements ITooltip {
 
         if (handled) {
             this.typedIn = true;
-            onTextChange(oldText);
+            // Caret keys, selection and copying are handled too, and change nothing to search for.
+            if (!getText().equals(oldText)) {
+                onTextChange(oldText);
+            }
         }
 
         return handled;
