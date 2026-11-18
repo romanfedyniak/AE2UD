@@ -264,6 +264,12 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
                 continue;
             }
 
+            // A wrapped key carries its amount in its tag, where nothing but an edited pattern makes it zero or
+            // less: a job on such a pattern never pushes, or divides by zero working out a batch.
+            if (io.amount() <= 0) {
+                throw new IllegalArgumentException("No pattern here!");
+            }
+
             tmpOutputs.merge(io.what(), io, GenericStack::sum);
         }
 
@@ -272,6 +278,10 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         for (final GenericStack io : this.inputs) {
             if (io == null) {
                 continue;
+            }
+
+            if (io.amount() <= 0) {
+                throw new IllegalArgumentException("No pattern here!");
             }
 
             tmpInputs.merge(io.what(), io, GenericStack::sum);
