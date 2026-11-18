@@ -47,6 +47,7 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
 
     @Override
     protected void addButtons() {
+        final MEGuiTextField previous = this.searchFieldInputs;
         this.searchFieldInputs = new MEGuiTextField(this.fontRenderer, this.guiLeft + 3, this.guiTop + 22, 170, 12);
         this.searchFieldInputs.setEnableBackgroundDrawing(false);
         this.searchFieldInputs.setMaxStringLength(512);
@@ -59,6 +60,12 @@ public class GuiOreDictStorageBus extends GuiUpgradeable {
         this.buttonList.add(this.partition = new GuiImgButton(this.guiLeft - 18, this.guiTop + 28, Settings.ACTIONS, ActionItems.WRENCH));
         this.buttonList.add(this.rwMode = new GuiImgButton(this.guiLeft - 18, this.guiTop + 48, Settings.ACCESS, AccessRestriction.READ_WRITE));
         this.buttonList.add(this.storageFilter = new GuiImgButton(this.guiLeft - 18, this.guiTop + 68, Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY));
+
+        // Laid out again (a resize): what is being typed stays, and the stored expression is not asked for again.
+        if (previous != null) {
+            carryOver(previous, this.searchFieldInputs);
+            return;
+        }
 
         try {
             NetworkHandler.instance().sendToServer(new PacketValueConfig("OreDictStorageBus.getRegex", "1"));
