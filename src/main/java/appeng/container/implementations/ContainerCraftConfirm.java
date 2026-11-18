@@ -335,7 +335,9 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
     public void replan() {
         final IActionHost host = this.getActionHost();
         final IGridNode node = host == null ? null : host.getActionableNode();
-        if (node == null || node.getGrid() == null || this.result == null) {
+        // One calculation at a time: each copies the whole network's storage, and nothing else stops a client
+        // from asking again every tick.
+        if (node == null || node.getGrid() == null || this.result == null || this.getJob() != null) {
             return;
         }
 
@@ -355,7 +357,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ICraftingC
     public void forceStart() {
         final IActionHost host = this.getActionHost();
         final IGridNode node = host == null ? null : host.getActionableNode();
-        if (node == null || node.getGrid() == null || this.result == null) {
+        if (node == null || node.getGrid() == null || this.result == null || this.getJob() != null) {
             return;
         }
 
