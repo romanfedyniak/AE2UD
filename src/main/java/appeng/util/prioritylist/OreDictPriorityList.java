@@ -15,10 +15,13 @@ import appeng.util.item.OreReference;
 public class OreDictPriorityList implements IPartitionList {
     private final Set<Integer> oreIDs;
     private final boolean matchesEmptyOreDict;
+    /** No expression at all, which is what leaves the bus unfiltered; one that names no ore filters out everything. */
+    private final boolean blank;
 
     public OreDictPriorityList(List<MatchRule> oreMatch) {
         this.oreIDs = OreHelper.INSTANCE.getMatchingOre(oreMatch);
         this.matchesEmptyOreDict = OreDictFilterMatcher.matches(oreMatch, "");
+        this.blank = oreMatch.isEmpty();
     }
 
     @Override
@@ -40,7 +43,7 @@ public class OreDictPriorityList implements IPartitionList {
 
     @Override
     public boolean isEmpty() {
-        return oreIDs.isEmpty();
+        return this.blank;
     }
 
     @Override
