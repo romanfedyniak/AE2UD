@@ -55,6 +55,8 @@ public final class NetworkVisualiserRenderer {
 
     private static final int STRIDE = 16;
 
+    private static final double PICTURE_DEPTH = 0.1;
+
     private static VertexBuffer vbo;
     private static int quads;
 
@@ -149,10 +151,11 @@ public final class NetworkVisualiserRenderer {
         GlStateManager.disableCull();
         GlStateManager.enableBlend();
 
-        // Cleared rather than switched off: with no depth test at all a link drawn later paints straight over
-        // the node it runs behind, and nothing looks solid. Clearing puts the whole picture in front of the
-        // world while letting it occlude itself. Vanilla clears depth again before drawing the hand.
-        GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
+        // Squeezed to the front of the depth range rather than tested without depth: with no depth test at all
+        // a link drawn later paints straight over the node it runs behind, and nothing looks solid. In the
+        // front tenth the whole picture lies before the world (only what is within a few centimetres of the
+        // camera is nearer) while still occluding itself, and the world's depth stays for later handlers.
+        GL11.glDepthRange(0, PICTURE_DEPTH);
         GlStateManager.enableDepth();
         GlStateManager.depthMask(true);
         GlStateManager.depthFunc(GL11.GL_LEQUAL);
@@ -172,6 +175,7 @@ public final class NetworkVisualiserRenderer {
         GlStateManager.glDisableClientState(GL11.GL_VERTEX_ARRAY);
         vbo.unbindBuffer();
 
+        GL11.glDepthRange(0, 1);
         GlStateManager.disableBlend();
         GlStateManager.enableCull();
         GlStateManager.enableTexture2D();

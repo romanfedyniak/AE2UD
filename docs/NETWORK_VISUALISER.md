@@ -86,11 +86,12 @@ alphabet here is the ten digits, so `VisualiserLabels` lays the glyphs out of th
 every background in one buffer, every digit in another. That is why there is no cap on how many numbers may
 be on screen - a cap would need an answer to which sixty of five hundred labels matter, and there isn't one.
 
-The picture is drawn **through** the world but not through itself: the depth buffer is cleared before it is
-drawn rather than the depth test being switched off, so a link running behind a node is hidden by it while
-everything is still visible through walls. With the test off entirely, whatever happens to be later in the
-buffer paints over whatever is earlier and nothing looks solid. Vanilla clears depth again immediately
-afterwards for the player's hand, so nothing downstream cares.
+The picture is drawn **through** the world but not through itself: it is squeezed into the front tenth of the
+depth range (`glDepthRange(0, 0.1)`) rather than drawn with the depth test switched off, so a link running
+behind a node is hidden by it while everything is still visible through walls. With the test off entirely,
+whatever happens to be later in the buffer paints over whatever is earlier and nothing looks solid. Only what
+lies within a few centimetres of the camera is nearer than that tenth. The depth buffer is not cleared, so
+other mods drawing after it in the same `RenderWorldLastEvent` still see the world's depth.
 
 Vertices are floats relative to an origin near the player rather than absolute world coordinates, which is
 what the rebuild-after-walking rule is really for: a float loses a tenth of a block of precision out at the
