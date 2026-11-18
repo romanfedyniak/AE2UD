@@ -60,6 +60,8 @@ import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
 import appeng.util.inv.GenericStackInv;
 import appeng.util.inv.WrapperCursorItemHandler;
+import appeng.util.inv.WrapperFilteredItemHandler;
+import appeng.util.inv.filter.IAEItemFilter;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -69,6 +71,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
+import net.minecraftforge.items.wrapper.PlayerMainInvWrapper;
 import org.jetbrains.annotations.NotNull;
 
 
@@ -235,6 +238,24 @@ public abstract class AEBaseContainer extends Container {
         }
 
         return false;
+    }
+
+    /**
+     * The player's main inventory as a recipe may take from it: no armour or off hand, and none of the slots this
+     * screen locked - the item the screen is opened from among them.
+     */
+    public IItemHandler getPlayerIngredientInventory() {
+        return new WrapperFilteredItemHandler(new PlayerMainInvWrapper(this.getInventoryPlayer()), new IAEItemFilter() {
+            @Override
+            public boolean allowExtract(final IItemHandler inv, final int slot, final int amount) {
+                return !AEBaseContainer.this.locked.contains(slot);
+            }
+
+            @Override
+            public boolean allowInsert(final IItemHandler inv, final int slot, final ItemStack stack) {
+                return !AEBaseContainer.this.locked.contains(slot);
+            }
+        });
     }
 
     public void lockPlayerInventorySlot(final int idx) {

@@ -40,7 +40,6 @@ import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 
 public class ContainerCraftingTerm extends ContainerMEMonitorable implements IAEAppEngInventory, IContainerCraftingPacket, ICraftingGridContainer {
@@ -110,7 +109,7 @@ public class ContainerCraftingTerm extends ContainerMEMonitorable implements IAE
     @Override
     public IItemHandler getInventoryByName(final String name) {
         if (name.equals("player")) {
-            return new PlayerInvWrapper(this.getInventoryPlayer());
+            return this.getPlayerIngredientInventory();
         }
         return this.ct.getInventoryByName(name);
     }

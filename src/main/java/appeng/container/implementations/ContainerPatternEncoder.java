@@ -60,7 +60,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -263,7 +262,7 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     @Override
     public IItemHandler getInventoryByName(String name) {
         if (name.equals("player")) {
-            return new PlayerInvWrapper(this.getInventoryPlayer());
+            return this.getPlayerIngredientInventory();
         }
         if (this.getPart() != null) {
             return this.getPart().getInventoryByName(name);

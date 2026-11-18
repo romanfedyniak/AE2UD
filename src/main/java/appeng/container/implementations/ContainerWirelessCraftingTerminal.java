@@ -40,7 +40,6 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.world.World;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 
 
 public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTerminal implements IContainerCraftingPacket, ICraftingGridContainer {
@@ -128,7 +127,7 @@ public class ContainerWirelessCraftingTerminal extends ContainerMEPortableTermin
     @Override
     public IItemHandler getInventoryByName(final String name) {
         if (name.equals("player")) {
-            return new PlayerInvWrapper(this.getInventoryPlayer());
+            return this.getPlayerIngredientInventory();
         } else if (name.equals("crafting")) {
             return this.craftingGrid;
         }
