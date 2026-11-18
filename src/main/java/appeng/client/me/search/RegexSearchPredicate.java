@@ -51,9 +51,15 @@ final class RegexSearchPredicate implements Predicate<AEKey> {
 
     @Override
     public boolean test(final AEKey what) {
-        if (this.pattern.matcher(this.names.apply(what)).find()) {
-            return true;
+        try {
+            if (this.pattern.matcher(this.names.apply(what)).find()) {
+                return true;
+            }
+            return this.tooltips != null && this.pattern.matcher(this.tooltips.apply(what)).find();
+        } catch (final StackOverflowError tooDeep) {
+            // Java's matcher recurses once per character for some patterns, (.|x)* among them; over a long
+            // tooltip that overflows, and out of a screen's tick it would take the client down.
+            return false;
         }
-        return this.tooltips != null && this.pattern.matcher(this.tooltips.apply(what)).find();
     }
 }

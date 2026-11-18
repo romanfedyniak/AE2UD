@@ -184,7 +184,7 @@ public final class RepoSearch {
             final List<Predicate<Collection<AEKey>>> setTerms = new ArrayList<>(group.size());
 
             for (final Term term : group) {
-                final Predicate<AEKey> predicate = compileTerm(term.text);
+                final Predicate<AEKey> predicate = compileTerm(term.text, term.literal);
                 if (predicate == null) {
                     continue;
                 }
@@ -215,7 +215,11 @@ public final class RepoSearch {
 
     /** Null for a term that says nothing yet, such as a lone prefix being typed. */
     @Nullable
-    private Predicate<AEKey> compileTerm(final String raw) {
+    private Predicate<AEKey> compileTerm(final String raw, final boolean literal) {
+        if (literal) {
+            return this.byName(raw.toLowerCase(Locale.ROOT));
+        }
+
         if (raw.length() > 2 && raw.charAt(0) == '/' && raw.charAt(raw.length() - 1) == '/') {
             return RegexSearchPredicate.of(raw.substring(1, raw.length() - 1), this::nameOf,
                     this.searchTooltips ? this::tooltipOf : null);
@@ -236,7 +240,11 @@ public final class RepoSearch {
                 break;
         }
 
-        final String plain = raw.toLowerCase(Locale.ROOT);
+        return this.byName(raw.toLowerCase(Locale.ROOT));
+    }
+
+    /** A plain term: the name, and the tooltip while the setting says so. */
+    private Predicate<AEKey> byName(final String plain) {
         final Predicate<AEKey> byName = new NameSearchPredicate(plain, this::nameOf);
         if (!this.searchTooltips) {
             return byName;

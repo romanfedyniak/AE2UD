@@ -82,6 +82,11 @@ silent fall back to a literal match when it did not compile. `/.../` is what is 
 It is ours alone - HEI does not understand slashes, so a regex query mirrored into HEI's field finds nothing
 there.
 
+A term that starts with a slash is read as typed up to the next slash: backslashes, `|` and spaces inside it
+belong to the expression (`/\d+/`, `/iron|gold/`). A quoted or escaped first character is never a prefix or
+a slash: `"*Shiny*"` and `\@foo` are names. A pattern that overflows Java's matcher on a long tooltip matches
+nothing.
+
 ## Putting a key into a box
 
 A screen lists its boxes as `KeySearchTarget`s - a rectangle in screen coordinates, and what to write in

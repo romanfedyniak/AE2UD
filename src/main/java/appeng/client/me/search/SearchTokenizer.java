@@ -28,10 +28,16 @@ final class SearchTokenizer {
     static final class Term {
         final String text;
         final boolean excluded;
+        /**
+         * The first character was quoted or escaped: the term is a plain name, whatever that character usually
+         * means - a channel prefix, or the slash of a regex.
+         */
+        final boolean literal;
 
-        Term(final String text, final boolean excluded) {
+        Term(final String text, final boolean excluded, final boolean literal) {
             this.text = text;
             this.excluded = excluded;
+            this.literal = literal;
         }
     }
 
@@ -43,39 +49,51 @@ final class SearchTokenizer {
         boolean quoted = false;
         boolean excluded = false;
         boolean escaped = false;
+        boolean literal = false;
 
         for (int i = 0; i < query.length(); i++) {
             final char c = query.charAt(i);
 
             if (escaped) {
+                literal |= term.length() == 0;
                 term.append(c);
                 escaped = false;
             } else if (c == '\\') {
                 escaped = true;
             } else if (c == '"') {
                 quoted = !quoted;
+            } else if (!quoted && term.length() == 0 && c == '/') {
+                // A regex is read as typed up to its closing slash: its backslashes, bars and spaces are its own.
+                final int close = query.indexOf('/', i + 1);
+                final int stop = close < 0 ? query.length() : close + 1;
+                term.append(query, i, stop);
+                i = stop - 1;
             } else if (!quoted && c == '|') {
-                excluded = end(group, term, excluded);
+                excluded = end(group, term, excluded, literal);
+                literal = false;
                 groups.add(group);
                 group = new ArrayList<>();
             } else if (!quoted && Character.isWhitespace(c)) {
-                excluded = end(group, term, excluded);
+                excluded = end(group, term, excluded, literal);
+                literal = false;
             } else if (!quoted && term.length() == 0 && (c == '-' || c == '!')) {
                 excluded = true;
             } else {
+                literal |= quoted && term.length() == 0;
                 term.append(c);
             }
         }
 
-        end(group, term, excluded);
+        end(group, term, excluded, literal);
         groups.add(group);
 
         return groups;
     }
 
-    private static boolean end(final List<Term> group, final StringBuilder term, final boolean excluded) {
+    private static boolean end(final List<Term> group, final StringBuilder term, final boolean excluded,
+            final boolean literal) {
         if (term.length() > 0) {
-            group.add(new Term(term.toString(), excluded));
+            group.add(new Term(term.toString(), excluded, literal));
             term.setLength(0);
         }
         return false;
