@@ -432,7 +432,11 @@ public abstract class AEBaseContainer extends Container {
                             if (Platform.itemComparisons().isSameItem(tis, t)) // t.isItemEqual(tis))
                             {
                                 if (d instanceof SlotRestrictedInput && ((SlotRestrictedInput) d).getPlaceableItemType() == PlacableItemType.ENCODED_PATTERN) {
-                                    return ItemStack.EMPTY; // don't insert duplicate encoded patterns to interfaces
+                                    // Don't insert duplicate encoded patterns to interfaces. What the network
+                                    // already took is gone from the stack, so the rest goes back where it was.
+                                    this.settleSource(clickSlot, fromPlayerSide, tis, p);
+                                    this.updateSlot(clickSlot);
+                                    return ItemStack.EMPTY;
                                 }
 
                                 final int maxSize;
