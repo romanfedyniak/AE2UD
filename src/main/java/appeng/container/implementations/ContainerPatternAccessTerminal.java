@@ -177,6 +177,8 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
         final InvTracker inv = this.byId.get(id);
         if (inv != null) {
             // The code below this block assumes "slot" is an interface slot id. Not in this case.
+            // Asked now rather than taken from the list: cards may have come out since it was built.
+            final int usableSlots = inv.container.getUsablePatternSlots();
             if (action == InventoryAction.PLACE_SINGLE) {
                 final AppEngSlot playerSlot;
                 try {
@@ -190,7 +192,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
                 var itemStack = playerSlot.getStack();
                 if (!itemStack.isEmpty()) {
                     var handler = new WrapperFilteredItemHandler(
-                            new WrapperRangeItemHandler(inv.server, 0, inv.usableSlots), new PatternSlotFilter());
+                            new WrapperRangeItemHandler(inv.server, 0, usableSlots), new PatternSlotFilter());
                     playerSlot.putStack(ItemHandlerHelper.insertItem(handler, itemStack, false));
                     detectAndSendChanges();
                 }
@@ -198,7 +200,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
                 return;
             }
 
-            if (slot < 0 || slot >= inv.usableSlots) {
+            if (slot < 0 || slot >= usableSlots) {
                 return;
             }
 
@@ -414,6 +416,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
 
     private static class InvTracker {
 
+        private final IPatternContainer container;
         private final long sortBy;
         private final long which;
         private final String unlocalizedName;
@@ -428,6 +431,7 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
         public InvTracker(final IPatternContainer container, final long which) {
             final MachineIdentity identity = container.getTerminalIdentity();
 
+            this.container = container;
             this.which = which;
             this.server = container.getTerminalPatternInventory();
             this.client = new AppEngInternalInventory(null, this.server.getSlots());
