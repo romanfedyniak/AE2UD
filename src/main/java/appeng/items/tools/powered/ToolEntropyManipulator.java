@@ -239,7 +239,9 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             } else {
                 if (blockID instanceof BlockTNT) {
                     w.setBlockToAir(pos);
-                    ((BlockTNT) blockID).explode(w, pos, state, p);
+                    // Lit, as flint and steel lights it: a placed block's own state says not to explode.
+                    final IBlockState lit = state.getPropertyKeys().contains(BlockTNT.EXPLODE) ? state.withProperty(BlockTNT.EXPLODE, true) : state;
+                    ((BlockTNT) blockID).explode(w, pos, lit, p);
                     return EnumActionResult.SUCCESS;
                 }
 
