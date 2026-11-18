@@ -100,6 +100,7 @@ import net.minecraft.server.management.PlayerChunkMap;
 import net.minecraft.server.management.PlayerChunkMapEntry;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.*;
 import net.minecraft.util.registry.RegistryNamespaced;
@@ -108,7 +109,11 @@ import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.BlockSnapshot;
 import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.event.ForgeEventFactory;
+import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
@@ -437,6 +442,22 @@ public class Platform {
 
     public static boolean hasPermissions(final World world, final BlockPos pos, final EntityPlayer player) {
         return world.canMineBlockBody(player, pos);
+    }
+
+    /**
+     * Whether a tool may break or change the block there for the player: {@link #hasPermissions} (spawn protection,
+     * the world border) and the block break event, which is what claim mods answer. A tool used in the air reaches
+     * no other event that names the block.
+     */
+    public static boolean mayBreak(final World world, final BlockPos pos, final EntityPlayer player) {
+        return hasPermissions(world, pos, player)
+                && !MinecraftForge.EVENT_BUS.post(new BlockEvent.BreakEvent(world, pos, world.getBlockState(pos), player));
+    }
+
+    /** The same for a block a tool puts there, asked as the player placing it against {@code face}. */
+    public static boolean mayPlace(final World world, final BlockPos pos, final EnumFacing face, final EntityPlayer player) {
+        return hasPermissions(world, pos, player) && !ForgeEventFactory.onPlayerBlockPlace(player,
+                BlockSnapshot.getBlockSnapshot(world, pos), face, EnumHand.MAIN_HAND).isCanceled();
     }
 
     /*

@@ -20,7 +20,6 @@ package appeng.items.tools.powered;
 
 
 import appeng.api.config.Actionable;
-import appeng.api.util.DimensionalCoord;
 import appeng.block.misc.BlockTinyTNT;
 import appeng.core.AEConfig;
 import appeng.hooks.IBlockTool;
@@ -206,7 +205,7 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             if (target.typeOfHit == RayTraceResult.Type.BLOCK) {
                 final IBlockState state = w.getBlockState(target.getBlockPos());
                 if (state.getMaterial() == Material.LAVA || state.getMaterial() == Material.WATER) {
-                    if (Platform.hasPermissions(new DimensionalCoord(w, target.getBlockPos()), p)) {
+                    if (Platform.mayBreak(w, target.getBlockPos(), p)) {
                         this.onItemUse(p, w, target.getBlockPos(), hand, EnumFacing.UP, 0.0F, 0.0F, 0.0F);
                     }
                 }

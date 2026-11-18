@@ -31,7 +31,6 @@ import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AEColor;
-import appeng.api.util.DimensionalCoord;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -232,7 +231,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                 final EnumFacing side = pos.sideHit;
                 final BlockPos hitPos = pos.getBlockPos().offset(side);
 
-                if (!Platform.hasPermissions(new DimensionalCoord(w, hitPos), p)) {
+                if (!Platform.mayPlace(w, hitPos, side, p)) {
                     return;
                 }
 
@@ -345,7 +344,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                         final float hardness = bs.getBlockHardness(w, pos.getBlockPos()) * 9.0f;
                         if (hardness >= 0.0) {
-                            if (penetration > hardness && Platform.hasPermissions(new DimensionalCoord(w, pos.getBlockPos()), p)) {
+                            if (penetration > hardness && Platform.mayBreak(w, pos.getBlockPos(), p)) {
                                 hasDestroyed = true;
                                 penetration -= hardness;
                                 penetration *= 0.60;

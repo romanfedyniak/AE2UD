@@ -43,6 +43,7 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Explosion;
 import net.minecraft.world.World;
+import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
 
 import java.util.List;
@@ -118,47 +119,34 @@ public final class EntityTinyTNTPrimed extends EntityTNTPrimed implements IEntit
 
     // override :P
     void explode() {
-        this.world.playSound(null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.BLOCKS, 4.0F,
-                (1.0F + (this.world.rand.nextFloat() - this.world.rand.nextFloat()) * 0.2F) * 32.9F);
-
         if (this.isInWater()) {
+            this.playExplosionSound();
             return;
         }
 
         final Explosion ex = new Explosion(this.world, this, this.posX, this.posY, this.posZ, 0.2f, false, false);
-        final AxisAlignedBB area = new AxisAlignedBB(this.posX - 1.5, this.posY - 1.5f, this.posZ - 1.5, this.posX + 1.5, this.posY + 1.5, this.posZ + 1.5);
-        final List<Entity> list = this.world.getEntitiesWithinAABBExcludingEntity(this, area);
 
-        net.minecraftforge.event.ForgeEventFactory.onExplosionDetonate(this.world, ex, list, 0.2f * 2d);
-
-        for (final Entity e : list) {
-            e.attackEntityFrom(DamageSource.causeExplosionDamage(ex), 6);
-        }
-
+        // The blocks it would break go into the explosion first, as a vanilla one's do, so that the explosion events
+        // see them: a claim mod cancels the explosion or takes its claimed blocks out of the list, and only what is
+        // left in the list is broken.
         if (AEConfig.instance().isFeatureEnabled(AEFeature.TINY_TNT_BLOCK_DAMAGE)) {
-            this.posY -= 0.25;
+            final double cy = this.posY - 0.25;
 
             for (int x = (int) (this.posX - 2); x <= this.posX + 2; x++) {
-                for (int y = (int) (this.posY - 2); y <= this.posY + 2; y++) {
+                for (int y = (int) (cy - 2); y <= cy + 2; y++) {
                     for (int z = (int) (this.posZ - 2); z <= this.posZ + 2; z++) {
                         final BlockPos point = new BlockPos(x, y, z);
                         final IBlockState state = this.world.getBlockState(point);
                         final Block block = state.getBlock();
 
                         if (block != null && !block.isAir(state, this.world, point)) {
-                            float strength = (float) (2.3f - (((x + 0.5f) - this.posX) * ((x + 0.5f) - this.posX) + ((y + 0.5f) - this.posY) * ((y + 0.5f) - this.posY) + ((z + 0.5f) - this.posZ) * ((z + 0.5f) - this.posZ)));
+                            float strength = (float) (2.3f - (((x + 0.5f) - this.posX) * ((x + 0.5f) - this.posX) + ((y + 0.5f) - cy) * ((y + 0.5f) - cy) + ((z + 0.5f) - this.posZ) * ((z + 0.5f) - this.posZ)));
 
                             final float resistance = block.getExplosionResistance(this.world, point, this, ex);
                             strength -= (resistance + 0.3F) * 0.11f;
 
                             if (strength > 0.01) {
-                                if (block.getMaterial(state) != Material.AIR) {
-                                    if (block.canDropFromExplosion(ex)) {
-                                        block.dropBlockAsItemWithChance(this.world, point, state, 1.0F / 1.0f, 0);
-                                    }
-
-                                    block.onBlockExploded(this.world, point, ex);
-                                }
+                                ex.getAffectedBlockPositions().add(point);
                             }
                         }
                     }
@@ -166,7 +154,40 @@ public final class EntityTinyTNTPrimed extends EntityTNTPrimed implements IEntit
             }
         }
 
+        if (ForgeEventFactory.onExplosionStart(this.world, ex)) {
+            return;
+        }
+
+        this.playExplosionSound();
+
+        final AxisAlignedBB area = new AxisAlignedBB(this.posX - 1.5, this.posY - 1.5f, this.posZ - 1.5, this.posX + 1.5, this.posY + 1.5, this.posZ + 1.5);
+        final List<Entity> list = this.world.getEntitiesWithinAABBExcludingEntity(this, area);
+
+        ForgeEventFactory.onExplosionDetonate(this.world, ex, list, 0.2f * 2d);
+
+        for (final Entity e : list) {
+            e.attackEntityFrom(DamageSource.causeExplosionDamage(ex), 6);
+        }
+
+        for (final BlockPos point : ex.getAffectedBlockPositions()) {
+            final IBlockState state = this.world.getBlockState(point);
+            final Block block = state.getBlock();
+
+            if (block.getMaterial(state) != Material.AIR) {
+                if (block.canDropFromExplosion(ex)) {
+                    block.dropBlockAsItemWithChance(this.world, point, state, 1.0F / 1.0f, 0);
+                }
+
+                block.onBlockExploded(this.world, point, ex);
+            }
+        }
+
         AppEng.proxy.sendToAllNearExcept(null, this.posX, this.posY, this.posZ, 64, this.world, new PacketMockExplosion(this.posX, this.posY, this.posZ));
+    }
+
+    private void playExplosionSound() {
+        this.world.playSound(null, this.posX, this.posY, this.posZ, SoundEvents.ENTITY_GENERIC_EXPLODE, SoundCategory.BLOCKS, 4.0F,
+                (1.0F + (this.world.rand.nextFloat() - this.world.rand.nextFloat()) * 0.2F) * 32.9F);
     }
 
     @Override
