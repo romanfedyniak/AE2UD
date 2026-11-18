@@ -19,7 +19,6 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 
@@ -50,7 +49,8 @@ public class CraftingModePanel extends PatternModePanel {
     private GuiImgButton fluidSubstitutionsDisabledBtn;
 
     private GenericStack[] fabricatedSlots;
-    private int fabricatedFrom;
+    /** The grid the hint was worked out from, stack by stack: a container's fluid is in its tag. */
+    private ItemStack[] fabricatedFrom = new ItemStack[0];
 
     public CraftingModePanel(final PatternEncodingMode mode, final IPatternTerminalScreen screen) {
         super(mode, screen);
@@ -149,10 +149,9 @@ public class CraftingModePanel extends PatternModePanel {
 
         // Finding the recipe is a scan of every one registered, so it is redone only when the grid actually
         // changed - hovering a still grid costs nothing after the first frame.
-        final int contents = contentsOf(grid);
-        if (this.fabricatedSlots == null || contents != this.fabricatedFrom) {
+        if (this.fabricatedSlots == null || !sameContents(grid, this.fabricatedFrom)) {
             this.fabricatedSlots = findFabricated(grid);
-            this.fabricatedFrom = contents;
+            this.fabricatedFrom = contentsOf(grid);
         }
 
         GlStateManager.disableLighting();
@@ -180,14 +179,23 @@ public class CraftingModePanel extends PatternModePanel {
         return FabricatedSlots.find(grid, CraftingManager.findMatchingRecipe(grid, Minecraft.getMinecraft().world));
     }
 
-    private static int contentsOf(final List<Slot> slots) {
-        int hash = 1;
-
-        for (final Slot slot : slots) {
-            final ItemStack is = slot.getStack();
-            hash = hash * 31 + (is.isEmpty() ? 0 : Item.getIdFromItem(is.getItem()) * 31 + is.getItemDamage());
+    private static ItemStack[] contentsOf(final List<Slot> slots) {
+        final ItemStack[] contents = new ItemStack[slots.size()];
+        for (int i = 0; i < contents.length; i++) {
+            contents[i] = slots.get(i).getStack().copy();
         }
+        return contents;
+    }
 
-        return hash;
+    private static boolean sameContents(final List<Slot> slots, final ItemStack[] contents) {
+        if (slots.size() != contents.length) {
+            return false;
+        }
+        for (int i = 0; i < contents.length; i++) {
+            if (!ItemStack.areItemStacksEqual(slots.get(i).getStack(), contents[i])) {
+                return false;
+            }
+        }
+        return true;
     }
 }
