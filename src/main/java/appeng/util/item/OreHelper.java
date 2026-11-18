@@ -28,6 +28,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class OreHelper {
@@ -44,7 +45,12 @@ public class OreHelper {
         }
     });
 
-    private final Map<ItemRef, OreReference> references = new HashMap<>();
+    /** Stands for "no ore names" in {@link #references}, which cannot hold null. */
+    private static final OreReference NONE = new OreReference();
+
+    // Asked from the grids' threads at once on a server that ticks them in parallel, and from both sides in
+    // single player.
+    private final Map<ItemRef, OreReference> references = new ConcurrentHashMap<>();
 
     /**
      * Test if the passed {@link ItemStack} is an ore.
@@ -55,7 +61,8 @@ public class OreHelper {
     public Optional<OreReference> getOre(final ItemStack itemStack) {
         final ItemRef ir = new ItemRef(itemStack);
 
-        if (!this.references.containsKey(ir)) {
+        OreReference known = this.references.get(ir);
+        if (known == null) {
             final OreReference ref = new OreReference();
             final Collection<Integer> ores = ref.getOres();
             final Collection<String> set = ref.getEquivalents();
@@ -81,14 +88,11 @@ public class OreHelper {
                 ores.add(OreDictionary.getOreID(ore));
             }
 
-            if (!set.isEmpty()) {
-                this.references.put(ir, ref);
-            } else {
-                this.references.put(ir, null);
-            }
+            known = set.isEmpty() ? NONE : ref;
+            this.references.put(ir, known);
         }
 
-        return Optional.ofNullable(this.references.get(ir));
+        return known == NONE ? Optional.empty() : Optional.of(known);
     }
 
     public boolean sameOre(final AEItemKey itemKey, final AEItemKey other) {
