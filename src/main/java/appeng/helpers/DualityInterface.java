@@ -218,8 +218,12 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         this.interfaceRequestSource = new InterfaceRequestSource(this.iHost);
     }
 
+    /** The network for what machines push into the interface, or null while the interface is off (no channel). */
     @Nullable
     private IStorageService getStorageGrid() {
+        if (!this.gridProxy.isActive()) {
+            return null;
+        }
         try {
             return this.gridProxy.getStorage();
         } catch (GridAccessException e) {

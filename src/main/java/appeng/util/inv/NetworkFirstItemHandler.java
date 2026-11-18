@@ -20,9 +20,15 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
 import appeng.api.config.Actionable;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.energy.IEnergyGrid;
+import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.util.Platform;
 
 
 /**
@@ -76,7 +82,7 @@ public class NetworkFirstItemHandler implements IItemHandlerModifiable {
             return this.local.insertItem(slot, stack, simulate);
         }
 
-        final long inserted = storage.getInventory().insert(what, stack.getCount(),
+        final long inserted = insert(storage, what, stack.getCount(),
                 simulate ? Actionable.SIMULATE : Actionable.MODULATE, this.source);
 
         if (inserted <= 0) {
@@ -88,6 +94,20 @@ public class NetworkFirstItemHandler implements IItemHandlerModifiable {
 
         // The network took part of it; the rest falls back to the interface's own slot.
         return this.local.insertItem(slot, what.toStack((int) (stack.getCount() - inserted)), simulate);
+    }
+
+    /**
+     * Into the network as an import bus puts things there: paid for with the energy of the network the source works
+     * for, when it works for one.
+     */
+    static long insert(final IStorageService storage, final AEKey what, final long amount, final Actionable mode,
+            final IActionSource source) {
+        final IGridNode node = source.machine().map(IActionHost::getActionableNode).orElse(null);
+        final IGrid grid = node == null ? null : node.getGrid();
+        if (grid == null) {
+            return storage.getInventory().insert(what, amount, mode, source);
+        }
+        return Platform.poweredInsert(grid.getCache(IEnergyGrid.class), storage.getInventory(), what, amount, source, mode);
     }
 
     @Nonnull

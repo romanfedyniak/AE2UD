@@ -62,7 +62,7 @@ public class NetworkFirstFluidHandler implements IFluidHandler {
             return this.local.fill(resource, doFill);
         }
 
-        final long inserted = storage.getInventory().insert(key, resource.amount,
+        final long inserted = NetworkFirstItemHandler.insert(storage, key, resource.amount,
                 doFill ? Actionable.MODULATE : Actionable.SIMULATE, this.source);
 
         if (inserted <= 0) {
