@@ -71,7 +71,10 @@ public class GuiCraftPriority extends GuiCraftAmount {
         super.initGui();
 
         // Where every other amount screen keeps the way out. This one goes back to a screen rather than to a
-        // GuiBridge, so it is added here instead of by the tab the base class builds from the container's host.
+        // GuiBridge, so it is added here instead of by the tab the base class builds from the container's host -
+        // and that tab is taken away: it would close the window underneath on the server, and one click at this
+        // place pressed both.
+        this.buttonList.remove(this.originalGuiBtn);
         this.back = new GuiTabButton(this.guiLeft + BACK_X, this.guiTop, this.icon,
                 GuiText.CraftPriorityBack.getLocal(), this.itemRender);
         this.buttonList.add(this.back);
