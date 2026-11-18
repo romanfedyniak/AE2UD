@@ -38,6 +38,10 @@ import java.util.List;
 @Mod.EventBusSubscriber(Side.CLIENT)
 public class RenderBlockOutlineHook {
 
+    // The part the placement preview draws, made once per held stack rather than every frame.
+    private static ItemStack previewStack = ItemStack.EMPTY;
+    private static IPart previewPart;
+
     @SubscribeEvent
     public static void onDrawHighlightEvent(DrawBlockHighlightEvent event) {
         if (event.getTarget() == null) return;
@@ -98,7 +102,11 @@ public class RenderBlockOutlineHook {
         if (placement == null) return;
         if (!player.world.getWorldBorder().contains(placement.pos())) return;
 
-        IPart part = partItem.createPartFromItemStack(stack);
+        if (!ItemStack.areItemStacksEqual(stack, previewStack)) {
+            previewStack = stack.copy();
+            previewPart = partItem.createPartFromItemStack(stack);
+        }
+        IPart part = previewPart;
         if (part == null) return;
 
         // Render with two depth passes to render behind blocks

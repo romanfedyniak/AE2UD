@@ -45,8 +45,10 @@ public class CompassManager {
 
     private static final int REFRESH_CACHE_AFTER = 30000;
     private static final int EXPIRE_CACHE_AFTER = 60000;
+    private static final int EXPIRE_EVERY = 1000;
 
     private final Long2ObjectOpenHashMap<CachedResult> requests = new Long2ObjectOpenHashMap<>();
+    private long lastExpired;
 
     public void postResult(final ChunkPos requestedPos, @Nullable final BlockPos closestMeteorite) {
         this.requests.put(ChunkPos.asLong(requestedPos.x, requestedPos.z),
@@ -71,7 +73,11 @@ public class CompassManager {
     public BlockPos getClosestMeteorite(final ChunkPos chunkPos, final boolean prefetch) {
         final long now = System.currentTimeMillis();
 
-        this.expire(now);
+        // Asked by every compass drawn, every frame; a minute-long expiry has no need of that.
+        if (now - this.lastExpired >= EXPIRE_EVERY) {
+            this.lastExpired = now;
+            this.expire(now);
+        }
 
         final long requestKey = ChunkPos.asLong(chunkPos.x, chunkPos.z);
         final CachedResult cached = this.requests.get(requestKey);
@@ -98,13 +104,24 @@ public class CompassManager {
             for (int i = -1; i <= 1; i++) {
                 for (int j = -1; j <= 1; j++) {
                     if (i != 0 || j != 0) {
-                        this.getClosestMeteorite(new ChunkPos(chunkPos.x + i, chunkPos.z + j), false);
+                        this.prefetch(chunkPos.x + i, chunkPos.z + j, now);
                     }
                 }
             }
         }
 
         return result;
+    }
+
+    /** Asks the server about a chunk whose answer is missing or old; nothing is worked out for it here. */
+    private void prefetch(final int chunkX, final int chunkZ, final long now) {
+        final long requestKey = ChunkPos.asLong(chunkX, chunkZ);
+        final CachedResult cached = this.requests.get(requestKey);
+
+        if (cached == null || now - cached.received() > REFRESH_CACHE_AFTER) {
+            this.requests.put(requestKey, new CachedResult(cached == null ? null : cached.closestMeteoritePos(), now));
+            NetworkHandler.instance().sendToServer(new PacketCompassRequest(new ChunkPos(chunkX, chunkZ)));
+        }
     }
 
     private void expire(final long now) {
