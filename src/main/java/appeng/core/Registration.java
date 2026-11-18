@@ -619,6 +619,10 @@ final class Registration {
 
     private static void card(final IUpgradeRegistry upgrades, final ItemStack card, final CardTrait trait,
             final int points) {
+        // Empty when a config switch turned the card's material off.
+        if (card.isEmpty()) {
+            return;
+        }
         final int configured = AEConfig.instance().getCardPoints(trait, points);
         if (configured > 0) {
             upgrades.registerCard(card, trait, configured);
