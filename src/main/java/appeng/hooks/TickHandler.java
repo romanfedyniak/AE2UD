@@ -243,8 +243,9 @@ public class TickHandler {
 
         final Stopwatch sw = Stopwatch.createStarted();
 
+        // Only what was queued before this drain: a callable that queues itself again waits for the next tick.
         IWorldCallable<?> c = null;
-        while ((c = queue.poll()) != null) {
+        for (int left = queue.size(); left > 0 && (c = queue.poll()) != null; left--) {
             try {
                 c.call(world);
 
