@@ -26,6 +26,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.inventory.Slot;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fml.relauncher.Side;
@@ -60,7 +61,8 @@ public class AppEngSlot extends Slot {
     /** What the drawn stack stands for, and the stack it was worked out from. */
     @Nullable
     private GenericStack resolved;
-    private ItemStack resolvedFrom = ItemStack.EMPTY;
+    private Item resolvedItem;
+    private int resolvedDamage;
     private int resolvedCount;
     @Nullable
     private NBTTagCompound resolvedTag;
@@ -168,10 +170,14 @@ public class AppEngSlot extends Slot {
      */
     @Nullable
     public GenericStack resolveForDisplay(final ItemStack stack) {
-        if (stack != this.resolvedFrom || stack.getCount() != this.resolvedCount
+        // Compared by what the stack holds, not by which stack it is: a filter inventory hands out a new
+        // placeholder on every read.
+        if (stack.getItem() != this.resolvedItem || stack.getMetadata() != this.resolvedDamage
+                || stack.getCount() != this.resolvedCount
                 || !Objects.equals(stack.getTagCompound(), this.resolvedTag)) {
             this.resolved = GenericStack.resolveItemStack(stack);
-            this.resolvedFrom = stack;
+            this.resolvedItem = stack.getItem();
+            this.resolvedDamage = stack.getMetadata();
             this.resolvedCount = stack.getCount();
             this.resolvedTag = stack.getTagCompound() == null ? null : stack.getTagCompound().copy();
         }
