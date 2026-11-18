@@ -110,10 +110,13 @@ import appeng.worldgen.meteorite.MeteorConstants;
 import appeng.worldgen.meteorite.heightmap.HeightMapAccessors;
 import appeng.worldgen.QuartzWorldGen;
 import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.advancements.ICriterionInstance;
 import net.minecraft.advancements.ICriterionTrigger;
 import net.minecraft.block.Block;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ItemMeshDefinition;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.block.statemap.IStateMapper;
@@ -138,6 +141,7 @@ import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.LoaderState;
 import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
@@ -172,6 +176,13 @@ final class Registration {
     MeteoriteWorldGen meteoriteGen;
     AdvancementTriggers advancementTriggers;
 
+    /**
+     * The lines each card's tooltip adds, by item and damage, in the language they were made in. The registry
+     * no longer changes once loading is over, and the event fires every frame a card is hovered.
+     */
+    private final Long2ObjectMap<List<String>> upgradeCardTooltips = new Long2ObjectOpenHashMap<>();
+    private String upgradeCardTooltipLanguage;
+
     @SubscribeEvent
     @SideOnly(Side.CLIENT)
     public void addUpgradeCardTooltip(final ItemTooltipEvent event) {
@@ -181,7 +192,32 @@ final class Registration {
             return;
         }
 
-        final List<String> tooltip = event.getToolTip();
+        if (!Loader.instance().hasReachedState(LoaderState.AVAILABLE)) {
+            event.getToolTip().addAll(this.upgradeCardTooltip(upgrades, card));
+            return;
+        }
+
+        final String language = Minecraft.getMinecraft().getLanguageManager().getCurrentLanguage().getLanguageCode();
+        final long key = (long) Item.getIdFromItem(card.getItem()) << 32 | card.getMetadata() & 0xFFFFFFFFL;
+        List<String> lines;
+        // Item lists may ask for tooltips from threads of their own.
+        synchronized (this.upgradeCardTooltips) {
+            if (!language.equals(this.upgradeCardTooltipLanguage)) {
+                this.upgradeCardTooltips.clear();
+                this.upgradeCardTooltipLanguage = language;
+            }
+            lines = this.upgradeCardTooltips.get(key);
+            if (lines == null) {
+                lines = this.upgradeCardTooltip(upgrades, card);
+                this.upgradeCardTooltips.put(key, lines);
+            }
+        }
+        event.getToolTip().addAll(lines);
+    }
+
+    @SideOnly(Side.CLIENT)
+    private List<String> upgradeCardTooltip(final IUpgradeRegistry upgrades, final ItemStack card) {
+        final List<String> tooltip = new ArrayList<>();
         for (final Map.Entry<CardTrait, Integer> trait : upgrades.getTraits(card).entrySet()) {
             // A trait a card either has or has not says nothing here: the hosts printed below already do.
             final String key = trait.getKey().getTooltipKey();
@@ -215,6 +251,7 @@ final class Registration {
         }
         names.sort(String.CASE_INSENSITIVE_ORDER);
         tooltip.addAll(names);
+        return tooltip;
     }
 
     void preInitialize(final FMLPreInitializationEvent event) {
