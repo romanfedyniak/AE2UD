@@ -2220,6 +2220,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
      * Sets the mode and records it in every block of the CPU, so that it survives the cluster being formed again.
      */
     public void setSelectionMode(final CpuSelectionMode mode) {
+                    this.rememberTools(details);
         this.selectionMode = mode;
         for (final TileCraftingTile te : this.tiles) {
             te.setSelectionMode(mode);
