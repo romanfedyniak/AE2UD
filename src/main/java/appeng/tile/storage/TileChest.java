@@ -516,6 +516,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     public void setPriority(final int newValue) {
         this.priority = newValue;
         this.isCached = false; // recalculate the storage cell.
+        this.saveChanges();
 
         IStorageProvider.requestUpdate(this.getProxy().getNode());
 
@@ -797,6 +798,12 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     @Override
     public ItemStack getItemStackRepresentation() {
         return AEApi.instance().definitions().blocks().chest().maybeStack(1).orElse(ItemStack.EMPTY);
+    }
+
+    /** The chest's own screen, where its priority tab is; the terminal is what it is for everything else. */
+    @Override
+    public GuiBridge getPriorityGuiBridge() {
+        return GuiBridge.GUI_CHEST;
     }
 
     @Override

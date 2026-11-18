@@ -61,6 +61,6 @@ public class PriorityAmountTarget implements IAmountTarget {
     public void apply(final EntityPlayer player, final ContainerSetAmount from, final long amount) {
         this.host.setPriority((int) amount);
 
-        PacketSwitchGuis.reopen(player, from, this.host.getGuiBridge());
+        PacketSwitchGuis.reopen(player, from, this.host.getPriorityGuiBridge());
     }
 }

@@ -19,6 +19,9 @@
 package appeng.helpers;
 
 
+import appeng.core.sync.GuiBridge;
+
+
 public interface IPriorityHost extends ISubMenuHost {
 
     /**
@@ -30,4 +33,9 @@ public interface IPriorityHost extends ISubMenuHost {
      * set new priority
      */
     void setPriority(int newValue);
+
+    /** The screen the priority screen goes back to. */
+    default GuiBridge getPriorityGuiBridge() {
+        return this.getGuiBridge();
+    }
 }
