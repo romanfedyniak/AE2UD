@@ -14,6 +14,8 @@ package appeng.crafting.solver;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 
+import com.google.common.math.LongMath;
+
 import javax.annotation.Nullable;
 
 import java.math.BigInteger;
@@ -60,6 +62,9 @@ final class SolverCycle {
      * accident. Refusing is the same answer such a cycle got before it could be solved at all.
      */
     private static final int MOST_THINGS = 16;
+
+    /** How many rounds over the patterns {@link #firstTurn} spends on one turn before it stops checking. */
+    private static final int MOST_STEPS = 4096;
 
     private final List<AEKey> keys;
     private final List<SolverPattern> patterns;
@@ -364,6 +369,79 @@ final class SolverCycle {
     long eatenOf(final AEKey key) {
         return this.eaten.getOrDefault(key, 0L);
     }
+
+    /**
+     * Runs one turn on paper from what is in hand, each craft as soon as everything it takes off the cycle is
+     * there, the way a CPU pushes them. Having one thing on the cycle is not always enough: a pattern drawing
+     * two things on it needs both at once, and a craft may make less than the next one takes.
+     *
+     * @param inHand of each of {@link #seeds()}, in that order.
+     * @return how far below what was in hand each seed went at its lowest during the turn, or null when the
+     *         turn gets stuck before all of its crafts have run.
+     */
+    @Nullable
+    long[] firstTurn(final long[] inHand) {
+        final List<AEKey> seeds = this.seeds();
+        final int things = seeds.size();
+        final int count = this.patterns.size();
+        final long[][] takes = new long[count][things];
+        final long[][] makes = new long[count][things];
+
+        for (int p = 0; p < count; p++) {
+            for (int k = 0; k < things; k++) {
+                takes[p][k] = takenPerCraft(this.patterns.get(p), seeds.get(k));
+                makes[p][k] = this.patterns.get(p).outputOf(seeds.get(k));
+            }
+        }
+
+        final long[] have = inHand.clone();
+        final long[] lowest = new long[things];
+        final long[] left = this.unitRuns.clone();
+
+        for (int step = 0; step < MOST_STEPS; step++) {
+            boolean done = true;
+            boolean ran = false;
+
+            for (int p = 0; p < count; p++) {
+                if (left[p] <= 0) {
+                    continue;
+                }
+                done = false;
+
+                long runs = left[p];
+                for (int k = 0; k < things && runs > 0; k++) {
+                    if (takes[p][k] > 0) {
+                        runs = Math.min(runs, have[k] / takes[p][k]);
+                    }
+                }
+
+                if (runs <= 0) {
+                    continue;
+                }
+
+                for (int k = 0; k < things; k++) {
+                    have[k] -= runs * takes[p][k];
+                    lowest[k] = Math.max(lowest[k], inHand[k] - have[k]);
+                }
+                for (int k = 0; k < things; k++) {
+                    have[k] = LongMath.saturatedAdd(have[k], LongMath.saturatedMultiply(runs, makes[p][k]));
+                }
+                left[p] -= runs;
+                ran = true;
+            }
+
+            if (done) {
+                return lowest;
+            }
+            if (!ran) {
+                return null;
+            }
+        }
+
+        // A turn this long is past checking craft by craft; it is taken as able to start, as before.
+        return lowest;
+    }
+
 
     /**
      * A fraction of whole numbers, kept in its lowest terms with the sign on top.

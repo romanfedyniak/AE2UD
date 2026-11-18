@@ -934,41 +934,48 @@ public final class CraftingSolver {
          */
         private void lendSeed(final SolverCycle cycle, final long[] madeBefore, final long drawnForKey) {
             final List<AEKey> seeds = cycle.seeds();
+            final long[] inHand = new long[seeds.size()];
 
-            // One thing on the ring in hand is enough: the first craft that takes it starts the rest.
             for (int at = 0; at < seeds.size(); at++) {
-                final long eaten = cycle.eatenOf(seeds.get(at));
-                if (eaten > 0 && madeBefore[at] + (at == 0 ? drawnForKey : 0) >= eaten) {
-                    return;
-                }
+                inHand[at] = madeBefore[at] + (at == 0 ? drawnForKey : 0);
             }
 
-            for (int at = 0; at < seeds.size(); at++) {
-                final AEKey key = seeds.get(at);
-                final long eaten = cycle.eatenOf(key);
-                final long inHand = madeBefore[at] + (at == 0 ? drawnForKey : 0);
+            if (cycle.firstTurn(inHand) != null) {
+                return;
+            }
 
-                if (eaten > 0 && this.stock.get(key) >= eaten - inHand) {
-                    this.drawStock(key, eaten - inHand);
-                    return;
+            final long[] withStock = new long[seeds.size()];
+            for (int at = 0; at < seeds.size(); at++) {
+                withStock[at] = LongMath.saturatedAdd(inHand[at], this.stock.get(seeds.get(at)));
+            }
+
+            final long[] lowest = cycle.firstTurn(withStock);
+            if (lowest == null) {
+                return;
+            }
+
+            // What the first turn goes through below what the plan hands it is lent from the network.
+            for (int at = 0; at < seeds.size(); at++) {
+                if (lowest[at] > inHand[at]) {
+                    this.drawStock(seeds.get(at), lowest[at] - inHand[at]);
                 }
             }
         }
 
         /**
-         * Whether there is enough of anything on the cycle to feed one craft that takes it. A cycle grows
-         * what you have and never conjures the first of it, and one thing on it is enough to start: the
-         * first turn hands that thing back at the end, over and above what the turn netted.
+         * Whether what is in hand of the things on the cycle lets its first turn run to the end. A cycle grows
+         * what you have and never conjures the first of it; the first turn hands back what it started from,
+         * over and above what it netted.
          */
         private boolean canStart(final SolverCycle cycle) {
-            for (final AEKey key : cycle.seeds()) {
-                // Something the ring never takes is no way to start it.
-                if (cycle.eatenOf(key) > 0 && this.surplus.get(key) + this.stock.get(key) >= cycle.eatenOf(key)) {
-                    return true;
-                }
+            final List<AEKey> seeds = cycle.seeds();
+            final long[] inHand = new long[seeds.size()];
+
+            for (int at = 0; at < seeds.size(); at++) {
+                inHand[at] = LongMath.saturatedAdd(this.surplus.get(seeds.get(at)), this.stock.get(seeds.get(at)));
             }
 
-            return false;
+            return cycle.firstTurn(inHand) != null;
         }
 
         /**

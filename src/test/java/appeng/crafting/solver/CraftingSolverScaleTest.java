@@ -185,6 +185,7 @@ public final class CraftingSolverScaleTest {
         network.pattern("pc", new GenericStack[] { network.stack("c", 3) },
                 Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
         network.inStorage("b", 1);
+        network.inStorage("c", 1);
         network.inStorage("base", Long.MAX_VALUE / 4);
 
         final SolverPlan plan = timed("ten billion round a branching cycle", () -> network.solve("a", huge));
