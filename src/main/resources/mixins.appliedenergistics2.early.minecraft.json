@@ -11,6 +11,7 @@
   "client": [
     "MixinGuiContainer",
     "MixinMinecraft",
+    "MixinRenderEntityItem",
     "MixinRenderItem"
   ],
   "server": []

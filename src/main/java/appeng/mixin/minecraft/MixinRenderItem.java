@@ -20,12 +20,12 @@ import net.minecraft.item.ItemStack;
 import appeng.client.render.crafting.EncodedPatternPreview;
 
 /**
- * The same preview {@link MixinGuiContainer} draws in a slot, for a pattern held in hand, dropped on the
- * ground or hung in an item frame.
+ * The same preview {@link MixinGuiContainer} draws in a slot, for a pattern held in hand or hung in an item
+ * frame; a dropped one is {@link MixinRenderEntityItem}'s.
  * <p>
  * Both overloads are swapped because both resolve the model themselves, and the model has to be resolved
- * from the output rather than from the pattern: the two-argument one draws the ground and item frames, the
- * four-argument one draws whatever an entity is holding. The screen path reaches neither of them.
+ * from the output rather than from the pattern: the two-argument one draws item frames, the four-argument one
+ * draws whatever an entity is holding. The screen path and the ground reach neither of them.
  */
 @Mixin(RenderItem.class)
 public class MixinRenderItem {
