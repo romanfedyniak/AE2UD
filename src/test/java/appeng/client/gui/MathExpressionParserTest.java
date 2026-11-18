@@ -1,13 +1,17 @@
 package appeng.client.gui;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MathExpressionParserTest {
 
@@ -51,5 +55,16 @@ public class MathExpressionParserTest {
         } else {
             assertEquals(expected, format.format(parsed));
         }
+    }
+
+    @Test
+    void aHugeExponentIsRefusedRatherThanWorkedOut() {
+        // Adding 1 to 1e9999999 exactly means writing out a ten-million-digit number, every frame the field is drawn.
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+            assertTrue(Double.isNaN(MathExpressionParser.parse("1e9999999+1")));
+            assertTrue(Double.isNaN(MathExpressionParser.parse("1/1e-9999999")));
+            assertTrue(Double.isNaN(MathExpressionParser.parse("1e9999999-1")));
+        });
+        assertEquals(1e20 + 1, MathExpressionParser.parse("1e20+1"));
     }
 }

@@ -138,9 +138,23 @@ public class MathExpressionParser {
         };
     }
 
+    /**
+     * Operands with an exponent past this are refused. Adding 1 to 1e9999999 means writing out a ten-million-digit
+     * number, and an amount screen works its field out every frame; a double ends long before this anyway.
+     */
+    private static final int MAX_EXPONENT = 400;
+
+    private static BigDecimal operand(final String v) {
+        final BigDecimal b = new BigDecimal(v);
+        if (Math.abs((long) b.scale()) > MAX_EXPONENT || b.precision() > MAX_EXPONENT) {
+            throw new ArithmeticException("operand out of range: " + v);
+        }
+        return b;
+    }
+
     public static String add(String v1, String v2) {
-        BigDecimal b1 = new BigDecimal(v1);
-        BigDecimal b2 = new BigDecimal(v2);
+        BigDecimal b1 = operand(v1);
+        BigDecimal b2 = operand(v2);
         return String.valueOf(b1.add(b2));
     }
 
@@ -152,8 +166,8 @@ public class MathExpressionParser {
      * @return sub
      */
     public static String sub(String v1, String v2) {
-        BigDecimal b1 = new BigDecimal(v1);
-        BigDecimal b2 = new BigDecimal(v2);
+        BigDecimal b1 = operand(v1);
+        BigDecimal b2 = operand(v2);
         return String.valueOf(b1.subtract(b2));
     }
 
@@ -165,8 +179,8 @@ public class MathExpressionParser {
      * @return mul
      */
     public static String mul(String v1, String v2) {
-        BigDecimal b1 = new BigDecimal(v1);
-        BigDecimal b2 = new BigDecimal(v2);
+        BigDecimal b1 = operand(v1);
+        BigDecimal b2 = operand(v2);
         return String.valueOf(b1.multiply(b2));
     }
 
@@ -178,8 +192,8 @@ public class MathExpressionParser {
      * @return div
      */
     public static String div(String v1, String v2) {
-        BigDecimal b1 = new BigDecimal(v1);
-        BigDecimal b2 = new BigDecimal(v2);
+        BigDecimal b1 = operand(v1);
+        BigDecimal b2 = operand(v2);
         return String.valueOf(b1.divide(b2, 16, RoundingMode.HALF_UP));
     }
 
