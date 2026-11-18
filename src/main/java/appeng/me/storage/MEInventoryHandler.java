@@ -143,14 +143,23 @@ public class MEInventoryHandler extends DelegatingMEInventory {
             return 0;
         }
 
+        // A cell's own Overflow Destruction card answers that it took all of it, kept or not.
+        final boolean measured = mode == Actionable.MODULATE && this.getDelegate() instanceof BasicCellInventory cell
+                && cell.isVoidOverflow();
+        final long before = measured ? this.held(what, source) : 0;
+
         final long inserted = super.insert(what, amount, mode, source);
 
         if (mode == Actionable.MODULATE && !this.delegateReportsChanges()) {
             // What really landed, not what the void card claims: the network counts what is there.
-            this.report(what, inserted);
+            this.report(what, measured ? this.held(what, source) - before : inserted);
         }
 
         return this.voidOverflow ? amount : inserted;
+    }
+
+    private long held(final AEKey what, final IActionSource source) {
+        return super.extract(what, Long.MAX_VALUE, Actionable.SIMULATE, source);
     }
 
     @Override
