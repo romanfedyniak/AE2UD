@@ -248,7 +248,8 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
     }
 
     public void postUpdate(final List<GridInventoryEntry> list) {
-        this.repo.clear();
+        // Every update is the whole list: a machine type it leaves out has left the network.
+        this.repo.reset();
 
         for (final GridInventoryEntry entry : list) {
             this.repo.postUpdate(entry);
