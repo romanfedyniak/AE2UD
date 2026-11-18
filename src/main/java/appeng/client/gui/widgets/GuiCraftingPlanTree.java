@@ -27,6 +27,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.GuiImageExport;
 import appeng.client.render.StackSizeRenderer;
 import appeng.core.AELog;
+import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketLocateMachine;
@@ -40,6 +41,8 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
@@ -61,6 +64,7 @@ import java.util.List;
 public class GuiCraftingPlanTree extends Gui {
 
     private static final int CELL = 16;
+    private static final ResourceLocation STATES = new ResourceLocation(AppEng.MOD_ID, "textures/guis/states.png");
     private static final int ARROW = 6;
     private static final int MARKER = 8;
     private static final int X_SPACING = 24;
@@ -411,25 +415,33 @@ public class GuiCraftingPlanTree extends Gui {
         drawRect(cell.x - 1, cell.y - 1, cell.x + CELL + 1, cell.y + CELL + 1, outline);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
+        // A cell's picture and amount never change for the tree it belongs to, and are drawn every frame.
         if (cell.node != null) {
-            this.parent.drawItem(cell.x, cell.y,
-                    GenericStack.wrapInItemStack(new GenericStack(cell.node.getWhat(), 1)));
-            this.drawAmount(font, cell, cell.node.getWhat(), format(cell.node.getWhat(), cell.node.getAmount()));
+            if (cell.amount == null) {
+                cell.stack = GenericStack.wrapInItemStack(new GenericStack(cell.node.getWhat(), 1));
+                cell.amount = format(cell.node.getWhat(), cell.node.getAmount());
+            }
+            this.parent.drawItem(cell.x, cell.y, cell.stack);
+            this.drawAmount(font, cell, cell.node.getWhat(), cell.amount);
         } else {
             final CraftingPlanSource source = cell.source;
+            if (cell.amount == null) {
+                cell.stack = source.getMachine() == null ? ItemStack.EMPTY
+                        : GenericStack.wrapInItemStack(new GenericStack(source.getMachine(), 1));
+                final long shown = source.getKind() == CraftingPlanSource.Kind.CRAFT
+                        ? source.getCrafts()
+                        : source.getAmount();
+                cell.amount = format(source.getWhat(), shown);
+            }
             // The machine standing in for a craft says more than a generic cog; the marker in the corner
             // keeps it readable as a craft rather than as another ingredient.
             if (source.getMachine() != null) {
-                this.parent.drawItem(cell.x, cell.y,
-                        GenericStack.wrapInItemStack(new GenericStack(source.getMachine(), 1)));
+                this.parent.drawItem(cell.x, cell.y, cell.stack);
                 this.drawIcon(cell.x, cell.y + CELL - MARKER, ICON_CRAFT, MARKER / 16.0f);
             } else {
                 this.drawIcon(cell.x, cell.y, iconFor(source));
             }
-            final long shown = source.getKind() == CraftingPlanSource.Kind.CRAFT
-                    ? source.getCrafts()
-                    : source.getAmount();
-            this.drawAmount(font, cell, source.getWhat(), format(source.getWhat(), shown));
+            this.drawAmount(font, cell, source.getWhat(), cell.amount);
         }
 
         if (!cell.children.isEmpty()) {
@@ -455,7 +467,7 @@ public class GuiCraftingPlanTree extends Gui {
 
     private void drawIcon(final int cellX, final int cellY, final int iconIndex, final float scale) {
         AEBaseGui.enableSpriteBlending();
-        this.parent.bindTexture("guis/states.png");
+        Minecraft.getMinecraft().getTextureManager().bindTexture(STATES);
         final int v = iconIndex / 16;
         final int u = iconIndex - v * 16;
 
@@ -802,6 +814,8 @@ public class GuiCraftingPlanTree extends Gui {
         private boolean visible = true;
         private boolean searchMatch;
         private String tooltip;
+        private ItemStack stack;
+        private String amount;
 
         private Cell(final CraftingPlanNode node, final CraftingPlanSource source, final Cell parent) {
             this.node = node;
