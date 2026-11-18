@@ -84,6 +84,13 @@ public class KeyTypeFilteredStorage extends DelegatingMEInventory {
         return out;
     }
 
+    @Override
+    protected void report(final AEKey what, final long delta) {
+        if (this.allows(what)) {
+            super.report(what, delta);
+        }
+    }
+
     private boolean allows(final AEKey what) {
         return this.enabled.test(what.getType());
     }
