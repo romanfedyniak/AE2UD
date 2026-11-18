@@ -62,9 +62,10 @@ public class PartPlacement {
         // handle placement logic with the stack
         if (!world.isRemote) {
             if (player != null && !player.isCreative()) {
+                // Only shrunk, as a block item is: a placement a protection undoes puts the count back on this very
+                // stack, and one replaced in the hand was lost.
                 held.shrink(1);
-                if (held.getCount() == 0) {
-                    player.setHeldItem(hand, ItemStack.EMPTY);
+                if (held.isEmpty()) {
                     MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(player, held, hand));
                 }
             }
