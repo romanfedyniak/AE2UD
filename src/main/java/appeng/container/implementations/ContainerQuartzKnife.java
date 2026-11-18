@@ -57,7 +57,7 @@ public class ContainerQuartzKnife extends AEBaseContainer {
     }
 
     public void setName(final String value) {
-        this.myName = value;
+        this.myName = typedName(value);
     }
 
     @Override

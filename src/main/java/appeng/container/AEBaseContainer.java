@@ -66,6 +66,7 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.*;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.wrapper.PlayerInvWrapper;
 import org.jetbrains.annotations.NotNull;
@@ -82,6 +83,9 @@ import java.util.function.Consumer;
 
 
 public abstract class AEBaseContainer extends Container {
+    /** What the rename fields of the knife and the renamer let a player type. */
+    public static final int MAX_NAME_LENGTH = 32;
+
     /** How far from a machine its screen stays usable, squared: vanilla's 8 blocks. */
     private static final double MAX_USE_DISTANCE_SQ = 64.0;
 
@@ -245,6 +249,16 @@ public abstract class AEBaseContainer extends Container {
                 this.inventorySlots.set(i, disabled);
             }
         }
+    }
+
+    /**
+     * A name typed into a screen, as the server keeps it: what the text field allows (no formatting codes or
+     * control characters, at most as long as the field), whatever the packet carried. Names end up in NBT that
+     * is sent to everyone who sees the thing.
+     */
+    public static String typedName(final String raw) {
+        final String allowed = ChatAllowedCharacters.filterAllowedCharacters(raw);
+        return allowed.length() > MAX_NAME_LENGTH ? allowed.substring(0, MAX_NAME_LENGTH) : allowed;
     }
 
     public Object getTarget() {

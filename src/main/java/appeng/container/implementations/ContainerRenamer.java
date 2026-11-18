@@ -93,7 +93,7 @@ public class ContainerRenamer extends AEBaseContainer implements IAEAppEngInvent
     }
 
     public void setNewName(String newValue) {
-        this.namedObject.setCustomName(newValue);
+        this.namedObject.setCustomName(typedName(newValue));
     }
 
     /** Both at once, which is the one thing a right click on either cannot do. */
