@@ -25,7 +25,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
 import javax.vecmath.Matrix4f;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -44,6 +43,39 @@ class BiometricCardBakedModel implements IBakedModel {
     private final Cache<Integer, BiometricCardBakedModel> modelCache;
 
     private final ImmutableList<BakedQuad> generalQuads;
+
+    private volatile Combined combined;
+
+    private final ItemOverrideList overrides = new ItemOverrideList(Collections.emptyList()) {
+        @Override
+        public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
+            String username = "";
+            if (stack.getItem() instanceof IBiometricCard) {
+                final GameProfile gp = ((IBiometricCard) stack.getItem()).getProfile(stack);
+                if (gp != null) {
+                    if (gp.getId() != null) {
+                        username = gp.getId().toString();
+                    } else {
+                        username = gp.getName();
+                    }
+                }
+            }
+            final int hash = !username.isEmpty() ? username.hashCode() : 0;
+
+            // Get hash
+            if (hash == 0) {
+                return BiometricCardBakedModel.this;
+            }
+
+            try {
+                return BiometricCardBakedModel.this.modelCache.get(hash,
+                        () -> new BiometricCardBakedModel(BiometricCardBakedModel.this.format, BiometricCardBakedModel.this.baseModel, BiometricCardBakedModel.this.texture, hash, BiometricCardBakedModel.this.modelCache));
+            } catch (ExecutionException e) {
+                AELog.error(e);
+                return BiometricCardBakedModel.this;
+            }
+        }
+    };
 
     BiometricCardBakedModel(VertexFormat format, IBakedModel baseModel, TextureAtlasSprite texture) {
         this(format, baseModel, texture, 0, createCache());
@@ -73,10 +105,23 @@ class BiometricCardBakedModel implements IBakedModel {
             return quads;
         }
 
-        List<BakedQuad> result = new ArrayList<>(quads.size() + this.generalQuads.size());
-        result.addAll(quads);
-        result.addAll(this.generalQuads);
-        return result;
+        Combined combined = this.combined;
+        if (combined == null || combined.base != quads) {
+            combined = new Combined(quads, ImmutableList.<BakedQuad>builder().addAll(quads).addAll(this.generalQuads).build());
+            this.combined = combined;
+        }
+        return combined.quads;
+    }
+
+    /** The faceless quads with the card's own on top, kept while the base model hands out the same list. */
+    private static final class Combined {
+        final List<BakedQuad> base;
+        final List<BakedQuad> quads;
+
+        Combined(List<BakedQuad> base, List<BakedQuad> quads) {
+            this.base = base;
+            this.quads = quads;
+        }
     }
 
     private List<BakedQuad> buildGeneralQuads() {
@@ -141,36 +186,7 @@ class BiometricCardBakedModel implements IBakedModel {
 
     @Override
     public ItemOverrideList getOverrides() {
-        return new ItemOverrideList(Collections.emptyList()) {
-            @Override
-            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
-                String username = "";
-                if (stack.getItem() instanceof IBiometricCard) {
-                    final GameProfile gp = ((IBiometricCard) stack.getItem()).getProfile(stack);
-                    if (gp != null) {
-                        if (gp.getId() != null) {
-                            username = gp.getId().toString();
-                        } else {
-                            username = gp.getName();
-                        }
-                    }
-                }
-                final int hash = !username.isEmpty() ? username.hashCode() : 0;
-
-                // Get hash
-                if (hash == 0) {
-                    return BiometricCardBakedModel.this;
-                }
-
-                try {
-                    return BiometricCardBakedModel.this.modelCache.get(hash,
-                            () -> new BiometricCardBakedModel(BiometricCardBakedModel.this.format, BiometricCardBakedModel.this.baseModel, BiometricCardBakedModel.this.texture, hash, BiometricCardBakedModel.this.modelCache));
-                } catch (ExecutionException e) {
-                    AELog.error(e);
-                    return BiometricCardBakedModel.this;
-                }
-            }
-        };
+        return this.overrides;
     }
 
     @Override

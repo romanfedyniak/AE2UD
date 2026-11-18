@@ -24,7 +24,6 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
 import javax.vecmath.Matrix4f;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +47,27 @@ class MemoryCardBakedModel implements IBakedModel {
     private final Cache<CacheKey, MemoryCardBakedModel> modelCache;
 
     private final ImmutableList<BakedQuad> generalQuads;
+
+    private volatile Combined combined;
+
+    private final ItemOverrideList overrides = new ItemOverrideList(Collections.emptyList()) {
+        @Override
+        public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
+            try {
+                if (stack.getItem() instanceof IMemoryCard) {
+                    final IMemoryCard memoryCard = (IMemoryCard) stack.getItem();
+                    final AEColor[] colors = memoryCard.getColorCode(stack);
+
+                    return MemoryCardBakedModel.this.modelCache.get(new CacheKey(colors),
+                            () -> new MemoryCardBakedModel(MemoryCardBakedModel.this.format, MemoryCardBakedModel.this.baseModel, MemoryCardBakedModel.this.texture, colors, MemoryCardBakedModel.this.modelCache));
+                }
+            } catch (ExecutionException e) {
+                AELog.error(e);
+            }
+
+            return MemoryCardBakedModel.this;
+        }
+    };
 
     MemoryCardBakedModel(VertexFormat format, IBakedModel baseModel, TextureAtlasSprite texture) {
         this(format, baseModel, texture, DEFAULT_COLOR_CODE, createCache());
@@ -77,10 +97,23 @@ class MemoryCardBakedModel implements IBakedModel {
             return quads;
         }
 
-        List<BakedQuad> result = new ArrayList<>(quads.size() + this.generalQuads.size());
-        result.addAll(quads);
-        result.addAll(this.generalQuads);
-        return result;
+        Combined combined = this.combined;
+        if (combined == null || combined.base != quads) {
+            combined = new Combined(quads, ImmutableList.<BakedQuad>builder().addAll(quads).addAll(this.generalQuads).build());
+            this.combined = combined;
+        }
+        return combined.quads;
+    }
+
+    /** The faceless quads with the card's own on top, kept while the base model hands out the same list. */
+    private static final class Combined {
+        final List<BakedQuad> base;
+        final List<BakedQuad> quads;
+
+        Combined(List<BakedQuad> base, List<BakedQuad> quads) {
+            this.base = base;
+            this.quads = quads;
+        }
     }
 
     private List<BakedQuad> buildGeneralQuads() {
@@ -127,25 +160,7 @@ class MemoryCardBakedModel implements IBakedModel {
 
     @Override
     public ItemOverrideList getOverrides() {
-        return new ItemOverrideList(Collections.emptyList()) {
-            @Override
-            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
-                try {
-                    if (stack.getItem() instanceof IMemoryCard) {
-                        final IMemoryCard memoryCard = (IMemoryCard) stack.getItem();
-                        final AEColor[] colors = memoryCard.getColorCode(stack);
-
-                        return MemoryCardBakedModel.this.modelCache.get(new CacheKey(colors),
-                                () -> new MemoryCardBakedModel(MemoryCardBakedModel.this.format, MemoryCardBakedModel.this.baseModel, MemoryCardBakedModel.this.texture, colors, MemoryCardBakedModel.this.modelCache));
-                    }
-                } catch (ExecutionException e) {
-                    AELog.error(e);
-                }
-
-                return MemoryCardBakedModel.this;
-            }
-        };
-
+        return this.overrides;
     }
 
     @Override

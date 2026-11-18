@@ -21,8 +21,6 @@ package appeng.client.render;
 
 import appeng.client.render.cablebus.FacadeBuilder;
 import appeng.items.parts.ItemFacade;
-import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.IBakedModel;
@@ -30,13 +28,15 @@ import net.minecraft.client.renderer.block.model.ItemOverrideList;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 
 /**
@@ -47,7 +47,26 @@ import java.util.Objects;
 public class FacadeDispatcherBakedModel extends DelegateBakedModel {
     private final VertexFormat format;
     private final FacadeBuilder facadeBuilder;
-    private final Int2ObjectMap<FacadeBakedItemModel> cache = new Int2ObjectArrayMap<>();
+    /** Keyed by the facade's own tag, which says what it looks like. */
+    private final Map<NBTTagCompound, FacadeBakedItemModel> cache = new HashMap<>();
+    private final ItemOverrideList overrides = new ItemOverrideList(Collections.emptyList()) {
+        @Override
+        public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
+            if (!(stack.getItem() instanceof ItemFacade)) {
+                return originalModel;
+            }
+
+            final NBTTagCompound tag = stack.getTagCompound();
+            FacadeBakedItemModel model = FacadeDispatcherBakedModel.this.cache.get(tag);
+            if (model == null) {
+                ItemStack textureItem = ((ItemFacade) stack.getItem()).getTextureItem(stack);
+                model = new FacadeBakedItemModel(FacadeDispatcherBakedModel.this.getBaseModel(), textureItem, FacadeDispatcherBakedModel.this.facadeBuilder);
+                FacadeDispatcherBakedModel.this.cache.put(tag == null ? null : tag.copy(), model);
+            }
+
+            return model;
+        }
+    };
 
     public FacadeDispatcherBakedModel(IBakedModel baseModel, VertexFormat format, FacadeBuilder facadeBuilder) {
         super(baseModel);
@@ -73,26 +92,6 @@ public class FacadeDispatcherBakedModel extends DelegateBakedModel {
 
     @Override
     public ItemOverrideList getOverrides() {
-        return new ItemOverrideList(Collections.emptyList()) {
-            @Override
-            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
-                if (!(stack.getItem() instanceof ItemFacade)) {
-                    return originalModel;
-                }
-
-                ItemFacade itemFacade = (ItemFacade) stack.getItem();
-
-                ItemStack textureItem = itemFacade.getTextureItem(stack);
-
-                int hash = Objects.hash(textureItem.getItem().getRegistryName(), textureItem.getMetadata(), textureItem.getTagCompound());
-                FacadeBakedItemModel model = FacadeDispatcherBakedModel.this.cache.get(hash);
-                if (model == null) {
-                    model = new FacadeBakedItemModel(FacadeDispatcherBakedModel.this.getBaseModel(), textureItem, FacadeDispatcherBakedModel.this.facadeBuilder);
-                    FacadeDispatcherBakedModel.this.cache.put(hash, model);
-                }
-
-                return model;
-            }
-        };
+        return this.overrides;
     }
 }

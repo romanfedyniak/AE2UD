@@ -61,6 +61,29 @@ public class SkyCompassBakedModel implements IBakedModel {
 
     private float fallbackRotation = 0;
 
+    /*
+     * This handles setting the rotation of the compass when being held in hand. If it's not held in hand, it'll
+     * animate using the
+     * spinning animation.
+     */
+    private final ItemOverrideList overrides = new ItemOverrideList(Collections.emptyList()) {
+
+        @Override
+        public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
+            if (world != null && entity instanceof EntityPlayerSP) {
+                EntityPlayer player = (EntityPlayer) entity;
+
+                float offRads = (float) (player.rotationYaw / 180.0f * (float) Math.PI + Math.PI);
+
+                SkyCompassBakedModel.this.fallbackRotation = offRads + getAnimatedRotation(player.getPosition(), true);
+            } else {
+                SkyCompassBakedModel.this.fallbackRotation = getAnimatedRotation(null, false);
+            }
+
+            return originalModel;
+        }
+    };
+
     public SkyCompassBakedModel(IBakedModel base, IBakedModel pointer) {
         this.base = base;
         this.pointer = pointer;
@@ -136,28 +159,7 @@ public class SkyCompassBakedModel implements IBakedModel {
 
     @Override
     public ItemOverrideList getOverrides() {
-        /*
-         * This handles setting the rotation of the compass when being held in hand. If it's not held in hand, it'll
-         * animate using the
-         * spinning animation.
-         */
-        return new ItemOverrideList(Collections.emptyList()) {
-
-            @Override
-            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world, EntityLivingBase entity) {
-                if (world != null && entity instanceof EntityPlayerSP) {
-                    EntityPlayer player = (EntityPlayer) entity;
-
-                    float offRads = (float) (player.rotationYaw / 180.0f * (float) Math.PI + Math.PI);
-
-                    SkyCompassBakedModel.this.fallbackRotation = offRads + getAnimatedRotation(player.getPosition(), true);
-                } else {
-                    SkyCompassBakedModel.this.fallbackRotation = getAnimatedRotation(null, false);
-                }
-
-                return originalModel;
-            }
-        };
+        return this.overrides;
     }
 
     /**
