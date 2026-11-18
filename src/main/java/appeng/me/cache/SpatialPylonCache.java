@@ -32,6 +32,7 @@ import appeng.core.AEConfig;
 import appeng.me.cluster.implementations.SpatialPylonCluster;
 import appeng.tile.spatial.TileSpatialIOPort;
 import appeng.tile.spatial.TileSpatialPylon;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -135,6 +136,17 @@ public class SpatialPylonCache implements ISpatialCache {
                     case UNFORMED:
                         this.isValid = false;
                         break;
+                }
+            }
+
+            // A port inside the region would move itself and its cell into the cell's own plot.
+            for (final TileSpatialIOPort port : this.ioPorts) {
+                final BlockPos pos = port.getPos();
+                if (this.captureMin.isInWorld(port.getWorld())
+                        && pos.getX() > this.captureMin.x && pos.getX() < this.captureMax.x
+                        && pos.getY() > this.captureMin.y && pos.getY() < this.captureMax.y
+                        && pos.getZ() > this.captureMin.z && pos.getZ() < this.captureMax.z) {
+                    this.isValid = false;
                 }
             }
 
