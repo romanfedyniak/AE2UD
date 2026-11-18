@@ -895,24 +895,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     if (mon != null) {
                         MEStorage inv = mon.getInventory(this.mySource);
                         if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
-                            final Iterator<ItemStack> i = this.waitingToSendFacing.get(s).iterator();
-                            while (i.hasNext()) {
-                                ItemStack whatToSend = i.next();
-                                final AEItemKey what = AEItemKey.of(whatToSend);
-                                final long inserted = inv.insert(what, whatToSend.getCount(), Actionable.MODULATE, this.mySource);
-                                if (inserted >= whatToSend.getCount()) {
-                                    i.remove();
-                                } else {
-                                    whatToSend.setCount((int) (whatToSend.getCount() - inserted));
-                                }
-                            }
-                            if (this.waitingToSendFacing.get(s).isEmpty()) {
-                                this.waitingToSendFacing.remove(s);
-                            }
+                            this.insertWaiting(s, inv);
                         }
                     }
                 } else {
-                    return;
+                    // The two networks were joined since: what waited for the other one is this network's own now,
+                    // and while it waits no pattern is pushed.
+                    this.insertWaiting(s, this.networkStorage);
                 }
             } catch (GridAccessException e) {
                 // A target whose node is not ready yet (its chunk just loaded) takes the items on a later tick.
@@ -937,6 +926,23 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             }
         }
 
+        if (this.waitingToSendFacing.get(s).isEmpty()) {
+            this.waitingToSendFacing.remove(s);
+        }
+    }
+
+    private void insertWaiting(final EnumFacing s, final MEStorage inv) {
+        final Iterator<ItemStack> i = this.waitingToSendFacing.get(s).iterator();
+        while (i.hasNext()) {
+            ItemStack whatToSend = i.next();
+            final AEItemKey what = AEItemKey.of(whatToSend);
+            final long inserted = inv.insert(what, whatToSend.getCount(), Actionable.MODULATE, this.mySource);
+            if (inserted >= whatToSend.getCount()) {
+                i.remove();
+            } else {
+                whatToSend.setCount((int) (whatToSend.getCount() - inserted));
+            }
+        }
         if (this.waitingToSendFacing.get(s).isEmpty()) {
             this.waitingToSendFacing.remove(s);
         }
