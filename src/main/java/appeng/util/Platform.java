@@ -111,7 +111,7 @@ import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.BlockSnapshot;
-import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
@@ -130,6 +130,7 @@ import java.lang.reflect.Method;
 import java.security.InvalidParameterException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -153,7 +154,10 @@ public class Platform {
      * random source, use it for item drop locations...
      */
     private static final Random RANDOM_GENERATOR = new Random();
-    private static final Map<World, EntityPlayer> FAKE_PLAYERS = Collections.synchronizedMap(new WeakHashMap<>());
+    // Per world, then per profile: Forge keeps one fake player per profile, bound to the world that asked first.
+    // A player's world references its key, so entries go only when the world unloads (forgetFakePlayers).
+    private static final Map<World, Map<UUID, EntityPlayer>> FAKE_PLAYERS = new ConcurrentHashMap<>();
+    private static final UUID MINECRAFT_PLAYER = UUID.fromString("41C82C87-7AfB-4024-BA57-13D2C99CAE77");
     // private static Method getEntry;
 
     private static final ItemComparisonHelper ITEM_COMPARISON_HELPER = new ItemComparisonHelper();
@@ -750,14 +754,7 @@ public class Platform {
             throw new InvalidParameterException("World is null.");
         }
 
-        final EntityPlayer wrp = FAKE_PLAYERS.get(w);
-        if (wrp != null) {
-            return wrp;
-        }
-
-        final EntityPlayer p = FakePlayerFactory.getMinecraft(w);
-        FAKE_PLAYERS.put(w, p);
-        return p;
+        return fakePlayer(w, MINECRAFT_PLAYER, "[Minecraft]");
     }
 
     /**
@@ -765,7 +762,17 @@ public class Platform {
      * machine nobody owns. Claims also judge it by where it stands - see {@link #configurePlayer}.
      */
     public static EntityPlayer getPlayer(final WorldServer w, @Nullable final UUID owner) {
-        return owner == null ? getPlayer(w) : FakePlayerFactory.get(w, new GameProfile(owner, "[AE2]"));
+        return owner == null ? getPlayer(w) : fakePlayer(w, owner, "[AE2]");
+    }
+
+    /** One per world, standing in it: claims look up the player's own dimension. */
+    private static EntityPlayer fakePlayer(final WorldServer w, final UUID id, final String name) {
+        return FAKE_PLAYERS.computeIfAbsent(w, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(id, k -> new FakePlayer(w, new GameProfile(id, name)));
+    }
+
+    public static void forgetFakePlayers(final World w) {
+        FAKE_PLAYERS.remove(w);
     }
 
     public static int MC2MEColor(final int color) {
