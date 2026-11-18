@@ -86,19 +86,16 @@ public abstract class AppEngPacket implements Packet {
     // TODO: Figure out why Forge/Minecraft on the server sets the stream data buffer to PooledUnsafeDirectByteBuf
 
     public ByteArrayInputStream getPacketByteArray(ByteBuf stream, int readerIndex, int readableBytes) {
-        final ByteArrayInputStream bytes;
-        if (stream.hasArray()) {
-            bytes = new ByteArrayInputStream(stream.array(), readerIndex, readableBytes);
-        } else {
-            byte[] data = new byte[stream.capacity()];
-            stream.getBytes(readerIndex, data, 0, readableBytes);
-            bytes = new ByteArrayInputStream(data);
-        }
-        return bytes;
+        final byte[] data = new byte[readableBytes];
+        stream.getBytes(readerIndex, data);
+        return new ByteArrayInputStream(data);
     }
 
+    /**
+     * Everything written to the buffer from its start; the caller skips what it has already read.
+     */
     public ByteArrayInputStream getPacketByteArray(ByteBuf stream) {
-        return this.getPacketByteArray(stream, 0, stream.readableBytes());
+        return this.getPacketByteArray(stream, 0, stream.writerIndex());
     }
 
     public void setCallParam(final PacketCallState call) {
