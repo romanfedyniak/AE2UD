@@ -104,7 +104,8 @@ public class ItemSpatialStorageCell extends AEBaseItem implements ISpatialStorag
 
     @Override
     public int getStoredDimensionID(final ItemStack is) {
-        if (is.hasTagCompound()) {
+        // A tag alone is no storage: a blank cell renamed in an anvil has one too, and would read as storage 0.
+        if (is.hasTagCompound() && is.getTagCompound().hasKey(NBT_CELL_ID_KEY)) {
             final NBTTagCompound c = is.getTagCompound();
             return c.getInteger(NBT_CELL_ID_KEY);
         }
