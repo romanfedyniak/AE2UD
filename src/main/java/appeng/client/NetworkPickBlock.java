@@ -83,12 +83,12 @@ public final class NetworkPickBlock {
         } else if (held.isEmpty()) {
             slot = inventory.currentItem;
         } else {
+            // The hand stays where it is: only the server knows whether a terminal will answer, and it moves the
+            // hand to this slot once one has.
             slot = firstEmptyHotbarSlot(inventory);
             if (slot == -1) {
                 return;
             }
-
-            inventory.currentItem = slot;
         }
 
         NetworkHandler.instance().sendToServer(new PacketNetworkPickBlock(what, amount, slot));

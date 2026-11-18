@@ -76,7 +76,9 @@ The rules, in the order they are asked:
    hand, which is the whole of what the key does in survival. Without this rule every middle click on the
    stone underfoot would order a stack out of storage.
 5. **An empty hand takes it; a full one looks for an empty hotbar slot.** If the hotbar is full, nothing
-   happens.
+   happens. The client does not move the hand to that slot itself: whether a terminal answers is known only on
+   the server, and a click nothing answers must leave the hand where it was. The server moves it once the stack
+   is there.
 
 Blocks and entities both, because vanilla answers the key for both: a block through `getPickBlock`, an item
 frame or a minecart through `getPickedResult`. Stopping at blocks would leave the same click silent on a

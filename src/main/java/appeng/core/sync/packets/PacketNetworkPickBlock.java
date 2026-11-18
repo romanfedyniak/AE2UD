@@ -16,8 +16,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.play.server.SPacketHeldItemChange;
 
 import appeng.api.AEApi;
 import appeng.api.config.Settings;
@@ -137,6 +139,11 @@ public class PacketNetworkPickBlock extends AppEngPacket {
         } else {
             current.grow((int) extracted);
             player.inventory.setInventorySlotContents(hotbarSlot, current);
+        }
+
+        if (player.inventory.currentItem != hotbarSlot && player instanceof EntityPlayerMP playerMP) {
+            player.inventory.currentItem = hotbarSlot;
+            playerMP.connection.sendPacket(new SPacketHeldItemChange(hotbarSlot));
         }
 
         return true;
