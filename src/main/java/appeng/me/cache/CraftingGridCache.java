@@ -113,14 +113,22 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     private final Set<ICraftingProvider> craftingProviders = new LinkedHashSet<>();
     private final Map<IGridNode, ICraftingWatcher> craftingWatchers = new HashMap<>();
     private final IGrid grid;
-    private final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectLinkedOpenHashMap<>();
-    private final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftableItems = new Object2ObjectOpenHashMap<>();
+    /*
+     * The pattern index. Crafting calculations read it from the calculator threads while the tick rebuilds it, so
+     * a rebuild fills new collections and swaps them in whole: a reader sees the old index or the new one, never
+     * an emptied one halfway through being filled again.
+     */
+    private volatile Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> craftingMethods = new Object2ObjectLinkedOpenHashMap<>();
+    private volatile Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftableItems = new Object2ObjectOpenHashMap<>();
+    /** Where providers add their patterns while a rebuild runs; null outside one. */
+    private Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> buildingMethods;
+    private Set<AEKey> buildingEmitable;
     /**
      * Keys every one of whose patterns sits in a medium that settles jobs itself. Recomputed with the
      * pattern list and handed out by identity, so a terminal can diff it the way it diffs the craftables.
      */
     private Set<AEKey> fakeCraftableItems = Collections.emptySet();
-    private final Set<AEKey> emitableItems = new HashSet<>();
+    private volatile Set<AEKey> emitableItems = new HashSet<>();
     /** Nulled wherever the two collections above are mutated. See {@link #getCraftables()}. */
     private Set<AEKey> craftablesCache;
     private final Map<String, CraftingLinkNexus> craftingLinks = new HashMap<>();
@@ -328,24 +336,30 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
     }
 
     private void recalculateCraftingPatterns() {
-        final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> oldItems = new Object2ObjectOpenHashMap<>(this.craftableItems);
-        final Set<AEKey> oldEmitableItems = new HashSet<>(this.emitableItems);
+        final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> oldItems = this.craftableItems;
+        final Set<AEKey> oldEmitableItems = this.emitableItems;
 
-        // erase list.
-        this.craftingMethods.clear();
-        this.craftableItems.clear();
-        this.emitableItems.clear();
+        final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> methods = new Object2ObjectLinkedOpenHashMap<>();
+        final Object2ObjectMap<AEKey, ImmutableList<ICraftingPatternDetails>> craftable = new Object2ObjectOpenHashMap<>();
+        final Set<AEKey> emitable = new HashSet<>();
 
         // re-create list..
-        for (final ICraftingProvider provider : this.craftingProviders) {
-            provider.provideCrafting(this);
+        this.buildingMethods = methods;
+        this.buildingEmitable = emitable;
+        try {
+            for (final ICraftingProvider provider : this.craftingProviders) {
+                provider.provideCrafting(this);
+            }
+        } finally {
+            this.buildingMethods = null;
+            this.buildingEmitable = null;
         }
 
         final Object2ObjectMap<AEKey, List<ICraftingPatternDetails>> tmpCraft = new Object2ObjectLinkedOpenHashMap<>();
         final Object2ObjectMap<AEKey, Set<Object>> alreadyOffered = new Object2ObjectLinkedOpenHashMap<>();
 
         // new craftables!
-        for (final ICraftingPatternDetails details : this.craftingMethods.keySet()) {
+        for (final ICraftingPatternDetails details : methods.keySet()) {
             final Object identity = patternIdentity(details);
 
             for (final GenericStack out : details.getOutputs()) {
@@ -366,8 +380,12 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
         for (final Entry<AEKey, List<ICraftingPatternDetails>> e : tmpCraft.entrySet()) {
             // A stable sort, so patterns of equal priority stay in the order they were offered in.
             e.getValue().sort(COMPARATOR);
-            this.craftableItems.put(e.getKey(), ImmutableList.copyOf(e.getValue()));
+            craftable.put(e.getKey(), ImmutableList.copyOf(e.getValue()));
         }
+
+        this.craftingMethods = methods;
+        this.craftableItems = craftable;
+        this.emitableItems = emitable;
 
         this.craftablesCache = null;
         this.recalculateFakeCraftables();
@@ -454,11 +472,13 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
 
     @Override
     public void addCraftingOption(final ICraftingMedium medium, final ICraftingPatternDetails api) {
-        List<ICraftingMedium> details = this.craftingMethods.get(api);
+        final Object2ObjectMap<ICraftingPatternDetails, List<ICraftingMedium>> methods =
+                this.buildingMethods != null ? this.buildingMethods : this.craftingMethods;
+        List<ICraftingMedium> details = methods.get(api);
         if (details == null) {
             details = new ArrayList<>();
             details.add(medium);
-            this.craftingMethods.put(api, details);
+            methods.put(api, details);
         } else {
             details.add(medium);
         }
@@ -466,7 +486,7 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
 
     @Override
     public void setEmitable(final AEKey what) {
-        this.emitableItems.add(what);
+        (this.buildingEmitable != null ? this.buildingEmitable : this.emitableItems).add(what);
         this.craftablesCache = null;
     }
 
@@ -583,6 +603,15 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
         if (target instanceof CraftingCPUCluster) {
             cpuCluster = (CraftingCPUCluster) target;
 
+            // A reference kept from before the CPU formed anew, or one from another network: a job put there
+            // would sit in a cluster nothing ticks or saves.
+            if (cpuCluster.isDestroyed()) {
+                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_OFFLINE);
+            }
+            if (!this.hasCpu(cpuCluster)) {
+                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
+            }
+
             // A CPU kept for players or for automation is kept for them however it was asked for. The screens
             // leave such a CPU out of the table they offer, and this is what holds when the request comes from
             // somewhere else - an addon, or a client that sent a stale selection.
@@ -603,15 +632,6 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
             int excluded = 0;
             for (final CraftingCPUCluster cpu : this.craftingCPUClusters) {
                 if (!cpu.isActive()) {
-            // A reference kept from before the CPU formed anew, or one from another network: a job put there
-            // would sit in a cluster nothing ticks or saves.
-            if (cpuCluster.isDestroyed()) {
-                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.CPU_OFFLINE);
-            }
-            if (!this.hasCpu(cpuCluster)) {
-                return CraftingSubmitResult.failed(CraftingSubmitErrorCode.NO_CPU_FOUND);
-            }
-
                     offline++;
                 } else if (cpu.isBusy()) {
                     busy++;
