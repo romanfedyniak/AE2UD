@@ -677,11 +677,26 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         // The same instance means no pattern changed since last tick, so there is no flag diff to compute.
         // This is the common case: patterns change when a player edits them, availability changes constantly.
         // Both sets are rebuilt together, so either one differing means the same thing.
+        // Still craftable, but now only by a fake pattern, or no longer only by one: the flag alone changed.
+        final Set<AEKey> fakeFlipped = new HashSet<>();
         if (craftables != this.previousCraftables || fakeCraftables != this.previousFakeCraftables) {
             newlyCraftable.addAll(craftables);
             newlyCraftable.removeAll(this.previousCraftables);
             noLongerCraftable.addAll(this.previousCraftables);
             noLongerCraftable.removeAll(craftables);
+
+            for (final AEKey what : fakeCraftables) {
+                if (!this.previousFakeCraftables.contains(what)) {
+                    fakeFlipped.add(what);
+                }
+            }
+            for (final AEKey what : this.previousFakeCraftables) {
+                if (!fakeCraftables.contains(what)) {
+                    fakeFlipped.add(what);
+                }
+            }
+            fakeFlipped.retainAll(craftables);
+            fakeFlipped.removeAll(newlyCraftable);
         }
 
         if (this.networkTerminalPart != null) {
@@ -693,6 +708,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 }
                 newlyCraftable.remove(what);
                 noLongerCraftable.remove(what);
+                fakeFlipped.remove(what);
                 result.add(new GridInventoryEntry(what, e.getValue(), 0, craftables.contains(what),
                         fakeCraftables.contains(what)));
             }
@@ -708,6 +724,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 if (amount != this.previousAvailableStacks.get(what)) {
                     newlyCraftable.remove(what);
                     noLongerCraftable.remove(what);
+                    fakeFlipped.remove(what);
                     result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what),
                             fakeCraftables.contains(what)));
                 }
@@ -718,6 +735,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 if (entry.getLongValue() != 0 && current.get(what) == 0) {
                     newlyCraftable.remove(what);
                     noLongerCraftable.remove(what);
+                    fakeFlipped.remove(what);
                     result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what),
                             fakeCraftables.contains(what)));
                 }
@@ -736,6 +754,12 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         for (final AEKey what : noLongerCraftable) {
             if (this.isDisplayedKey(what)) {
                 result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, false));
+            }
+        }
+        for (final AEKey what : fakeFlipped) {
+            if (this.isDisplayedKey(what)) {
+                result.add(new GridInventoryEntry(what, this.getCachedAmount(what), 0, true,
+                        fakeCraftables.contains(what)));
             }
         }
 
