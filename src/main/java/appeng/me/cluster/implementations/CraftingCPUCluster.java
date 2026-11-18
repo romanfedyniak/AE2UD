@@ -529,8 +529,16 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.promised.clear();
         // The next job's patterns are other objects, equal to these: kept as keys, every lookup of them would
         // compare the whole pattern NBT, and their queues would still hold this job's machines.
+        final List<AEKey> stillWaited = new ArrayList<>(this.waitingFor.keySet());
         this.visitedMediums.clear();
         this.drafts.clear();
+        // A screen only resends what it is told changed.
+        for (final AEKey key : stillWaited) {
+            this.postChange(key, this.machineSrc);
+        }
+        // A tool still out belongs to this job; the next one would claim it back from any machine.
+        this.tools.clear();
+        this.toolsOut.clear();
         this.remainingItemCount = 0;
         this.startItemCount = 0;
         this.lastTime = 0;
