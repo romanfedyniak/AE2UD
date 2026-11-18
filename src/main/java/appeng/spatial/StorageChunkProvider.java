@@ -32,6 +32,7 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraft.world.gen.ChunkGeneratorOverworld;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -90,11 +91,19 @@ public class StorageChunkProvider extends ChunkGeneratorOverworld {
             storage[section] = blocks;
         }
 
+        final int opacity = defaultState.getLightOpacity();
+        if (skyLight && opacity == 0) {
+            // Nothing stops the sky: every block has all of it, and the height map stays at the bottom.
+            for (final ExtendedBlockStorage blocks : storage) {
+                Arrays.fill(blocks.getSkyLight().getData(), (byte) 0xFF);
+            }
+            return;
+        }
+
         chunk.generateSkylightMap();
 
         // That stops above the bottom layer, which the light coming down reached all the same.
         if (skyLight) {
-            final int opacity = defaultState.getLightOpacity();
             final ExtendedBlockStorage bottom = storage[0];
             for (int cz = 0; cz < 16; cz++) {
                 for (int cx = 0; cx < 16; cx++) {
