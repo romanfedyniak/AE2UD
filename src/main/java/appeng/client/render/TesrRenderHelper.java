@@ -202,7 +202,6 @@ public class TesrRenderHelper {
             buf.pos(x + width, y, z).tex(uMax, vMin).color(r, g, b, alpha).endVertex();
 
             tess.draw();
-            GlStateManager.enableLighting();
             GlStateManager.enableAlpha();
             GlStateManager.disableBlend();
             GlStateManager.color(1F, 1F, 1F, 1F);
