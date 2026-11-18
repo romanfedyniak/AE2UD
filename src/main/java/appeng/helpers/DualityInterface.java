@@ -2228,12 +2228,13 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     public void updateRedstoneState() {
-        // If we're waitingh for a pulse, update immediately
-        if (unlockEvent == UnlockCraftingEvent.PULSE && getRedstoneState()) {
+        // A pulse is the rising edge: read afresh, compared with what was read last. The falling edge, or any other
+        // block changing beside a powered interface, must not unlock it again.
+        final boolean wasHigh = redstoneState == YesNo.YES;
+        redstoneState = YesNo.UNDECIDED;
+        if (cm.getSetting(Settings.UNLOCK) == LOCK_UNTIL_PULSE && getRedstoneState() && !wasHigh
+                && unlockEvent == UnlockCraftingEvent.PULSE) {
             unlockEvent = null; // Unlocked!
-        } else {
-            // Otherwise, just reset back to undecided
-            redstoneState = YesNo.UNDECIDED;
         }
         saveChanges(); // In any case, this needs to be changed since the state is now outdated
     }
