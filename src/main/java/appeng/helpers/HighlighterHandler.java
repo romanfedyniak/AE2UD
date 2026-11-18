@@ -59,6 +59,8 @@ public class HighlighterHandler {
 
         tessellator.draw();
 
+        GlStateManager.glLineWidth(1.0f);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
         GlStateManager.enableTexture2D();
         GlStateManager.enableDepth();
         GlStateManager.popMatrix();
