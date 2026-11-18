@@ -73,8 +73,12 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
      * this stuff is all server side..
      */
 
+    /** Ticks between two looks at what every interface calls itself; see ContainerPatternAccessTerminal. */
+    private static final int IDENTITY_INTERVAL = 10;
+
     private static long autoBase = Long.MIN_VALUE;
     private final Map<IInterfaceHost, ConfigTracker> diList = new HashMap<>();
+    private int untilIdentityCheck;
     private final Map<Long, ConfigTracker> byId = new HashMap<>();
     private IGrid grid;
     private NBTTagCompound data = new NBTTagCompound();
@@ -131,6 +135,10 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
 
         int total = 0;
         boolean missing = false;
+        final boolean checkIdentity = --this.untilIdentityCheck <= 0;
+        if (checkIdentity) {
+            this.untilIdentityCheck = IDENTITY_INTERVAL;
+        }
 
         if (host != null) {
             final IGridNode agn = host.getActionableNode();
@@ -146,11 +154,8 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
 
                         if (t == null) {
                             missing = true;
-                        } else {
-                            final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName())) {
-                                missing = true;
-                            }
+                        } else if (checkIdentity && !t.unlocalizedName.equals(ih.getInterfaceDuality().getTermName())) {
+                            missing = true;
                         }
 
                         total++;
@@ -168,11 +173,8 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
 
                         if (t == null) {
                             missing = true;
-                        } else {
-                            final DualityInterface dual = ih.getInterfaceDuality();
-                            if (!t.unlocalizedName.equals(dual.getTermName())) {
-                                missing = true;
-                            }
+                        } else if (checkIdentity && !t.unlocalizedName.equals(ih.getInterfaceDuality().getTermName())) {
+                            missing = true;
                         }
 
                         total++;

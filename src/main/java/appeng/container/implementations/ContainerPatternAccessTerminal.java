@@ -80,8 +80,15 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
      * this stuff is all server side..
      */
 
+    /**
+     * Ticks between two looks at what every container calls itself. Working that out walks the six faces of
+     * every interface (ray traces, pick blocks); ContainerPatternUpload does it twice a second too.
+     */
+    private static final int IDENTITY_INTERVAL = 10;
+
     private static long autoBase = Long.MIN_VALUE;
     private final Map<IPatternContainer, InvTracker> diList = new HashMap<>();
+    private int untilIdentityCheck;
     private final Map<Long, InvTracker> byId = new HashMap<>();
     private IGrid grid;
     private NBTTagCompound data = new NBTTagCompound();
@@ -133,16 +140,24 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
 
         int total = 0;
         boolean missing = false;
+        final boolean checkIdentity = --this.untilIdentityCheck <= 0;
+        if (checkIdentity) {
+            this.untilIdentityCheck = IDENTITY_INTERVAL;
+        }
 
         for (final IPatternContainer container : this.patternContainers()) {
             final InvTracker t = this.diList.get(container);
-            final MachineIdentity identity = container.getTerminalIdentity();
 
-            // The icon's tag is left out: a Mekanism machine's picked block carries its energy and items.
-            if (t == null || !t.unlocalizedName.equals(identity.getName())
-                    || !ItemStack.areItemsEqual(t.icon, identity.getIcon())
-                    || t.fake != container.isFakeCrafting()) {
+            if (t == null || t.fake != container.isFakeCrafting()
+                    || t.usableSlots != container.getUsablePatternSlots()) {
                 missing = true;
+            } else if (checkIdentity) {
+                final MachineIdentity identity = container.getTerminalIdentity();
+                // The icon's tag is left out: a Mekanism machine's picked block carries its energy and items.
+                if (!t.unlocalizedName.equals(identity.getName())
+                        || !ItemStack.areItemsEqual(t.icon, identity.getIcon())) {
+                    missing = true;
+                }
             }
 
             total++;
