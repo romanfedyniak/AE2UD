@@ -61,7 +61,7 @@ class GrinderRecipeWrapper implements IRecipeWrapper {
         final float invScale = 1 / scale;
         GlStateManager.scale(scale, scale, 1);
 
-        if (this.recipe.getOptionalOutput() != null) {
+        if (this.recipe.getOptionalOutput().isPresent()) {
             String text = String.format("%d%%", (int) (this.recipe.getOptionalChance() * 100));
             float width = fr.getStringWidth(text) * scale;
             int xScaled = Math.round((x + (18 - width) / 2) * invScale);
@@ -69,7 +69,7 @@ class GrinderRecipeWrapper implements IRecipeWrapper {
             x += 18;
         }
 
-        if (this.recipe.getSecondOptionalOutput() != null) {
+        if (this.recipe.getSecondOptionalOutput().isPresent()) {
             String text = String.format("%d%%", (int) (this.recipe.getSecondOptionalChance() * 100));
             float width = fr.getStringWidth(text) * scale;
             int xScaled = Math.round((x + (18 - width) / 2) * invScale);
