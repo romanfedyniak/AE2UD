@@ -427,6 +427,27 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
     }
 
     @Override
+    public boolean isEmpty() {
+        if (this.mountsInUse) {
+            return true; // As getAvailableStacks: a recursive use lists nothing
+        }
+
+        this.mountsInUse = true;
+        try {
+            for (final var i : this.priorityInventory.values()) {
+                for (final var j : i) {
+                    if (!j.isEmpty()) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } finally {
+            this.mountsInUse = false;
+        }
+    }
+
+    @Override
     public ITextComponent getDescription() {
         return new TextComponentString("Network Storage");
     }

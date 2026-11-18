@@ -207,6 +207,23 @@ public class MEInventoryHandler extends DelegatingMEInventory {
     }
 
     @Override
+    public boolean isEmpty() {
+        if (this.gettingAvailableContent || this.filterAvailableContents && !this.allowExtraction) {
+            return true;
+        }
+        if (this.filterAvailableContents) {
+            return super.isEmpty();
+        }
+
+        this.gettingAvailableContent = true;
+        try {
+            return this.getDelegate().isEmpty();
+        } finally {
+            this.gettingAvailableContent = false;
+        }
+    }
+
+    @Override
     public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
         if (this.partitionListMode == IncludeExclude.WHITELIST && this.partitionList.isListed(input)) {
             return true;

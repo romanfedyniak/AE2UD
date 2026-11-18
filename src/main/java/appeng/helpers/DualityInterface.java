@@ -1347,7 +1347,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
                     MEStorage inv = mon.getInventory(this.mySource);
                     if (inv != null && Platform.canAccess(proxyable.getProxy(), this.mySource)) {
-                        if (this.isBlocking() && !inv.getAvailableStacks().isEmpty()) {
+                        if (this.isBlocking() && !inv.isEmpty()) {
                             continue;
                         } else {
                             var allItemsCanBeInserted = true;
@@ -1584,7 +1584,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             if (mon != null) {
                                 MEStorage inv = mon.getInventory(this.mySource);
                                 if (inv != null && Platform.canAccess(targetTE.getInterfaceDuality().gridProxy, this.mySource)) {
-                                    if (inv.getAvailableStacks().isEmpty()) {
+                                    if (inv.isEmpty()) {
                                         allAreBusy = false;
                                         break;
                                     }

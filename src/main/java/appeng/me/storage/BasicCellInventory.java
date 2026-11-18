@@ -580,6 +580,12 @@ public class BasicCellInventory implements StorageCell {
         }
     }
 
+    @Override
+    public boolean isEmpty() {
+        this.followTag();
+        return this.contents().amounts().isEmpty();
+    }
+
     /** The id to ask the server for, when all that is known here of this cell is its summary. */
     @Nullable
     public UUID getUnloadedContentsId() {
