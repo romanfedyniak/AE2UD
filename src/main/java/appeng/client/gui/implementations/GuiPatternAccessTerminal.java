@@ -347,7 +347,8 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 if (this.fakeCrafting.contains(inv)) {
                     drawRect(22, offset, 22 + 9 * 18, offset + 18, 0x30FF9000);
                 }
-                for (int z = 0; z < 9; z++) {
+                // A container of an addon may end in a short row; the cells past its last slot stay empty.
+                for (int z = 0; z < 9 && z + line.row * 9 < inv.getInventory().getSlots(); z++) {
                     if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (line.row * 9)))) {
                         drawRect(z * 18 + 22, 1 + offset, z * 18 + 22 + 16, 1 + offset + 16, 0x2A00FF00);
                     }
