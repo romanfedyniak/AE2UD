@@ -19,7 +19,6 @@
 package appeng.items.tools;
 
 
-import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.implementations.guiobjects.IGuiItemObject;
 import appeng.api.implementations.items.IAEWrench;
 import appeng.api.networking.IGridHost;
@@ -33,6 +32,7 @@ import appeng.core.AppEng;
 import appeng.core.sync.GuiBridge;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketClick;
+import appeng.helpers.ISidedGuiItem;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.NetworkToolViewer;
 import appeng.util.Platform;
@@ -58,15 +58,25 @@ import net.minecraftforge.fml.common.Optional.Interface;
 // TODO BC Integration
 //@Interface( iface = "buildcraft.api.tools.IToolWrench", iname = IntegrationType.BuildCraftCore )
 @Interface(iface = "cofh.api.item.IToolHammer", modid = "cofhcore")
-public class ToolNetworkTool extends AEBaseItem implements IGuiItem, IAEWrench, IToolHammer /* , IToolWrench */ {
+public class ToolNetworkTool extends AEBaseItem implements ISidedGuiItem, IAEWrench, IToolHammer /* , IToolWrench */ {
 
     public ToolNetworkTool() {
         this.setMaxStackSize(1);
         this.setHarvestLevel("wrench", 0);
     }
 
+    /**
+     * Opened from the inventory: the position is the inventory slot and zeros, not a block anyone clicked, and looking
+     * there would load (or generate) a chunk near the world's origin.
+     */
     @Override
     public IGuiItemObject getGuiObject(final ItemStack is, final World world, final BlockPos pos) {
+        return new NetworkToolViewer(is, null);
+    }
+
+    /** Used on a block: the network status of what is there. */
+    @Override
+    public IGuiItemObject getGuiObject(final ItemStack is, final World world, final BlockPos pos, final AEPartLocation side) {
         final TileEntity te = world.getTileEntity(pos);
         return new NetworkToolViewer(is, (IGridHost) (te instanceof IGridHost ? te : null));
     }
