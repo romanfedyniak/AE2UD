@@ -237,7 +237,7 @@ public final class ItemMaterial extends AEBaseItem implements IStorageComponent,
 
     @Override
     public boolean isEditable(ItemStack is) {
-        return is.isItemEqual(AEApi.instance().definitions().materials().cardMagnet().maybeStack(1).get());
+        return AEApi.instance().definitions().materials().cardMagnet().isSameAs(is);
     }
 
     @Override
