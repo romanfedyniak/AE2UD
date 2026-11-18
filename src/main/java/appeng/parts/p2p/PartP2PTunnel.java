@@ -350,17 +350,18 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
                         newTunnel.getProxy().getP2P().updateFreq(newTunnel, newFreq);
 
                         newTunnel.onTunnelNetworkChange();
+                        // On the part now there: this one is gone, and an IC2 tunnel brought its energy tile back.
+                        newTunnel.onTunnelConfigChange();
                     }
                 } else {
                     this.getProxy().getP2P().updateFreq(this, newFreq);
                     this.onTunnelNetworkChange();
+                    this.onTunnelConfigChange();
                 }
                 Platform.notifyBlocksOfNeighbors(this.getTile().getWorld(), this.getTile().getPos());
             } catch (final GridAccessException e) {
                 // :P
             }
-
-            this.onTunnelConfigChange();
 
             final ItemStack p2pItem = this.getItemStack(PartItemStack.WRENCH);
             final String type = p2pItem.getTranslationKey();
