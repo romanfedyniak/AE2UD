@@ -22,7 +22,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -135,6 +137,35 @@ public final class CellContentsWritesTest {
         assertEquals(1, queued);
         assertEquals(5, readFile(this.store.fileFor(contents.getId())).getTagList("contents", Constants.NBT.TAG_COMPOUND)
                 .getCompoundTagAt(0).getLong("#"));
+    }
+
+    @Test
+    public void stoppingWaitsForAStuckWriterOnlyUntilTheDeadline() throws Exception {
+        final CountDownLatch release = new CountDownLatch(1);
+        final Field field = CellContentsStore.class.getDeclaredField("writer");
+        field.setAccessible(true);
+        final ExecutorService writer = (ExecutorService) field.get(this.store);
+        writer.execute(() -> {
+            try {
+                release.await();
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        final CellContents contents = this.store.getOrLoad(UUID.randomUUID());
+        contents.add(apple, 1);
+        contents.markDirty();
+        this.store.save();
+
+        final long started = System.nanoTime();
+        final Set<UUID> unwritten = this.store.close(200);
+        final long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+        release.countDown();
+        writer.awaitTermination(10, TimeUnit.SECONDS);
+        this.store = new CellContentsStore(this.directory.toFile(), this.clock::get);
+
+        assertTrue(waited < 5000, "waited " + waited + " ms");
+        assertEquals(Collections.singleton(contents.getId()), unwritten);
     }
 
     /** Windows only: a lock held by another program (a backup tool, an antivirus) keeps the file from being read. */

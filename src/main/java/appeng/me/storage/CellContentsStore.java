@@ -31,6 +31,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -83,6 +84,7 @@ import appeng.tile.AEBaseTile;
 public final class CellContentsStore {
 
     static final long IDLE_MILLIS = TimeUnit.MINUTES.toMillis(5);
+    private static final long STOP_WAIT_MILLIS = TimeUnit.MINUTES.toMillis(1);
 
     private static final String FORMAT_TAG = "format";
     private static final int FORMAT = 1;
@@ -135,7 +137,7 @@ public final class CellContentsStore {
         final CellContentsStore stopped = current;
         current = null;
         if (stopped != null) {
-            stopped.close();
+            stopped.close(STOP_WAIT_MILLIS);
         }
     }
 
@@ -285,18 +287,25 @@ public final class CellContentsStore {
     }
 
     /**
-     * Waits however long the disk takes: the writer is a daemon thread, and what it has not written when the game
-     * exits is lost.
+     * Waits for the disk, but not past the deadline: a server that does not stop is killed by its host, which loses
+     * more than the few cells still unwritten. The writer is a daemon thread; what it has not written when the game
+     * exits is lost, and named in the log.
+     *
+     * @return the cells not on disk when the wait ended
      */
-    private void close() {
+    Set<UUID> close(final long timeoutMillis) {
         this.writer.shutdown();
         try {
-            while (!this.writer.awaitTermination(1, TimeUnit.MINUTES)) {
-                AELog.warn("Storage cells are still being written a minute on; waiting for them");
+            if (!this.writer.awaitTermination(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                final Set<UUID> unwritten = new HashSet<>(this.pending.keySet());
+                AELog.error("Storage cells were still being written %d s after the server stopped; %d not saved: %s",
+                        TimeUnit.MILLISECONDS.toSeconds(timeoutMillis), unwritten.size(), unwritten);
+                return unwritten;
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        return new HashSet<>(this.pending.keySet());
     }
 
     @Nullable
