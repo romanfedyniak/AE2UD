@@ -33,6 +33,11 @@ import appeng.core.sync.network.INetworkInfo;
 
 public final class PacketTerminalPins extends AppEngPacket {
     private static final Map<Integer, PacketTerminalPins> PENDING_SNAPSHOTS = new HashMap<>();
+    /**
+     * How long a snapshot waits for its window. Window ids come round again, and a later window with the same
+     * id is not the one the snapshot was for.
+     */
+    private static final long PENDING_MILLIS = 5000;
     private static final int REQUEST = 0;
     private static final int SNAPSHOT = 1;
     private static final int SET_ROWS = 2;
@@ -48,6 +53,7 @@ public final class PacketTerminalPins extends AppEngPacket {
     private AEKey key;
     private AEKey[] playerPins;
     private List<TerminalCraftingPin> craftingPins;
+    private long receivedAt;
 
     public PacketTerminalPins(ByteBuf data) throws IOException {
         operation = data.readUnsignedByte();
@@ -147,6 +153,7 @@ public final class PacketTerminalPins extends AppEngPacket {
                     ((GuiMEMonitorable) screen).applyTerminalPinSnapshot(true);
                 }
             } else {
+                this.receivedAt = System.currentTimeMillis();
                 PENDING_SNAPSHOTS.put(this.windowId, this);
             }
         }
@@ -154,9 +161,13 @@ public final class PacketTerminalPins extends AppEngPacket {
 
     public static void applyPendingSnapshot(ContainerMEMonitorable container) {
         PacketTerminalPins pending = PENDING_SNAPSHOTS.remove(container.windowId);
-        if (pending != null) {
+        if (pending != null && System.currentTimeMillis() - pending.receivedAt <= PENDING_MILLIS) {
             pending.applySnapshot(container);
         }
+    }
+
+    public static void clearPendingSnapshots() {
+        PENDING_SNAPSHOTS.clear();
     }
 
     private void applySnapshot(ContainerMEMonitorable container) {

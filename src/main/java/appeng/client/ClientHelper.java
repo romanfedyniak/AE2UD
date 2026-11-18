@@ -46,6 +46,7 @@ import appeng.core.MultiblockLimits;
 import appeng.core.features.registries.WirelessTerminalMode;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketAssemblerAnimation;
+import appeng.core.sync.packets.PacketTerminalPins;
 import appeng.core.sync.packets.PacketTerminalUse;
 import appeng.core.sync.packets.PacketValueConfig;
 import appeng.entity.EntityFloatingItem;
@@ -141,6 +142,7 @@ public class ClientHelper extends ServerHelper {
         Minecraft.getMinecraft().addScheduledTask(() -> {
             ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities();
             MultiblockLimits.restoreLocal();
+            PacketTerminalPins.clearPendingSnapshots();
         });
     }
 
