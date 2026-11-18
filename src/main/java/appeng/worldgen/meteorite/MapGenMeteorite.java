@@ -70,10 +70,21 @@ public class MapGenMeteorite extends MapGenStructure {
     @Override
     protected boolean canSpawnStructureAtCoords(final int chunkX, final int chunkZ) {
         final int gridCellSize = gridCellSize();
-        final BlockPos pos = drawPosition(this.rand, this.world.getSeed(),
-                Math.floorDiv(chunkX << 4, gridCellSize), Math.floorDiv(chunkZ << 4, gridCellSize));
 
-        return (pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ;
+        // A chunk can reach into more than one cell, and below a cell size of 160 a cell's meteorite can land in
+        // a chunk that starts in the cell before it. The cell that answers yes is the last one drawn, which
+        // leaves the generator seeded for getStructureStart.
+        for (int gridX = Math.floorDiv(chunkX << 4, gridCellSize); gridX <= Math.floorDiv((chunkX << 4) + 15, gridCellSize); gridX++) {
+            for (int gridZ = Math.floorDiv(chunkZ << 4, gridCellSize); gridZ <= Math.floorDiv((chunkZ << 4) + 15, gridCellSize); gridZ++) {
+                final BlockPos pos = drawPosition(this.rand, this.world.getSeed(), gridX, gridZ);
+
+                if ((pos.getX() >> 4) == chunkX && (pos.getZ() >> 4) == chunkZ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
