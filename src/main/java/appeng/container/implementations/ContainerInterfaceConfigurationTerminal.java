@@ -21,6 +21,7 @@ package appeng.container.implementations;
 
 import javax.annotation.Nullable;
 
+import appeng.api.config.SecurityPermissions;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
@@ -116,7 +117,13 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
             return;
         }
 
+        this.verifyPermissions(SecurityPermissions.BUILD, false);
         super.detectAndSendChanges();
+
+        // The grid the terminal is on now: after a split it may be another one than at opening.
+        final IActionHost host = this.getActionHost();
+        final IGridNode node = host == null ? null : host.getActionableNode();
+        this.grid = node == null ? null : node.getGrid();
 
         if (this.grid == null) {
             return;
@@ -125,7 +132,6 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
         int total = 0;
         boolean missing = false;
 
-        final IActionHost host = this.getActionHost();
         if (host != null) {
             final IGridNode agn = host.getActionableNode();
             if (agn != null && agn.isActive()) {

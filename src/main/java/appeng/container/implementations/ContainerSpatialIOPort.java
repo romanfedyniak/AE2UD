@@ -21,6 +21,7 @@ package appeng.container.implementations;
 
 import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergyGrid;
 import appeng.api.networking.spatial.ISpatialCache;
 import appeng.api.util.AEPartLocation;
@@ -44,6 +45,7 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
     public long reqPower;
     @GuiSync(3)
     public long eff;
+    private final TileSpatialIOPort port;
     private IGrid network;
     private int delay = 40;
 
@@ -56,6 +58,7 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
 
     public ContainerSpatialIOPort(final InventoryPlayer ip, final TileSpatialIOPort spatialIOPort) {
         super(ip, spatialIOPort, null);
+        this.port = spatialIOPort;
 
         if (Platform.isServer()) {
             this.network = spatialIOPort.getGridNode(AEPartLocation.INTERNAL).getGrid();
@@ -75,6 +78,11 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
 
         if (Platform.isServer()) {
             this.delay++;
+            if (this.delay > 15) {
+                // The port's grid now, not the one it was on at opening: the network may have split since.
+                final IGridNode node = this.port.getGridNode(AEPartLocation.INTERNAL);
+                this.network = node == null ? null : node.getGrid();
+            }
             if (this.delay > 15 && this.network != null) {
                 this.delay = 0;
 

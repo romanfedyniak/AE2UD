@@ -22,6 +22,7 @@ package appeng.container.implementations;
 import javax.annotation.Nullable;
 
 import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.IPatternContainer;
@@ -118,7 +119,13 @@ public class ContainerPatternAccessTerminal extends AEBaseContainer implements I
             return;
         }
 
+        this.verifyPermissions(SecurityPermissions.BUILD, false);
         super.detectAndSendChanges();
+
+        // The grid the terminal is on now: after a split it may be another one than at opening.
+        final IActionHost host = this.getActionHost();
+        final IGridNode node = host == null ? null : host.getActionableNode();
+        this.grid = node == null ? null : node.getGrid();
 
         if (this.grid == null) {
             return;
