@@ -98,7 +98,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     private final AppEngInternalInventory patternInv = new AppEngInternalInventory(this, 1, 1);
     private final IItemHandler gridInvExt = new WrapperFilteredItemHandler(this.gridInv, new CraftingGridFilter());
     private final IItemHandler internalInv = new WrapperChainedItemHandler(this.gridInv, this.patternInv);
-    private final EnumMap<EnumFacing, Object> neighbors = new EnumMap<>(EnumFacing.class);
+    private final EnumMap<EnumFacing, Neighbor> neighbors = new EnumMap<>(EnumFacing.class);
     private final IConfigManager settings;
     private final UpgradeInventory upgrades;
     private boolean isPowered = false;
@@ -128,6 +128,11 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
     public void updateNeighbors() {
         for (EnumFacing f : EnumFacing.VALUES) {
+            // Looking would load the chunk, or generate it.
+            if (!world.isBlockLoaded(pos.offset(f))) {
+                neighbors.remove(f);
+                continue;
+            }
             TileEntity te = world.getTileEntity(pos.offset(f));
             Object capability = null;
             if (te != null) {
@@ -147,7 +152,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
             }
 
             if (capability != null) {
-                neighbors.put(f, capability);
+                neighbors.put(f, new Neighbor(te, capability));
             } else {
                 neighbors.remove(f);
             }
@@ -185,6 +190,10 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         }
 
         if (pos.offset(updateFromFacing).equals(neighbor)) {
+            if (w instanceof World world && !world.isBlockLoaded(neighbor)) {
+                neighbors.remove(updateFromFacing);
+                return;
+            }
             TileEntity te = w.getTileEntity(neighbor);
             Object capability = null;
             if (te != null) {
@@ -204,7 +213,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
             }
 
             if (capability != null) {
-                neighbors.put(updateFromFacing, capability);
+                neighbors.put(updateFromFacing, new Neighbor(te, capability));
             } else {
                 neighbors.remove(updateFromFacing);
             }
@@ -629,15 +638,6 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         }
 
         this.gridInv.setStackInSlot(9, output);
-    }
-
-    private ItemStack pushTo(ItemStack output, final EnumFacing d) {
-        if (output.isEmpty()) {
-            return output;
-        }
-
-        // An interface tunnel offers its inventory only once it is linked, and linking sends no block update.
-        if (!neighbors.containsKey(d)) {
         if (!this.forcePlan) {
             this.resetPushDirectionWhenEmpty();
         }
@@ -652,9 +652,25 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
         if (ItemHandlerUtil.isEmpty(this.gridInv) && ItemHandlerUtil.isEmpty(this.patternInv)) {
             this.pushDirection = AEPartLocation.INTERNAL;
         }
+    }
+
+    private ItemStack pushTo(ItemStack output, final EnumFacing d) {
+        if (output.isEmpty()) {
+            return output;
+        }
+
+        // A neighbour whose chunk unloaded sends no update, and inserting into its old tile loses the items.
+        final Neighbor cached = neighbors.get(d);
+        if (cached != null && !cached.isStill(this.world, this.pos.offset(d))) {
+            neighbors.remove(d);
+        }
+
+        // An interface tunnel offers its inventory only once it is linked, and linking sends no block update.
+        if (!neighbors.containsKey(d)) {
             this.updateNeighbors(this.world, this.pos, this.pos.offset(d));
         }
-        Object capability = neighbors.get(d);
+        final Neighbor neighbor = neighbors.get(d);
+        Object capability = neighbor == null ? null : neighbor.handler;
         if (capability instanceof MEStorage) {
             // Prioritize a handler to directly link to another ME network
             MEStorage inv = (MEStorage) capability;
@@ -713,6 +729,21 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
     @Override
     public boolean isActive() {
         return this.isPowered;
+    }
+
+    /** A side's handler, kept with the tile it came from so it can be told when that tile is gone. */
+    private static final class Neighbor {
+        private final TileEntity tile;
+        private final Object handler;
+
+        private Neighbor(final TileEntity tile, final Object handler) {
+            this.tile = tile;
+            this.handler = handler;
+        }
+
+        private boolean isStill(final World world, final BlockPos at) {
+            return !this.tile.isInvalid() && world.isBlockLoaded(at) && world.getTileEntity(at) == this.tile;
+        }
     }
 
     private class CraftingGridFilter implements IAEItemFilter {
