@@ -108,21 +108,24 @@ public class PartConversionMonitor extends AbstractPartMonitor {
             } else {
                 this.insertItem(player, hand, false);
             }
+            return true;
         }
 
         // A container holding something is poured in while the monitor shows what it holds; an empty one is
-        // just an item.
+        // just an item. Whatever moved, the click is done: the monitor's own click would read the hand again,
+        // now empty (the monitor goes blank) or an empty bucket (it shows "bucket").
         if (contained != null) {
             if (configuredKey == null || configuredKey instanceof AEItemKey) {
                 return super.onPartActivate(player, hand, pos);
             }
             if (contained.what().equals(configuredKey)) {
                 this.drainContainer(player, hand);
-            } else {
-                return super.onPartActivate(player, hand, pos);
+                return true;
             }
+            return super.onPartActivate(player, hand, pos);
         } else if (configuredKey instanceof AEItemKey itemKey && itemKey.matches(player.getHeldItem(hand))) {
             this.insertItem(player, hand, false);
+            return true;
         }
         return super.onPartActivate(player, hand, pos);
     }
