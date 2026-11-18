@@ -1152,7 +1152,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             this.cancelCrafting();
         }
 
-        if (newValue == LockCraftingMode.NONE) {
+        // The wait the old mode set (a pulse, a result) is not the new mode's to keep.
+        if (settingName == Settings.UNLOCK) {
             resetCraftingLock();
         }
 
