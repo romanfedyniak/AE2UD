@@ -123,7 +123,7 @@ public class QuadRotator {
                     setByte(newData, idx + 1, (int) (normal.getY() * 127));
                     setByte(newData, idx + 2, (int) (normal.getZ() * 127));
                 } else {
-                    AELog.warn("Unsupported normal format: {}", normalType);
+                    AELog.warn("Unsupported normal format: %s", normalType);
                 }
             }
         }

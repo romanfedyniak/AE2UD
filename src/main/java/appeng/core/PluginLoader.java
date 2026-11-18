@@ -58,7 +58,7 @@ class PluginLoader {
             // Try instantiating the plugin
             try {
                 Object plugin = instantiatePlugin(aClass, injectableMap);
-                AELog.info("Loaded AE2 Plugin {}", plugin.getClass());
+                AELog.info("Loaded AE2 Plugin %s", plugin.getClass());
             } catch (Exception e) {
                 AELog.error(e, "Unable to instantiate AE plugin " + candidate.getClassName());
                 throw new RuntimeException("Unable to instantiate AE plugin " + candidate.getClassName(), e);

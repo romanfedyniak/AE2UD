@@ -104,7 +104,7 @@ class PartModelsHelper {
             Collection values = (Collection) value;
             for (Object candidate : values) {
                 if (!(candidate instanceof IPartModel)) {
-                    AELog.error("List of locations obtained from {} contains a non resource location: {}", source, candidate);
+                    AELog.error("List of locations obtained from %s contains a non resource location: %s", source, candidate);
                     continue;
                 }
 

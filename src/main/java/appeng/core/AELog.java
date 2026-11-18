@@ -29,6 +29,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.IllegalFormatException;
 
 
 public final class AELog {
@@ -80,7 +82,7 @@ public final class AELog {
      */
     public static void log(@Nonnull final Level level, @Nonnull final String message, final Object... params) {
         if (AELog.isLogEnabled()) {
-            final String formattedMessage = String.format(message, params);
+            final String formattedMessage = format(message, params);
             final Logger logger = getLogger();
 
             logger.log(level, formattedMessage);
@@ -100,10 +102,26 @@ public final class AELog {
      */
     public static void log(@Nonnull final Level level, @Nonnull final Throwable exception, @Nonnull String message, final Object... params) {
         if (AELog.isLogEnabled()) {
-            final String formattedMessage = String.format(message, params);
+            final String formattedMessage = format(message, params);
             final Logger logger = getLogger();
 
             logger.log(level, formattedMessage, exception);
+        }
+    }
+
+    /**
+     * Most callers put their data into the message itself, so a {@code %} in it must not be read as a format
+     * specifier: a message without parameters is left as it is, and one that does not format is logged raw.
+     */
+    private static String format(final String message, final Object... params) {
+        if (params == null || params.length == 0) {
+            return message;
+        }
+
+        try {
+            return String.format(message, params);
+        } catch (final IllegalFormatException e) {
+            return message + " " + Arrays.toString(params);
         }
     }
 
@@ -243,7 +261,7 @@ public final class AELog {
      * @return true when the debug log is enabled.
      */
     public static boolean isDebugLogEnabled() {
-        return AEConfig.instance().isFeatureEnabled(AEFeature.DEBUG_LOGGING);
+        return AEConfig.instance() != null && AEConfig.instance().isFeatureEnabled(AEFeature.DEBUG_LOGGING);
     }
 
     //
