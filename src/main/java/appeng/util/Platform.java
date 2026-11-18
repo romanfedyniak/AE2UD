@@ -125,6 +125,7 @@ import java.lang.reflect.Method;
 import java.security.InvalidParameterException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.function.Supplier;
 
 
 /**
@@ -1348,6 +1349,14 @@ public class Platform {
      *               {@code ItemViewCell.createFilter}.
      */
     public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final MEStorage src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final KeyCounter items, final Actionable realForFake, final AEKeyFilter filter) {
+        return extractItemsByRecipe(energySrc, mySrc, src, w, r, output, ci, providedTemplate, slot, () -> items, realForFake, filter);
+    }
+
+    /**
+     * @param items the network's listing, asked for only when the exact ingredient is not there and a
+     *              substitute has to be looked for: listing a network visits every storage on it.
+     */
+    public static ItemStack extractItemsByRecipe(final IEnergySource energySrc, final IActionSource mySrc, final MEStorage src, final World w, final IRecipe r, final ItemStack output, final InventoryCrafting ci, final ItemStack providedTemplate, final int slot, final Supplier<KeyCounter> items, final Actionable realForFake, final AEKeyFilter filter) {
         if (energySrc.extractAEPower(1, Actionable.SIMULATE, PowerMultiplier.CONFIG) > 0.9) {
             if (providedTemplate == null) {
                 return ItemStack.EMPTY;
@@ -1368,8 +1377,9 @@ public class Platform {
 
             final boolean checkFuzzy = OreHelper.INSTANCE.getOre(providedTemplate).isPresent() || providedTemplate.getItemDamage() == OreDictionary.WILDCARD_VALUE || providedTemplate.hasTagCompound() || providedTemplate.isItemStackDamageable();
 
-            if (items != null && checkFuzzy) {
-                for (final Object2LongMap.Entry<AEKey> entry : items) {
+            final KeyCounter listing = checkFuzzy ? items.get() : null;
+            if (listing != null) {
+                for (final Object2LongMap.Entry<AEKey> entry : listing) {
                     if (!(entry.getKey() instanceof AEItemKey x)) {
                         continue;
                     }

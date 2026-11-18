@@ -53,6 +53,7 @@ import net.minecraftforge.items.IItemHandler;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 
 
 public class SlotCraftingTerm extends AppEngCraftingSlot {
@@ -133,9 +134,18 @@ public class SlotCraftingTerm extends AppEngCraftingSlot {
             return;
         }
 
+        // Listed once per click, and only if a substitute is ever looked for: listing visits every storage
+        // on the network, and this loop runs once per item crafted.
+        final KeyCounter[] listed = new KeyCounter[1];
+        final Supplier<KeyCounter> all = () -> {
+            if (listed[0] == null) {
+                listed[0] = inv.getAvailableStacks();
+            }
+            return listed[0];
+        };
+
         for (int x = 0; x < maxTimesToCraft; x++) {
             if (ia.simulateAdd(rs).isEmpty()) {
-                final KeyCounter all = inv.getAvailableStacks();
                 final ItemStack extra = ia.addItems(this.craftItem(who, rs, inv, all));
                 if (!extra.isEmpty()) {
                     final List<ItemStack> drops = new ArrayList<>();
@@ -191,7 +201,7 @@ public class SlotCraftingTerm extends AppEngCraftingSlot {
         return maxTimesToCraft;
     }
 
-    private ItemStack craftItem(final EntityPlayer p, final ItemStack request, final MEStorage inv, final KeyCounter all) {
+    private ItemStack craftItem(final EntityPlayer p, final ItemStack request, final MEStorage inv, final Supplier<KeyCounter> all) {
         // update crafting matrix...
         ItemStack is = this.getStack();
 
