@@ -117,8 +117,12 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
      * else changed with it, such as the other tiers of a compacting drawer.
      */
     private void moved(final AEItemKey key, final long delta) {
-        this.currentlyCached.set(key, Math.max(0, this.currentlyCached.get(key) + delta));
-        this.listeners.post(key, delta);
+        // What the count did, not what moved: drawers may give more than was counted, and the rescan has nothing
+        // left to correct once the count is already at zero.
+        final long before = this.currentlyCached.get(key);
+        final long after = Math.max(0, before + delta);
+        this.currentlyCached.set(key, after);
+        this.listeners.post(key, after - before);
     }
 
     private void updateCache() {
