@@ -126,6 +126,7 @@ chat.appliedenergistics2.CraftingTestBusy=That rig is already running a test.
 chat.appliedenergistics2.CraftingTestNoScenario=No scenario is named %s.
 chat.appliedenergistics2.CraftingTestStarted=Running %s crafting scenarios (%s).
 chat.appliedenergistics2.TerminalModeNotUnlocked=Your wireless terminal does not have that mode yet.
+chat.appliedenergistics2.TooMuchDataToSend=That carries too much data to be sent to the server.
 chat.appliedenergistics2.DeviceNotLinked=Device is not linked.
 chat.appliedenergistics2.StationCanNotBeLocated=Station can not be located.
 chat.appliedenergistics2.SavedSettings=Copied current device configuration to memory card.

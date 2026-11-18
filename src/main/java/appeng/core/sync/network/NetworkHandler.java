@@ -19,7 +19,11 @@
 package appeng.core.sync.network;
 
 
+import appeng.core.AELog;
+import appeng.core.AppEng;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.sync.AppEngPacket;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.network.ThreadQuickExitException;
@@ -28,10 +32,13 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.FMLEventChannel;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent.ClientCustomPacketEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent.ServerCustomPacketEvent;
+import net.minecraftforge.fml.common.network.internal.FMLProxyPacket;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 
 
 public class NetworkHandler {
+    /** What CPacketCustomPayload takes from a client. */
+    private static final int MAX_CLIENT_PAYLOAD = 32767;
     public static NetworkHandler instance;
 
     private final FMLEventChannel ec;
@@ -121,6 +128,16 @@ public class NetworkHandler {
     }
 
     public void sendToServer(final AppEngPacket message) {
-        this.ec.sendToServer(message.getProxy());
+        final FMLProxyPacket proxy = message.getProxy();
+        // The game cannot write a bigger packet from a client, and a write that fails drops the connection.
+        if (proxy.payload().readableBytes() > MAX_CLIENT_PAYLOAD) {
+            AELog.warn("Not sending %s: %d bytes is more than a client may send", message.getClass().getSimpleName(),
+                    proxy.payload().readableBytes());
+            for (final EntityPlayer player : AppEng.proxy.getPlayers()) {
+                player.sendMessage(PlayerMessages.TooMuchDataToSend.get());
+            }
+            return;
+        }
+        this.ec.sendToServer(proxy);
     }
 }

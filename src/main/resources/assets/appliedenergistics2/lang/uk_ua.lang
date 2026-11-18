@@ -126,6 +126,7 @@ chat.appliedenergistics2.CraftingTestBusy=Цей стенд уже викону�
 chat.appliedenergistics2.CraftingTestNoScenario=Сценарій з назвою %s відсутній.
 chat.appliedenergistics2.CraftingTestStarted=Запуск сценаріїв крафту %s (%s).
 chat.appliedenergistics2.TerminalModeNotUnlocked=Ваш бездротовий термінал ще не має цього режиму.
+chat.appliedenergistics2.TooMuchDataToSend=Це несе забагато даних, щоб передати на сервер.
 chat.appliedenergistics2.DeviceNotLinked=Пристрій не прив'язано.
 chat.appliedenergistics2.StationCanNotBeLocated=Не вдалося знайти термінал безпеки.
 chat.appliedenergistics2.SavedSettings=Скопійовано поточну конфігурацію пристрою на карту пам'яті.

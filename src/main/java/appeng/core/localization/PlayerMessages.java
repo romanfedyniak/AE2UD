@@ -50,6 +50,7 @@ public enum PlayerMessages {
     CannotBeCrafted,
     NothingInNetwork,
     NoRoomForItem,
+    TooMuchDataToSend,
 
     // Why a pattern could not be sent anywhere
     PatternUploadNoPattern,

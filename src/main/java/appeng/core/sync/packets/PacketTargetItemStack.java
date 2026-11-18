@@ -23,6 +23,7 @@ import appeng.api.stacks.AEKey;
 import appeng.container.AEBaseContainer;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
+import appeng.core.sync.PacketCompression;
 import appeng.core.sync.network.INetworkInfo;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -39,12 +40,17 @@ import javax.annotation.Nullable;
  * both now carry a bare {@link AEKey}.
  */
 public class PacketTargetItemStack extends AppEngPacket {
+    /** How big the key may be once unpacked. */
+    private static final int MAX_KEY_BYTES = 2 * 1024 * 1024;
+
     private AEKey stack;
 
     // automatic.
     public PacketTargetItemStack(final ByteBuf stream) {
         try {
-            this.stack = AEKey.readOptionalKey(stream);
+            final byte[] compressed = new byte[stream.readableBytes()];
+            stream.readBytes(compressed);
+            this.stack = AEKey.readOptionalKey(Unpooled.wrappedBuffer(PacketCompression.decompress(compressed, MAX_KEY_BYTES)));
         } catch (Exception ex) {
             AELog.debug(ex);
             this.stack = null;
@@ -58,8 +64,12 @@ public class PacketTargetItemStack extends AppEngPacket {
 
         final ByteBuf data = Unpooled.buffer();
         data.writeInt(this.getPacketID());
+        // Compressed: every click on a terminal row sends its key, and a key with a lot of NBT (a filled backpack,
+        // a written book) would not fit the 32 KB a client may send.
         try {
-            AEKey.writeOptionalKey(data, stack);
+            final ByteBuf key = Unpooled.buffer();
+            AEKey.writeOptionalKey(key, stack);
+            data.writeBytes(PacketCompression.compress(key));
         } catch (Exception ex) {
             AELog.debug(ex);
         }
