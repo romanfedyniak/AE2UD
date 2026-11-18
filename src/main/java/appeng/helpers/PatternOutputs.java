@@ -10,16 +10,15 @@
 
 package appeng.helpers;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
-
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
 import appeng.api.implementations.ICraftingPatternItem;
+import appeng.api.stacks.AEItemKey;
 import appeng.core.AppEng;
-import appeng.util.item.ItemStackHashStrategy;
 
 /**
  * What a pattern is drawn as while the view key is held, remembered between frames.
@@ -33,8 +32,20 @@ import appeng.util.item.ItemStackHashStrategy;
  */
 public final class PatternOutputs {
 
-    private static final Map<ItemStack, ItemStack> CACHE =
-            new Object2ObjectOpenCustomHashMap<>(ItemStackHashStrategy.comparingAllButCount());
+    /** Plenty for every pattern a screen shows; past it the least recently drawn is dropped. */
+    private static final int LIMIT = 1024;
+
+    /**
+     * Keyed by an immutable key rather than by the caller's stack: a stack used as a key and then renamed or
+     * otherwise changed in place could never be found again, and stayed in the map for good. Synchronized,
+     * since {@link #forget} also runs on the integrated server's thread.
+     */
+    private static final Map<AEItemKey, ItemStack> CACHE = new LinkedHashMap<AEItemKey, ItemStack>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(final Map.Entry<AEItemKey, ItemStack> eldest) {
+            return this.size() > LIMIT;
+        }
+    };
 
     private PatternOutputs() {
     }
@@ -45,10 +56,13 @@ public final class PatternOutputs {
             return ItemStack.EMPTY;
         }
 
-        final ItemStack cached = CACHE.get(stack);
+        final AEItemKey key = AEItemKey.of(stack);
 
-        if (cached != null) {
-            return cached;
+        synchronized (CACHE) {
+            final ItemStack cached = CACHE.get(key);
+            if (cached != null) {
+                return cached;
+            }
         }
 
         final World world = AppEng.proxy.getWorld();
@@ -60,12 +74,27 @@ public final class PatternOutputs {
 
         final ItemStack out = ((ICraftingPatternItem) stack.getItem()).getOutput(stack, world);
 
-        CACHE.put(stack, out);
+        synchronized (CACHE) {
+            CACHE.put(key, out);
+        }
         return out;
     }
 
     /** Called when a pattern stops being one, since the stack it was is about to hold something else. */
     public static void forget(final ItemStack stack) {
-        CACHE.remove(stack);
+        if (stack.isEmpty()) {
+            return;
+        }
+
+        synchronized (CACHE) {
+            CACHE.remove(AEItemKey.of(stack));
+        }
+    }
+
+    /** Recipes changed or the world was left: what the patterns show may have changed with them. */
+    public static void clear() {
+        synchronized (CACHE) {
+            CACHE.clear();
+        }
     }
 }

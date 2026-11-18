@@ -19,6 +19,7 @@
 package appeng.client;
 
 
+import appeng.helpers.PatternOutputs;
 import appeng.api.parts.CableRenderMode;
 import appeng.api.util.AEColor;
 import appeng.block.AEBaseBlock;
@@ -141,6 +142,7 @@ public class ClientHelper extends ServerHelper {
         Minecraft.getMinecraft().addScheduledTask(() -> {
             ((ChannelTierRegistry) AEApi.instance().registries().channelTiers()).restoreLocalCapacities();
             MultiblockLimits.restoreLocal();
+            PatternOutputs.clear();
         });
     }
 
