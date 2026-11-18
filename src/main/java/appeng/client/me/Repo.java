@@ -36,7 +36,6 @@ import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.KeySorters;
-import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
@@ -369,7 +368,7 @@ public class Repo {
     }
 
     private String nameOf(final AEKey what) {
-        return this.names.computeIfAbsent(what, Platform::getItemDisplayName);
+        return this.names.computeIfAbsent(what, KeySorters::sortName);
     }
 
     /**

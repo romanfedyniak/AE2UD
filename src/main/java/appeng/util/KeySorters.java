@@ -24,6 +24,7 @@ import appeng.api.stacks.AEKey;
 import appeng.integration.Integrations;
 import appeng.integration.abstraction.IInvTweaks;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import net.minecraft.util.text.TextFormatting;
 
 import java.util.Comparator;
 
@@ -40,7 +41,7 @@ public class KeySorters {
 
     public static final Comparator<Object2LongMap.Entry<AEKey>> CONFIG_BASED_SORT_BY_NAME = (o1, o2) ->
     {
-        int cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+        int cmp = sortName(o1.getKey()).compareToIgnoreCase(sortName(o2.getKey()));
 
         if (cmp == 0) {
             cmp = identityTieBreak(o1.getKey(), o2.getKey());
@@ -54,7 +55,7 @@ public class KeySorters {
         int cmp = o1.getKey().getModId().compareToIgnoreCase(o2.getKey().getModId());
 
         if (cmp == 0) {
-            cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+            cmp = sortName(o1.getKey()).compareToIgnoreCase(sortName(o2.getKey()));
         }
 
         if (cmp == 0) {
@@ -69,7 +70,7 @@ public class KeySorters {
         int cmp = Long.compare(o2.getLongValue(), o1.getLongValue());
 
         if (cmp == 0) {
-            cmp = Platform.getItemDisplayName(o1.getKey()).compareToIgnoreCase(Platform.getItemDisplayName(o2.getKey()));
+            cmp = sortName(o1.getKey()).compareToIgnoreCase(sortName(o2.getKey()));
         }
 
         if (cmp == 0) {
@@ -95,6 +96,15 @@ public class KeySorters {
 
         return applyDirection(cmp);
     };
+
+    /**
+     * A key's name as the name orders compare it: without formatting codes. The formatted name ends in a reset
+     * code, which sorted "Stone Bricks" before "Stone", and a renamed item's colours sorted it by its codes.
+     */
+    public static String sortName(final AEKey key) {
+        final String name = TextFormatting.getTextWithoutFormattingCodes(key.getDisplayName().getUnformattedText());
+        return name == null ? "" : name;
+    }
 
     public static void init() {
         if (api != null) {
