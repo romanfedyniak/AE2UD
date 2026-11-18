@@ -318,6 +318,9 @@ public class ClientHelper extends ServerHelper {
 
     @SubscribeEvent
     public void postPlayerRender(final RenderLivingEvent.Pre p) {
+        if (TickHandler.INSTANCE.getPlayerColors().isEmpty()) {
+            return;
+        }
         final PlayerColor player = TickHandler.INSTANCE.getPlayerColors().get(p.getEntity().getEntityId());
         if (player != null) {
             final AEColor col = player.myColor;
@@ -326,6 +329,15 @@ public class ClientHelper extends ServerHelper {
             final float g = 0xff & (col.mediumVariant >> 8);
             final float b = 0xff & (col.mediumVariant);
             GlStateManager.color(r / 255.0f, g / 255.0f, b / 255.0f);
+        }
+    }
+
+    /** The tint is the painted entity's alone; whatever is drawn after it starts from white again. */
+    @SubscribeEvent
+    public void afterPlayerRender(final RenderLivingEvent.Post p) {
+        if (!TickHandler.INSTANCE.getPlayerColors().isEmpty()
+                && TickHandler.INSTANCE.getPlayerColors().containsKey(p.getEntity().getEntityId())) {
+            GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
         }
     }
 
