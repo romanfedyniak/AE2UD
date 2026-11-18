@@ -97,6 +97,12 @@ public class BlockInterface extends AEBaseTileBlock {
     }
 
     @Override
+    public int getComparatorInputOverride(final IBlockState state, final World w, final BlockPos pos) {
+        final TileEntity te = this.getTileEntity(w, pos);
+        return te instanceof TileInterface ? ((TileInterface) te).getInterfaceDuality().getComparatorLevel() : 0;
+    }
+
+    @Override
     public void neighborChanged(IBlockState state, World worldIn, BlockPos pos, Block blockIn, BlockPos fromPos) {
         TileEntity tileEntity = this.getTileEntity(worldIn, pos);
         if (tileEntity != null) {

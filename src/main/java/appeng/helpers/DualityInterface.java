@@ -102,6 +102,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
@@ -741,6 +742,23 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
     public IItemHandler getConfig() {
         return this.config;
+    }
+
+    /**
+     * What a comparator reads: how full the nine slots are, each against its own capacity. Read through the item
+     * view this was a slot of 64, while a slot holds eight stacks.
+     */
+    public int getComparatorLevel() {
+        float fill = 0;
+        boolean any = false;
+        for (int slot = 0; slot < NUMBER_OF_STORAGE_SLOTS; slot++) {
+            final GenericStack stack = this.storage.getStack(slot);
+            if (stack != null) {
+                any = true;
+                fill += (float) stack.amount() / this.storage.getCapacity(stack.what());
+            }
+        }
+        return any ? MathHelper.floor(fill / NUMBER_OF_STORAGE_SLOTS * 14.0F) + 1 : 0;
     }
 
     public IItemHandler getPatterns() {
