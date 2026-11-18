@@ -108,7 +108,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private final Map<ClientDCInternalInv, Integer> numUpgradesMap = new HashMap<>();
     private final ArrayList<String> names = new ArrayList<>();
     private final ArrayList<Object> lines = new ArrayList<>();
-    private final Set<Object> matchedStacks = new HashSet<>();
+    /** The config slots the item search marks, by interface and slot: a slot's stack is replaced on every edit. */
+    private final Map<ClientDCInternalInv, Set<Integer>> matchedSlots = new HashMap<>();
     private final Set<ClientDCInternalInv> matchedInterfaces = new HashSet<>();
 
 
@@ -123,7 +124,13 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private GuiImgButton searchKeepBtn;
     private final PartInterfaceConfigurationTerminal partInterfaceTerminal;
     private final HashMap<ClientDCInternalInv, Integer> dimHashMap = new HashMap<>();
-    public Map<IGhostIngredientHandler.Target<?>, Object> mapTargetSlot = new HashMap<>();
+    /** The highlight buttons and slots of the rows shown, rebuilt only when what is shown moves. */
+    private final List<GuiButton> rowButtons = new ArrayList<>();
+    private final List<SlotDisconnected> rowSlots = new ArrayList<>();
+    private boolean rowsDirty = true;
+    private int rowsScroll;
+    private int rowsLeft;
+    private int rowsTop;
 
     public GuiInterfaceConfigurationTerminal(final InventoryPlayer inventoryPlayer, final PartInterfaceConfigurationTerminal te) {
         this(new ContainerInterfaceConfigurationTerminal(inventoryPlayer, te), te);
@@ -146,6 +153,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
     @Override
     public void initGui() {
+        this.rowsDirty = true;
         final TerminalStyle style = (TerminalStyle) AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE);
         this.rows = Math.max(MIN_ROWS, style.getRows((this.height - FIXED_HEIGHT) / ROW_HEIGHT));
         this.ySize = FIXED_HEIGHT + this.rows * ROW_HEIGHT;
@@ -273,7 +281,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
 
                 for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
                     for (int z = 0; z < 9; z++) {
-                        if (this.matchedStacks.contains(inv.getInventory().getStackInSlot(z + (row * 9)))) {
+                        if (this.matchedSlots.getOrDefault(inv, Collections.emptySet()).contains(z + (row * 9))) {
                             drawRect(z * 18 + 22, offset, z * 18 + 22 + 16, offset + 16, 0x8A00FF00);
                         } else if (!matchedInterfaces.contains(inv)) {
                             drawRect(z * 18 + 22, offset, z * 18 + 22 + 16, offset + 16, 0x6A000000);
@@ -412,7 +420,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     @Override
     public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
         this.buttonList.clear();
-        this.guiButtonHashMap.clear();
         this.inventorySlots.inventorySlots.removeIf(slot -> slot instanceof SlotDisconnected);
 
         this.terminalStyleBox.set(AEClientConfig.instance().getConfigManager().getSetting(Settings.TERMINAL_STYLE));
@@ -422,8 +429,26 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
             this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
         }
 
-        int offset = 30;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
+        if (this.rowsDirty || currentScroll != this.rowsScroll || this.guiLeft != this.rowsLeft || this.guiTop != this.rowsTop) {
+            this.buildRows(currentScroll);
+        }
+        this.buttonList.addAll(this.rowButtons);
+        this.inventorySlots.inventorySlots.addAll(this.rowSlots);
+
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private void buildRows(final int currentScroll) {
+        this.rowsDirty = false;
+        this.rowsScroll = currentScroll;
+        this.rowsLeft = this.guiLeft;
+        this.rowsTop = this.guiTop;
+        this.rowButtons.clear();
+        this.rowSlots.clear();
+        this.guiButtonHashMap.clear();
+
+        int offset = 30;
         int linesDraw = 0;
         for (int x = 0; x < this.rows && linesDraw < this.rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
@@ -431,13 +456,12 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 final GuiButton highlight = new GuiImgButton(this.guiLeft + 4, this.guiTop + offset,
                         Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
                 this.guiButtonHashMap.put(highlight, inv);
-                this.buttonList.add(highlight);
+                this.rowButtons.add(highlight);
 
                 final int extraLines = numUpgradesMap.get(inv);
                 for (int row = 0; row < 1 + extraLines && linesDraw < this.rows; ++row) {
                     for (int z = 0; z < 9; z++) {
-                        this.inventorySlots.inventorySlots.add(
-                                new SlotDisconnected(inv, z + (row * 9), z * 18 + 22, offset));
+                        this.rowSlots.add(new SlotDisconnected(inv, z + (row * 9), z * 18 + 22, offset));
                     }
                     linesDraw++;
                     offset += 18;
@@ -447,8 +471,6 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                 offset += 18;
             }
         }
-
-        super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     @Override
@@ -549,6 +571,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     }
 
     public void postUpdate(final NBTTagCompound in) {
+        // An interface may have gained or lost rows of upgrades.
+        this.rowsDirty = true;
         if (in.getBoolean("clear")) {
             this.byId.clear();
             this.refreshList = true;
@@ -593,7 +617,8 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
     private void refreshList() {
         this.byName.clear();
         this.buttonList.clear();
-        this.matchedStacks.clear();
+        this.matchedSlots.clear();
+        this.rowsDirty = true;
         this.matchedInterfaces.clear();
 
         final String itemQuery = this.searchFieldInputs.getText();
@@ -649,20 +674,21 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
      * leave out marks nothing, since everything left would qualify.
      */
     private boolean matchConfigured(final ClientDCInternalInv entry) {
-        final List<ItemStack> configured = new ArrayList<>();
+        final List<Integer> configured = new ArrayList<>();
         final List<AEKey> keys = new ArrayList<>();
         final int last = 8 + this.numUpgradesMap.get(entry) * 9;
 
         int slot = 0;
         for (final ItemStack itemStack : entry.getInventory()) {
-            if (slot++ > last) {
+            if (slot > last) {
                 break;
             }
             final GenericStack resolved = GenericStack.resolveItemStack(itemStack);
             if (resolved != null) {
-                configured.add(itemStack);
+                configured.add(slot);
                 keys.add(resolved.what());
             }
+            slot++;
         }
 
         if (!this.itemSearch.matchesAny(keys)) {
@@ -672,7 +698,7 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
         if (this.itemSearch.hasPositiveTerms()) {
             for (int i = 0; i < keys.size(); i++) {
                 if (this.itemSearch.matches(keys.get(i))) {
-                    this.matchedStacks.add(configured.get(i));
+                    this.matchedSlots.computeIfAbsent(entry, e -> new HashSet<>()).add(configured.get(i));
                 }
             }
         }
@@ -764,16 +790,11 @@ public class GuiInterfaceConfigurationTerminal extends AEBaseGui implements IJEI
                     }
                 };
                 targets.add(target);
-                mapTargetSlot.putIfAbsent(target, slot);
             }
         }
         return targets;
     }
 
-    @Override
-    public Map<IGhostIngredientHandler.Target<?>, Object> getFakeSlotTargetMap() {
-        return IJEIGhostIngredients.super.getFakeSlotTargetMap();
-    }
     /** A click on the pattern multi-tool beside the window is not a click outside it. */
     @Override
     protected boolean hasClickedOutside(final int mouseX, final int mouseY, final int guiLeft, final int guiTop) {
