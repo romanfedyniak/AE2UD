@@ -26,6 +26,7 @@ import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
+import net.minecraft.world.chunk.BlockStateContainer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraft.world.gen.ChunkGeneratorOverworld;
@@ -77,17 +78,32 @@ public class StorageChunkProvider extends ChunkGeneratorOverworld {
 
         for (int section = 0; section < storage.length; section++) {
             final ExtendedBlockStorage blocks = new ExtendedBlockStorage(section << 4, skyLight);
+            final BlockStateContainer data = blocks.getData();
             for (int cy = 0; cy < 16; cy++) {
                 for (int cz = 0; cz < 16; cz++) {
                     for (int cx = 0; cx < 16; cx++) {
-                        blocks.set(cx, cy, cz, defaultState);
+                        data.set(cx, cy, cz, defaultState);
                     }
                 }
             }
+            blocks.recalculateRefCounts();
             storage[section] = blocks;
         }
 
         chunk.generateSkylightMap();
+
+        // That stops above the bottom layer, which the light coming down reached all the same.
+        if (skyLight) {
+            final int opacity = defaultState.getLightOpacity();
+            final ExtendedBlockStorage bottom = storage[0];
+            for (int cz = 0; cz < 16; cz++) {
+                for (int cx = 0; cx < 16; cx++) {
+                    final int above = bottom.getSkyLight(cx, 1, cz);
+                    final int drop = opacity == 0 && above != 15 ? 1 : opacity;
+                    bottom.setSkyLight(cx, 0, cz, Math.max(0, above - drop));
+                }
+            }
+        }
     }
 
     @Override
