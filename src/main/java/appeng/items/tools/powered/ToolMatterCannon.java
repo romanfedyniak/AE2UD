@@ -72,6 +72,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -254,6 +255,8 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
     private void standardAmmo(float penetration, final World w, final EntityPlayer p, final Vec3d Vec3d, final Vec3d Vec3d1, final Vec3d direction, final double d0, final double d1, final double d2) {
         boolean hasDestroyed = true;
+        // A ghast fireball or a dragon part takes a hit and lives on; found again by the same ray, it would be hit forever.
+        final Set<Entity> hit = new HashSet<>();
         while (penetration > 0 && hasDestroyed) {
             hasDestroyed = false;
 
@@ -267,7 +270,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
             for (int l = 0; l < list.size(); ++l) {
                 final Entity entity1 = (Entity) list.get(l);
 
-                if (!entity1.isDead && entity1 != p && !(entity1 instanceof EntityItem)) {
+                if (!entity1.isDead && entity1 != p && !(entity1 instanceof EntityItem) && !hit.contains(entity1)) {
                     if (entity1.isEntityAlive()) {
                         // prevent killing / flying of mounts.
                         if (entity1.isRidingOrBeingRiddenBy(p)) {
@@ -313,6 +316,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                 if (pos.typeOfHit == RayTraceResult.Type.ENTITY) {
                     final int dmg = (int) Math.ceil(penetration / 20.0f);
+                    hit.add(pos.entityHit);
                     if (pos.entityHit instanceof EntityLivingBase) {
                         final EntityLivingBase el = (EntityLivingBase) pos.entityHit;
                         penetration -= dmg;
@@ -326,8 +330,10 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                     } else if (pos.entityHit instanceof EntityItem) {
                         hasDestroyed = true;
                         pos.entityHit.setDead();
-                    } else if (pos.entityHit.attackEntityFrom(dmgSrc, dmg)) {
-                        hasDestroyed = pos.entityHit.isEntityAlive();
+                    } else {
+                        penetration -= dmg;
+                        pos.entityHit.attackEntityFrom(dmgSrc, dmg);
+                        hasDestroyed = !pos.entityHit.isEntityAlive();
                     }
                 } else if (pos.typeOfHit == RayTraceResult.Type.BLOCK) {
                     if (!AEConfig.instance().isFeatureEnabled(AEFeature.MASS_CANNON_BLOCK_DAMAGE)) {
