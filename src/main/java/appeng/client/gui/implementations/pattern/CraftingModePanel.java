@@ -165,8 +165,8 @@ public class CraftingModePanel extends PatternModePanel {
             }
         }
 
+        // Lighting stays off, as the foreground layer is drawn: on, it would darken whatever is drawn after this.
         GlStateManager.enableDepth();
-        GlStateManager.enableLighting();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 

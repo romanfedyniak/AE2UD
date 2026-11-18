@@ -140,7 +140,6 @@ public class GuiRenamer extends AEBaseGui implements IJEIGhostIngredients {
         drawRect(ContainerRenamer.ICON_X, ContainerRenamer.ICON_Y, ContainerRenamer.ICON_X + 16,
                 ContainerRenamer.ICON_Y + 16, HINT_VEIL);
         GlStateManager.enableDepth();
-        GlStateManager.enableLighting();
         GlStateManager.color(1, 1, 1, 1);
     }
 

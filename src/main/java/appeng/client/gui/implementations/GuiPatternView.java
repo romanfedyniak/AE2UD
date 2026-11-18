@@ -198,7 +198,6 @@ public class GuiPatternView extends AEBaseGui {
         }
 
         GlStateManager.enableDepth();
-        GlStateManager.enableLighting();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
