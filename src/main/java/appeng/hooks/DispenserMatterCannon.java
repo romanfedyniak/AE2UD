@@ -29,6 +29,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
@@ -58,7 +59,12 @@ public final class DispenserMatterCannon extends BehaviorDefaultDispenseItem {
                 p.posY += dir.yOffset;
                 p.posZ += dir.zOffset;
 
-                dispensedItem = tm.onItemRightClick(w, p, null).getResult();
+                p.setHeldItem(EnumHand.MAIN_HAND, dispensedItem);
+                try {
+                    dispensedItem = tm.onItemRightClick(w, p, EnumHand.MAIN_HAND).getResult();
+                } finally {
+                    p.setHeldItem(EnumHand.MAIN_HAND, ItemStack.EMPTY);
+                }
             }
         }
         return dispensedItem;
