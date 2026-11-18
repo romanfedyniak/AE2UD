@@ -25,6 +25,7 @@ import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.event.world.ChunkDataEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -68,13 +69,51 @@ final class Spills {
         if (event.phase != TickEvent.Phase.END || event.world.isRemote) {
             return;
         }
-        final List<Spill> spills = this.pending.remove(event.world);
+        final List<Spill> spills = this.pending.get(event.world);
         if (spills == null) {
             return;
         }
-        for (final Spill spill : spills) {
+        // A chunk loaded after this world's last tick can be unloaded again before this one: its spills are
+        // written back into it as it is saved (onChunkSave), never dropped into a chunk that is gone.
+        spills.removeIf(spill -> {
+            if (!event.world.isBlockLoaded(spill.pos)) {
+                return false;
+            }
             place(event.world, spill);
+            return true;
+        });
+        if (spills.isEmpty()) {
+            this.pending.remove(event.world);
         }
+    }
+
+    /**
+     * The tile no longer holds what it spilled: until the spill is placed, the chunk is saved with it put back.
+     */
+    @SubscribeEvent
+    public void onChunkSave(final ChunkDataEvent.Save event) {
+        final List<Spill> spills = this.pending.get(event.getWorld());
+        if (spills == null) {
+            return;
+        }
+        final Chunk chunk = event.getChunk();
+        final NBTTagList tiles = event.getData().getCompoundTag("Level").getTagList("TileEntities",
+                Constants.NBT.TAG_COMPOUND);
+        spills.removeIf(spill -> {
+            if (spill.pos.getX() >> 4 != chunk.x || spill.pos.getZ() >> 4 != chunk.z) {
+                return false;
+            }
+            for (int i = 0; i < tiles.tagCount(); i++) {
+                final NBTTagCompound tile = tiles.getCompoundTagAt(i);
+                if (tile.getInteger("x") == spill.pos.getX() && tile.getInteger("y") == spill.pos.getY()
+                        && tile.getInteger("z") == spill.pos.getZ()) {
+                    tile.setTag(LegacyRewrites.SPILL_KEY, spill.items.copy());
+                    break;
+                }
+            }
+            // Unloading: the next load reads it from the tile again.
+            return !chunk.isLoaded();
+        });
     }
 
     private static void place(final World world, final Spill spill) {
@@ -140,7 +179,8 @@ final class Spills {
      */
     private static boolean nextToChest(final World world, final BlockPos pos) {
         for (final EnumFacing facing : EnumFacing.Plane.HORIZONTAL) {
-            if (world.getBlockState(pos.offset(facing)).getBlock() == Blocks.CHEST) {
+            final BlockPos side = pos.offset(facing);
+            if (world.isBlockLoaded(side) && world.getBlockState(side).getBlock() == Blocks.CHEST) {
                 return true;
             }
         }
