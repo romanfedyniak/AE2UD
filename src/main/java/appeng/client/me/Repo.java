@@ -73,6 +73,11 @@ public class Repo {
     private AEKeyFilter myPartitionList;
     private boolean hasPower;
     private boolean anyMatches = true;
+    /**
+     * The search last written into HEI. Only a change of this repo's own search is written: written every update,
+     * a screen with no search box wiped HEI's, and a terminal undid on the next tick whatever was typed there.
+     */
+    private String jeiSearch = "";
 
     private Enum lastView;
     private Enum lastSearchMode;
@@ -256,8 +261,10 @@ public class Repo {
             lastSearchMode = searchMode;
         }
 
-        if (searchMode == SearchBoxMode.JEI_AUTOSEARCH || searchMode == SearchBoxMode.JEI_MANUAL_SEARCH) {
-            this.updateJEI(this.search.getSearchString());
+        if ((searchMode == SearchBoxMode.JEI_AUTOSEARCH || searchMode == SearchBoxMode.JEI_MANUAL_SEARCH)
+                && !this.search.getSearchString().equals(this.jeiSearch)) {
+            this.jeiSearch = this.search.getSearchString();
+            this.updateJEI(this.jeiSearch);
         }
 
         if (this.search.refresh()) {
