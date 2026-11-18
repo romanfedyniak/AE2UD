@@ -828,7 +828,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             ItemStack whatToSend = i.next();
 
             for (final EnumFacing s : possibleDirections) {
-                final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
+                final TileEntity te = loadedNeighbour(w, tile.getPos().offset(s));
                 if (te == null) {
                     continue;
                 }
@@ -876,7 +876,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final TileEntity tile = this.iHost.getTileEntity();
         final World w = tile.getWorld();
 
-        final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
+        final TileEntity te = loadedNeighbour(w, tile.getPos().offset(s));
         if (te == null) {
             return;
         }
@@ -1224,7 +1224,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final World w = tile.getWorld();
 
         // A tunnel answers for the machines behind it, or three of them all read "P2P Tunnel".
-        final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(face)),
+        final ICraftingMachine cm = ICraftingMachine.of(loadedNeighbour(w, tile.getPos().offset(face)),
                 face.getOpposite());
         if (cm instanceof PartP2PInterface) {
             final MachineIdentity remote = ((PartP2PInterface) cm).getRemoteMachineIdentity();
@@ -1248,7 +1248,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final boolean fabricated = details.canSubstituteFluids();
 
         for (final EnumFacing s : this.iHost.getTargets()) {
-            final ICraftingMachine cm = ICraftingMachine.of(w.getTileEntity(tile.getPos().offset(s)), s.getOpposite());
+            final ICraftingMachine cm = ICraftingMachine.of(loadedNeighbour(w, tile.getPos().offset(s)), s.getOpposite());
 
             if (cm == null || !cm.acceptsPlans() || !cm.canRun(details)
                     || (fabricated && !cm.acceptsFabricatedContainers())) {
@@ -1320,7 +1320,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final boolean hasItems = hasItems(table);
 
         for (final EnumFacing s : visitedFaces) {
-            final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
+            final TileEntity te = loadedNeighbour(w, tile.getPos().offset(s));
             if (te == null) {
                 visitedFaces.remove(s);
                 continue;
@@ -1441,7 +1441,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     IPhantomTile phantomTE;
                     if (Platform.isModLoaded("actuallyadditions") && te instanceof IPhantomTile) {
                         phantomTE = ((IPhantomTile) te);
-                        if (phantomTE.hasBoundPosition()) {
+                        if (phantomTE.hasBoundPosition() && w.isBlockLoaded(phantomTE.getBoundPosition())) {
                             TileEntity phantom = w.getTileEntity(phantomTE.getBoundPosition());
                             if (NonBlockingItems.INSTANCE.getMap().containsKey(w.getBlockState(phantomTE.getBoundPosition()).getBlock().getRegistryName().getNamespace())) {
                                 if (isCustomInvBlocking(phantom, s)) {
@@ -1559,7 +1559,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             boolean allAreBusy = true;
 
             for (final EnumFacing s : possibleDirections) {
-                final TileEntity te = w.getTileEntity(tile.getPos().offset(s));
+                final TileEntity te = loadedNeighbour(w, tile.getPos().offset(s));
 
                 if (te instanceof IInterfaceHost || (te instanceof TileCableBus && ((TileCableBus) te).getPart(s.getOpposite()) instanceof PartInterface)) {
                     try {
@@ -1604,7 +1604,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                 final InventoryAdaptor ad = InventoryAdaptor.getAdaptor(te, s.getOpposite());
                 if (ad != null) {
                     if (Platform.isModLoaded("actuallyadditions") && Platform.GTLoaded && te instanceof IPhantomTile phantomTE) {
-                        if (phantomTE.hasBoundPosition()) {
+                        if (phantomTE.hasBoundPosition() && w.isBlockLoaded(phantomTE.getBoundPosition())) {
                             TileEntity phantom = w.getTileEntity(phantomTE.getBoundPosition());
                             if (NonBlockingItems.INSTANCE.getMap().containsKey(w.getBlockState(phantomTE.getBoundPosition()).getBlock().getRegistryName().getNamespace())) {
                                 if (!isCustomInvBlocking(phantom, s) && !this.holdsAnyOf(s, this.pushedTypes)) {
@@ -1634,6 +1634,15 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     boolean isCustomInvBlocking(TileEntity te, EnumFacing s) {
         BlockingInventoryAdaptor blockingInventoryAdaptor = BlockingInventoryAdaptor.getAdaptor(te, s.getOpposite());
         return invIsCustomBlocking(blockingInventoryAdaptor);
+    }
+
+    /**
+     * The tile on that block, or null when the block is not loaded: asking would load the chunk, or generate it, and
+     * an interface asks every tick it has work and once a tick per crafting CPU that uses it.
+     */
+    @Nullable
+    private static TileEntity loadedNeighbour(final World w, final BlockPos pos) {
+        return w.isBlockLoaded(pos) ? w.getTileEntity(pos) : null;
     }
 
     private boolean sameGrid(final IGrid grid) throws GridAccessException {
@@ -1845,7 +1854,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         }
 
         final TileEntity tile = this.iHost.getTileEntity();
-        final TileEntity te = tile.getWorld().getTileEntity(tile.getPos().offset(s));
+        final TileEntity te = loadedNeighbour(tile.getWorld(), tile.getPos().offset(s));
         if (te == null) {
             return;
         }
@@ -2041,7 +2050,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
         final World hostWorld = hostTile.getWorld();
 
         for (final EnumFacing direction : this.iHost.getTargets()) {
-            final TileEntity directedTile = hostWorld.getTileEntity(hostTile.getPos().offset(direction));
+            final TileEntity directedTile = loadedNeighbour(hostWorld, hostTile.getPos().offset(direction));
 
             if (directedTile == null) {
                 continue;
@@ -2083,7 +2092,7 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      */
     public static MachineIdentity identifyMachine(final World hostWorld, final BlockPos hostPos, final EnumFacing direction) {
         final BlockPos targ = hostPos.offset(direction);
-        final TileEntity directedTile = hostWorld.getTileEntity(targ);
+        final TileEntity directedTile = loadedNeighbour(hostWorld, targ);
 
         if (directedTile == null) {
             return MachineIdentity.NOTHING;
