@@ -861,6 +861,10 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         this.keepSeeds();
 
         if (this.remainingOperations > 0) {
+        if (!this.tasks.isEmpty() || !this.waitingFor.isEmpty()) {
+            this.updateElapsedTime();
+        }
+
             do {
                 this.somethingChanged = false;
                 this.executeCrafting(eg, cc);
