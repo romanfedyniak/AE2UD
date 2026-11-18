@@ -235,15 +235,15 @@ public abstract class AEBasePoweredTile extends AEBaseInvTile implements IAEPowe
     @Override
     public boolean hasCapability(Capability<?> capability, EnumFacing facing) {
         if (capability == Capabilities.FORGE_ENERGY) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return true;
             }
         } else if (capability == Capabilities.TESLA_CONSUMER) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return true;
             }
         } else if (capability == Capabilities.GTCE_ENERGY) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return true;
             }
         }
@@ -255,15 +255,15 @@ public abstract class AEBasePoweredTile extends AEBaseInvTile implements IAEPowe
     @Override
     public <T> T getCapability(Capability<T> capability, @Nullable EnumFacing facing) {
         if (capability == Capabilities.FORGE_ENERGY) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return (T) this.forgeEnergyAdapter;
             }
         } else if (capability == Capabilities.TESLA_CONSUMER) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return (T) this.teslaEnergyAdapter;
             }
         } else if (capability == Capabilities.GTCE_ENERGY) {
-            if (this.getPowerSides().contains(facing)) {
+            if (this.internalPowerSides.contains(facing)) {
                 return (T) this.gtceEnergyAdapter;
             }
         }
