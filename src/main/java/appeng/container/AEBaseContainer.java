@@ -54,6 +54,7 @@ import appeng.helpers.ICustomNameObject;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.SlotAmountTarget;
 import appeng.me.helpers.PlayerSource;
+import appeng.parts.AEBasePart;
 import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.inv.AdaptorItemHandler;
@@ -81,6 +82,9 @@ import java.util.function.Consumer;
 
 
 public abstract class AEBaseContainer extends Container {
+    /** How far from a machine its screen stays usable, squared: vanilla's 8 blocks. */
+    private static final double MAX_USE_DISTANCE_SQ = 64.0;
+
     private final InventoryPlayer invPlayer;
     private final IActionSource mySrc;
     private final HashSet<Integer> locked = new HashSet<>();
@@ -638,6 +642,14 @@ public abstract class AEBaseContainer extends Container {
         if (this.isValidContainer()) {
             if (this.tileEntity instanceof IInventory) {
                 return ((IInventory) this.tileEntity).isUsableByPlayer(entityplayer);
+            }
+            // As far as vanilla lets a chest be used. A machine's screen open from across the map is a wireless
+            // terminal without the range, the power or the booster.
+            final TileEntity where = this.tileEntity != null ? this.tileEntity
+                    : this.part instanceof AEBasePart basePart ? basePart.getTile() : null;
+            if (where != null) {
+                return where.getWorld() == entityplayer.world && entityplayer.getDistanceSq(where.getPos().getX() + 0.5,
+                        where.getPos().getY() + 0.5, where.getPos().getZ() + 0.5) <= MAX_USE_DISTANCE_SQ;
             }
             return true;
         }
