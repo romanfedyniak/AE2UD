@@ -185,7 +185,8 @@ public class GuiNetworkStatus extends AEBaseGui implements ISortSource {
         int toolPosY = 0;
 
         for (int z = viewStart; z < Math.min(viewEnd, this.repo.size()); z++) {
-            final GridInventoryEntry refStack = this.repo.getReferenceItem(z);
+            // The repo counts from the first row shown already.
+            final GridInventoryEntry refStack = this.repo.getReferenceItem(z - viewStart);
             if (refStack != null) {
                 GlStateManager.pushMatrix();
                 GlStateManager.scale(0.5, 0.5, 0.5);
