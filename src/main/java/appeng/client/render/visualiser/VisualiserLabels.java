@@ -99,7 +99,6 @@ final class VisualiserLabels {
 
         GlStateManager.disableBlend();
         GlStateManager.enableDepth();
-        GlStateManager.enableLighting();
         GlStateManager.popMatrix();
     }
 

@@ -174,7 +174,6 @@ public final class NetworkVisualiserRenderer {
 
         GlStateManager.disableBlend();
         GlStateManager.enableCull();
-        GlStateManager.enableLighting();
         GlStateManager.enableTexture2D();
         GlStateManager.color(1, 1, 1, 1);
 
