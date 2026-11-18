@@ -33,6 +33,7 @@ import appeng.helpers.Reflected;
 import appeng.util.Platform;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
 
 
 public abstract class PartDenseCable extends PartCable {
@@ -115,7 +116,8 @@ public abstract class PartDenseCable extends PartCable {
     }
 
     private boolean isDense(final AEPartLocation of) {
-        final TileEntity te = this.getTile().getWorld().getTileEntity(this.getTile().getPos().offset(of.getFacing()));
+        final BlockPos pos = this.getTile().getPos().offset(of.getFacing());
+        final TileEntity te = this.getTile().getWorld().isBlockLoaded(pos) ? this.getTile().getWorld().getTileEntity(pos) : null;
 
         if (te instanceof IGridHost) {
             final AECableType t = ((IGridHost) te).getCableConnectionType(of.getOpposite());

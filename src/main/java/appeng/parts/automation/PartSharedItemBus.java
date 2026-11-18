@@ -96,8 +96,11 @@ public abstract class PartSharedItemBus extends PartUpgradeable implements IGrid
     public void addToWorld() {
         super.addToWorld();
 
-        // A pulse is a change, so the level it changes from has to be known from the start.
-        this.lastRedstone = this.getHost().hasRedstone(this.getSide());
+        // A pulse is a change, so the level it changes from has to be known from the start. Without a redstone card
+        // the level means nothing, and reading it at a chunk's edge loaded the chunk beside it.
+        if (this.isInstalled(CardTraits.REDSTONE)) {
+            this.lastRedstone = this.getHost().hasRedstone(this.getSide());
+        }
         if (this.pendingPulse) {
             this.wake();
         }

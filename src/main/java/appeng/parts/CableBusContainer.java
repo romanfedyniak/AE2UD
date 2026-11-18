@@ -449,7 +449,42 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     private void updateRedstone() {
         final TileEntity te = this.getTile();
-        this.hasRedstone = te.getWorld().getRedstonePowerFromNeighbors(te.getPos()) != 0 ? YesNo.YES : YesNo.NO;
+        final World world = te.getWorld();
+        final BlockPos pos = te.getPos();
+        // A signal comes from up to two blocks away (strong power through a block beside the bus). Where some of
+        // that is not loaded, only what is loaded is read, since asking the world for the rest would load it; with
+        // nothing found there the answer stays open and is read again next time.
+        if (world.isAreaLoaded(pos, 2)) {
+            this.hasRedstone = world.getRedstonePowerFromNeighbors(pos) != 0 ? YesNo.YES : YesNo.NO;
+        } else if (loadedRedstone(world, pos) != 0) {
+            this.hasRedstone = YesNo.YES;
+        }
+    }
+
+    /** {@link World#getRedstonePowerFromNeighbors}, skipping every block that is not loaded. */
+    private static int loadedRedstone(final World world, final BlockPos pos) {
+        int power = 0;
+        for (final EnumFacing facing : EnumFacing.VALUES) {
+            final BlockPos side = pos.offset(facing);
+            if (!world.isBlockLoaded(side)) {
+                continue;
+            }
+            final IBlockState state = world.getBlockState(side);
+            if (state.getBlock().shouldCheckWeakPower(state, world, side, facing)) {
+                for (final EnumFacing from : EnumFacing.VALUES) {
+                    final BlockPos source = side.offset(from);
+                    if (world.isBlockLoaded(source)) {
+                        power = Math.max(power, world.getStrongPower(source, from));
+                    }
+                }
+            } else {
+                power = Math.max(power, state.getWeakPower(world, side, facing));
+            }
+            if (power >= 15) {
+                return power;
+            }
+        }
+        return power;
     }
 
     private void updateDynamicRender() {

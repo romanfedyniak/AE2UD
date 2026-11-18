@@ -49,6 +49,7 @@ public class PartP2PFluids extends PartP2PTunnel<PartP2PFluids> implements IFlui
     private static final FluidTankProperties[] INACTIVE_TANK = {new FluidTankProperties(null, 0, false, false)};
 
     private IFluidHandler cachedTank;
+    private TileEntity cachedTankTile;
     private int tmpUsed;
 
     public PartP2PFluids(final ItemStack is) {
@@ -249,12 +250,15 @@ public class PartP2PFluids extends PartP2PTunnel<PartP2PFluids> implements IFlui
             return null;
         }
 
-        if (this.cachedTank != null) {
+        // Kept only while the tile in front is the one it came from: a tank whose chunk unloaded is a stale object,
+        // saved already, and what went into it was lost when the chunk loaded again.
+        final TileEntity te = this.getLoadedFacingTile();
+        if (this.cachedTank != null && te == this.cachedTankTile) {
             return this.cachedTank;
         }
 
-        final TileEntity te = this.getTile().getWorld().getTileEntity(this.getTile().getPos().offset(this.getSide().getFacing()));
-
+        this.cachedTank = null;
+        this.cachedTankTile = te;
         if (te != null && te.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, this.getSide().getFacing().getOpposite())) {
             return this.cachedTank = te.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY,
                     this.getSide().getFacing().getOpposite());
