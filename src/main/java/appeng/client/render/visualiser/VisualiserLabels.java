@@ -51,7 +51,7 @@ final class VisualiserLabels {
     private VisualiserLabels() {
     }
 
-    static void draw(final List<Label> labels, final double viewX, final double viewY, final double viewZ) {
+    static void draw(final List<Label> labels, final double offsetX, final double offsetY, final double offsetZ) {
         if (labels.isEmpty()) {
             return;
         }
@@ -68,7 +68,7 @@ final class VisualiserLabels {
         final double vz = ActiveRenderInfo.getRotationXY() * SCALE;
 
         GlStateManager.pushMatrix();
-        GlStateManager.translate(-viewX, -viewY, -viewZ);
+        GlStateManager.translate(offsetX, offsetY, offsetZ);
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.enableBlend();
@@ -83,7 +83,7 @@ final class VisualiserLabels {
         GlStateManager.disableTexture2D();
         buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
         for (final Label label : labels) {
-            final int half = halfWidth(label.value);
+            final int half = halfWidth(label.text);
 
             quad(buffer, label, ux, uz, vx, vy, vz, -half - 1, -1, half + 1, 8);
         }
@@ -104,8 +104,8 @@ final class VisualiserLabels {
 
     private static void digits(final BufferBuilder buffer, final Label label, final double ux, final double uz,
             final double vx, final double vy, final double vz) {
-        final String text = Integer.toString(label.value);
-        int left = -halfWidth(label.value);
+        final String text = label.text;
+        int left = -halfWidth(text);
 
         for (int i = 0; i < text.length(); i++) {
             final int glyph = text.charAt(i);
@@ -147,7 +147,7 @@ final class VisualiserLabels {
                 .endVertex();
     }
 
-    private static int halfWidth(final int value) {
-        return Integer.toString(value).length() * ADVANCE / 2;
+    private static int halfWidth(final String text) {
+        return text.length() * ADVANCE / 2;
     }
 }

@@ -72,6 +72,9 @@ public final class NetworkVisualiserRenderer {
 
     private static final List<Label> LABELS = new ArrayList<>();
 
+    /** Kept between rebuilds while the tool is held: a picture of a big network fills several MiB. */
+    private static BufferBuilder buffer;
+
     private NetworkVisualiserRenderer() {
     }
 
@@ -110,7 +113,7 @@ public final class NetworkVisualiserRenderer {
         draw(viewX, viewY, viewZ);
 
         if (mode.drawsNumbers()) {
-            VisualiserLabels.draw(LABELS, viewX, viewY, viewZ);
+            VisualiserLabels.draw(LABELS, originX - viewX, originY - viewY, originZ - viewZ);
         }
     }
 
@@ -132,6 +135,7 @@ public final class NetworkVisualiserRenderer {
             vbo = null;
         }
 
+        buffer = null;
         quads = 0;
         builtVersion = -1;
         builtMode = null;
@@ -198,7 +202,9 @@ public final class NetworkVisualiserRenderer {
 
         LABELS.clear();
 
-        final BufferBuilder buffer = new BufferBuilder(0x40000);
+        if (buffer == null) {
+            buffer = new BufferBuilder(0x40000);
+        }
         buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
 
         final int nodes = graph.nodeCount();
@@ -329,13 +335,13 @@ public final class NetworkVisualiserRenderer {
             }
 
             if (mode.drawsNumbers() && b != VisualiserGraph.NO_NODE && graph.linkUsed[i] > 0) {
-                final double mx = (x1 + x2) / 2 + originX;
-                final double my = (y1 + y2) / 2 + originY;
-                final double mz = (z1 + z2) / 2 + originZ;
+                final double mx = (x1 + x2) / 2;
+                final double my = (y1 + y2) / 2;
+                final double mz = (z1 + z2) / 2;
 
-                final double dx = mx - viewX;
-                final double dy = my - viewY;
-                final double dz = mz - viewZ;
+                final double dx = mx + originX - viewX;
+                final double dy = my + originY - viewY;
+                final double dz = mz + originZ - viewZ;
 
                 if (dx * dx + dy * dy + dz * dz < labelRangeSq) {
                     LABELS.add(new Label(mx, my, mz, graph.linkUsed[i]));
@@ -560,19 +566,19 @@ public final class NetworkVisualiserRenderer {
         buffer.pos(bx + nx - tx, by + ny - ty, bz + nz - tz).color(red, green, blue, alpha).endVertex();
     }
 
-    /** One number waiting to be drawn, in world coordinates because it faces the camera. */
+    /** One number waiting to be drawn, relative to the picture's origin like the boxes; it faces the camera. */
     static final class Label {
 
         final double x;
         final double y;
         final double z;
-        final int value;
+        final String text;
 
         Label(final double x, final double y, final double z, final int value) {
             this.x = x;
             this.y = y;
             this.z = z;
-            this.value = value;
+            this.text = Integer.toString(value);
         }
     }
 }
