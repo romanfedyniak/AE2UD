@@ -1451,7 +1451,8 @@ public class Platform {
         }
 
         ItemStack ci = i.getContainerItem(stackInSlot.copy());
-        if (!ci.isEmpty() && ci.isItemStackDamageable() && ci.getItemDamage() == ci.getMaxDamage()) {
+        // As the game breaks a tool: past its maximum damage, not at it.
+        if (!ci.isEmpty() && ci.isItemStackDamageable() && ci.getItemDamage() > ci.getMaxDamage()) {
             ci = ItemStack.EMPTY;
         }
 
