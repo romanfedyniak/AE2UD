@@ -80,6 +80,11 @@ public class SyncData {
             }
         } else if (val instanceof Boolean || val.getClass() == boolean.class) {
             o.sendWindowProperty(this.source, this.channel, ((Boolean) val) ? 1 : 0);
+        } else if ((Integer) val < Short.MIN_VALUE || (Integer) val > Short.MAX_VALUE) {
+            // A window property travels as a short and would arrive wrapped.
+            if (o instanceof EntityPlayerMP) {
+                NetworkHandler.instance().sendTo(new PacketProgressBar(this.channel, (Integer) val), (EntityPlayerMP) o);
+            }
         } else {
             o.sendWindowProperty(this.source, this.channel, (Integer) val);
         }
