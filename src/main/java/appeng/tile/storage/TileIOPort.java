@@ -31,6 +31,7 @@ import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -305,14 +306,16 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                     boolean shouldMove = true;
 
                     if (itemsToMove > 0) {
-                        final MEStorage network = this.getProxy().getStorage().getInventory();
+                        final IStorageService storage = this.getProxy().getStorage();
+                        final MEStorage network = storage.getInventory();
                         final StorageCell inv = this.getInv(is);
 
                         if (inv != null) {
                             if (this.manager.getSetting(Settings.OPERATION_MODE) == OperationMode.EMPTY) {
-                                itemsToMove = this.transferContents(energy, inv, network, itemsToMove);
+                                itemsToMove = this.transferContents(energy, inv, inv.getAvailableStacks(), network, itemsToMove);
                             } else {
-                                itemsToMove = this.transferContents(energy, network, inv, itemsToMove);
+                                // The running total, not a count of every storage on the network for every cell.
+                                itemsToMove = this.transferContents(energy, network, storage.getCachedInventory(), inv, itemsToMove);
                             }
 
                             shouldMove = this.shouldMove(inv);
@@ -326,8 +329,6 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                     }
 
                     if (itemsToMove > 0 && shouldMove && this.moveSlot(x)) {
-                        ret = TickRateModulation.URGENT;
-                    } else {
                         ret = TickRateModulation.URGENT;
                     }
 
@@ -368,10 +369,11 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
      * cell may hold several kinds of content at once, and one operation moves a single item but a whole
      * bucket of fluid.
      */
-    private long transferContents(final IEnergySource energy, final MEStorage src, final MEStorage destination, long itemsToMove) {
+    private long transferContents(final IEnergySource energy, final MEStorage src, final KeyCounter available,
+            final MEStorage destination, long itemsToMove) {
         // One pass, each key moving all it can. Starting the walk over after every key it moved copied and asked
         // the whole source again each time, and filling a cell from a large network held the server for minutes.
-        for (final var entry : src.getAvailableStacks()) {
+        for (final var entry : available) {
             if (itemsToMove <= 0) {
                 break;
             }
