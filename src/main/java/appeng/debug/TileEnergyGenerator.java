@@ -24,12 +24,12 @@ import com.google.common.math.IntMath;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
+import net.minecraft.util.math.BlockPos.MutableBlockPos;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
 
 import javax.annotation.Nullable;
-import java.util.EnumSet;
 
 
 public class TileEnergyGenerator extends AEBaseTile implements ITickable, IEnergyStorage {
@@ -39,32 +39,36 @@ public class TileEnergyGenerator extends AEBaseTile implements ITickable, IEnerg
      */
     private static final int BASE_ENERGY = 8;
 
+    private final TileEntity[] neighbours = new TileEntity[EnumFacing.VALUES.length];
+    private final MutableBlockPos neighbourPos = new MutableBlockPos();
+
     @Override
     public void update() {
         int tier = 1;
-        final EnumSet<EnumFacing> validEnergyReceivers = EnumSet.noneOf(EnumFacing.class);
 
-        for (EnumFacing facing : EnumFacing.values()) {
-            final TileEntity te = this.getWorld().getTileEntity(this.getPos().offset(facing));
+        for (final EnumFacing facing : EnumFacing.VALUES) {
+            this.neighbourPos.setPos(this.getPos()).move(facing);
+            // Asking for a tile in a chunk that is not loaded would load it.
+            final TileEntity te = this.getWorld().isBlockLoaded(this.neighbourPos)
+                    ? this.getWorld().getTileEntity(this.neighbourPos) : null;
+            this.neighbours[facing.ordinal()] = te;
 
             if (te instanceof TileEnergyGenerator) {
                 tier++;
             }
-
-            if (te != null && te.hasCapability(CapabilityEnergy.ENERGY, facing.getOpposite())) {
-                validEnergyReceivers.add(facing);
-            }
-
         }
 
         final int energyToInsert = IntMath.pow(BASE_ENERGY, tier);
 
-        for (EnumFacing facing : validEnergyReceivers) {
-            final TileEntity te = this.getWorld().getTileEntity(this.getPos().offset(facing));
+        for (final EnumFacing facing : EnumFacing.VALUES) {
+            final TileEntity te = this.neighbours[facing.ordinal()];
+            this.neighbours[facing.ordinal()] = null;
+            if (te == null || !te.hasCapability(CapabilityEnergy.ENERGY, facing.getOpposite())) {
+                continue;
+            }
+
             final IEnergyStorage cap = te.getCapability(CapabilityEnergy.ENERGY, facing.getOpposite());
-
             if (cap.canReceive()) {
-
                 cap.receiveEnergy(energyToInsert, false);
             }
         }

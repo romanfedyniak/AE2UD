@@ -110,7 +110,8 @@ public class ToolMeteoritePlacer extends AEBaseItem {
     }
 
     private static CraterType getCraterType(final ItemStack stack) {
-        return CraterType.values()[Platform.openNbtData(stack).getByte(MODE_TAG)];
+        final int mode = Platform.openNbtData(stack).getByte(MODE_TAG);
+        return mode >= 0 && mode < CraterType.values().length ? CraterType.values()[mode] : CraterType.NORMAL;
     }
 
     /**

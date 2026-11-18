@@ -74,6 +74,10 @@ public class ToolReplicatorCard extends AEBaseItem {
                 final int src_side = ish.getInteger("side");
                 final int dimid = ish.getInteger("dimid");
                 final World src_w = DimensionManager.getWorld(dimid);
+                if (src_w == null) {
+                    this.outputMsg(player, "Source dimension is not loaded.");
+                    return EnumActionResult.FAIL;
+                }
 
                 final TileEntity te = src_w.getTileEntity(new BlockPos(src_x, src_y, src_z));
                 if (te instanceof IGridHost) {
@@ -115,8 +119,8 @@ public class ToolReplicatorCard extends AEBaseItem {
                                             final IBlockState prev = world.getBlockState(d);
 
                                             world.setBlockState(d, state);
-                                            if (blk != null && blk.hasTileEntity(state)) {
-                                                final TileEntity ote = src_w.getTileEntity(p);
+                                            final TileEntity ote = blk.hasTileEntity(state) ? src_w.getTileEntity(p) : null;
+                                            if (ote != null) {
                                                 final TileEntity nte = blk.createTileEntity(world, state);
                                                 final NBTTagCompound data = new NBTTagCompound();
                                                 ote.writeToNBT(data);

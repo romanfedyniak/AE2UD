@@ -73,11 +73,14 @@ public class TileChunkLoader extends AEBaseTile implements ITickable {
 
     @Override
     public void invalidate() {
-        if (Platform.isClient()) {
+        super.invalidate();
+
+        if (Platform.isClient() || this.ct == null) {
             return;
         }
 
-        AELog.info("Released Ticket " + this.ct.toString());
+        AELog.info("Released Ticket " + this.ct);
         ForgeChunkManager.releaseTicket(this.ct);
+        this.ct = null;
     }
 }
