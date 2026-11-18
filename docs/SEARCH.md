@@ -68,7 +68,8 @@ Whether a **bare** term also looks inside tooltips is the `SEARCH_TOOLTIPS` sett
 terminal - not a symbol. `#` searches tooltips whatever that setting says.
 
 The tooltip is read as it is without advanced tooltips (F3+H), whatever the player has on, and without its
-first line, which is the name. With them, every item would answer `minecraft` through its registry name line,
+first line, which is the name, and without a line that is only the registry name (some mods add one while
+F3+H is on, whatever the flag they are handed says). With them, every item would answer `minecraft` through its registry name line,
 `2` through its numeric id and `tag` through its NBT count.
 
 The last tooltip line is dropped when it is the mod's name. Nothing in this mod puts it there, but packs

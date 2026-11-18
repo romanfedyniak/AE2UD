@@ -276,6 +276,7 @@ public final class RepoSearch {
         }
 
         final String modName = Platform.getModName(what.getModId());
+        final String registryName = String.valueOf(what.getId()).toLowerCase(Locale.ROOT);
         final StringBuilder text = new StringBuilder();
 
         // The first line is the name, which is a channel of its own.
@@ -286,6 +287,11 @@ public final class RepoSearch {
             // Left in, a bare term equal to that name would match the mod's whole catalogue, which is
             // what '@' is for.
             if (i > 0 && i == lines.size() - 1 && line.equals(modName.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            // Some mods add the registry name themselves while F3+H is on, whatever the flag says; '&' and '*'
+            // are the way to search by it.
+            if (line.equals(registryName)) {
                 continue;
             }
 
