@@ -309,7 +309,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     }
 
     private boolean craftOnly() {
-        return this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
+        return this.isCraftingEnabled() && this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
     }
 
     private boolean isCraftingEnabled() {
