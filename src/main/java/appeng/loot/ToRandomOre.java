@@ -51,8 +51,9 @@ public class ToRandomOre extends LootFunction {
             @NotNull final LootContext context) {
         final List<ItemStack> candidates = new ArrayList<>();
 
+        // getOres(name) would register every name this pack does not have.
         for (final String name : this.oreDictNames) {
-            candidates.addAll(OreDictionary.getOres(name));
+            candidates.addAll(OreDictionary.getOres(name, false));
         }
 
         // None of these names is registered in this pack.
@@ -61,7 +62,12 @@ public class ToRandomOre extends LootFunction {
         }
 
         // A copy: the list belongs to the ore dictionary, and the functions after this one resize the stack.
-        return candidates.get(rand.nextInt(candidates.size())).copy();
+        final ItemStack chosen = candidates.get(rand.nextInt(candidates.size())).copy();
+        // An entry registered for every damage value is not an item one can hold.
+        if (chosen.getItemDamage() == OreDictionary.WILDCARD_VALUE) {
+            chosen.setItemDamage(0);
+        }
+        return chosen;
     }
 
     public static class Serializer extends LootFunction.Serializer<ToRandomOre> {
