@@ -23,7 +23,6 @@ import appeng.client.render.VertexFormats;
 import com.google.common.base.Preconditions;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.renderer.vertex.VertexFormatElement;
 import net.minecraft.util.EnumFacing;
@@ -100,10 +99,7 @@ public class CubeBuilder {
         VertexFormat savedFormat = null;
         if (this.renderFullBright) {
             savedFormat = this.format;
-            this.format = new VertexFormat(savedFormat);
-            if (!this.format.getElements().contains(DefaultVertexFormats.TEX_2S)) {
-                this.format.addElement(DefaultVertexFormats.TEX_2S);
-            }
+            this.format = VertexFormats.getFormatWithLightMap(this.format);
         }
 
         this.putFace(face, x1, y1, z1, x2, y2, z2);
