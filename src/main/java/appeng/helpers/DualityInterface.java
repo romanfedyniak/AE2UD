@@ -915,7 +915,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                     return;
                 }
             } catch (GridAccessException e) {
-                throw new RuntimeException(e);
+                // A target whose node is not ready yet (its chunk just loaded) takes the items on a later tick.
+                return;
             }
             return;
         }
