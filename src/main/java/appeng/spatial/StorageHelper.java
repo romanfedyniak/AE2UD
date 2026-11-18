@@ -100,15 +100,17 @@ public class StorageHelper {
             AppEng.instance().getAdvancementTriggers().getSpatialExplorer().trigger((EntityPlayerMP) entity);
         }
 
-        entity.changeDimension(link.dim.provider.getDimension(), new METeleporter(link));
+        // Anything but a player arrives as a new entity, and the old one is dead.
+        final Entity moved = entity.changeDimension(link.dim.provider.getDimension(), new METeleporter(link));
+        final Entity arrived = moved != null ? moved : entity;
 
         if (!passangersOnOtherSide.isEmpty()) {
             for (Entity passanger : passangersOnOtherSide) {
-                passanger.startRiding(entity, true);
+                passanger.startRiding(arrived, true);
             }
         }
 
-        return entity;
+        return arrived;
     }
 
     private void transverseEdges(final int minX, final int minY, final int minZ, final int maxX, final int maxY, final int maxZ, final ISpatialVisitor visitor) {
