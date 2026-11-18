@@ -15,6 +15,7 @@ import appeng.util.StructureBoundingBoxUtils;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 import net.minecraft.world.gen.structure.StructureBoundingBox;
 
@@ -43,7 +44,29 @@ public abstract class BaseChunkAccessor implements IHeightMapGeneratableAccessor
      */
     @Override
     public void determineArea(final StructureBoundingBox loadedBB, final StructureBoundingBox centerBB) {
-        this.area = this.getAccessorType() == Type.NOISE_BASED ? centerBB : loadedBB;
+        if (this.getAccessorType() == Type.NOISE_BASED || this.isLoaded(centerBB)) {
+            this.area = centerBB;
+            return;
+        }
+
+        // The first pass to reach a meteorite is often at the edge of its box, far from it: of the ground that
+        // is loaded, measure the part nearest the meteorite, as wide as the area around it would have been.
+        final int x = MathHelper.clamp((centerBB.minX + centerBB.maxX) / 2, loadedBB.minX, loadedBB.maxX);
+        final int z = MathHelper.clamp((centerBB.minZ + centerBB.maxZ) / 2, loadedBB.minZ, loadedBB.maxZ);
+        final int rx = centerBB.getXSize() / 2;
+        final int rz = centerBB.getZSize() / 2;
+        this.area = new StructureBoundingBox(
+                Math.max(loadedBB.minX, x - rx), centerBB.minY, Math.max(loadedBB.minZ, z - rz),
+                Math.min(loadedBB.maxX, x + rx), centerBB.maxY, Math.min(loadedBB.maxZ, z + rz));
+    }
+
+    private boolean isLoaded(final StructureBoundingBox box) {
+        for (final ChunkPos pos : StructureBoundingBoxUtils.getChunksWithin(box)) {
+            if (this.world.getChunkProvider().getLoadedChunk(pos.x, pos.z) == null) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
