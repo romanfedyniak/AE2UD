@@ -266,8 +266,10 @@ public final class MeteoritePlacer {
                 && AEConfig.instance().isFeatureEnabled(AEFeature.SPAWN_PRESSES_IN_METEORITES)) {
             this.placeChest(chestPos);
 
-            // The one chunk that gained something the compass can point at.
-            ServerCompassService.updateArea((WorldServer) this.world, new ChunkPos(chestPos));
+            // The one chunk that gained something the compass can point at; answers already given may now be wrong.
+            if (ServerCompassService.updateArea((WorldServer) this.world, new ChunkPos(chestPos))) {
+                ServerCompassService.forgetAnswers((WorldServer) this.world);
+            }
         }
     }
 
