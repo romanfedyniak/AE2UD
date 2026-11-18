@@ -39,7 +39,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,9 +62,13 @@ public final class CraftingPlanTree {
      * be enormous, which is why the payload is compressed instead of trimmed.
      */
     private static final int MAX_NODES = 1_000_000;
-    private static final int MAX_DEPTH = 256;
     private static final int MAX_CHILDREN = 4096;
     private static final int MAX_KEYS = 65_536;
+    /**
+     * In frames, two to a level (the node and the source under it). A key is expanded once, so no branch can be
+     * deeper than the keys it holds; 256 frames cut a 128-step chain off, and the screen stayed empty.
+     */
+    private static final int MAX_DEPTH = 2 * (MAX_KEYS + 1);
 
     private final CraftingPlanNode root;
 
@@ -87,6 +93,17 @@ public final class CraftingPlanTree {
         final GenericStack output = job.getOutput();
         final CraftingPlanNode root = new CraftingPlanNode(output.what(), output.amount());
 
+        // Each key's crafts once, rather than every craft of the plan read again for every key expanded.
+        final Map<AEKey, List<Map.Entry<SolverPattern, Long>>> makers = new HashMap<>();
+        for (final Map.Entry<SolverPattern, Long> entry : plan.getCrafts().entrySet()) {
+            for (final GenericStack out : entry.getKey().getOutputs()) {
+                final List<Map.Entry<SolverPattern, Long>> list = makers.computeIfAbsent(out.what(), k -> new ArrayList<>());
+                if (!list.contains(entry)) {
+                    list.add(entry);
+                }
+            }
+        }
+
         final Deque<Pending> pending = new ArrayDeque<>();
         // A plan is a graph, so a thing several branches need appears under each of them. It is expanded the
         // first time and stands on its own after that, which is what keeps the drawing finite: unfolded in
@@ -109,7 +126,7 @@ public final class CraftingPlanTree {
 
             if (expanded.add(current.what)) {
                 current.planNode.setTotal(whole > current.planNode.getAmount() ? whole : 0);
-                addSources(plan, current.what, current.planNode, pending, job.getCraftingGrid());
+                addSources(plan, makers, current.what, current.planNode, pending, job.getCraftingGrid());
             } else {
                 current.planNode.setRepeated(true);
             }
@@ -118,8 +135,8 @@ public final class CraftingPlanTree {
         return new CraftingPlanTree(root);
     }
 
-    private static void addSources(final SolverPlan plan, final AEKey what, final CraftingPlanNode planNode,
-            final Deque<Pending> pending, final ICraftingGrid grid) {
+    private static void addSources(final SolverPlan plan, final Map<AEKey, List<Map.Entry<SolverPattern, Long>>> makers,
+            final AEKey what, final CraftingPlanNode planNode, final Deque<Pending> pending, final ICraftingGrid grid) {
         final long fromStorage = plan.getUsed().get(what);
         if (fromStorage > 0) {
             planNode.getSources().add(new CraftingPlanSource(Kind.STORAGE, what, fromStorage, 0));
@@ -135,7 +152,7 @@ public final class CraftingPlanTree {
             planNode.getSources().add(new CraftingPlanSource(Kind.MISSING, what, missing, 0));
         }
 
-        for (final Map.Entry<SolverPattern, Long> entry : plan.getCrafts().entrySet()) {
+        for (final Map.Entry<SolverPattern, Long> entry : makers.getOrDefault(what, Collections.emptyList())) {
             final SolverPattern pattern = entry.getKey();
             final long crafts = entry.getValue();
             final long per = pattern.outputOf(what);
