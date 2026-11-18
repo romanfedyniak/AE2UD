@@ -32,6 +32,9 @@ class Size1Slot extends SlotItemHandler {
     @Nonnull
     public ItemStack getStack() {
         ItemStack orgStack = this.delegate.getStack();
+        if (orgStack.getCount() == 1) {
+            return orgStack;
+        }
         if (!orgStack.isEmpty()) {
             ItemStack modifiedStack = orgStack.copy();
             modifiedStack.setCount(1);

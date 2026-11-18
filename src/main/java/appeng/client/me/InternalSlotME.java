@@ -19,6 +19,7 @@
 package appeng.client.me;
 
 
+import appeng.api.stacks.AEKey;
 import appeng.container.me.GridInventoryEntry;
 import net.minecraft.item.ItemStack;
 
@@ -29,6 +30,8 @@ public class InternalSlotME {
     private final int xPos;
     private final int yPos;
     private final Repo repo;
+    private AEKey shownKey;
+    private ItemStack shown = ItemStack.EMPTY;
 
     public InternalSlotME(final Repo def, final int offset, final int displayX, final int displayY) {
         this.repo = def;
@@ -39,9 +42,18 @@ public class InternalSlotME {
 
     ItemStack getStack() {
         final GridInventoryEntry entry = this.getEntry();
+        if (entry == null) {
+            return ItemStack.EMPTY;
+        }
         // wrapForDisplayOrFilter() is identity-only (count 1) - the actual amount is drawn separately by
-        // StackSizeRenderer, exactly like the old asItemStackRepresentation() it replaces.
-        return entry == null ? ItemStack.EMPTY : entry.getWhat().wrapForDisplayOrFilter();
+        // StackSizeRenderer, exactly like the old asItemStackRepresentation() it replaces. It builds a new stack
+        // on every call and drawing asks every frame, so the slot keeps it while it shows the same key.
+        final AEKey what = entry.getWhat();
+        if (!what.equals(this.shownKey)) {
+            this.shownKey = what;
+            this.shown = what.wrapForDisplayOrFilter();
+        }
+        return this.shown;
     }
 
     GridInventoryEntry getEntry() {
