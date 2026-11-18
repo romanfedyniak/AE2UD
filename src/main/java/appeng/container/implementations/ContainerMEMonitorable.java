@@ -38,6 +38,7 @@ import appeng.api.networking.storage.IStackWatcher;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.parts.IPart;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ITerminalHost;
@@ -65,6 +66,7 @@ import appeng.me.helpers.ChannelPowerSrc;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.cluster.implementations.ICraftingCPUListener;
+import appeng.me.storage.BasicCellInventory;
 import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.util.ConfigManager;
 import appeng.util.IConfigManagerHost;
@@ -95,6 +97,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
+import java.util.UUID;
 import com.google.common.math.LongMath;
 
 
@@ -782,6 +785,20 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
 
     private boolean monitorsNetworkInventory() {
         return this.networkStorageService() != null;
+    }
+
+    /** Whether this terminal lists the storage cell whose contents have this id. */
+    public boolean listsCell(final UUID cellId) {
+        if (this.monitor == null) {
+            return false;
+        }
+        for (final var entry : this.readAvailableStacks()) {
+            if (entry.getKey() instanceof AEItemKey item && BasicCellInventory.isCell(item.getTag(), cellId)
+                    && this.isDisplayedKey(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

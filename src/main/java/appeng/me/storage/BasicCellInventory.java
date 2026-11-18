@@ -879,6 +879,16 @@ public class BasicCellInventory implements StorageCell {
         return this.tagCompound.hasUniqueId(CELL_ID_TAG) ? this.tagCompound.getUniqueId(CELL_ID_TAG) : null;
     }
 
+    /** Whether a stack is the cell whose contents have this id, read off the item without opening it. */
+    public static boolean isCell(final ItemStack stack, final UUID id) {
+        return isCell(stack.getTagCompound(), id);
+    }
+
+    /** The same, from the item's tag. */
+    public static boolean isCell(@Nullable final NBTTagCompound tag, final UUID id) {
+        return tag != null && tag.hasUniqueId(CELL_ID_TAG) && id.equals(tag.getUniqueId(CELL_ID_TAG));
+    }
+
     private void writeId(final UUID id) {
         this.tagCompound.setUniqueId(CELL_ID_TAG, id);
         this.followedIdTag = this.tagCompound.getTag(CELL_ID_MOST_TAG);

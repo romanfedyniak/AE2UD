@@ -29,11 +29,15 @@ import io.netty.buffer.Unpooled;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.Slot;
 
+import appeng.container.implementations.ContainerMEMonitorable;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.core.sync.network.NetworkHandler;
+import appeng.me.storage.BasicCellInventory;
 import appeng.me.storage.CellContents;
 import appeng.me.storage.CellContentsStore;
 
@@ -70,7 +74,7 @@ public class PacketCellViewRequest extends AppEngPacket {
 
     @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        if (!allow(player)) {
+        if (!allow(player) || !canSee(player, this.cellId)) {
             return;
         }
 
@@ -85,6 +89,32 @@ public class PacketCellViewRequest extends AppEngPacket {
         } catch (final IOException | IllegalArgumentException e) {
             AELog.warn(e, "Could not send the contents of storage cell " + this.cellId);
         }
+    }
+
+    /**
+     * Whether the cell is somewhere the player could have pointed at it: on them, under their cursor, in a slot of
+     * the screen they have open, or in what the terminal they have open lists. An id seen elsewhere (on another
+     * player's item, an item frame) is not an invitation to read the cell.
+     */
+    private static boolean canSee(final EntityPlayer player, final UUID cellId) {
+        if (BasicCellInventory.isCell(player.inventory.getItemStack(), cellId)) {
+            return true;
+        }
+        for (int i = 0; i < player.inventory.getSizeInventory(); i++) {
+            if (BasicCellInventory.isCell(player.inventory.getStackInSlot(i), cellId)) {
+                return true;
+            }
+        }
+        final Container open = player.openContainer;
+        if (open == null) {
+            return false;
+        }
+        for (final Slot slot : open.inventorySlots) {
+            if (BasicCellInventory.isCell(slot.getStack(), cellId)) {
+                return true;
+            }
+        }
+        return open instanceof ContainerMEMonitorable terminal && terminal.listsCell(cellId);
     }
 
     private static boolean allow(final EntityPlayer player) {
