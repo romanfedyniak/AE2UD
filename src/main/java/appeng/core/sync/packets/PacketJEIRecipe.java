@@ -371,7 +371,7 @@ public class PacketJEIRecipe extends AppEngPacket {
 
             con.onCraftMatrixChanged(new WrapperInvItemHandler(craftMatrix));
 
-            if (this.craftMissing) {
+            if (this.craftMissing && security.hasPermission(player, SecurityPermissions.CRAFT)) {
                 this.tryCraftMissing(pmp, con, cct, grid, crafting, craftMatrix);
             }
         }

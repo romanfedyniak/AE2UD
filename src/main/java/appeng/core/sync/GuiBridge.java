@@ -282,7 +282,7 @@ public enum GuiBridge implements IGuiHandler {
             ItemStack it = ItemStack.EMPTY;
             if (usingItemOnTile) {
                 it = player.inventory.getCurrentItem();
-            } else if (y == 0) {
+            } else if (y == 0 && z == Integer.MIN_VALUE) {
                 if (x >= 0 && x < player.inventory.mainInventory.size()) {
                     it = player.inventory.getStackInSlot(x);
                 }
@@ -405,7 +405,7 @@ public enum GuiBridge implements IGuiHandler {
             ItemStack it = ItemStack.EMPTY;
             if (usingItemOnTile) {
                 it = player.inventory.getCurrentItem();
-            } else if (y == 0) {
+            } else if (y == 0 && z == Integer.MIN_VALUE) {
                 if (x >= 0 && x < player.inventory.mainInventory.size()) {
                     it = player.inventory.getStackInSlot(x);
                 }
@@ -460,7 +460,9 @@ public enum GuiBridge implements IGuiHandler {
         final BlockPos pos = new BlockPos(x, y, z);
 
         if (Platform.hasPermissions(te != null ? new DimensionalCoord(te) : new DimensionalCoord(player.world, pos), player)) {
-            if (this.type.isItem()) {
+            // Only a screen that will be hosted by the held item may be allowed by it: one that can also stand on
+            // a tile is opened on the tile, and the tile has to allow it.
+            if (this.type == GuiHostType.ITEM) {
                 final ItemStack it = player.inventory.getCurrentItem();
                 if (!it.isEmpty() && it.getItem() instanceof IGuiItem) {
                     final Object myItem = ((IGuiItem) it.getItem()).getGuiObject(it, w, pos);
@@ -486,6 +488,21 @@ public enum GuiBridge implements IGuiHandler {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the player may open this screen on the item in that slot of their inventory (or of their baubles):
+     * the screen's permission, asked of the network the item reaches.
+     */
+    public boolean hasPermissions(final EntityPlayer player, final int slot, final boolean bauble) {
+        ItemStack it = ItemStack.EMPTY;
+        if (bauble) {
+            it = BaublesApi.getBaublesHandler(player).getStackInSlot(slot);
+        } else if (slot >= 0 && slot < player.inventory.mainInventory.size()) {
+            it = player.inventory.getStackInSlot(slot);
+        }
+        final Object host = this.getGuiObject(it, player, player.world, slot, bauble ? 1 : 0, Integer.MIN_VALUE, null);
+        return host != null && this.CorrectTileOrPart(host) && this.securityCheck(host, player);
     }
 
     private boolean securityCheck(final Object te, final EntityPlayer player) {

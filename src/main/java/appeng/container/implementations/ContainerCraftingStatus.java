@@ -19,6 +19,7 @@
 package appeng.container.implementations;
 
 
+import appeng.api.config.SecurityPermissions;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.storage.ITerminalHost;
 import appeng.container.guisync.GuiSync;
@@ -41,6 +42,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ICr
 
     @Override
     public void detectAndSendChanges() {
+        this.verifyPermissions(SecurityPermissions.CRAFT, false);
         this.cpuTable.detectAndSendChanges(this.getNetwork());
 
         super.detectAndSendChanges();
