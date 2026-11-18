@@ -25,7 +25,6 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
@@ -33,8 +32,6 @@ import appeng.api.storage.IStorageChangeSource;
 import appeng.me.storage.ICountedStorage;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.StorageChangeListeners;
-import appeng.util.inv.ItemHandlerIterator;
-import appeng.util.inv.ItemSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -59,9 +56,9 @@ import javax.annotation.Nullable;
 class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource, ICountedStorage {
     private final IItemHandler itemHandler;
     private final boolean extractableOnly;
-    @Nullable
-    private final Runnable changeListener;
     private KeyCounter currentlyCached = new KeyCounter();
+    /** The key each slot held at the last count. */
+    private AEItemKey[] slotKeys = new AEItemKey[0];
     private final StorageChangeListeners listeners = new StorageChangeListeners();
 
     @Override
@@ -75,10 +72,14 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
     }
 
 
+    /**
+     * @param changeListener the bus's wake-up, which this does not use: its own moves are counted as they happen,
+     *                       and a rescan of the whole inventory after each of them was what a busy bus spent its
+     *                       time on. What others change is found by the bus's ticks.
+     */
     ItemHandlerAdapter(final IItemHandler itemHandler, final boolean extractableOnly, @Nullable final Runnable changeListener) {
         this.itemHandler = itemHandler;
         this.extractableOnly = extractableOnly;
-        this.changeListener = changeListener;
         this.updateCache();
     }
 
@@ -100,7 +101,6 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
 
         if (inserted > 0 && mode == Actionable.MODULATE) {
             this.cacheMoved(itemKey, inserted);
-            this.notifyChange();
         }
 
         return inserted;
@@ -162,7 +162,6 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
 
         if (extracted > 0 && mode == Actionable.MODULATE) {
             this.cacheMoved(itemKey, -extracted);
-            this.notifyChange();
         }
 
         return extracted;
@@ -185,12 +184,6 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         final KeyCounter before = this.currentlyCached;
         this.updateCache();
         return keyCountersEqual(before, this.currentlyCached) ? TickRateModulation.SLOWER : TickRateModulation.URGENT;
-    }
-
-    private void notifyChange() {
-        if (this.changeListener != null) {
-            this.changeListener.run();
-        }
     }
 
     /**
@@ -216,18 +209,27 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
         return count;
     }
 
+    /**
+     * Counts every slot. Nothing is taken out to see unless only what can be taken out is counted, and a slot
+     * holding what it held at the last count keeps its key rather than having one made from its stack again.
+     */
     private void updateCache() {
         final KeyCounter fresh = new KeyCounter();
-        final var it = new ItemHandlerIterator(this.itemHandler);
-        while (it.hasNext()) {
-            final ItemSlot slot = it.next();
-            if (this.extractableOnly && !slot.isExtractable()) {
+        final int slots = this.itemHandler.getSlots();
+        if (this.slotKeys.length != slots) {
+            this.slotKeys = new AEItemKey[slots];
+        }
+        for (int i = 0; i < slots; i++) {
+            final ItemStack stack = this.itemHandler.getStackInSlot(i);
+            if (stack.isEmpty() || this.extractableOnly && this.itemHandler.extractItem(i, Integer.MAX_VALUE, true).isEmpty()) {
                 continue;
             }
-            final GenericStack stack = slot.getGenericStack();
-            if (stack != null) {
-                fresh.add(stack.what(), stack.amount());
+            AEItemKey key = this.slotKeys[i];
+            if (key == null || !key.matches(stack)) {
+                key = AEItemKey.of(stack);
+                this.slotKeys[i] = key;
             }
+            fresh.add(key, stack.getCount());
         }
         // Every change this adapter can see passes through here - its own insertions as much as a
         // hopper filling the box next door - so this is the one place that has to say what moved.
