@@ -316,16 +316,16 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
 
         NBTTagCompound sidedWaitList = new NBTTagCompound();
 
+        // Every face that has something waiting, not only the ones the interface works on now: a wrench may have
+        // turned it since, and the tick still delivers to every face in the list.
         if (this.waitingToSendFacing != null) {
-            for (EnumFacing s : this.iHost.getTargets()) {
+            for (final Map.Entry<EnumFacing, List<ItemStack>> waiting : this.waitingToSendFacing.entrySet()) {
                 NBTTagList waitingListSided = new NBTTagList();
-                if (this.waitingToSendFacing.containsKey(s)) {
-                    for (final ItemStack is : this.waitingToSendFacing.get(s)) {
-                        final NBTTagCompound itemNBT = stackToNBT(is);
-                        waitingListSided.appendTag(itemNBT);
-                    }
-                    sidedWaitList.setTag(s.name(), waitingListSided);
+                for (final ItemStack is : waiting.getValue()) {
+                    final NBTTagCompound itemNBT = stackToNBT(is);
+                    waitingListSided.appendTag(itemNBT);
                 }
+                sidedWaitList.setTag(waiting.getKey().name(), waitingListSided);
             }
         }
         data.setTag("sidedWaitList", sidedWaitList);
