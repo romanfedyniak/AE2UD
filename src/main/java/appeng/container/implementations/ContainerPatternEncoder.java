@@ -548,13 +548,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
         for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
-            if (!in.isEmpty() && amountIn(in) * multiple < 1) {
+            if (!in.isEmpty() && !fits(in, amountIn(in) * multiple)) {
                 canMultiplyInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && amountIn(out) * multiple < 1) {
+            if (!out.isEmpty() && !fits(out, amountIn(out) * multiple)) {
                 canMultiplyOutputs = false;
             }
         }
@@ -612,13 +612,13 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
 
         for (final SlotFakeProcessingGrid inputSlot : this.processingSlots) {
             final ItemStack in = inputSlot.getStack();
-            if (!in.isEmpty() && amountIn(in) + stepAmount(in, increase) < 1) {
+            if (!in.isEmpty() && !fits(in, amountIn(in) + stepAmount(in, increase))) {
                 canIncreaseInputs = false;
             }
         }
         for (final OptionalSlotFake outputSlot : this.outputSlots) {
             final ItemStack out = outputSlot.getStack();
-            if (!out.isEmpty() && amountIn(out) + stepAmount(out, increase) < 1) {
+            if (!out.isEmpty() && !fits(out, amountIn(out) + stepAmount(out, increase))) {
                 canIncreaseOutputs = false;
             }
         }
@@ -679,6 +679,11 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
         return wrapped == null ? stack.getCount() : wrapped.amount();
     }
 
+    /** Whether a slot can hold the amount a button would give it: an ordinary item counts in an int. */
+    private static boolean fits(final ItemStack stack, final long amount) {
+        return amount >= 1 && (amount <= Integer.MAX_VALUE || GenericStack.unwrapItemStack(stack) != null);
+    }
+
     /**
      * The +1/-1 buttons step by one of the key's own unit - a bucket per press for a fluid, the same
      * convention {@link appeng.container.AEBaseContainer#adjustAmount} uses for scrolling, since a
@@ -697,7 +702,10 @@ public abstract class ContainerPatternEncoder extends ContainerMEMonitorable imp
     private static void setAmount(final Slot slot, final ItemStack stack, final long amount) {
         final GenericStack wrapped = GenericStack.unwrapItemStack(stack);
         if (wrapped == null) {
-            stack.setCount((int) amount);
+            // Through the slot, so the inventory hears of it and the terminal (or the wireless one's item) saves.
+            final ItemStack changed = stack.copy();
+            changed.setCount((int) Math.min(Integer.MAX_VALUE, amount));
+            slot.putStack(changed);
         } else {
             slot.putStack(GenericStack.wrapInItemStack(wrapped.what(), amount));
         }
