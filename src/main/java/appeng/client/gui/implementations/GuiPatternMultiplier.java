@@ -61,6 +61,10 @@ public class GuiPatternMultiplier extends AEBaseGui implements IJEIGhostIngredie
     private final ContainerPatternMultiplier container;
     private final Map<Target<?>, Object> targetSlots = new HashMap<>();
     private final Map<Slot, PatternEdits.Replacement> replacements = new HashMap<>();
+    /** What the replacements were worked out from: the two search slots, and each shown slot's pattern. */
+    private ItemStack lastFind = ItemStack.EMPTY;
+    private ItemStack lastReplacement = ItemStack.EMPTY;
+    private final Map<Slot, ItemStack> lastPatterns = new HashMap<>();
     private final List<GuiImgButton> scaleButtons = new ArrayList<>();
     private GuiTabButton multiplyTab;
     private GuiTabButton replaceTab;
@@ -157,29 +161,45 @@ public class GuiPatternMultiplier extends AEBaseGui implements IJEIGhostIngredie
     }
 
     /**
-     * Which shown patterns a replace would change, and which it would skip; asked a few times a second rather
-     * than every frame, since a crafting pattern is checked against the recipes.
+     * Which shown patterns a replace would change, and which it would skip. Asked every tick, but worked out again
+     * only for a pattern or a search slot that changed: a crafting pattern is checked against every recipe.
      */
     private void updateReplacements() {
-        this.replacements.clear();
-        if (this.container.getTab() != PatternMultiplierTab.REPLACE) {
-            return;
-        }
         final IItemHandler searchReplace = this.container.getHost().getSearchReplace();
         final ItemStack find = searchReplace.getStackInSlot(0);
         final ItemStack replacement = searchReplace.getStackInSlot(1);
-        if (find.isEmpty()) {
+        if (this.container.getTab() != PatternMultiplierTab.REPLACE || find.isEmpty()) {
+            this.replacements.clear();
+            this.lastPatterns.clear();
             return;
         }
+        if (!ItemStack.areItemStacksEqual(find, this.lastFind)
+                || !ItemStack.areItemStacksEqual(replacement, this.lastReplacement)) {
+            this.lastFind = find.copy();
+            this.lastReplacement = replacement.copy();
+            this.replacements.clear();
+            this.lastPatterns.clear();
+        }
         for (final Slot slot : this.inventorySlots.inventorySlots) {
-            if (!(slot instanceof OptionalSlotRestrictedInput) || !((OptionalSlotRestrictedInput) slot).isSlotEnabled()
-                    || !PatternEdits.isPattern(slot.getStack())) {
+            if (!(slot instanceof OptionalSlotRestrictedInput)) {
                 continue;
             }
+            if (!((OptionalSlotRestrictedInput) slot).isSlotEnabled() || !PatternEdits.isPattern(slot.getStack())) {
+                this.replacements.remove(slot);
+                this.lastPatterns.remove(slot);
+                continue;
+            }
+            final ItemStack before = this.lastPatterns.get(slot);
+            if (before != null && ItemStack.areItemStacksEqual(before, slot.getStack())) {
+                continue;
+            }
+            this.lastPatterns.put(slot, slot.getStack().copy());
             final PatternEdits.Replacement result = PatternEdits.replace(slot.getStack().copy(), find, replacement,
                     this.mc.world, false);
             if (result != PatternEdits.Replacement.NONE) {
                 this.replacements.put(slot, result);
+            } else {
+                this.replacements.remove(slot);
             }
         }
     }
