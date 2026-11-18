@@ -91,14 +91,14 @@ public class MeteoriteStructurePiece extends StructureComponent {
             final ChunkPos chunkPos = new ChunkPos(origin);
 
             return new StructureBoundingBox(
-                    chunkPos.getXStart() - range, origin.getY(), chunkPos.getZStart() - range,
+                    chunkPos.getXStart() - range, MeteorConstants.UNSET_HEIGHT, chunkPos.getZStart() - range,
                     chunkPos.getXEnd() + range, Integer.MAX_VALUE, chunkPos.getZEnd() + range);
         }
 
         // Without a crater there is nothing outside the ball of sky stone.
         final int range = MathHelper.ceil(radius);
         return new StructureBoundingBox(
-                origin.getX() - range, origin.getY(), origin.getZ() - range,
+                origin.getX() - range, MeteorConstants.UNSET_HEIGHT, origin.getZ() - range,
                 origin.getX() + range, Integer.MAX_VALUE, origin.getZ() + range);
     }
 
@@ -114,6 +114,11 @@ public class MeteoriteStructurePiece extends StructureComponent {
     @Override
     protected void readStructureFromNBT(@NotNull final NBTTagCompound nbt, @NotNull final TemplateManager manager) {
         this.settings = PlacedMeteoriteSettings.read(nbt);
+
+        // An old meteorite's box was saved starting at its centre, so its crater bowl was never dug below it.
+        if (this.getComponentType() == OLD_GEN_PIECE) {
+            this.boundingBox.minY = MeteorConstants.UNSET_HEIGHT;
+        }
     }
 
     /**
