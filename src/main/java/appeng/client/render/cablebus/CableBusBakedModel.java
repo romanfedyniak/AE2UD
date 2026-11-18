@@ -25,10 +25,10 @@ import appeng.api.parts.cable.CableStyles;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.block.networking.BlockCableBus;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.cache.Weigher;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -43,10 +43,11 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.MinecraftForgeClient;
 import net.minecraftforge.common.property.IExtendedBlockState;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 
 public class CableBusBakedModel implements IBakedModel {
@@ -62,7 +63,15 @@ public class CableBusBakedModel implements IBakedModel {
 
     private final TextureMap textureMap = Minecraft.getMinecraft().getTextureMapBlocks();
 
-    private final LoadingCache<CableBusRenderState, List<BakedQuad>> cableModelCache;
+    private final Cache<CableQuadsKey, List<BakedQuad>> cableModelCache;
+
+    /**
+     * Part quads turned to the side a part sits on, by the list the part model handed out (weak keys compare by
+     * identity): a model that hands out the same list every time is turned once per side, not on every rebuild.
+     */
+    private final Cache<List<BakedQuad>, AtomicReferenceArray<List<BakedQuad>>> rotatedPartQuads = CacheBuilder.newBuilder()
+            .weakKeys()
+            .build();
 
     CableBusBakedModel(Map<ResourceLocation, CableBuilder> cableBuilders, FacadeBuilder facadeBuilder, Map<ResourceLocation, IBakedModel> partModels, TextureAtlasSprite particleTexture) {
         this.cableBuilders = cableBuilders;
@@ -71,15 +80,8 @@ public class CableBusBakedModel implements IBakedModel {
         this.particleTexture = particleTexture;
         this.cableModelCache = CacheBuilder.newBuilder()
                 .maximumWeight(5000)
-                .weigher((Weigher<CableBusRenderState, List<BakedQuad>>) (k, v) -> v.size())
-                .build(new CacheLoader<>() {
-                    @Override
-                    public List<BakedQuad> load(@Nonnull CableBusRenderState rs) {
-                        final List<BakedQuad> model = new ArrayList<>();
-                        addCableQuads(rs, model);
-                        return model;
-                    }
-                });
+                .weigher((Weigher<CableQuadsKey, List<BakedQuad>>) (k, v) -> v.size())
+                .build();
     }
 
     @Override
@@ -100,8 +102,7 @@ public class CableBusBakedModel implements IBakedModel {
         if (layer == BlockRenderLayer.CUTOUT) {
 
             // First, handle the cable at the center of the cable bus
-            final List<BakedQuad> cableModel = cableModelCache.getUnchecked(renderState);
-            quads.addAll(cableModel);
+            quads.addAll(this.cableQuads(renderState));
 
             // Then handle attachments
             for (EnumFacing facing : EnumFacing.values()) {
@@ -124,17 +125,97 @@ public class CableBusBakedModel implements IBakedModel {
                         partQuads = bakedModel.getQuads(state, null, rand);
                     }
 
-                    // Rotate quads accordingly
-                    QuadRotator rotator = new QuadRotator();
-                    partQuads = rotator.rotateQuads(partQuads, facing, EnumFacing.UP);
-
-                    quads.addAll(partQuads);
+                    quads.addAll(this.rotated(partQuads, facing));
                 }
             }
         }
         this.facadeBuilder.buildFacadeQuads(layer, renderState, rand, quads, this.partModels::get);
 
         return quads;
+    }
+
+    private List<BakedQuad> cableQuads(final CableBusRenderState renderState) {
+        try {
+            return this.cableModelCache.get(new CableQuadsKey(renderState), () -> {
+                final List<BakedQuad> model = new ArrayList<>();
+                this.addCableQuads(renderState, model);
+                return model;
+            });
+        } catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e.getCause());
+        }
+    }
+
+    private List<BakedQuad> rotated(final List<BakedQuad> quads, final EnumFacing facing) {
+        AtomicReferenceArray<List<BakedQuad>> bySide = this.rotatedPartQuads.getIfPresent(quads);
+        if (bySide == null) {
+            bySide = new AtomicReferenceArray<>(EnumFacing.values().length);
+            this.rotatedPartQuads.put(quads, bySide);
+        }
+
+        List<BakedQuad> result = bySide.get(facing.ordinal());
+        if (result == null) {
+            result = new QuadRotator().rotateQuads(quads, facing, EnumFacing.UP);
+            bySide.set(facing.ordinal(), result);
+        }
+        return result;
+    }
+
+    /**
+     * What the cable's own quads are made from, and nothing else: the render state also carries raw channel
+     * counts and part flags, which would split alike cables into entries of their own.
+     */
+    private static final class CableQuadsKey {
+        private final AECableType cableType;
+        private final CableCoreType coreType;
+        private final AEColor cableColor;
+        private final ResourceLocation cableStyle;
+        private final EnumMap<EnumFacing, AECableType> connectionTypes;
+        private final EnumSet<EnumFacing> cableBusAdjacent;
+        private final EnumMap<EnumFacing, Integer> attachmentConnections;
+        private final byte[] channelMarks = new byte[6];
+        private final boolean attachmentsNeedCable;
+        private final int hash;
+
+        CableQuadsKey(final CableBusRenderState renderState) {
+            this.cableType = renderState.getCableType();
+            this.coreType = renderState.getCoreType();
+            this.cableColor = renderState.getCableColor();
+            this.cableStyle = renderState.getCableStyle();
+            this.connectionTypes = renderState.getConnectionTypes();
+            this.cableBusAdjacent = renderState.getCableBusAdjacent();
+            this.attachmentConnections = renderState.getAttachmentConnections();
+            this.attachmentsNeedCable = renderState.getAttachments().values().stream().anyMatch(IPartModel::requireCableConnection);
+            if (this.cableType == AECableType.SMART || this.cableType == AECableType.DENSE_SMART) {
+                for (final EnumFacing facing : renderState.getChannelsOnSide().keySet()) {
+                    this.channelMarks[facing.ordinal()] = (byte) channelMarks(renderState, facing);
+                }
+            }
+            this.hash = Objects.hash(this.cableType, this.coreType, this.cableColor, this.cableStyle, this.connectionTypes,
+                    this.cableBusAdjacent, this.attachmentConnections, Arrays.hashCode(this.channelMarks), this.attachmentsNeedCable);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CableQuadsKey)) {
+                return false;
+            }
+            final CableQuadsKey other = (CableQuadsKey) o;
+            return this.hash == other.hash && this.cableType == other.cableType && this.coreType == other.coreType
+                    && this.cableColor == other.cableColor && this.attachmentsNeedCable == other.attachmentsNeedCable
+                    && Objects.equals(this.cableStyle, other.cableStyle) && Objects.equals(this.connectionTypes, other.connectionTypes)
+                    && Objects.equals(this.cableBusAdjacent, other.cableBusAdjacent)
+                    && Objects.equals(this.attachmentConnections, other.attachmentConnections)
+                    && Arrays.equals(this.channelMarks, other.channelMarks);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hash;
+        }
     }
 
     // Determines whether a cable is connected to exactly two sides that are opposite each other
