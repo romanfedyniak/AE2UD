@@ -275,7 +275,8 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
         try {
             if (this.getProxy().isActive()) {
                 final IEnergyGrid energy = this.getProxy().getEnergy();
-                final double power = items.amount();
+                // What moving it costs anywhere else: per operation, which is a bucket of a fluid.
+                final double power = (double) items.amount() / Math.max(1, items.what().getAmountPerOperation());
 
                 if (energy.extractAEPower(power, mode, PowerMultiplier.CONFIG) > power - 0.01) {
                     final long inserted = this.getExportStrategy().push(items.what(), items.amount(), mode);
