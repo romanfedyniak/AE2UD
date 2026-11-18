@@ -28,6 +28,7 @@ import appeng.api.networking.IGridHost;
 import appeng.api.networking.events.MENetworkChannelsChanged;
 import appeng.api.networking.events.MENetworkEventSubscribe;
 import appeng.api.networking.events.MENetworkPowerStatusChange;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.WorldCoord;
@@ -45,6 +46,7 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
@@ -125,7 +127,37 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     public void onReady() {
         super.onReady();
         this.getProxy().setVisualRepresentation(this.getItemFromTile(this));
-        this.updateMultiBlock();
+
+        // Already taken in by a block of the same CPU that was readied first, which checked the whole box: going
+        // over it again from every block made loading a big CPU quadratic.
+        if (this.cluster != null) {
+            this.updateMeta(true);
+            this.placedBy = null;
+        } else {
+            this.updateMultiBlock();
+        }
+    }
+
+    /**
+     * A CPU across a chunk border loses part of its blocks here while the rest stay. Breaking it would cancel the
+     * job and hand out its items, while the job is also saved with the core and comes back with it: the CPU lets
+     * go of its blocks instead, keeping the job, and forms again once the chunk is back.
+     */
+    @Override
+    public void onChunkUnload() {
+        if (this.cluster != null) {
+            this.cluster.detach(this);
+        }
+
+        super.onChunkUnload();
+    }
+
+    /** Called by a cluster letting go of its blocks without breaking: see {@link #onChunkUnload}. */
+    public void detachFrom(final CraftingCPUCluster c) {
+        if (this.cluster == c) {
+            this.cluster = null;
+            this.updateMeta(true);
+        }
     }
 
     public void updateMultiBlock() {
@@ -207,6 +239,13 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
         }
         if (this.isCoreBlock() && this.cluster != null) {
             this.cluster.writeToNBT(data);
+        } else if (this.isCoreBlock() && this.previousState != null) {
+            // A job waiting for its CPU to form again: dropped here, it would be gone at the next save.
+            for (final String key : this.previousState.getKeySet()) {
+                if (!data.hasKey(key)) {
+                    data.setTag(key, this.previousState.getTag(key).copy());
+                }
+            }
         }
         return data;
     }
@@ -287,6 +326,10 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
     }
 
     public void breakCluster() {
+        if (this.cluster == null && this.previousState != null) {
+            this.dropPreviousState();
+        }
+
         if (this.cluster != null) {
             this.cluster.cancel();
             final MEStorage inv = this.cluster.getInventory();
@@ -334,6 +377,25 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
 
             this.cluster.destroy();
         }
+    }
+
+    /**
+     * The job of a CPU that never formed again is still saved with its core. Broken, the core hands out what that
+     * job held, as a formed CPU would.
+     */
+    private void dropPreviousState() {
+        final NBTTagList inventory = this.previousState.getTagList("inventory", 10);
+        this.previousState = null;
+
+        final List<ItemStack> drops = new ArrayList<>();
+        for (int x = 0; x < inventory.tagCount(); x++) {
+            final GenericStack stack = GenericStack.readTag(inventory.getCompoundTagAt(x));
+            if (stack != null && stack.amount() > 0) {
+                stack.what().addDrops(stack.amount(), drops, this.world, this.pos);
+            }
+        }
+
+        Platform.spawnDrops(this.world, this.pos, drops);
     }
 
     @Override

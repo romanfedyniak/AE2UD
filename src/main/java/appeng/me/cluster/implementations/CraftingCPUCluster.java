@@ -289,6 +289,41 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     public Iterator<IGridHost> getTiles() {
         return (Iterator) this.tiles.iterator();
     }
+    /**
+     * Lets go of every block without cancelling anything, because part of the CPU is unloading. The job stays
+     * with the core: in its chunk's save if the core is the part going away, otherwise written into the core now,
+     * where the next formation picks it up as it would after a load.
+     */
+    public void detach(final TileCraftingTile unloading) {
+        if (this.isDestroyed) {
+            return;
+        }
+        this.isDestroyed = true;
+
+        final TileCraftingTile core = this.getCore();
+        if (core != null && core != unloading && core.getWorld() != null && !core.isInvalid()
+                && core.getWorld().isBlockLoaded(core.getPos())) {
+            final NBTTagCompound job = new NBTTagCompound();
+            this.writeToNBT(job);
+            core.setPreviousState(job);
+            core.saveChanges();
+        }
+
+        boolean posted = false;
+        for (final TileCraftingTile r : this.tiles) {
+            final IGridNode n = r.getActionableNode();
+            if (n != null && !posted && r != unloading) {
+                final IGrid g = n.getGrid();
+                if (g != null) {
+                    g.postEvent(new MENetworkCraftingCpuChange(n));
+                    posted = true;
+                }
+            }
+
+            r.detachFrom(this);
+        }
+    }
+
 
     void addTile(final TileCraftingTile te) {
         if (this.machineSrc == null || te.isCoreBlock()) {
@@ -310,7 +345,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     public boolean canAccept(final AEKey input) {
-        return this.waitingFor.get(input) > 0;
+        return !this.isDestroyed && this.waitingFor.get(input) > 0;
     }
 
     /**
@@ -327,6 +362,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     /**
+        // A cluster that has let go of its blocks is still listed until the grid's next tick.
+        if (this.isDestroyed) {
+            return 0;
+        }
+
      * Whether this pattern is the one that ends the job, which is the only pattern a medium that settles
      * jobs itself may be given. A job with no player behind it is never one of those - see
      * {@link ICraftingMedium#isFakeCrafting()}.
@@ -779,7 +819,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     public void updateCraftingLogic(final IGrid grid, final IEnergyGrid eg, final CraftingGridCache cc) {
-        if (!this.getCore().isActive()) {
+        if (this.isDestroyed || !this.getCore().isActive()) {
             return;
         }
 
