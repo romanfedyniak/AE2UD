@@ -67,8 +67,10 @@ public final class GuiImageExport {
 
         final Minecraft mc = Minecraft.getMinecraft();
         final int limit = Math.max(1024, GL11.glGetInteger(GL11.GL_MAX_TEXTURE_SIZE) / 2);
-        final int pixelWidth = Math.min(limit, Math.round(width * scale));
-        final int pixelHeight = Math.min(limit, Math.round(height * scale));
+        // Past the limit the whole thing is drawn smaller rather than cut off at the edge.
+        final float fit = Math.min(scale, Math.min(limit / (float) width, limit / (float) height));
+        final int pixelWidth = Math.min(limit, Math.max(1, Math.round(width * fit)));
+        final int pixelHeight = Math.min(limit, Math.max(1, Math.round(height * fit)));
 
         final Framebuffer buffer = new Framebuffer(pixelWidth, pixelHeight, true);
         try {
@@ -79,7 +81,7 @@ public final class GuiImageExport {
             GlStateManager.matrixMode(GL11.GL_PROJECTION);
             GlStateManager.pushMatrix();
             GlStateManager.loadIdentity();
-            GlStateManager.ortho(0, pixelWidth / scale, pixelHeight / scale, 0, 1000, 3000);
+            GlStateManager.ortho(0, pixelWidth / fit, pixelHeight / fit, 0, 1000, 3000);
             GlStateManager.matrixMode(GL11.GL_MODELVIEW);
             GlStateManager.pushMatrix();
             GlStateManager.loadIdentity();
