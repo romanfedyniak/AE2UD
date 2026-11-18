@@ -36,9 +36,12 @@ public class AssemblerFX extends Particle implements ICanDie {
     /** As many as the fastest stock assembler throws, so an accelerated one does not bury itself in them. */
     private static final int MAX_SPARKS = 10;
 
+    /** Ticks between bursts: about as often as the old per-frame count gave at 60 fps. */
+    private static final int SPARK_INTERVAL = 3;
+
     private final EntityFloatingItem fi;
     private final float speed;
-    private float time = 0;
+    private int ticks = 0;
 
     public AssemblerFX(final World w, final double x, final double y, final double z, final double r, final double g, final double b, final float speed, final GenericStack is) {
         super(w, x, y, z, r, g, b);
@@ -86,19 +89,18 @@ public class AssemblerFX extends Particle implements ICanDie {
         } else {
             final float lifeSpan = (float) this.particleAge / (float) this.particleMaxAge;
             this.fi.setProgress(lifeSpan);
+
+            if (++this.ticks >= SPARK_INTERVAL) {
+                this.ticks = 0;
+                final int sparks = Math.min(MAX_SPARKS, (int) Math.ceil(this.speed / 5));
+                for (int x = 0; x < sparks; x++) {
+                    AppEng.proxy.spawnEffect(EffectType.Crafting, this.world, this.posX, this.posY, this.posZ, null);
+                }
+            }
         }
     }
 
     @Override
     public void renderParticle(final BufferBuilder par1Tessellator, final Entity p_180434_2_, final float l, final float rX, final float rY, final float rZ, final float rYZ, final float rXY) {
-        this.time += l;
-        if (this.time > 4.0) {
-            this.time -= 4.0;
-            // if ( AppEng.proxy.shouldAddParticles( r ) )
-            final int sparks = Math.min(MAX_SPARKS, (int) Math.ceil(this.speed / 5));
-            for (int x = 0; x < sparks; x++) {
-                AppEng.proxy.spawnEffect(EffectType.Crafting, this.world, this.posX, this.posY, this.posZ, null);
-            }
-        }
     }
 }
