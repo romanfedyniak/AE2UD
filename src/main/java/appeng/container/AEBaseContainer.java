@@ -352,7 +352,13 @@ public abstract class AEBaseContainer extends Container {
         if (clickSlot instanceof SlotDisabled || clickSlot instanceof SlotInaccessible) {
             return ItemStack.EMPTY;
         }
-        if (clickSlot != null && clickSlot.getHasStack()) {
+        // Vanilla asks this before a shift-click; the region moves come here directly, and a slot's refusal (a
+        // container the network conjured out of a fluid, a card still paying for patterns, a view cell without
+        // BUILD, a filter) has to hold for them too.
+        if (clickSlot == null || !clickSlot.canTakeStack(p)) {
+            return ItemStack.EMPTY;
+        }
+        if (clickSlot.getHasStack()) {
             ItemStack tis = clickSlot.getStack();
   
             if (tis.isEmpty()) {
@@ -369,7 +375,13 @@ public abstract class AEBaseContainer extends Container {
             if (fromPlayerSide) {
                 tis = this.transferStackToContainer(tis);
             } else {
-                tis = tis.copy();
+                // Taken out through the slot, never copied and written back: what the slot hands out is not
+                // necessarily what it holds (an interface's storage row, a fluid shown as an item), and its
+                // inventory may refuse to give some of it up.
+                tis = this.takeForPlayer(clickSlot, tis.copy(), p);
+                if (tis.isEmpty()) {
+                    return ItemStack.EMPTY;
+                }
             }
 
             if (!tis.isEmpty()) {
@@ -445,7 +457,7 @@ public abstract class AEBaseContainer extends Container {
                                 d.putStack(t);
 
                                 if (tis.getCount() <= 0) {
-                                    clickSlot.putStack(ItemStack.EMPTY);
+                                    this.settleSource(clickSlot, fromPlayerSide, ItemStack.EMPTY, p);
                                     d.onSlotChanged();
 
                                     this.updateSlot(clickSlot);
@@ -478,7 +490,7 @@ public abstract class AEBaseContainer extends Container {
                             d.putStack(tmp);
 
                             if (tis.getCount() <= 0) {
-                                clickSlot.putStack(ItemStack.EMPTY);
+                                this.settleSource(clickSlot, fromPlayerSide, ItemStack.EMPTY, p);
                                 d.onSlotChanged();
 
                                 this.updateSlot(clickSlot);
@@ -497,11 +509,79 @@ public abstract class AEBaseContainer extends Container {
                 }
             }
 
-            clickSlot.putStack(!tis.isEmpty() ? tis : ItemStack.EMPTY);
+            this.settleSource(clickSlot, fromPlayerSide, tis, p);
         }
 
         this.updateSlot(clickSlot);
         return ItemStack.EMPTY;
+    }
+
+    /**
+     * Takes as much of a container slot's stack as the player's side has room for, through the slot's own
+     * extraction. Nothing is taken that has nowhere to go, so nothing has to be written back into the slot.
+     */
+    private ItemStack takeForPlayer(final AppEngSlot from, final ItemStack shown, final EntityPlayer p) {
+        long room = 0;
+        for (final Slot inventorySlot : this.inventorySlots) {
+            final AppEngSlot d = (AppEngSlot) inventorySlot;
+            if (d instanceof SlotDisabled || !this.isValidQuickMoveDestination(d, shown, false)) {
+                continue;
+            }
+            final int maxSize = Math.min(shown.getMaxStackSize(), d.getSlotStackLimit());
+            if (!d.getHasStack()) {
+                room += maxSize;
+            } else if (Platform.itemComparisons().isSameItem(shown, d.getStack())) {
+                room += Math.max(0, maxSize - d.getStack().getCount());
+            }
+        }
+        return takeFrom(from, (int) Math.min(room, shown.getCount()), p);
+    }
+
+    /** Up to {@code amount} out of a slot, in as many pulls as its inventory needs (one pull stops at a stack). */
+    private static ItemStack takeFrom(final Slot from, final int amount, final EntityPlayer p) {
+        ItemStack taken = ItemStack.EMPTY;
+        while (taken.getCount() < amount) {
+            final ItemStack part = from.decrStackSize(amount - taken.getCount());
+            if (part.isEmpty()) {
+                break;
+            }
+            if (taken.isEmpty()) {
+                taken = part.copy();
+            } else if (Platform.itemComparisons().isSameItem(taken, part)) {
+                taken.grow(part.getCount());
+            } else {
+                giveBack(from, part, p);
+                break;
+            }
+        }
+        return taken;
+    }
+
+    /**
+     * Where the source of a move stands afterwards. A player slot is simply set to what is left. A container
+     * slot already gave up exactly what was taken out of it; anything that found no place after all goes back
+     * into it, or to the player, never into the void.
+     */
+    private void settleSource(final AppEngSlot from, final boolean fromPlayerSide, final ItemStack rest,
+            final EntityPlayer p) {
+        if (fromPlayerSide) {
+            from.putStack(rest.isEmpty() ? ItemStack.EMPTY : rest);
+        } else if (!rest.isEmpty()) {
+            giveBack(from, rest, p);
+        }
+    }
+
+    private static void giveBack(final Slot from, final ItemStack rest, final EntityPlayer p) {
+        ItemStack left = rest;
+        if (from instanceof AppEngSlot slot) {
+            left = slot.getItemHandler().insertItem(slot.getSlotIndex(), left, false);
+        }
+        if (!left.isEmpty()) {
+            p.inventory.addItemStackToInventory(left);
+        }
+        if (!left.isEmpty()) {
+            p.dropItem(left, false);
+        }
     }
 
     /**
@@ -704,6 +784,9 @@ public abstract class AEBaseContainer extends Container {
                     default:
                         break;
                 }
+
+                // A filter holds no items, whatever the client asks to move out of it.
+                return;
             }
 
             if (action == InventoryAction.MOVE_REGION) {
@@ -716,9 +799,24 @@ public abstract class AEBaseContainer extends Container {
                 final InventoryAdaptor inv = InventoryAdaptor.getAdaptor(player);
 
                 for (final Slot fr : this.regionOf(s)) {
+                    // What a click could not take, a move does not take either: a locked tool, a hidden slot.
+                    if (fr instanceof SlotDisabled || fr instanceof SlotInaccessible || !fr.canTakeStack(player)) {
+                        continue;
+                    }
                     // Whatever the player has no room for stays where it is, which is where they can see
-                    // it - and the button beside this one is how the rest goes to the network.
-                    fr.putStack(inv.addItems(fr.getStack()));
+                    // it - and the button beside this one is how the rest goes to the network. Taken out
+                    // through the slot, so it is the slot's inventory that gives the items up.
+                    final ItemStack shown = fr.getStack();
+                    if (shown.isEmpty()) {
+                        continue;
+                    }
+                    final int fits = shown.getCount() - inv.simulateAdd(shown.copy()).getCount();
+                    if (fits > 0) {
+                        final ItemStack rest = inv.addItems(takeFrom(fr, fits, player));
+                        if (!rest.isEmpty()) {
+                            giveBack(fr, rest, player);
+                        }
+                    }
                 }
             }
 
