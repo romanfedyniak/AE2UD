@@ -28,11 +28,15 @@ import appeng.core.AmountSteps;
 import appeng.core.AmountSteps.Group;
 import appeng.core.AmountSteps.Mode;
 import appeng.core.localization.GuiText;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.Slot;
 import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
@@ -89,6 +93,8 @@ public class GuiAmountSteps extends AEBaseGui {
 
     private GuiTabButton back;
     private GuiButton defaults;
+    /** The container open on the server, the one of the screen underneath. */
+    private final Container underneath = Minecraft.getMinecraft().player.openContainer;
 
     public GuiAmountSteps(final GuiScreen parent, final InventoryPlayer inventoryPlayer) {
         super(new ContainerAmountSteps(inventoryPlayer));
@@ -113,6 +119,9 @@ public class GuiAmountSteps extends AEBaseGui {
         this.ySize = ROW_TOP + Group.values().length * ROW_HEIGHT + BUTTON_HEIGHT + MARGIN;
 
         super.initGui();
+        // GuiContainer.initGui made this screen's own container the open one, but the server's is still the one
+        // underneath, and its updates are routed by the open container: point back at it.
+        this.mc.player.openContainer = this.underneath;
 
         for (final Group group : Group.values()) {
             final int row = group.ordinal();
@@ -148,6 +157,11 @@ public class GuiAmountSteps extends AEBaseGui {
 
         this.updateModeLabels();
         this.validate();
+    }
+
+    /** Nothing here is a slot of the window the server has open. */
+    @Override
+    protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
     }
 
     /** Keeps what stands in the fields across a re-layout, which a change of window size runs. */

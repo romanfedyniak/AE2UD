@@ -19,10 +19,12 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
@@ -117,6 +119,8 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
     /** Where the search survives closing the window, while the keep setting says it should. */
     private static String memoryText = "";
     private boolean showingFilter;
+    /** The container open on the server, the one of the screen underneath. */
+    private final Container underneath = Minecraft.getMinecraft().player.openContainer;
 
     public GuiCellView(final InventoryPlayer inventoryPlayer, final StorageCell cell, final ItemStack stack,
             final GuiScreen parent) {
@@ -152,6 +156,9 @@ public class GuiCellView extends AEBaseGui implements ISortSource {
         }
 
         super.initGui();
+        // GuiContainer.initGui made this screen's own container the open one, but the server's is still the one
+        // underneath, and its updates are routed by the open container: point back at it.
+        this.mc.player.openContainer = this.underneath;
 
         final MEGuiTextField previous = this.searchField;
         this.searchField = new MEGuiTextField(this.fontRenderer,

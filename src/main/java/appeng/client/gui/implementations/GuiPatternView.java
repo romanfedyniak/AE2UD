@@ -42,11 +42,13 @@ import appeng.core.localization.GuiText;
 import appeng.integration.modules.jei.JEIPlugin;
 import appeng.util.Platform;
 import mezz.jei.api.recipe.IFocus;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.common.Optional;
@@ -78,6 +80,8 @@ public class GuiPatternView extends AEBaseGui {
     private final boolean[] fabricated;
 
     private GuiImgButton fluidIcon;
+    /** The container open on the server, the one of the screen underneath. */
+    private final Container underneath = Minecraft.getMinecraft().player.openContainer;
 
     public GuiPatternView(final InventoryPlayer inventoryPlayer, final ICraftingPatternDetails details,
             final List<GenericStack> inputs, final GenericStack[] outputs, final GuiScreen parent) {
@@ -110,6 +114,9 @@ public class GuiPatternView extends AEBaseGui {
         this.ySize = this.view.getHeight();
 
         super.initGui();
+        // GuiContainer.initGui made this screen's own container the open one, but the server's is still the one
+        // underneath, and its updates are routed by the open container: point back at it.
+        this.mc.player.openContainer = this.underneath;
 
         // The same icons the pattern terminal toggles these settings with, so the two screens say the same
         // thing the same way. They are indicators here, not controls - nothing acts on a click - and each
