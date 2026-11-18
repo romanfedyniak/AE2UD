@@ -165,7 +165,7 @@ public class StorageHelper {
         }
 
         for (final WorldCoord wc : cDst.getUpdates()) {
-            cSrc.getWorld().notifyNeighborsOfStateChange(wc.getPos(), Platform.AIR_BLOCK, true);
+            cDst.getWorld().notifyNeighborsOfStateChange(wc.getPos(), Platform.AIR_BLOCK, true);
         }
 
         for (final WorldCoord wc : cSrc.getUpdates()) {
