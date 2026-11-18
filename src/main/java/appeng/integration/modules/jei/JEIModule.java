@@ -54,6 +54,11 @@ public class JEIModule implements IJEI {
     }
 
     @Override
+    public boolean hasKeyboardFocus() {
+        return this.jei.hasKeyboardFocus();
+    }
+
+    @Override
     public AEKey getHoveredKey() {
         return JeiIngredientActions.hoveredKey();
     }

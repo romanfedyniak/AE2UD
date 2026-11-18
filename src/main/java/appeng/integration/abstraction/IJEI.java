@@ -37,6 +37,11 @@ public interface IJEI extends IIntegrationModule {
     default void setSearchText(String searchText) {
     }
 
+    /** Whether HEI's own search field has the keyboard. */
+    default boolean hasKeyboardFocus() {
+        return false;
+    }
+
     /** What the cursor is over in HEI's ingredient list or its bookmarks, if anything. */
     @Nullable
     default AEKey getHoveredKey() {

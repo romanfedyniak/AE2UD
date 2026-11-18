@@ -39,6 +39,7 @@ import appeng.client.render.keytypes.FluidKeyRenderHandler;
 import appeng.client.render.WrappedGenericStackItemRenderer;
 import appeng.api.features.IWirelessTerminalMode;
 import appeng.core.AELog;
+import appeng.integration.Integrations;
 import appeng.core.Api;
 import appeng.core.AppEng;
 import appeng.core.api.ApiClientHelper;
@@ -71,8 +72,12 @@ import appeng.items.misc.ItemEncodedPattern;
 import appeng.server.ServerHelper;
 import appeng.util.Platform;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiRepair;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.client.gui.inventory.GuiContainerCreative;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.player.EntityPlayer;
@@ -94,6 +99,7 @@ import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import appeng.core.features.registries.ChannelTierRegistry;
 import net.minecraft.util.ResourceLocation;
@@ -102,7 +108,9 @@ import net.minecraftforge.client.settings.KeyModifier;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.*;
@@ -114,6 +122,9 @@ public class ClientHelper extends ServerHelper {
 
     private final EnumMap<ActionKey, KeyBinding> bindings = new EnumMap<>(ActionKey.class);
     private final Map<ResourceLocation, KeyBinding> terminalModeBindings = new LinkedHashMap<>();
+    /** An anvil's name field, which vanilla keeps private. */
+    @Nullable
+    private static Field anvilName;
 
     @Override
     public void preinit() {
@@ -454,7 +465,7 @@ public class ClientHelper extends ServerHelper {
     @SubscribeEvent
     public void onSearchHoveredKey(final GuiScreenEvent.KeyboardInputEvent.Pre event) {
         if (!Keyboard.getEventKeyState() || !this.isActionKey(ActionKey.SEARCH_HOVERED, Keyboard.getEventKey())
-                || !(event.getGui() instanceof AEBaseGui gui)) {
+                || !(event.getGui() instanceof AEBaseGui gui) || Integrations.jei().hasKeyboardFocus()) {
             return;
         }
 
@@ -481,8 +492,7 @@ public class ClientHelper extends ServerHelper {
         final GuiScreen screen = event.getGui();
 
         // A field with the keyboard is typing, not acting; and the view has no reason to open over itself.
-        if (!(screen instanceof GuiContainer) || screen instanceof GuiPatternView
-                || (screen instanceof AEBaseGui && ((AEBaseGui) screen).isTextFieldFocused())) {
+        if (!(screen instanceof GuiContainer) || screen instanceof GuiPatternView || isTyping(screen)) {
             return;
         }
 
@@ -514,6 +524,35 @@ public class ClientHelper extends ServerHelper {
         event.setCanceled(true);
         Minecraft.getMinecraft().displayGuiScreen(new GuiPatternView(player.inventory, details,
                 ApiClientHelper.displayInputs(details), details.getCondensedOutputs(), screen));
+    }
+
+    /**
+     * Whether a key pressed now is a letter being typed: into a field of ours, HEI's search, the creative search
+     * or an anvil's name. These handlers see the key before the screen does.
+     */
+    private static boolean isTyping(final GuiScreen screen) {
+        if (Integrations.jei().hasKeyboardFocus()) {
+            return true;
+        }
+        if (screen instanceof AEBaseGui gui) {
+            return gui.isTextFieldFocused();
+        }
+        if (screen instanceof GuiContainerCreative creative) {
+            // A tab with a search bar gives it the keyboard for as long as the tab is shown.
+            return CreativeTabs.CREATIVE_TAB_ARRAY[creative.getSelectedTabIndex()].hasSearchBar();
+        }
+        if (screen instanceof GuiRepair) {
+            try {
+                if (anvilName == null) {
+                    anvilName = ObfuscationReflectionHelper.findField(GuiRepair.class, "field_147091_w");
+                }
+                final GuiTextField name = (GuiTextField) anvilName.get(screen);
+                return name != null && name.isFocused();
+            } catch (final ReflectiveOperationException | RuntimeException e) {
+                AELog.debug(e);
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
