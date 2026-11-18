@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fml.common.Loader;
+import org.apache.logging.log4j.Level;
 
 import appeng.api.migration.MigrationLog;
 import appeng.core.AELog;
@@ -108,7 +109,7 @@ final class MigrationLogFile implements MigrationLog {
                     StandardCharsets.UTF_8));
         } catch (final IOException e) {
             this.broken = true;
-            AELog.error(e, "Could not open " + this.file + "; the migration is logged nowhere");
+            AELog.log(Level.ERROR, e, "Could not open %s; the migration is logged nowhere", this.file);
             return false;
         }
         this.out.println("[" + this.time.format(new Date()) + "] WORLD " + this.world + ", saved by AE2 " + this.from);
