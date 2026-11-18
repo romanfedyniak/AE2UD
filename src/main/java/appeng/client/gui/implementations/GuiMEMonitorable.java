@@ -66,7 +66,6 @@ import appeng.core.sync.packets.PacketTerminalPins;
 import appeng.container.implementations.TerminalCraftingPin;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.integration.Integrations;
-import appeng.parts.reporting.AbstractPartTerminal;
 import appeng.tile.misc.TileSecurityStation;
 import appeng.util.IConfigManagerHost;
 import appeng.util.ItemToggle;
@@ -211,7 +210,8 @@ public class GuiMEMonitorable extends AEBaseMEGui implements ISortSource, IConfi
             this.myName = GuiText.PortableCell;
         } else if (te instanceof IMEChest) {
             this.myName = GuiText.Chest;
-        } else if (te instanceof AbstractPartTerminal) {
+        } else {
+            // A terminal part, or a host of an addon this screen has no name of its own for.
             this.myName = GuiText.Terminal;
         }
     }
