@@ -1011,7 +1011,14 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     @Override
     public CableBusRenderState getRenderState() {
-        final PartCable cable = (PartCable) this.getCenter();
+        return this.getRenderState(this.getTile().getWorld());
+    }
+
+    @Override
+    public CableBusRenderState getRenderState(final IBlockAccess world) {
+        // An addon's cable may implement the interface without being a PartCable: it has no channel counts here.
+        final IPartCable cable = this.getCenter();
+        final PartCable aeCable = cable instanceof PartCable ? (PartCable) cable : null;
 
         final CableBusRenderState renderState = new CableBusRenderState();
 
@@ -1035,7 +1042,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
                 // Dense cables however also respect the adjacent cable-type since their outgoing connection
                 // point would look too big for other cable types
                 final BlockPos adjacentPos = this.getTile().getPos().offset(facing);
-                final TileEntity adjacentTe = this.getTile().getWorld().getTileEntity(adjacentPos);
+                final TileEntity adjacentTe = world.getTileEntity(adjacentPos);
 
                 if (adjacentTe instanceof IGridHost) {
                     final IGridHost gridHost = (IGridHost) adjacentTe;
@@ -1051,9 +1058,11 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
             // We have to do this even for non-smart cables since a glass cable can display a connection as smart if the
             // adjacent tile requires it
             for (EnumFacing facing : EnumFacing.values()) {
-                int channels = cable.getCableConnectionType().isSmart() ? cable.getChannelsOnSide(facing) : 0;
+                int channels = aeCable != null && cable.getCableConnectionType().isSmart() ? aeCable.getChannelsOnSide(facing) : 0;
                 renderState.getChannelsOnSide().put(facing, channels);
-                renderState.setChannelCapacity(GridNode.maxChannelsOf(cable.getProxy()));
+                if (aeCable != null) {
+                    renderState.setChannelCapacity(GridNode.maxChannelsOf(aeCable.getProxy()));
+                }
             }
         }
 

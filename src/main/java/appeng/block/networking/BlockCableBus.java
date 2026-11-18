@@ -119,7 +119,7 @@ public class BlockCableBus extends AEBaseTileBlock implements IAEFacade {
 
     @Override
     public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
-        CableBusRenderState renderState = this.cb(world, pos).getRenderState();
+        CableBusRenderState renderState = this.cb(world, pos).getRenderState(world);
         renderState.setWorld(world);
         renderState.setPos(pos);
         return ((IExtendedBlockState) state).withProperty(RENDER_STATE_PROPERTY, renderState);
