@@ -125,7 +125,9 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
                 return false;
             }
             final InWorldToolOperationIngredient other = (InWorldToolOperationIngredient) obj;
-            return this.state == other.state && (this.blockOnly && this.state.getBlock() == other.state.getBlock());
+            // An entry for one state matches that state only; one for the whole block, any of its states.
+            return this.blockOnly == other.blockOnly
+                    && (this.blockOnly ? this.state.getBlock() == other.state.getBlock() : this.state == other.state);
         }
     }
 
@@ -136,8 +138,14 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             r = this.heatUp.get(new InWorldToolOperationIngredient(state.getBlock(), true));
         }
 
-        if (r.getBlockState() != null) {
-            w.setBlockState(pos, r.getBlockState(), 3);
+        IBlockState result = r.getBlockState();
+        // Where water boils away (the Nether), melted ice leaves nothing, as it does when broken there.
+        if (result != null && result.getMaterial() == Material.WATER && w.provider.doesWaterVaporize()) {
+            result = null;
+        }
+
+        if (result != null) {
+            w.setBlockState(pos, result, 3);
         } else {
             w.setBlockToAir(pos);
         }
