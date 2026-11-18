@@ -154,23 +154,24 @@ public final class AmountEntry {
      * @return zero when the field does not hold a usable positive number.
      */
     public static long parse(final String text, final int scale) {
-        BigDecimal value = typedAsItself(text);
+        final BigDecimal value = read(text);
+        return value == null || value.signum() <= 0 ? 0 : scaled(value, scale);
+    }
 
-        if (value == null) {
-            final double worked = MathExpressionParser.parse(text);
-
-            if (Double.isNaN(worked) || Double.isInfinite(worked)) {
-                return 0;
-            }
-
-            value = BigDecimal.valueOf(worked);
+    /** The number a field holds: exactly, when it is typed as itself; worked out, when it is an expression. */
+    @Nullable
+    private static BigDecimal read(final String text) {
+        final BigDecimal value = typedAsItself(text);
+        if (value != null) {
+            return value;
         }
 
-        if (value.signum() <= 0) {
-            return 0;
-        }
+        final double worked = MathExpressionParser.parse(text);
+        return Double.isNaN(worked) || Double.isInfinite(worked) ? null : BigDecimal.valueOf(worked);
+    }
 
-        final BigDecimal scaled = value.multiply(BigDecimal.valueOf(scale));
+    private static long scaled(final BigDecimal positive, final int scale) {
+        final BigDecimal scaled = positive.multiply(BigDecimal.valueOf(scale));
         return scaled.min(MAX_AMOUNT).setScale(0, RoundingMode.HALF_UP).longValue();
     }
 
@@ -208,7 +209,15 @@ public final class AmountEntry {
      * about a machine rather than an amount of anything.
      */
     public static long parseSigned(final String text, final int scale) {
-        return text.startsWith("-") ? -parse(text.substring(1), scale) : parse(text, scale);
+        final String trimmed = text.trim();
+        // A negative number typed as itself stays exact; anything else is worked out whole, so the minus belongs
+        // to the first number and not to the whole expression.
+        final BigDecimal negative = trimmed.startsWith("-") ? typedAsItself(trimmed.substring(1)) : null;
+        final BigDecimal value = negative != null ? negative.negate() : read(trimmed);
+        if (value == null || value.signum() == 0) {
+            return 0;
+        }
+        return value.signum() > 0 ? scaled(value, scale) : -scaled(value.negate(), scale);
     }
 
     /**

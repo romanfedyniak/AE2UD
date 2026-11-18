@@ -63,4 +63,14 @@ public final class AmountEntryTest {
         assertThat(AmountEntry.parseSigned("-5", 1), is(-5L));
         assertThat(AmountEntry.parseSigned("5", 1), is(5L));
     }
+
+    @Test
+    public void aSignedFieldWorksOutTheWholeExpression() {
+        // The minus belongs to the first number, not to everything after it.
+        assertThat(AmountEntry.parseSigned("-5+10", 1), is(5L));
+        assertThat(AmountEntry.parseSigned("-5*-2", 1), is(10L));
+        assertThat(AmountEntry.parseSigned("10-20", 1), is(-10L));
+        assertThat(AmountEntry.parseSigned("-9007199254740993", 1), is(-9007199254740993L));
+        assertThat(AmountEntry.parseSigned("-1.5", 1000), is(-1500L));
+    }
 }
