@@ -20,6 +20,9 @@ package appeng.decorative.solid;
 
 
 import appeng.block.AEBaseBlock;
+import appeng.decorative.slab.BlockSlabCommon;
+import appeng.decorative.stair.BlockStairCommon;
+import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemStack;
@@ -49,7 +52,7 @@ public class BlockSkyStone extends AEBaseBlock {
 
     @SubscribeEvent
     public void breakFaster(final PlayerEvent.BreakSpeed event) {
-        if (event.getState().getBlock() == this && event.getEntityPlayer() != null) {
+        if (baseBlock(event.getState().getBlock()) == this && event.getEntityPlayer() != null) {
             final ItemStack is = event.getEntityPlayer().getItemStackFromSlot(EntityEquipmentSlot.MAINHAND);
             int level = -1;
 
@@ -61,6 +64,17 @@ public class BlockSkyStone extends AEBaseBlock {
                 event.setNewSpeed(event.getNewSpeed() / BREAK_SPEAK_SCALAR);
             }
         }
+    }
+
+    /** Slabs and stairs copy this block's hardness, so they need its speed-up as well. */
+    private static Block baseBlock(final Block block) {
+        if (block instanceof BlockSlabCommon slab) {
+            return slab.getBaseBlock();
+        }
+        if (block instanceof BlockStairCommon stairs) {
+            return stairs.getBaseBlock();
+        }
+        return block;
     }
 
     public enum SkystoneType {

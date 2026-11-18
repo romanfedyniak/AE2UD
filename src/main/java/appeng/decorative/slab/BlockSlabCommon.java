@@ -25,8 +25,11 @@ public abstract class BlockSlabCommon extends BlockSlab {
 
     static final PropertyEnum<BlockSlabCommon.Variant> VARIANT = PropertyEnum.create("variant", Variant.class);
 
+    private final Block baseBlock;
+
     private BlockSlabCommon(Block block) {
         super(block.getMaterial(block.getDefaultState()));
+        this.baseBlock = block;
         this.setHardness(block.getBlockHardness(block.getDefaultState(), null, null));
         this.setResistance(block.getExplosionResistance(null) * 5.0F / 3.0F);
 
@@ -39,6 +42,11 @@ public abstract class BlockSlabCommon extends BlockSlab {
         this.setDefaultState(iblockstate.withProperty(VARIANT, Variant.DEFAULT));
         this.setCreativeTab(CreativeTabs.BUILDING_BLOCKS);
         this.useNeighborBrightness = true;
+    }
+
+    /** The block this slab is made of. */
+    public Block getBaseBlock() {
+        return this.baseBlock;
     }
 
     /**

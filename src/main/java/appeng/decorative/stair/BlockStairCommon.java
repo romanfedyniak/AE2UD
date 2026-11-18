@@ -24,7 +24,15 @@ import net.minecraft.block.Block;
 
 
 public class BlockStairCommon extends AEBaseStairBlock {
+    private final Block baseBlock;
+
     public BlockStairCommon(final Block block, final String type) {
         super(block, type);
+        this.baseBlock = block;
+    }
+
+    /** The block these stairs are made of. */
+    public Block getBaseBlock() {
+        return this.baseBlock;
     }
 }
