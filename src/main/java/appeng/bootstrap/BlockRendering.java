@@ -41,9 +41,7 @@ import net.minecraftforge.client.resource.VanillaResourceType;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -66,8 +64,9 @@ class BlockRendering implements IBlockRendering, ISelectiveResourceReloadListene
     @SideOnly(Side.CLIENT)
     private final Map<String, IModel> builtInModels = new HashMap<>();
 
+    // One per model location: every model bake makes them all again, and only the newest are drawn.
     @SideOnly(Side.CLIENT)
-    private final List<IResourceManagerReloadListener> reloads = new ArrayList<>();
+    private final Map<ModelResourceLocation, IResourceManagerReloadListener> reloads = new HashMap<>();
 
     BlockRendering() {
         ((IReloadableResourceManager) Minecraft.getMinecraft().getResourceManager()).registerReloadListener(this);
@@ -122,7 +121,7 @@ class BlockRendering implements IBlockRendering, ISelectiveResourceReloadListene
             // extended props
             factory.addModelOverride(block.getRegistryName().getPath(), (l, m) -> {
                 AutoRotatingModel model = new AutoRotatingModel(m);
-                BlockRendering.this.reloads.add(model);
+                BlockRendering.this.reloads.put(l, model);
                 return model;
             });
         }
@@ -143,7 +142,7 @@ class BlockRendering implements IBlockRendering, ISelectiveResourceReloadListene
     @SideOnly(Side.CLIENT)
     public void onResourceManagerReload(IResourceManager resourceManager, Predicate<IResourceType> resourcePredicate) {
         if (resourcePredicate.test(VanillaResourceType.MODELS)) {
-            this.reloads.forEach(listener -> listener.onResourceManagerReload(resourceManager));
+            this.reloads.values().forEach(listener -> listener.onResourceManagerReload(resourceManager));
         }
     }
 
