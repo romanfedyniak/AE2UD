@@ -69,7 +69,9 @@ final class UelParts {
             case IDENTITY_ANNIHILATION_PLANE:
                 onlyKeyType(part, ITEMS);
                 final NBTTagList enchantments = part.getTagList("Enchantments", Constants.NBT.TAG_COMPOUND);
-                enchantments.appendTag(silkTouch());
+                if (!hasSilkTouch(enchantments)) {
+                    enchantments.appendTag(silkTouch());
+                }
                 part.setTag("Enchantments", enchantments);
                 break;
             case 302:
@@ -103,6 +105,10 @@ final class UelParts {
      * A part that handled one key type on UEL handles every type on AE2UD unless told otherwise.
      */
     private static void onlyKeyType(final NBTTagCompound part, final String type) {
+        // Already ours: a chunk AE2UD saved in a session that did not mark it migrated is read again.
+        if (part.hasKey("enabledKeyTypes")) {
+            return;
+        }
         final NBTTagList types = new NBTTagList();
         types.appendTag(new NBTTagString(type));
         part.setTag("enabledKeyTypes", types);
@@ -132,6 +138,16 @@ final class UelParts {
             config.setTag("#0", slot);
             part.setTag("config", config);
         }
+    }
+
+    private static boolean hasSilkTouch(final NBTTagList enchantments) {
+        final int silkTouch = Enchantment.getEnchantmentID(Enchantments.SILK_TOUCH);
+        for (int i = 0; i < enchantments.tagCount(); i++) {
+            if (enchantments.getCompoundTagAt(i).getShort("id") == silkTouch) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static NBTTagCompound silkTouch() {
