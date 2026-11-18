@@ -536,7 +536,8 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
         if (this.facingTick == now && (known == null || !known.isInvalid())) {
             return known;
         }
-        final TileEntity found = world.getTileEntity(host.getPos().offset(this.getSide().getFacing()));
+        final BlockPos facing = host.getPos().offset(this.getSide().getFacing());
+        final TileEntity found = world.isBlockLoaded(facing) ? world.getTileEntity(facing) : null;
         this.facingTile = found;
         this.facingTick = now;
         return found;
@@ -672,11 +673,5 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
     public void getDrops(final List<ItemStack> drops, final boolean wrenched) {
         super.getDrops(drops, wrenched);
         drops.addAll(this.waitingToSend);
-    }
-
-    @Override
-    public void onNeighborChanged(final net.minecraft.world.IBlockAccess w, final BlockPos pos, final BlockPos neighbor) {
-        super.onNeighborChanged(w, pos, neighbor);
-        this.getHost().markForUpdate();
     }
 }
