@@ -30,6 +30,8 @@ import net.minecraftforge.oredict.OreDictionary;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.annotation.Nullable;
+
 
 public class OreHelper {
 
@@ -49,8 +51,27 @@ public class OreHelper {
     private static final OreReference NONE = new OreReference();
 
     // Asked from the grids' threads at once on a server that ticks them in parallel, and from both sides in
-    // single player.
-    private final Map<ItemRef, OreReference> references = new ConcurrentHashMap<>();
+    // single player. By item, then damage (none for a damageable item), so a lookup makes no key object.
+    private final Map<Item, Map<Integer, OreReference>> references = new ConcurrentHashMap<>();
+
+    /**
+     * The ore names of what a key stands for, or null for none. Asked on every insert, extract and change report
+     * of an ore dictionary bus, so a key already seen is answered without making a stack.
+     */
+    @Nullable
+    public OreReference getOre(final AEItemKey key) {
+        final OreReference known = this.known(key.getItem(), key.getDamage());
+        if (known != null) {
+            return known == NONE ? null : known;
+        }
+        return this.getOre(key.getReadOnlyStack()).orElse(null);
+    }
+
+    @Nullable
+    private OreReference known(final Item item, final int damage) {
+        final Map<Integer, OreReference> byDamage = this.references.get(item);
+        return byDamage == null ? null : byDamage.get(item.isDamageable() ? 0 : damage);
+    }
 
     /**
      * Test if the passed {@link ItemStack} is an ore.
@@ -59,9 +80,8 @@ public class OreHelper {
      * @return true if an ore entry exists, false otherwise
      */
     public Optional<OreReference> getOre(final ItemStack itemStack) {
-        final ItemRef ir = new ItemRef(itemStack);
-
-        OreReference known = this.references.get(ir);
+        final Item item = itemStack.getItem();
+        OreReference known = this.known(item, itemStack.getItemDamage());
         if (known == null) {
             final OreReference ref = new OreReference();
             final Collection<Integer> ores = ref.getOres();
@@ -89,7 +109,8 @@ public class OreHelper {
             }
 
             known = set.isEmpty() ? NONE : ref;
-            this.references.put(ir, known);
+            this.references.computeIfAbsent(item, i -> new ConcurrentHashMap<>())
+                    .put(item.isDamageable() ? 0 : itemStack.getItemDamage(), known);
         }
 
         return known == NONE ? Optional.empty() : Optional.of(known);
@@ -150,46 +171,5 @@ public class OreHelper {
 
     public List<ItemStack> getCachedOres(final String oreName) {
         return this.oreDictCache.getUnchecked(oreName);
-    }
-
-    private static class ItemRef {
-
-        private final Item ref;
-        private final int damage;
-        private final int hash;
-
-        ItemRef(final ItemStack stack) {
-            this.ref = stack.getItem();
-
-            if (stack.getItem().isDamageable()) {
-                this.damage = 0; // IGNORED
-            } else {
-                this.damage = stack.getItemDamage(); // might be important...
-            }
-
-            this.hash = this.ref.hashCode() ^ this.damage;
-        }
-
-        @Override
-        public int hashCode() {
-            return this.hash;
-        }
-
-        @Override
-        public boolean equals(final Object obj) {
-            if (obj == null) {
-                return false;
-            }
-            if (this.getClass() != obj.getClass()) {
-                return false;
-            }
-            final ItemRef other = (ItemRef) obj;
-            return this.damage == other.damage && this.ref == other.ref;
-        }
-
-        @Override
-        public String toString() {
-            return "ItemRef [ref=" + this.ref.getTranslationKey() + ", damage=" + this.damage + ", hash=" + this.hash + ']';
-        }
     }
 }
