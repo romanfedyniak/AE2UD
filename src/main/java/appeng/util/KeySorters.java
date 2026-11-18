@@ -24,8 +24,10 @@ import appeng.api.stacks.AEKey;
 import appeng.integration.Integrations;
 import appeng.integration.abstraction.IInvTweaks;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 
+import javax.annotation.Nullable;
 import java.util.Comparator;
 
 
@@ -104,6 +106,13 @@ public class KeySorters {
     public static String sortName(final AEKey key) {
         final String name = TextFormatting.getTextWithoutFormattingCodes(key.getDisplayName().getUnformattedText());
         return name == null ? "" : name;
+    }
+
+    /** Inventory Tweaks' order of two display stacks, or null while Inventory Tweaks is not there. */
+    @Nullable
+    public static Comparator<ItemStack> invTweaksStackOrder() {
+        final IInvTweaks tweaks = api;
+        return tweaks == null ? null : tweaks::compareItems;
     }
 
     public static void init() {

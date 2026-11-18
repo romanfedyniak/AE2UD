@@ -36,7 +36,6 @@ import appeng.integration.Integrations;
 import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.KeySorters;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.ItemStack;
 
@@ -50,6 +49,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -199,7 +199,8 @@ public class Repo {
             return true;
         }
         final Enum sortBy = this.sortSrc.getSortBy();
-        if (sortBy != SortOrder.NAME && sortBy != SortOrder.MOD) {
+        // Inventory Tweaks and BogoSorter order stacks of one, so amounts never move a row there either.
+        if (sortBy != SortOrder.NAME && sortBy != SortOrder.MOD && sortBy != SortOrder.INVTWEAKS) {
             return true;
         }
         return old.isCraftable() != now.isCraftable()
@@ -333,22 +334,21 @@ public class Repo {
 
     /**
      * The same orders as {@link KeySorters}, compared on the cached names. Inventory Tweaks and BogoSorter
-     * still go through theirs: they compare stacks, not names.
+     * compare stacks, not names: each key's stack is made once per sort rather than twice per comparison, and
+     * their order takes the same tie-break and direction as the others.
      */
     private Comparator<GridInventoryEntry> getComparator(Enum sortBy) {
-        if (sortBy == SortOrder.INVTWEAKS) {
-            final Comparator<Object2LongMap.Entry<AEKey>> c = InventoryBogoSortModule.isLoaded()
-                    ? InventoryBogoSortModule.COMPARATOR
-                    : KeySorters.CONFIG_BASED_SORT_BY_INV_TWEAKS;
-            // KeySorters' comparators are shaped for iterating a KeyCounter (Object2LongMap.Entry<AEKey>);
-            // this repo holds GridInventoryEntry rows instead, so adapt rather than touching the wave 1 file.
-            return (a, b) -> c.compare(new KeyAmountEntry(a.getWhat(), a.getStoredAmount()), new KeyAmountEntry(b.getWhat(), b.getStoredAmount()));
-        }
-
         final Comparator<GridInventoryEntry> byName = (a, b) -> this.nameOf(a.getWhat())
                 .compareToIgnoreCase(this.nameOf(b.getWhat()));
         final Comparator<GridInventoryEntry> c;
-        if (sortBy == SortOrder.MOD) {
+        final Comparator<ItemStack> byStack = sortBy != SortOrder.INVTWEAKS ? null
+                : InventoryBogoSortModule.isLoaded() ? InventoryBogoSortModule.STACK_COMPARATOR
+                : KeySorters.invTweaksStackOrder();
+        if (byStack != null) {
+            final Map<AEKey, ItemStack> stacks = new HashMap<>();
+            c = (a, b) -> byStack.compare(stacks.computeIfAbsent(a.getWhat(), AEKey::wrapForDisplayOrFilter),
+                    stacks.computeIfAbsent(b.getWhat(), AEKey::wrapForDisplayOrFilter));
+        } else if (sortBy == SortOrder.MOD) {
             c = ((Comparator<GridInventoryEntry>) (a, b) -> a.getWhat().getModId()
                     .compareToIgnoreCase(b.getWhat().getModId())).thenComparing(byName);
         } else if (sortBy == SortOrder.AMOUNT) {
@@ -486,48 +486,5 @@ public class Repo {
      */
     public boolean hasMatches() {
         return this.anyMatches;
-    }
-
-    /**
-     * Minimal adapter so {@link appeng.util.KeySorters}'s {@code Object2LongMap.Entry<AEKey>}-shaped
-     * comparators (built for iterating a {@link appeng.api.stacks.KeyCounter}) can also compare the
-     * {@link GridInventoryEntry} rows this repo actually holds, without touching the wave 1 file that
-     * defines them.
-     */
-    private static final class KeyAmountEntry implements Object2LongMap.Entry<AEKey> {
-        private final AEKey key;
-        private final long amount;
-
-        KeyAmountEntry(final AEKey key, final long amount) {
-            this.key = key;
-            this.amount = amount;
-        }
-
-        @Override
-        public AEKey getKey() {
-            return this.key;
-        }
-
-        @Override
-        public long getLongValue() {
-            return this.amount;
-        }
-
-        @Override
-        public Long getValue() {
-            // fastutil's Object2LongMap.Entry still extends Map.Entry<K, Long> in this version and does
-            // not default the boxed accessors, so both have to be spelled out. Nothing calls either.
-            return this.amount;
-        }
-
-        @Override
-        public Long setValue(final Long value) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long setValue(final long value) {
-            throw new UnsupportedOperationException();
-        }
     }
 }
