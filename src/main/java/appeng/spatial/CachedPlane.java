@@ -37,6 +37,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
+import net.minecraft.world.gen.structure.StructureBoundingBox;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -148,7 +149,12 @@ public class CachedPlane {
                 }
 
                 final long k = this.getWorld().getTotalWorldTime();
-                final List<NextTickListEntry> list = this.getWorld().getPendingBlockUpdates(c, false);
+                // Taken out of the world, or they would still fire here on whatever is swapped in. The box is
+                // this chunk's columns of the region, but ignores height, so the ticks above and below go back.
+                final StructureBoundingBox columns = new StructureBoundingBox(
+                        Math.max(minX, c.x << 4), 0, Math.max(minZ, c.z << 4),
+                        Math.min(maxX, (c.x << 4) + 15) + 1, 256, Math.min(maxZ, (c.z << 4) + 15) + 1);
+                final List<NextTickListEntry> list = this.getWorld().getPendingBlockUpdates(columns, true);
                 if (list != null) {
                     for (final NextTickListEntry entry : list) {
                         final BlockPos tePOS = entry.position;
@@ -157,6 +163,8 @@ public class CachedPlane {
                             final NextTickListEntry newEntry = new NextTickListEntry(tePOS, entry.getBlock());
                             newEntry.scheduledTime = entry.scheduledTime - k;
                             this.ticks.add(newEntry);
+                        } else {
+                            this.getWorld().scheduleBlockUpdate(tePOS, entry.getBlock(), (int) (entry.scheduledTime - k), entry.priority);
                         }
                     }
                 }
