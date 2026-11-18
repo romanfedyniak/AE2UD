@@ -34,6 +34,10 @@ import appeng.tile.AEBaseTile;
 import appeng.tile.networking.TileCableBus;
 import appeng.tile.storage.TileSkyChest;
 import appeng.util.Platform;
+import appeng.api.config.SecurityPermissions;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.ISecurityGrid;
 import appeng.util.SettingsFrom;
 import com.google.common.collect.Lists;
 import net.minecraft.block.Block;
@@ -312,6 +316,9 @@ public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntity
                     final NBTTagCompound data = memoryCard.getData(heldItem);
 
                     if (this.getTranslationKey().equals(savedName)) {
+                        if (!mayChangeSettings(tileEntity, player)) {
+                            return true;
+                        }
                         tileEntity.uploadSettings(SettingsFrom.MEMORY_CARD, data, player);
                         memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_LOADED);
                     } else {
@@ -366,4 +373,15 @@ public abstract class AEBaseTileBlock extends AEBaseBlock implements ITileEntity
         return super.getCustomCollision(w, pos);
     }
 
+    /** What the machine's own window asks: may the player build here, and on this network. */
+    private static boolean mayChangeSettings(final AEBaseTile tile, final EntityPlayer player) {
+        if (!Platform.hasPermissions(tile.getWorld(), tile.getPos(), player)) {
+            return false;
+        }
+        final IGridNode node = tile instanceof IActionHost ? ((IActionHost) tile).getActionableNode() : null;
+        if (node == null || node.getGrid() == null) {
+            return true;
+        }
+        return ((ISecurityGrid) node.getGrid().getCache(ISecurityGrid.class)).hasPermission(player, SecurityPermissions.BUILD);
+    }
 }

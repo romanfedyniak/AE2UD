@@ -20,12 +20,14 @@ package appeng.parts;
 
 
 import appeng.api.AEApi;
+import appeng.api.config.SecurityPermissions;
 import appeng.api.definitions.IDefinitions;
 import appeng.api.implementations.IUpgradeableHost;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardMessages;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.*;
 import appeng.api.util.*;
 import appeng.core.sync.GuiBridge;
@@ -456,6 +458,9 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
                 final String storedName = memoryCard.getSettingsName(memCardIS);
                 final NBTTagCompound data = memoryCard.getData(memCardIS);
                 if (name.equals(storedName)) {
+                    if (!this.mayChangeSettings(player)) {
+                        return true;
+                    }
                     this.uploadSettings(SettingsFrom.MEMORY_CARD, data, player);
                     memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_LOADED);
                 } else {
@@ -465,6 +470,24 @@ public abstract class AEBasePart implements IPart, IGridProxyable, IActionHost, 
             return true;
         }
         return false;
+    }
+
+    /**
+     * What every part's window asks: may the player build here, and on this network. A paste is more than settings:
+     * it hands back the cards the copy does not list and swaps an interface's patterns for blanks.
+     */
+    private boolean mayChangeSettings(final EntityPlayer player) {
+        if (Platform.isClient()) {
+            return true;
+        }
+        if (!Platform.hasPermissions(this.getLocation(), player)) {
+            return false;
+        }
+        final IGridNode node = this.getActionableNode();
+        if (node == null || node.getGrid() == null) {
+            return true;
+        }
+        return ((ISecurityGrid) node.getGrid().getCache(ISecurityGrid.class)).hasPermission(player, SecurityPermissions.BUILD);
     }
 
     private boolean useRenamer(final EntityPlayer player) {
