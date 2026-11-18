@@ -89,18 +89,15 @@ public class BlockChargedQuartzOre extends BlockQuartzOre {
                 yOff = -0.01;
                 break;
             case 2:
-                xOff = -0.01;
-                break;
-            case 3:
                 zOff = -0.01;
                 break;
-            case 4:
+            case 3:
                 xOff = 1.01;
                 break;
-            case 5:
+            case 4:
                 yOff = 1.01;
                 break;
-            case 6:
+            case 5:
                 zOff = 1.01;
                 break;
         }
