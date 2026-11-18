@@ -115,7 +115,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
                     if (type == Actionable.MODULATE) {
                         is.setCount((int) maxStorage);
-                        this.spawnItemEntity(this.world, this.host, sideLoc, is);
+                        worked = this.spawnItemEntity(this.world, this.host, sideLoc, is);
                     }
                 }
             } else if (i instanceof ItemBlock || i instanceof ItemBlockSpecial || i instanceof IPlantable
@@ -169,7 +169,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
                 if (sum < AEConfig.instance().getFormationPlaneEntityLimit()) {
                     if (type == Actionable.MODULATE) {
                         is.setCount((int) maxStorage);
-                        this.spawnItemEntity(this.world, this.host, sideLoc, is);
+                        worked = this.spawnItemEntity(this.world, this.host, sideLoc, is);
                     }
                 } else {
                     worked = false;
@@ -189,7 +189,8 @@ class ItemPlacementStrategy implements PlacementStrategy {
                 sideLoc.xOffset, sideLoc.yOffset, sideLoc.zOffset, hand);
     }
 
-    private void spawnItemEntity(World w, TileEntity te, AEPartLocation side, ItemStack is) {
+    /** @return false when the world refused the entity (a mod cancelling item spawns): nothing was placed. */
+    private boolean spawnItemEntity(World w, TileEntity te, AEPartLocation side, ItemStack is) {
         double x = (side.xOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.xOffset + .5 + te.getPos().getX();
         double y = (side.yOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.yOffset + .5 + te.getPos().getY();
         double z = (side.zOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.zOffset + .5 + te.getPos().getZ();
@@ -212,7 +213,9 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
         if (!w.spawnEntity(result)) {
             result.setDead();
+            return false;
         }
+        return true;
     }
 
     private int countEntitiesAround(World world, BlockPos pos) {

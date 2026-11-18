@@ -19,6 +19,8 @@
 
 package appeng.parts.automation;
 
+import java.util.Collections;
+
 import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
@@ -168,7 +170,10 @@ class StorageImportStrategy implements StackImportStrategy {
                 // Last resort: hand it back to the source inventory. If that also fails, the item is
                 // voided, exactly like the pre-port comment "better be a bit lenient then void items".
                 ItemStack toReturn = ((AEItemKey) extractedKey).toStack((int) stillLeftover);
-                adaptor.addItems(toReturn);
+                ItemStack notReturned = adaptor.addItems(toReturn);
+                if (!notReturned.isEmpty()) {
+                    Platform.spawnDrops(this.world, this.fromPos, Collections.singletonList(notReturned));
+                }
             }
             return false;
         }

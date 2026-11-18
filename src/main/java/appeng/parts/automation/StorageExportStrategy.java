@@ -19,6 +19,8 @@
 
 package appeng.parts.automation;
 
+import java.util.Collections;
+
 import javax.annotation.Nullable;
 
 import net.minecraft.item.ItemStack;
@@ -86,8 +88,13 @@ class StorageExportStrategy implements StackExportStrategy {
         long insertedIntoTarget = extracted - (failed.isEmpty() ? 0 : failed.getCount());
 
         if (!failed.isEmpty()) {
-            // Spill whatever couldn't be pushed back into the network rather than voiding it.
-            internal.insert(itemKey, failed.getCount(), Actionable.MODULATE, source);
+            // Spill whatever couldn't be pushed back into the network rather than voiding it, and drop what the
+            // network will not take back either.
+            final long back = internal.insert(itemKey, failed.getCount(), Actionable.MODULATE, source);
+            if (back < failed.getCount()) {
+                Platform.spawnDrops(this.world, this.fromPos,
+                        Collections.singletonList(itemKey.toStack((int) (failed.getCount() - back))));
+            }
         }
 
         return insertedIntoTarget;
