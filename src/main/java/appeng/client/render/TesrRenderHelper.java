@@ -231,7 +231,7 @@ public class TesrRenderHelper {
             @Nullable String rate, int rateColor) {
         if (what instanceof AEItemKey itemKey) {
             // count = 1, identity only - matches the old IAEItemStack.asItemStackRepresentation()
-            TesrRenderHelper.renderItem2d(itemKey.toStack(), scale);
+            TesrRenderHelper.renderItem2d(itemKey.getReadOnlyStack(), scale);
         } else if (what instanceof AEFluidKey fluidKey) {
             // Identity only, like the item above: toStack(0) is null, and a monitor whose network has run
             // out should still show what it is watching.

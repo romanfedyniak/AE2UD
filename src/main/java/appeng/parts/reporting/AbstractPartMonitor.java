@@ -105,6 +105,12 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
     /** Per tick, in each direction, as last sent. The unit is applied where the number is drawn. */
     private float rateIn;
     private float rateOut;
+    // What the face's rate line was last made from, and the line.
+    private ThroughputUnit faceRateUnit;
+    private ThroughputFigure faceRateFigure;
+    private AEKey faceRateKey;
+    private double faceRateValue;
+    private String faceRate;
 
     @Reflected
     public AbstractPartMonitor(final ItemStack is) {
@@ -414,9 +420,25 @@ public abstract class AbstractPartMonitor extends AbstractPartDisplay
         TesrRenderHelper.moveToFace(facing);
         TesrRenderHelper.rotateToFace(facing, this.getSpin());
         TesrRenderHelper.renderKey2dWithAmount(key, this.configuredAmount, 0.8f, 0.17f,
-                this.formatRate(this.figure), rateColor(this.rateOf(this.figure), this.figure));
+                this.faceRate(), rateColor(this.rateOf(this.figure), this.figure));
         GlStateManager.popMatrix();
 
+    }
+
+    /** The line under the amount, made again only when what it says changed rather than every frame. */
+    @Nullable
+    @SideOnly(Side.CLIENT)
+    private String faceRate() {
+        final double value = this.rateOf(this.figure);
+        if (this.faceRateUnit != this.unit || this.faceRateFigure != this.figure || this.faceRateKey != this.configuredKey
+                || this.faceRateValue != value) {
+            this.faceRateUnit = this.unit;
+            this.faceRateFigure = this.figure;
+            this.faceRateKey = this.configuredKey;
+            this.faceRateValue = value;
+            this.faceRate = this.formatRate(this.figure);
+        }
+        return this.faceRate;
     }
 
     /** Whether the face carries a line under the amount. */
