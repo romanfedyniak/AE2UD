@@ -111,12 +111,17 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
 
     @Override
     public double injectAEPower(final ItemStack is, final double amount, Actionable mode) {
+        if (amount <= 0) {
+            return 0;
+        }
+
         final double maxStorage = this.getAEMaxPower(is);
         final double currentStorage = this.getAECurrentPower(is);
-        final double required = maxStorage - currentStorage;
+        // Never below nothing: a tool can hold more than its battery after the battery was made smaller in the config.
+        final double required = Math.max(0, maxStorage - currentStorage);
         final double overflow = amount - required;
 
-        if (mode == Actionable.MODULATE) {
+        if (mode == Actionable.MODULATE && required > 0) {
             final NBTTagCompound data = Platform.openNbtData(is);
             final double toAdd = Math.min(amount, required);
 
