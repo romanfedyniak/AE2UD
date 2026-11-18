@@ -347,7 +347,7 @@ public class TileCraftingTile extends AENetworkTile implements IAEMultiBlock, IP
                     for (final AEPartLocation d : AEPartLocation.SIDE_LOCATIONS) {
                         final WorldCoord wc = new WorldCoord(te);
                         wc.add(d, 1);
-                        if (this.world.isAirBlock(wc.getPos())) {
+                        if (this.world.isBlockLoaded(wc.getPos()) && this.world.isAirBlock(wc.getPos())) {
                             places.add(wc);
                         }
                     }

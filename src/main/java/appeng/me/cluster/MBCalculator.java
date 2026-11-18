@@ -24,6 +24,7 @@ import appeng.api.util.WorldCoord;
 import appeng.core.AELog;
 import appeng.util.Platform;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -45,23 +46,27 @@ public abstract class MBCalculator {
             final WorldCoord min = loc.copy();
             final WorldCoord max = loc.copy();
 
-            // find size of MB structure...
-            while (this.isValidTileAt(world, min.x - 1, min.y, min.z)) {
+            // find size of MB structure... A line longer than any structure may be is not walked to its end:
+            // one block past the limit is enough for checkMultiblockScale to refuse it.
+            final int spanX = this.getMaxSpan(EnumFacing.Axis.X);
+            final int spanY = this.getMaxSpan(EnumFacing.Axis.Y);
+            final int spanZ = this.getMaxSpan(EnumFacing.Axis.Z);
+            while (max.x - min.x < spanX && this.isValidTileAt(world, min.x - 1, min.y, min.z)) {
                 min.x--;
             }
-            while (this.isValidTileAt(world, min.x, min.y - 1, min.z)) {
+            while (max.y - min.y < spanY && this.isValidTileAt(world, min.x, min.y - 1, min.z)) {
                 min.y--;
             }
-            while (this.isValidTileAt(world, min.x, min.y, min.z - 1)) {
+            while (max.z - min.z < spanZ && this.isValidTileAt(world, min.x, min.y, min.z - 1)) {
                 min.z--;
             }
-            while (this.isValidTileAt(world, max.x + 1, max.y, max.z)) {
+            while (max.x - min.x < spanX && this.isValidTileAt(world, max.x + 1, max.y, max.z)) {
                 max.x++;
             }
-            while (this.isValidTileAt(world, max.x, max.y + 1, max.z)) {
+            while (max.y - min.y < spanY && this.isValidTileAt(world, max.x, max.y + 1, max.z)) {
                 max.y++;
             }
-            while (this.isValidTileAt(world, max.x, max.y, max.z + 1)) {
+            while (max.z - min.z < spanZ && this.isValidTileAt(world, max.x, max.y, max.z + 1)) {
                 max.z++;
             }
 
@@ -103,7 +108,29 @@ public abstract class MBCalculator {
     }
 
     private boolean isValidTileAt(final World w, final int x, final int y, final int z) {
-        return this.isValidTile(w.getTileEntity(new BlockPos(x, y, z)));
+        final BlockPos pos = new BlockPos(x, y, z);
+
+        // Looking would load the chunk, or generate it.
+        if (!this.reachesIntoUnloadedChunks() && !w.isBlockLoaded(pos)) {
+            return false;
+        }
+
+        return this.isValidTile(w.getTileEntity(pos));
+    }
+
+    /**
+     * Whether the structure may continue into a chunk that is not loaded, so that one has to be loaded to find out.
+     * One that never reaches past its own chunk can take an unloaded neighbour for empty.
+     */
+    protected boolean reachesIntoUnloadedChunks() {
+        return true;
+    }
+
+    /**
+     * The longest the structure may be along an axis, less one: how far the scan walks before giving up.
+     */
+    protected int getMaxSpan(final EnumFacing.Axis axis) {
+        return Integer.MAX_VALUE;
     }
 
     /**
@@ -200,8 +227,7 @@ public abstract class MBCalculator {
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    final TileEntity te = w.getTileEntity(new BlockPos(x, y, z));
-                    if (this.isValidTile(te)) {
+                    if (this.isValidTileAt(w, x, y, z)) {
                         return true;
                     }
                 }

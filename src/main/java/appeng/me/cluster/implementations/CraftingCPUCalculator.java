@@ -32,6 +32,7 @@ import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.MBCalculator;
 import appeng.tile.crafting.TileCraftingTile;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -66,6 +67,21 @@ public class CraftingCPUCalculator extends MBCalculator {
         }
 
         return true;
+    }
+
+    @Override
+    protected boolean reachesIntoUnloadedChunks() {
+        return !AEConfig.instance().craftingCPURequiresSingleChunk();
+    }
+
+    @Override
+    protected int getMaxSpan(final EnumFacing.Axis axis) {
+        final AEConfig config = AEConfig.instance();
+        return switch (axis) {
+            case X -> config.getCraftingCPUMaxSizeX();
+            case Y -> config.getCraftingCPUMaxSizeY();
+            case Z -> config.getCraftingCPUMaxSizeZ();
+        };
     }
 
     @Override
