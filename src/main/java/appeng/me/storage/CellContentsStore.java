@@ -105,6 +105,8 @@ public final class CellContentsStore {
     private final Set<UUID> failed = ConcurrentHashMap.newKeySet();
     // Cells with a write waiting for the writer, which will take whatever snapshot is pending by then.
     private final Set<UUID> queued = ConcurrentHashMap.newKeySet();
+    // Files that could not be read nor set aside. Never written over: what they hold is not what this cell shows.
+    private final Set<UUID> unreadable = ConcurrentHashMap.newKeySet();
     private final ExecutorService writer;
     /** A chunk holding AE machines, or a player, was saved this tick. */
     private volatile boolean saveRequested;
@@ -323,6 +325,9 @@ public final class CellContentsStore {
      * otherwise have every one of its snapshots waiting in line, each written over the last.
      */
     private void queue(final UUID id, final NBTTagCompound tag) {
+        if (this.unreadable.contains(id)) {
+            return;
+        }
         this.pending.put(id, tag);
         if (!this.queued.add(id)) {
             return; // a write of this cell has not started yet, and takes the snapshot just put
@@ -396,9 +401,20 @@ public final class CellContentsStore {
                 tag = CompressedStreamTools.readCompressed(in);
             } catch (final IOException | RuntimeException e) {
                 // Kept for whoever wants to look at it; the cell reads as empty.
-                AELog.error(e, "Storage cell " + id + " could not be read; its file was renamed to .corrupt");
-                if (!file.renameTo(new File(file.getPath() + ".corrupt"))) {
-                    AELog.warn("Could not rename %s", file);
+                final File kept = new File(file.getPath() + ".corrupt");
+                if (file.renameTo(kept)) {
+                    AELog.error(e, "Storage cell " + id + " could not be read; its file was renamed to .corrupt");
+                    return;
+                }
+                try {
+                    Files.copy(file.toPath(), kept.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    AELog.error(e, "Storage cell " + id + " could not be read; its file was copied to .corrupt");
+                } catch (final IOException | RuntimeException notCopied) {
+                    // Held open by another program, which on Windows also keeps it from being renamed or read.
+                    // Left as it is, and not written over by the empty cell this reads as.
+                    this.unreadable.add(id);
+                    AELog.error(e, "Storage cell " + id + " could not be read, renamed or copied; it is left as it "
+                            + "is and will not be saved until the server starts again");
                 }
                 return;
             }
