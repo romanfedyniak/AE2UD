@@ -219,12 +219,13 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             this.accessor = null;
 
             final ItemStack is = this.getCell();
+            double idlePower = 1.0;
             if (!is.isEmpty()) {
                 this.isCached = true;
                 final StorageCell cell = StorageCells.getCellInventory(is, this);
 
                 if (cell != null) {
-                    this.getProxy().setIdlePowerUsage(1.0 + cell.getIdleDrain());
+                    idlePower += cell.getIdleDrain();
 
                     this.driveWatcher = new DriveWatcher(cell, () -> this.blinkCell(0));
                     this.cellStorage = new SecurityAwareCellStorage(this.driveWatcher);
@@ -236,6 +237,10 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
                         this.fluidHandler = new FluidHandler();
                     }
                 }
+            }
+            // Only on a change: with no cell this runs on every capability query.
+            if (this.getProxy().getIdlePowerUsage() != idlePower) {
+                this.getProxy().setIdlePowerUsage(idlePower);
             }
         }
     }
