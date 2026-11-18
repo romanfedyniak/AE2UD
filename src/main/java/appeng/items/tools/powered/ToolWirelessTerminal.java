@@ -31,6 +31,9 @@ import appeng.api.util.IConfigManager;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
+import appeng.entity.EntityChargedQuartz;
+import appeng.entity.EntityGrowingCrystal;
+import appeng.entity.EntitySingularity;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.WirelessTerminalMigration;
 import appeng.helpers.WirelessTerminalModeRemoval;
@@ -361,7 +364,7 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                         new AxisAlignedBB(
                                 entityIn.posX - 5, entityIn.posY - 5, entityIn.posZ - 5,
                                 entityIn.posX + 5, entityIn.posY + 5, entityIn.posZ + 5
-                        ));
+                        ), ToolWirelessTerminal::mayPull);
                 if (ei.isEmpty() || stack.getTagCompound() == null) {
                     return;
                 }
@@ -441,6 +444,17 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 }
             }
         }
+    }
+
+    /**
+     * Not AE's own in-world crafting: a seed growing in water, charged quartz waiting in water for its fluix, a
+     * singularity waiting for its explosion.
+     */
+    private static boolean mayPull(@Nullable final EntityItem item) {
+        if (item instanceof EntitySingularity) {
+            return false;
+        }
+        return !((item instanceof EntityGrowingCrystal || item instanceof EntityChargedQuartz) && item.isInWater());
     }
 
     /**
