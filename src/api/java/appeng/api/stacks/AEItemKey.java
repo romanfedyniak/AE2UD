@@ -51,6 +51,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
+import net.minecraftforge.common.capabilities.CapabilityDispatcher;
 import net.minecraftforge.oredict.OreDictionary;
 
 import appeng.api.storage.AEKeyFilter;
@@ -124,18 +125,23 @@ public final class AEItemKey extends AEKey {
         });
     }
 
-    /** The stack writes its tag by reference and adds ForgeCaps only when it has capabilities. */
+    /**
+     * What the stack writes under ForgeCaps, written by its capabilities alone: serialising the whole stack for
+     * it built its compound, name and all, on every key made and every match.
+     */
     @Nullable
     private static NBTTagCompound forgeCaps(ItemStack stack) {
+        final Object capabilities;
         try {
-            if ((Object) CAPABILITIES.invokeExact(stack) == null) {
-                return null;
-            }
+            capabilities = (Object) CAPABILITIES.invokeExact(stack);
         } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
-        NBTTagCompound written = stack.serializeNBT();
-        return written.hasKey("ForgeCaps", 10) ? written.getCompoundTag("ForgeCaps") : null;
+        if (capabilities == null) {
+            return null;
+        }
+        NBTTagCompound written = ((CapabilityDispatcher) capabilities).serializeNBT();
+        return written.isEmpty() ? null : written;
     }
 
     private ItemStack newStack(int count, @Nullable NBTTagCompound tag) {
