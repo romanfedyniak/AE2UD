@@ -283,7 +283,7 @@ public enum GuiBridge implements IGuiHandler {
             if (usingItemOnTile) {
                 it = player.inventory.getCurrentItem();
             } else if (y == 0) {
-                if (x >= 0 && x < player.inventory.mainInventory.size()) {
+                if (x >= 0 && x < player.inventory.getSizeInventory()) {
                     it = player.inventory.getStackInSlot(x);
                 }
             } else if (y == 1 && z == Integer.MIN_VALUE) {
@@ -406,7 +406,7 @@ public enum GuiBridge implements IGuiHandler {
             if (usingItemOnTile) {
                 it = player.inventory.getCurrentItem();
             } else if (y == 0) {
-                if (x >= 0 && x < player.inventory.mainInventory.size()) {
+                if (x >= 0 && x < player.inventory.getSizeInventory()) {
                     it = player.inventory.getStackInSlot(x);
                 }
             }
