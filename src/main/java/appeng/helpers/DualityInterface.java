@@ -1560,7 +1560,8 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     public boolean isBusy() {
         boolean busy = false;
 
-        if (this.hasItemsToSend() || hasItemsToSendFacing()) {
+        // Waiting ingredients of any type: pushPattern refuses until they are in.
+        if (this.hasItemsToSend() || hasItemsToSendFacing() || !this.pendingExtras.isEmpty()) {
             return true;
         }
 
@@ -1635,6 +1636,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                             break;
                         }
                     }
+                } else if (te != null && this.freeForOtherTypes(s)) {
+                    allAreBusy = false;
+                    break;
                 }
             }
             busy = allAreBusy;
@@ -1715,6 +1719,35 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
     }
 
     /** The same for a block pushing from {@code self}, which an interface tunnel's output does too. */
+    /**
+     * For a neighbour without item slots - a tank, a mana pool - which {@link #pushPattern} hands a pattern of those
+     * types alone: free when it can hold one of the types the patterns here push, and none of them is in it.
+     */
+    private boolean freeForOtherTypes(final EnumFacing side) {
+        if (this.pushedTypes.isEmpty()) {
+            return false;
+        }
+
+        final TileEntity self = this.iHost.getTileEntity();
+        final Map<AEKeyType, ExternalStorageStrategy> strategies = StackWorldBehaviors
+                .createExternalStorageStrategies(self.getWorld(), self.getPos().offset(side), side.getOpposite());
+
+        boolean takesTypes = false;
+        for (final AEKeyType type : this.pushedTypes) {
+            final ExternalStorageStrategy strategy = strategies.get(type);
+            final MEStorage storage = strategy == null ? null : strategy.createWrapper(false, () -> {
+            });
+            if (storage == null) {
+                continue;
+            }
+            if (!storage.isEmpty()) {
+                return false;
+            }
+            takesTypes = true;
+        }
+        return takesTypes;
+    }
+
     public static boolean holdsAnyOf(final TileEntity self, final EnumFacing side, final Set<AEKeyType> types) {
         if (types.isEmpty()) {
             return false;
