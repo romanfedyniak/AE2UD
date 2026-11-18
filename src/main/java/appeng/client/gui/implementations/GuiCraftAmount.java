@@ -277,7 +277,9 @@ public class GuiCraftAmount extends AEBaseGui implements IKeyUnderMouse {
     @Override
     protected void keyTyped(final char character, final int key) throws IOException {
         if (!this.checkHotbarKeys(key)) {
-            if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+            // Enter is the button: not while the button refuses the amount, and once per press.
+            if ((key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) && this.next.enabled
+                    && !Keyboard.isRepeatEvent()) {
                 this.actionPerformed(this.next);
             }
             if (this.amountToCraft.textboxKeyTyped(character, key)) {
