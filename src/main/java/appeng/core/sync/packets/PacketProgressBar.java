@@ -53,12 +53,12 @@ public class PacketProgressBar extends AppEngPacket {
         this.configureWrite(data);
     }
 
+    /**
+     * Synced values only ever go from the server to the client. One arriving here is a client writing a field of
+     * its open container, so it is dropped.
+     */
     @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        final Container c = player.openContainer;
-        if (c instanceof AEBaseContainer) {
-            ((AEBaseContainer) c).updateFullProgressBar(this.id, this.value);
-        }
     }
 
     @Override
