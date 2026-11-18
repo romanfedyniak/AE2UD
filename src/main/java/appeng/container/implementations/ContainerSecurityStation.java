@@ -80,7 +80,7 @@ public class ContainerSecurityStation extends ContainerMEMonitorable implements 
                     bc.addPermission(a, permission);
                 }
             }
-        } catch (final EnumConstantNotPresentException ex) {
+        } catch (final IllegalArgumentException ex) {
             // :(
         }
     }
