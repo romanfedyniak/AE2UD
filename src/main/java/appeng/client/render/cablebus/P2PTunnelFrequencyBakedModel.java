@@ -23,7 +23,7 @@ public class P2PTunnelFrequencyBakedModel implements IBakedModel, IPartBakedMode
     private final VertexFormat format;
     private final TextureAtlasSprite texture;
 
-    private final static Cache<Long, List<BakedQuad>> modelCache = CacheBuilder.newBuilder().maximumSize(100).build();
+    private final Cache<Long, List<BakedQuad>> modelCache = CacheBuilder.newBuilder().maximumSize(100).build();
 
     private static final int[][] QUAD_OFFSETS = new int[][]{
             {4, 10, 2},
@@ -40,16 +40,8 @@ public class P2PTunnelFrequencyBakedModel implements IBakedModel, IPartBakedMode
     @Override
     public List<BakedQuad> getPartQuads(Long partFlags, long rand) {
         try {
-            return modelCache.get(partFlags, () ->
-            {
-                short frequency = 0;
-                boolean active = false;
-                if (partFlags != null) {
-                    frequency = (short) (partFlags.longValue() & 0xffffL);
-                    active = (partFlags.longValue() & 0x10000L) != 0;
-                }
-                return this.getQuadsForFrequency(frequency, active);
-            });
+            final long flags = partFlags == null ? 0 : partFlags;
+            return this.modelCache.get(flags, () -> this.getQuadsForFrequency((short) (flags & 0xffffL), (flags & 0x10000L) != 0));
         } catch (ExecutionException e) {
             return Collections.emptyList();
         }
