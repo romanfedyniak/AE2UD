@@ -27,6 +27,7 @@ import appeng.container.me.GridInventoryEntry;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
+import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nullable;
 
@@ -156,6 +157,10 @@ public class StackSizeRenderer {
         // because a long number happens to share the slot only makes it harder to see.
         final float scale = fittingScale(fontRenderer, "+", null, SCALE);
         final float inverseScale = 1.0f / scale;
+        // Put back as found: drawn over HEI's recipe screen too, which goes on drawing after it.
+        final boolean lighting = GL11.glIsEnabled(GL11.GL_LIGHTING);
+        final boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.disableBlend();
@@ -163,9 +168,15 @@ public class StackSizeRenderer {
         GlStateManager.scale(scale, scale, scale);
         fontRenderer.drawStringWithShadow("+", (int) ((xPos - OFFSET) * inverseScale), (int) ((yPos - OFFSET) * inverseScale), color);
         GlStateManager.popMatrix();
-        GlStateManager.enableLighting();
-        GlStateManager.enableDepth();
-        GlStateManager.enableBlend();
+        if (lighting) {
+            GlStateManager.enableLighting();
+        }
+        if (depth) {
+            GlStateManager.enableDepth();
+        }
+        if (blend) {
+            GlStateManager.enableBlend();
+        }
 
         fontRenderer.setUnicodeFlag(unicodeFlag);
     }
