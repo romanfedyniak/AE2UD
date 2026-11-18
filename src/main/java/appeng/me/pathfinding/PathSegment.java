@@ -102,11 +102,13 @@ public class PathSegment {
             return true;
         }
 
+        // The tunnel's own node, and its link to the cable it sits on, are what is being paid for, not cables that
+        // have to carry it, so their eight do not cap the price.
+        final IPathItem link = start.getControllerRoute();
         IPathItem pi = start;
         while (pi != null) {
-            // The tunnel's own node is what is being paid for, not a cable that has to carry it, so its own
-            // eight do not cap the price.
-            if (pi != start && !pi.canSupportMoreChannels(cost) || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
+            if (pi != start && pi != link && !pi.canSupportMoreChannels(cost)
+                    || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
                 return false;
             }
 
