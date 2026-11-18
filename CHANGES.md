@@ -14,6 +14,12 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+- **A storage bus no longer reads its whole inventory again after every item the network puts in or takes out.**
+  It recounts only the item that moved. On a filled Iron Storage infinity chest (243 slots) an insert through the
+  network went from about 850 to under 100 microseconds.
+
 ## 1.6.19 - 2026-11-18
 
 - **A thing whose recipe takes something it is also made from is crafted from what storage holds of that.**
