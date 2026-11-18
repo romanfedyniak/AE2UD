@@ -390,7 +390,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
             this.forcePlan = false;
             this.myPlan = null;
             this.myPattern = ItemStack.EMPTY;
-            this.pushDirection = AEPartLocation.INTERNAL;
+            this.resetPushDirectionWhenEmpty();
         }
 
         this.updateSleepiness();
@@ -551,7 +551,7 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
                 if (ItemHandlerUtil.isEmpty(this.patternInv)) {
                     this.forcePlan = false;
                     this.myPlan = null;
-                    this.pushDirection = AEPartLocation.INTERNAL;
+                    this.resetPushDirectionWhenEmpty();
                 }
 
                 this.ejectHeldItems();
@@ -638,6 +638,20 @@ public class TileMolecularAssembler extends AENetworkInvTile implements IUpgrade
 
         // An interface tunnel offers its inventory only once it is linked, and linking sends no block update.
         if (!neighbors.containsKey(d)) {
+        if (!this.forcePlan) {
+            this.resetPushDirectionWhenEmpty();
+        }
+    }
+
+    /**
+     * What a CPU-fed craft leaves - the result the interface could not take yet, the containers the recipe hands
+     * back - goes back where the craft came from, which is where the CPU waits for it. Only once all of it is out
+     * does the assembler push to any side again, as a hand-fed one does.
+     */
+    private void resetPushDirectionWhenEmpty() {
+        if (ItemHandlerUtil.isEmpty(this.gridInv) && ItemHandlerUtil.isEmpty(this.patternInv)) {
+            this.pushDirection = AEPartLocation.INTERNAL;
+        }
             this.updateNeighbors(this.world, this.pos, this.pos.offset(d));
         }
         Object capability = neighbors.get(d);
