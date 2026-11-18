@@ -121,15 +121,18 @@ public class PacketCraftRequest extends AppEngPacket {
                                 Platform.openGUI(player, i.getInventorySlot(), GuiBridge.GUI_CRAFTING_CONFIRM, i.isBaubleSlot());
                             }
                         }
+                    }
 
-                        if (player.openContainer instanceof ContainerCraftConfirm) {
-                            final ContainerCraftConfirm ccc = (ContainerCraftConfirm) player.openContainer;
-                            ccc.setAutoStart(this.heldShift);
-                            ccc.setJob(futureJob);
-                            ccc.setRequest(cca.getItemToCraft(), this.amount, this.craftMissing);
-                            ccc.craftPriority = cca.craftPriority;
-                            cca.detectAndSendChanges();
-                        }
+                    if (player.openContainer instanceof ContainerCraftConfirm) {
+                        final ContainerCraftConfirm ccc = (ContainerCraftConfirm) player.openContainer;
+                        ccc.setAutoStart(this.heldShift);
+                        ccc.setJob(futureJob);
+                        ccc.setRequest(cca.getItemToCraft(), this.amount, this.craftMissing);
+                        ccc.craftPriority = cca.craftPriority;
+                        cca.detectAndSendChanges();
+                    } else {
+                        // No plan screen to hand the job to: nothing would ever look at it.
+                        futureJob.cancel(true);
                     }
                 } catch (final Throwable e) {
                     if (futureJob != null) {
