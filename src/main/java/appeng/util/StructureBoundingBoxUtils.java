@@ -25,28 +25,27 @@ public final class StructureBoundingBoxUtils {
     private StructureBoundingBoxUtils() {
     }
 
-    /** Holds a loop inside the part of a structure this pass is allowed to write. */
+    /**
+     * Holds a loop inside the part of a structure this pass is allowed to write. A range that misses the box
+     * comes back with its start past its end, so the loop runs not at all rather than along the box's edge.
+     */
     @Desugar
     public record BoundingBoxClamper(StructureBoundingBox boundingBox) {
 
         public int minX(final int x) {
-            return clamp(x, this.boundingBox.minX, this.boundingBox.maxX);
+            return Math.max(x, this.boundingBox.minX);
         }
 
         public int maxX(final int x) {
-            return clamp(x, this.boundingBox.minX, this.boundingBox.maxX);
+            return Math.min(x, this.boundingBox.maxX);
         }
 
         public int minZ(final int z) {
-            return clamp(z, this.boundingBox.minZ, this.boundingBox.maxZ);
+            return Math.max(z, this.boundingBox.minZ);
         }
 
         public int maxZ(final int z) {
-            return clamp(z, this.boundingBox.minZ, this.boundingBox.maxZ);
-        }
-
-        private static int clamp(final int value, final int min, final int max) {
-            return Math.max(min, Math.min(max, value));
+            return Math.min(z, this.boundingBox.maxZ);
         }
     }
 
