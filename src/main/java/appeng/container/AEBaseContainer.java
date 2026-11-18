@@ -1594,12 +1594,20 @@ public abstract class AEBaseContainer extends Container {
                             if (maxInsertable != 0) {
                                 var toInsert = Math.min(maxInsertable, dragType == 0 ? maxInsertable : 1);
 
+                                // Grown on a copy: a slot may hand out a fresh stack every time (an
+                                // interface's storage row does), and growing that one changed nothing.
+                                final ItemStack merged = slotStack.copy();
+                                merged.grow(toInsert);
                                 draggedStack.shrink(toInsert);
-                                slotStack.grow(toInsert);
 
-                                slot.putStack(slot.getStack());
+                                slot.putStack(merged);
                                 return ItemStack.EMPTY;
                             }
+
+                            // The slot holds as much as a click may add, or more (an interface's storage
+                            // row holds up to 512). Vanilla would work out a negative amount to move and
+                            // pull the difference onto the cursor.
+                            return ItemStack.EMPTY;
                         }
                     }
                 }
