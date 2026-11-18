@@ -1321,6 +1321,11 @@ public abstract class AEBaseGui extends GuiContainer implements IMTModGuiContain
 
     @Override
     protected boolean checkHotbarKeys(final int keyCode) {
+        // A digit typed into a field belongs to the field, wherever the cursor rests.
+        if (this.isTextFieldFocused()) {
+            return false;
+        }
+
         final Slot theSlot = this.getSlotUnderMouse();
 
         // A filter holds an identity, not a stack: nothing to swap with, and vanilla would empty it.
