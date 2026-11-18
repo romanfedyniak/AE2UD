@@ -31,6 +31,7 @@ import appeng.client.gui.widgets.GuiImgButton;
 import appeng.container.implementations.ContainerUpgradeable;
 import appeng.container.interfaces.IJEIGhostIngredients;
 import appeng.container.slot.SlotFake;
+import appeng.tile.inventory.AppEngInternalAEInventory;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.PacketConfigButton;
@@ -135,8 +136,12 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
             return null;
         }
 
-        // The key the slot already resolved to draw itself, not a second one built every frame.
-        final GenericStack filter = ((SlotFake) slot).resolveForDisplay(slot.getStack());
+        // Asked for every filter slot drawn: read the key the inventory holds, or the one the slot already
+        // resolved to draw itself, rather than building one more every frame.
+        final SlotFake fake = (SlotFake) slot;
+        final GenericStack filter = fake.getItemHandler() instanceof AppEngInternalAEInventory keys
+                ? (fake.isSlotEnabled() ? keys.getAEStackInSlot(fake.getSlotIndex()) : null)
+                : fake.resolveForDisplay(slot.getStack());
         if (filter == null) {
             return null;
         }
