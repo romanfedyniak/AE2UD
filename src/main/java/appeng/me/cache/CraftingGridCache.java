@@ -734,6 +734,9 @@ public class CraftingGridCache implements ICraftingGrid, ICraftingProviderHelper
 
     @Override
     public long requesting(final AEKey what) {
+        if (what == null) {
+            return 0;
+        }
         long requested = 0;
 
         for (final CraftingCPUCluster cluster : this.craftingCPUClusters) {

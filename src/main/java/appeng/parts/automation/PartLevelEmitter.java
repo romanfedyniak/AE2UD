@@ -166,8 +166,12 @@ public class PartLevelEmitter extends PartUpgradeable
         }
 
         if (this.isInstalled(CardTraits.CRAFTING)) {
+            final AEKey key = this.getConfiguredKey();
+            if (key == null) {
+                return false;
+            }
             try {
-                return this.getProxy().getCrafting().isRequesting(this.getConfiguredKey());
+                return this.getProxy().getCrafting().isRequesting(key);
             } catch (final GridAccessException e) {
                 // :P
             }
