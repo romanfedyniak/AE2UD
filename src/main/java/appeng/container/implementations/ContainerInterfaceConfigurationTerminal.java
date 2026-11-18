@@ -40,7 +40,6 @@ import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.InventoryAction;
 import appeng.parts.misc.PartInterface;
 import appeng.parts.reporting.PartInterfaceConfigurationTerminal;
-import appeng.tile.inventory.AppEngInternalInventory;
 import appeng.tile.misc.TileInterface;
 import appeng.util.Platform;
 import appeng.util.helpers.ItemHandlerUtil;
@@ -60,6 +59,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 
 import static appeng.helpers.ItemStackHelper.stackWriteToNBT;
 
@@ -189,7 +189,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
             for (final Entry<IInterfaceHost, ConfigTracker> en : this.diList.entrySet()) {
                 final ConfigTracker inv = en.getValue();
                 for (int x = 0; x < inv.server.getSlots(); x++) {
-                    if (this.isDifferent(inv.server.getStackInSlot(x), inv.client.getStackInSlot(x))) {
+                    if (!Objects.equals(inv.configAt(x), inv.sent[x])) {
                         this.addItems(this.data, inv, x, 1);
                     }
                 }
@@ -371,18 +371,6 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
         }
     }
 
-    private boolean isDifferent(final ItemStack a, final ItemStack b) {
-        if (a.isEmpty() && b.isEmpty()) {
-            return false;
-        }
-
-        if (a.isEmpty() || b.isEmpty()) {
-            return true;
-        }
-
-        return !ItemStack.areItemStacksEqual(a, b);
-    }
-
     private void addItems(final NBTTagCompound data, final ConfigTracker inv, final int offset, final int length) {
         final String name = '=' + Long.toString(inv.which, Character.MAX_RADIX);
         final NBTTagCompound tag = data.getCompoundTag(name);
@@ -403,7 +391,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
             final ItemStack is = inv.server.getStackInSlot(x + offset);
 
             // "update" client side.
-            ItemHandlerUtil.setStackInSlot(inv.client, x + offset, is.isEmpty() ? ItemStack.EMPTY : is.copy());
+            inv.sent[x + offset] = inv.configAt(x + offset);
 
             if (!is.isEmpty()) {
                 stackWriteToNBT(is, itemNBT);
@@ -420,7 +408,8 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
         private final long sortBy;
         private final long which = autoBase++;
         private final String unlocalizedName;
-        private final IItemHandler client;
+        /** What the client was last sent for each slot, compared as keys: no ItemStack per slot per tick. */
+        private final GenericStack[] sent;
         private final IItemHandler server;
         private final BlockPos pos;
         private final int dim;
@@ -428,7 +417,7 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
 
         public ConfigTracker(final DualityInterface dual, final IItemHandler configSlots, final String unlocalizedName) {
             this.server = configSlots;
-            this.client = new AppEngInternalInventory(null, this.server.getSlots());
+            this.sent = new GenericStack[this.server.getSlots()];
             this.unlocalizedName = unlocalizedName;
             this.sortBy = dual.getSortValue();
             this.pos = dual.getLocation().getPos();
@@ -438,6 +427,12 @@ public class ContainerInterfaceConfigurationTerminal extends AEBaseContainer imp
 
         public IItemHandler getServer() {
             return server;
+        }
+
+        private GenericStack configAt(final int slot) {
+            return this.server instanceof AppEngInternalAEInventory ae
+                    ? ae.getAEStackInSlot(slot)
+                    : GenericStack.fromItemStack(this.server.getStackInSlot(slot));
         }
     }
     @Nullable
