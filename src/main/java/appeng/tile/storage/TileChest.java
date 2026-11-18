@@ -83,6 +83,7 @@ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.FluidTankProperties;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import net.minecraftforge.fluids.capability.templates.EmptyFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
@@ -742,7 +743,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             if (TileChest.this.cellStorage != null) {
                 return this.TANK_PROPS;
             }
-            return null;
+            return EmptyFluidHandler.EMPTY_TANK_PROPERTIES_ARRAY;
         }
     }
 
