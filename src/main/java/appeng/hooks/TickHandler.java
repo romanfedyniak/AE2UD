@@ -135,6 +135,10 @@ public class TickHandler {
 
     public void shutdown() {
         this.getRepo().clear();
+        this.serverQueue.clear();
+        synchronized (this.callQueue) {
+            this.callQueue.clear();
+        }
     }
 
     @SubscribeEvent
@@ -147,6 +151,11 @@ public class TickHandler {
                 for (final CraftingJob job : this.craftingJobs.removeAll(ev.getWorld())) {
                     job.abandon();
                 }
+            }
+
+            // What is still queued holds the world, which would keep the weak key alive forever.
+            synchronized (this.callQueue) {
+                this.callQueue.remove(ev.getWorld());
             }
 
             this.getRepo().updateNetworks();
