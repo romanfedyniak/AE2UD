@@ -43,7 +43,7 @@ public class ContainerCondenser extends AEBaseContainer implements IProgressProv
     public long storedPower = 0;
     @GuiSync(2)
     public CondenserOutput output = CondenserOutput.TRASH;
-    private final ItemStack prevStack = ItemStack.EMPTY;
+    private ItemStack prevStack = ItemStack.EMPTY;
 
     public ContainerCondenser(final InventoryPlayer ip, final TileCondenser condenser) {
         super(ip, condenser, null);
@@ -70,10 +70,11 @@ public class ContainerCondenser extends AEBaseContainer implements IProgressProv
             this.storedPower = (int) this.condenser.getStoredPower();
             this.setOutput((CondenserOutput) this.condenser.getConfigManager().getSetting(Settings.CONDENSER_OUTPUT));
 
-            for (final IContainerListener listener : this.listeners) {
-                if (!ItemStack.areItemsEqual(is, prevStack)) {
+            if (!ItemStack.areItemsEqual(is, this.prevStack)) {
+                for (final IContainerListener listener : this.listeners) {
                     listener.sendSlotContents(this, 1, is);
                 }
+                this.prevStack = is.copy();
             }
         }
 
