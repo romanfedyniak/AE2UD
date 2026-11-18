@@ -170,7 +170,8 @@ class ItemPickupStrategy implements PickupStrategy {
             return true;
         }
 
-        entityItem.getItem().setCount(overflow.getCount());
+        // Set, not changed in place: only a set stack is sent to clients.
+        entityItem.setItem(overflow);
         return false;
     }
 
