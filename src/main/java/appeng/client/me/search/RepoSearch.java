@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.util.text.TextFormatting;
 
 import appeng.api.config.Settings;
@@ -259,7 +260,9 @@ public final class RepoSearch {
     }
 
     private static String buildTooltip(final AEKey what) {
-        final List<String> lines = Platform.getTooltip(what);
+        // Never the advanced lines: with F3+H on, the registry name, the numeric id and the NBT count would let
+        // a bare "minecraft", "2" or "tag" match whole catalogues.
+        final List<String> lines = Platform.getTooltip(what, ITooltipFlag.TooltipFlags.NORMAL);
         if (lines.isEmpty()) {
             return "";
         }
@@ -267,7 +270,8 @@ public final class RepoSearch {
         final String modName = Platform.getModName(what.getModId());
         final StringBuilder text = new StringBuilder();
 
-        for (int i = 0; i < lines.size(); i++) {
+        // The first line is the name, which is a channel of its own.
+        for (int i = 1; i < lines.size(); i++) {
             final String line = plain(lines.get(i));
 
             // Packs commonly hang the mod's name off the end of every tooltip through ItemTooltipEvent.

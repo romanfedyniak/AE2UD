@@ -603,6 +603,14 @@ public class Platform {
 
     @SideOnly(Side.CLIENT)
     public static List<String> getTooltip(final Object o) {
+        return getTooltip(o, Minecraft.getMinecraft().gameSettings.advancedItemTooltips
+                ? ITooltipFlag.TooltipFlags.ADVANCED
+                : ITooltipFlag.TooltipFlags.NORMAL);
+    }
+
+    /** The same, with the advanced lines (F3+H) or without them, whatever the player has chosen. */
+    @SideOnly(Side.CLIENT)
+    public static List<String> getTooltip(final Object o, final ITooltipFlag.TooltipFlags tooltipFlag) {
         if (o == null) {
             return new ArrayList<>();
         }
@@ -617,7 +625,6 @@ public class Platform {
         }
 
         try {
-            ITooltipFlag.TooltipFlags tooltipFlag = Minecraft.getMinecraft().gameSettings.advancedItemTooltips ? ITooltipFlag.TooltipFlags.ADVANCED : ITooltipFlag.TooltipFlags.NORMAL;
             return itemStack.getTooltip(Minecraft.getMinecraft().player, tooltipFlag);
         } catch (final Exception errB) {
             return new ArrayList<>();
