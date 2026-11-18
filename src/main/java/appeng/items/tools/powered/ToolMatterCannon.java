@@ -129,8 +129,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                         final Vec3d Vec3d = dir.getA();
                         final Vec3d Vec3d1 = dir.getB();
-                        final Vec3d direction = Vec3d1.subtract(Vec3d);
-                        direction.normalize();
+                        final Vec3d direction = Vec3d1.subtract(Vec3d).normalize();
 
                         final double d0 = Vec3d.x;
                         final double d1 = Vec3d.y;
@@ -203,8 +202,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
         try {
             AppEng.proxy.sendToAllNearExcept(null, d0, d1, d2, 128, w,
-                    new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, (byte) (pos == null ? 32 : pos.hitVec
-                            .squareDistanceTo(vec) + 1)));
+                    new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, trailLength(pos, vec)));
         } catch (final Exception err) {
             AELog.debug(err);
         }
@@ -250,6 +248,11 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                 }
             }
         }
+    }
+
+    /** How many blocks of trail the clients draw: as far as the hit (the trail steps one block at a time), not its square. */
+    private static byte trailLength(@Nullable final RayTraceResult hit, final Vec3d from) {
+        return (byte) (hit == null ? 32 : Math.sqrt(hit.hitVec.squareDistanceTo(from)) + 1);
     }
 
     private void standardAmmo(float penetration, final World w, final EntityPlayer p, final Vec3d Vec3d, final Vec3d Vec3d1, final Vec3d direction, final double d0, final double d1, final double d2) {
@@ -303,8 +306,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
             try {
                 AppEng.proxy.sendToAllNearExcept(null, d0, d1, d2, 128, w,
-                        new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, (byte) (pos == null ? 32 : pos.hitVec
-                                .squareDistanceTo(vec) + 1)));
+                        new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, trailLength(pos, vec)));
             } catch (final Exception err) {
                 AELog.debug(err);
             }
