@@ -61,7 +61,9 @@ import java.io.IOException;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -126,7 +128,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
     /** The part of {@link #active} that nothing is making - see {@link CraftingCPUCluster#getPromised}. */
     private final KeyCounter waiting = new KeyCounter();
 
-    private final List<AEKey> visual = new ArrayList<>();
+    private final Set<AEKey> visual = new LinkedHashSet<>();
     /**
      * What the screen actually shows: {@link #visual} without the rows the filter hides. Kept apart so a
      * filtered-out row still tracks its amounts and comes back when the filter is turned off.
@@ -678,7 +680,7 @@ public class GuiCraftingCPU extends AEBaseGui implements ISortSource, IKeyUnderM
 
             if (amt <= 0) {
                 this.visual.remove(l.getWhat());
-            } else if (!this.visual.contains(l.getWhat())) {
+            } else {
                 this.visual.add(l.getWhat());
             }
         }

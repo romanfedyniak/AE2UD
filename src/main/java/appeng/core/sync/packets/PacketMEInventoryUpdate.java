@@ -64,6 +64,8 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
     private final GZIPOutputStream compressFrame;
 
     private int writtenBytes = 0;
+    /** Each entry is written here before it is compressed: one buffer per packet rather than one per entry. */
+    private ByteBuf scratch;
     private boolean empty = true;
 
     // automatic.
@@ -165,7 +167,11 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
     }
 
     public void appendItem(final GridInventoryEntry is) throws IOException, BufferOverflowException {
-        final ByteBuf tmp = Unpooled.buffer(OPERATION_BYTE_LIMIT);
+        if (this.scratch == null) {
+            this.scratch = Unpooled.buffer(OPERATION_BYTE_LIMIT);
+        }
+        final ByteBuf tmp = this.scratch;
+        tmp.clear();
         is.writeToPacket(tmp);
 
         this.compressFrame.flush();
