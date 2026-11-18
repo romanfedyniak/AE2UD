@@ -134,6 +134,14 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
     private boolean refreshList = false;
 
+    /** The highlight buttons and slots of the rows shown, rebuilt only when what is shown moves. */
+    private final List<GuiButton> rowButtons = new ArrayList<>();
+    private final List<SlotDisconnected> rowSlots = new ArrayList<>();
+    private boolean rowsDirty = true;
+    private int rowsScroll;
+    private int rowsLeft;
+    private int rowsTop;
+
     /* These are worded so that the intended default is false */
     private boolean onlyShowWithSpace = false;
     private boolean onlyMolecularAssemblers = false;
@@ -249,6 +257,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
 
     @Override
     public void initGui() {
+        this.rowsDirty = true;
         this.rows = calculateRowsCount();
 
         super.initGui();
@@ -383,7 +392,6 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         buttonList.clear();
-        guiButtonHashMap.clear();
         inventorySlots.inventorySlots.removeIf(slot -> slot instanceof SlotDisconnected);
 
         guiButtonAssemblersOnly.set(onlyMolecularAssemblers ? ActionItems.MOLECULAR_ASSEMBLERS_ON : ActionItems.MOLECULAR_ASSEMBLERS_OFF);
@@ -401,9 +409,30 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
             this.multiplierPanel.addTo(this.buttonList, this.guiLeft, this.guiTop);
         }
 
-        int offset = 51;
         final int currentScroll = this.getScrollBar().getCurrentScroll();
+        if (this.rowsDirty || currentScroll != this.rowsScroll || this.guiLeft != this.rowsLeft || this.guiTop != this.rowsTop) {
+            this.buildRows(currentScroll);
+        }
+        this.buttonList.addAll(this.rowButtons);
+        this.inventorySlots.inventorySlots.addAll(this.rowSlots);
 
+        super.drawScreen(mouseX, mouseY, partialTicks);
+
+        drawTooltip(searchFieldInputs, mouseX, mouseY);
+        drawTooltip(searchFieldOutputs, mouseX, mouseY);
+        drawTooltip(searchFieldNames, mouseX, mouseY);
+    }
+
+    private void buildRows(final int currentScroll) {
+        this.rowsDirty = false;
+        this.rowsScroll = currentScroll;
+        this.rowsLeft = this.guiLeft;
+        this.rowsTop = this.guiTop;
+        this.rowButtons.clear();
+        this.rowSlots.clear();
+        this.guiButtonHashMap.clear();
+
+        int offset = 51;
         for (int x = 0; x < rows && currentScroll + x < this.lines.size(); x++) {
             final Object lineObj = this.lines.get(currentScroll + x);
             if (lineObj instanceof Row line) {
@@ -412,20 +441,14 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
                 if (!(above instanceof Row prev && prev.inv == line.inv)) {
                     GuiButton guiButton = new GuiImgButton(guiLeft + 4, guiTop + offset + 1, Settings.ACTIONS, ActionItems.HIGHLIGHT_INTERFACE);
                     guiButtonHashMap.put(guiButton, line.inv);
-                    this.buttonList.add(guiButton);
+                    this.rowButtons.add(guiButton);
                 }
                 for (int z = 0; z < 9; z++) {
-                    this.inventorySlots.inventorySlots.add(new SlotDisconnected(line.inv, z + (line.row * 9), z * 18 + 22, 1 + offset));
+                    this.rowSlots.add(new SlotDisconnected(line.inv, z + (line.row * 9), z * 18 + 22, 1 + offset));
                 }
             }
             offset += 18;
         }
-
-        super.drawScreen(mouseX, mouseY, partialTicks);
-
-        drawTooltip(searchFieldInputs, mouseX, mouseY);
-        drawTooltip(searchFieldOutputs, mouseX, mouseY);
-        drawTooltip(searchFieldNames, mouseX, mouseY);
     }
 
     @Override
@@ -648,6 +671,7 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         this.byName.clear();
         this.buttonList.clear();
         this.matchedSlots.clear();
+        this.rowsDirty = true;
 
         final String inputQuery = this.searchFieldInputs.getText();
         final String outputQuery = this.searchFieldOutputs.getText();
