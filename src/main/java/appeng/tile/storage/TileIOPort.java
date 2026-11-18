@@ -397,7 +397,12 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
                 continue;
             }
 
-            final long possibleBeforeExtract = Math.min(insertable, itemsToMove * amountPerOperation);
+            // Only what the power pays for comes out: a source that will not take the rest back would lose it.
+            final long possibleBeforeExtract = Platform.poweredInsert(energy, destination, what,
+                    Math.min(insertable, itemsToMove * amountPerOperation), this.mySrc, Actionable.SIMULATE);
+            if (possibleBeforeExtract <= 0) {
+                continue;
+            }
             final long extracted = src.extract(what, possibleBeforeExtract, Actionable.MODULATE, this.mySrc);
             if (extracted <= 0) {
                 continue;
@@ -406,7 +411,10 @@ public class TileIOPort extends AENetworkInvTile implements IUpgradeableHost, IC
             final long actuallyInserted = Platform.poweredInsert(energy, destination, what, extracted, this.mySrc);
             final long failed = extracted - actuallyInserted;
             if (failed > 0) {
-                src.insert(what, failed, Actionable.MODULATE, this.mySrc);
+                final long returned = src.insert(what, failed, Actionable.MODULATE, this.mySrc);
+                if (returned < failed) {
+                    destination.insert(what, failed - returned, Actionable.MODULATE, this.mySrc);
+                }
             }
             if (actuallyInserted > 0) {
                 itemsToMove -= Math.max(1, actuallyInserted / amountPerOperation);
