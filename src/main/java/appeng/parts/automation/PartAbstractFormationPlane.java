@@ -510,7 +510,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         final World w = te.getWorld();
         final BlockPos tePos = te.getPos().offset(this.getSide().getFacing());
 
-        this.blocked = !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
+        this.blocked = !w.isBlockLoaded(tePos) || !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
         if (this.placementStrategy != null) {
             this.placementStrategy.clearBlocked();
         }

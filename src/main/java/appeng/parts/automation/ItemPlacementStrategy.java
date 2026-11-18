@@ -80,7 +80,13 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
     @Override
     public void clearBlocked() {
-        this.blocked = !this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
+        this.blocked = !this.isReplaceable();
+    }
+
+    /** False for a block in a chunk that is not loaded: reading it would load the chunk, or generate it. */
+    private boolean isReplaceable() {
+        return this.world.isBlockLoaded(this.pos)
+                && this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
     }
 
     @Override
@@ -100,7 +106,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
         EnumFacing hostToExternal = this.fromSide.getOpposite();
         AEPartLocation sideLoc = AEPartLocation.fromFacing(hostToExternal);
 
-        if (this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos)) {
+        if (this.isReplaceable()) {
             if (placeAsEntity) {
                 int sum = this.countEntitiesAround(this.world, this.pos);
 
@@ -171,7 +177,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
             }
         }
 
-        this.blocked = !this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
+        this.blocked = !this.isReplaceable();
 
         return worked ? maxStorage : 0;
     }

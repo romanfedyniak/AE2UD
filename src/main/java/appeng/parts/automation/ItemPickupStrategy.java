@@ -194,6 +194,10 @@ class ItemPickupStrategy implements PickupStrategy {
      * Checks if this plane can handle the block at the specific coordinates.
      */
     protected boolean canHandleBlock(WorldServer w, BlockPos pos) {
+        // First: reading a block in a chunk that is not loaded loads it, or generates it.
+        if (!w.isBlockLoaded(pos)) {
+            return false;
+        }
         IBlockState state = w.getBlockState(pos);
         Material material = state.getMaterial();
         float hardness = state.getBlockHardness(w, pos);
@@ -202,7 +206,7 @@ class ItemPickupStrategy implements PickupStrategy {
         boolean ignoreBlocks = state.getBlock() == Blocks.BEDROCK || state.getBlock() == Blocks.END_PORTAL
                 || state.getBlock() == Blocks.END_PORTAL_FRAME || state.getBlock() == Blocks.COMMAND_BLOCK;
 
-        return !ignoreMaterials && !ignoreBlocks && hardness >= 0f && !w.isAirBlock(pos) && w.isBlockLoaded(pos)
+        return !ignoreMaterials && !ignoreBlocks && hardness >= 0f && !w.isAirBlock(pos)
                 && w.canMineBlockBody(Platform.getPlayer(w), pos);
     }
 
