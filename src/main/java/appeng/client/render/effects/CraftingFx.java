@@ -47,6 +47,7 @@ public class CraftingFx extends ParticleBreaking {
         this.particleBlue = 1;
         this.particleGreen = 0.9f;
         this.particleRed = 1;
+        // Above 1 so it starts out opaque for a while; the vertices take it clamped, as a byte it would wrap.
         this.particleAlpha = 1.3f;
         this.particleScale = 1.5f;
         this.particleTextureIndex = ParticleTextures.BlockEnergyParticle;
@@ -94,22 +95,22 @@ public class CraftingFx extends ParticleBreaking {
             final float f14 = 1.0F;
             par1Tessellator.pos(offX - x * scale - rx * scale, offY - y * scale, offZ - z * scale - rz * scale)
                     .tex(f7, f9)
-                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                     .lightmap(j, k)
                     .endVertex();
             par1Tessellator.pos(offX - x * scale + rx * scale, offY + y * scale, offZ - z * scale + rz * scale)
                     .tex(f7, f8)
-                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                     .lightmap(j, k)
                     .endVertex();
             par1Tessellator.pos(offX + x * scale + rx * scale, offY + y * scale, offZ + z * scale + rz * scale)
                     .tex(f6, f8)
-                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                     .lightmap(j, k)
                     .endVertex();
             par1Tessellator.pos(offX + x * scale - rx * scale, offY - y * scale, offZ + z * scale - rz * scale)
                     .tex(f6, f9)
-                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                    .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                     .lightmap(j, k)
                     .endVertex();
         }

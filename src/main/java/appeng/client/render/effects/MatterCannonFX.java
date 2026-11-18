@@ -39,6 +39,7 @@ public class MatterCannonFX extends ParticleBreaking {
         this.particleBlue = 1;
         this.particleGreen = 1;
         this.particleRed = 1;
+        // Above 1 so it starts out opaque for a while; the vertices take it clamped, as a byte it would wrap.
         this.particleAlpha = 1.4f;
         this.particleScale = 1.1f;
         this.motionX = 0.0f;
@@ -95,22 +96,22 @@ public class MatterCannonFX extends ParticleBreaking {
 
         par1Tessellator.pos(f11 - par3 * f10 - par6 * f10, f12 - par4 * f10, f13 - par5 * f10 - par7 * f10)
                 .tex(f7, f9)
-                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                 .lightmap(j, k)
                 .endVertex();
         par1Tessellator.pos(f11 - par3 * f10 + par6 * f10, f12 + par4 * f10, f13 - par5 * f10 + par7 * f10)
                 .tex(f7, f8)
-                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                 .lightmap(j, k)
                 .endVertex();
         par1Tessellator.pos(f11 + par3 * f10 + par6 * f10, f12 + par4 * f10, f13 + par5 * f10 + par7 * f10)
                 .tex(f6, f8)
-                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                 .lightmap(j, k)
                 .endVertex();
         par1Tessellator.pos(f11 + par3 * f10 - par6 * f10, f12 - par4 * f10, f13 + par5 * f10 - par7 * f10)
                 .tex(f6, f9)
-                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, this.particleAlpha)
+                .color(this.particleRed * f14, this.particleGreen * f14, this.particleBlue * f14, Math.min(1.0f, this.particleAlpha))
                 .lightmap(j, k)
                 .endVertex();
     }
