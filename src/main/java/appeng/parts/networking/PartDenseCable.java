@@ -60,7 +60,7 @@ public abstract class PartDenseCable extends PartCable {
         if (Platform.isServer()) {
             final IGridNode n = this.getGridNode();
             if (n != null) {
-                this.setConnections(n.getConnectedSides());
+                this.refreshConnections(n);
             } else {
                 this.getConnections().clear();
             }

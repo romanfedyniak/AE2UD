@@ -193,7 +193,7 @@ public class PartCable extends AEBasePart implements IPartCable {
         if (Platform.isServer()) {
             final IGridNode n = this.getGridNode();
             if (n != null) {
-                this.setConnections(n.getConnectedSides());
+                this.refreshConnections(n);
             } else {
                 this.getConnections().clear();
             }
@@ -390,6 +390,21 @@ public class PartCable extends AEBasePart implements IPartCable {
 
     void setConnections(final EnumSet<AEPartLocation> connections) {
         this.connections = connections;
+    }
+
+    /** The node's connected sides, asked on every collision: the set is made anew only when they changed. */
+    void refreshConnections(final IGridNode n) {
+        int count = 0;
+        for (final IGridConnection gc : n.getConnections()) {
+            count++;
+            if (!this.connections.contains(gc.getDirection(n))) {
+                this.setConnections(n.getConnectedSides());
+                return;
+            }
+        }
+        if (count != this.connections.size()) {
+            this.setConnections(n.getConnectedSides());
+        }
     }
 
 }

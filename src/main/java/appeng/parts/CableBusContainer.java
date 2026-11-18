@@ -892,10 +892,8 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
     public void writeToNBT(final NBTTagCompound data) {
         data.setInteger("hasRedstone", this.hasRedstone.ordinal());
 
-        final IFacadeContainer fc = this.getFacadeContainer();
+        this.getFacadeContainer().writeToNBT(data);
         for (final AEPartLocation s : AEPartLocation.values()) {
-            fc.writeToNBT(data);
-
             final IPart part = this.getPart(s);
             if (part != null) {
                 final NBTTagCompound def = new NBTTagCompound();
