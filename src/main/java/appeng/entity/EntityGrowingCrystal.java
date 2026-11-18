@@ -39,6 +39,10 @@ import net.minecraft.world.World;
 
 public final class EntityGrowingCrystal extends EntityItem {
 
+    private final BlockPos.MutableBlockPos lookAt = new BlockPos.MutableBlockPos();
+    /** The accelerators' speed-up last worked out, or -1 before the first time. */
+    private int acceleration = -1;
+
     private int progress_1000 = 0;
 
     public EntityGrowingCrystal(final World w) {
@@ -67,12 +71,16 @@ public final class EntityGrowingCrystal extends EntityItem {
             final int i = MathHelper.floor((this.getEntityBoundingBox().minY + this.getEntityBoundingBox().maxY) / 2.0D);
             final int k = MathHelper.floor(this.posZ);
 
-            final IBlockState state = this.world.getBlockState(new BlockPos(j, i, k));
+            final IBlockState state = this.world.getBlockState(this.lookAt.setPos(j, i, k));
             final Material mat = state.getMaterial();
             final IGrowableCrystal cry = (IGrowableCrystal) is.getItem();
 
             final float multiplier = cry.getMultiplier(state.getBlock(), mat);
-            final int speed = (int) Math.max(1, this.getSpeed(j, i, k) * multiplier);
+            // Accelerators change seldom: looked for once a second, and only while the seed lies in a liquid to grow.
+            if (mat.isLiquid() && (this.acceleration < 0 || this.ticksExisted % 20 == 0)) {
+                this.acceleration = this.getSpeed(j, i, k);
+            }
+            final int speed = (int) Math.max(1, Math.max(0, this.acceleration) * multiplier);
 
             final boolean isClient = Platform.isClient();
 
@@ -160,7 +168,13 @@ public final class EntityGrowingCrystal extends EntityItem {
     }
 
     private boolean isAccelerated(final int x, final int y, final int z) {
-        final TileEntity te = this.world.getTileEntity(new BlockPos(x, y, z));
+        // Not loaded is not there: in a chunk-loaded chunk the seed ticks with its neighbour chunk unloaded.
+        this.lookAt.setPos(x, y, z);
+        if (!this.world.isBlockLoaded(this.lookAt)) {
+            return false;
+        }
+
+        final TileEntity te = this.world.getTileEntity(this.lookAt);
 
         return te instanceof ICrystalGrowthAccelerator && ((ICrystalGrowthAccelerator) te).isPowered();
     }
