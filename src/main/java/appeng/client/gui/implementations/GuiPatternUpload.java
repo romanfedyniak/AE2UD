@@ -291,6 +291,7 @@ public class GuiPatternUpload extends AEBaseGui {
         private final int slots;
         private final boolean fits;
         private final ItemStack icon;
+        private String name;
 
         /** It would run the pattern, and it has somewhere to put it. */
         private boolean usable() {
@@ -316,11 +317,17 @@ public class GuiPatternUpload extends AEBaseGui {
             this.icon = icon;
         }
 
-        /** A translation key most of the time, a finished name when a mod formats its own. */
+        /**
+         * A translation key most of the time, a finished name when a mod formats its own. Asked for every row on
+         * every frame and in every comparison of the sort, so translated once.
+         */
         private String name() {
-            final String withSuffix = I18n.format(this.unlocalizedName + ".name");
-            return withSuffix.equals(this.unlocalizedName + ".name") ? I18n.format(this.unlocalizedName)
-                    : withSuffix;
+            if (this.name == null) {
+                final String withSuffix = I18n.format(this.unlocalizedName + ".name");
+                this.name = withSuffix.equals(this.unlocalizedName + ".name") ? I18n.format(this.unlocalizedName)
+                        : withSuffix;
+            }
+            return this.name;
         }
     }
 }

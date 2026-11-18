@@ -117,6 +117,8 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     /** What the mode on screen looks like; rebuilt whenever the terminal changes mode. */
     private PatternModePanel panel;
+    @Nullable
+    private List<Slot> viewCellSlots;
     private ResourceLocation panelMode;
     private int seenPatternLoads = Integer.MIN_VALUE;
 
@@ -748,16 +750,18 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
 
     @Override
     public List<Slot> getViewCellSlots() {
-        final List<Slot> cells = new ArrayList<>();
-
-        for (int index = 0; index < this.container.getViewCells().length; index++) {
-            final Slot cell = this.container.getCellViewSlot(index);
-            if (cell != null) {
-                cells.add(cell);
+        // The container's cells never change, and the window asks every frame.
+        if (this.viewCellSlots == null) {
+            final List<Slot> cells = new ArrayList<>();
+            for (int index = 0; index < this.container.getViewCells().length; index++) {
+                final Slot cell = this.container.getCellViewSlot(index);
+                if (cell != null) {
+                    cells.add(cell);
+                }
             }
+            this.viewCellSlots = Collections.unmodifiableList(cells);
         }
-
-        return cells;
+        return this.viewCellSlots;
     }
 
     @Override
@@ -918,8 +922,13 @@ public class GuiPatternTerm extends GuiMEMonitorable implements IJEIGhostIngredi
     @Override
     public void drawItemStack(final int x, final int y, final ItemStack stack) {
         // As an AE slot draws: vanilla for the wear bar alone, AE's renderer for the amount and the "+".
-        final ItemStack single = stack.copy();
-        single.setCount(1);
+        final ItemStack single;
+        if (stack.getCount() == 1) {
+            single = stack;
+        } else {
+            single = stack.copy();
+            single.setCount(1);
+        }
         this.drawItem(x, y, single);
         this.itemRender.renderItemOverlayIntoGUI(this.fontRenderer, single, x, y, null);
 

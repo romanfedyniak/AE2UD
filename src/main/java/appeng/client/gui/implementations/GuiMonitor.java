@@ -65,6 +65,8 @@ public class GuiMonitor extends AEBaseGui implements IJEIGhostIngredients {
     private GuiToggleButton lock;
     private GuiSmallButton unit;
     private GuiSmallButton figure;
+    /** The part's name, worked out with the window rather than every frame. */
+    private String title = "";
 
     public GuiMonitor(final InventoryPlayer inventoryPlayer, final AbstractPartMonitor monitor) {
         super(new ContainerMonitor(inventoryPlayer, monitor));
@@ -90,6 +92,11 @@ public class GuiMonitor extends AEBaseGui implements IJEIGhostIngredients {
         this.buttonList.add(this.lock);
         this.buttonList.add(this.unit);
         this.buttonList.add(this.figure);
+
+        // Neither changes while the window is open; wrapping them every frame made garbage at frame rate.
+        this.unit.setTooltip(this.tooltip(GuiText.MonitorThroughput, GuiText.MonitorThroughputHint));
+        this.figure.setTooltip(this.tooltip(GuiText.MonitorShowing, GuiText.MonitorShowingHint));
+        this.title = this.monitor.getItemStack(PartItemStack.NETWORK).getDisplayName();
     }
 
     @Override
@@ -117,10 +124,7 @@ public class GuiMonitor extends AEBaseGui implements IJEIGhostIngredients {
         // Which of the three numbers to show is not a question while none of them is being measured.
         this.figure.enabled = this.container.isThroughputAllowed() && unit != ThroughputUnit.OFF;
 
-        this.unit.setTooltip(this.tooltip(GuiText.MonitorThroughput, GuiText.MonitorThroughputHint));
-        this.figure.setTooltip(this.tooltip(GuiText.MonitorShowing, GuiText.MonitorShowingHint));
-
-        this.fontRenderer.drawString(this.monitor.getItemStack(PartItemStack.NETWORK).getDisplayName(), 8, 6, 4210752);
+        this.fontRenderer.drawString(this.title, 8, 6, 4210752);
         this.fontRenderer.drawString(GuiText.inventory.getLocal(), 8, this.ySize - 96 + 3, 4210752);
     }
 

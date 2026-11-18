@@ -135,7 +135,8 @@ public abstract class GuiUpgradeable extends AEBaseGui implements IJEIGhostIngre
             return null;
         }
 
-        final GenericStack filter = GenericStack.resolveItemStack(slot.getStack());
+        // The key the slot already resolved to draw itself, not a second one built every frame.
+        final GenericStack filter = ((SlotFake) slot).resolveForDisplay(slot.getStack());
         if (filter == null) {
             return null;
         }
