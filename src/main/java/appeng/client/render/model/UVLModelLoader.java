@@ -48,6 +48,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.lwjgl.util.vector.Vector3f;
 
 import javax.annotation.Nullable;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -66,6 +67,8 @@ public enum UVLModelLoader implements ICustomModelLoader {
     INSTANCE;
 
     private static final Gson gson = new Gson();
+
+    private static final byte[] MARKER = "ae2_uvl_marker".getBytes(Charsets.US_ASCII);
 
     private static final Constructor<? extends IModel> vanillaModelWrapper;
     private static final Field faceBakery;
@@ -135,22 +138,46 @@ public enum UVLModelLoader implements ICustomModelLoader {
         this.resourceManager = resourceManager;
     }
 
+    /**
+     * Forge asks every loader about every model of every mod. A blockstate variant is never one of these, and a
+     * file that does not even contain the marker's name is not either: only the few that do are parsed.
+     */
     @Override
     public boolean accepts(ResourceLocation modelLocation) {
+        if (modelLocation instanceof ModelResourceLocation) {
+            return false;
+        }
+
         String modelPath = modelLocation.getPath();
         if (modelLocation.getPath().startsWith("models/")) {
             modelPath = modelPath.substring("models/".length());
         }
 
-        try (InputStreamReader io = new InputStreamReader(Minecraft.getMinecraft()
+        try (IResource resource = Minecraft.getMinecraft()
                 .getResourceManager()
-                .getResource(new ResourceLocation(modelLocation.getNamespace(), "models/" + modelPath + ".json"))
-                .getInputStream())) {
-            return gson.fromJson(io, UVLMarker.class).ae2_uvl_marker;
+                .getResource(new ResourceLocation(modelLocation.getNamespace(), "models/" + modelPath + ".json"))) {
+            final byte[] json = IOUtils.toByteArray(resource.getInputStream());
+            if (!contains(json, MARKER)) {
+                return false;
+            }
+            return gson.fromJson(new InputStreamReader(new ByteArrayInputStream(json), Charsets.UTF_8), UVLMarker.class).ae2_uvl_marker;
         } catch (Exception e) {
             // Catch-all in case of any JSON parser issues.
         }
 
+        return false;
+    }
+
+    private static boolean contains(final byte[] data, final byte[] part) {
+        outer:
+        for (int i = 0; i <= data.length - part.length; i++) {
+            for (int j = 0; j < part.length; j++) {
+                if (data[i + j] != part[j]) {
+                    continue outer;
+                }
+            }
+            return true;
+        }
         return false;
     }
 
