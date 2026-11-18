@@ -788,18 +788,22 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
             return Collections.singletonList(oneOf(this.inputs[slot]));
         }
 
-        return this.substituteInputs.computeIfAbsent(slot, value -> {
-            ItemStack[] matchingStacks = getRecipeIngredient(slot).getMatchingStacks();
-            List<GenericStack> itemList = new ArrayList<>(matchingStacks.length + 1);
-            for (ItemStack matchingStack : matchingStacks) {
-                itemList.add(oneOf(GenericStack.resolveItemStack(matchingStack)));
-            }
+        synchronized (this.substituteInputs) {
+            return this.substituteInputs.computeIfAbsent(slot, value -> this.listSubstitutes(slot));
+        }
+    }
 
-            // Ensure that the specific item put in by the user is at the beginning,
-            // so that it takes precedence over substitutions
-            itemList.add(0, oneOf(this.inputs[slot]));
-            return itemList;
-        });
+    private List<GenericStack> listSubstitutes(final int slot) {
+        ItemStack[] matchingStacks = getRecipeIngredient(slot).getMatchingStacks();
+        List<GenericStack> itemList = new ArrayList<>(matchingStacks.length + 1);
+        for (ItemStack matchingStack : matchingStacks) {
+            itemList.add(oneOf(GenericStack.resolveItemStack(matchingStack)));
+        }
+
+        // Ensure that the specific item put in by the user is at the beginning,
+        // so that it takes precedence over substitutions
+        itemList.add(0, oneOf(this.inputs[slot]));
+        return itemList;
     }
 
     /**
@@ -851,35 +855,53 @@ public class PatternHelper implements ICraftingPatternDetails, Comparable<Patter
         int slotX = slot % CRAFTING_GRID_DIMENSION - leftOffset;
         int slotY = slot / CRAFTING_GRID_DIMENSION - topOffset;
 
-        // Compute the index into the recipe's ingredient list now
-        int ingredientIndex = slotY * recipeWidth + slotX;
-
         NonNullList<Ingredient> ingredients = standardRecipe.getIngredients();
 
-        if (ingredientIndex < 0 || ingredientIndex >= ingredients.size()) {
+        // A shaped recipe also matches mirrored, and then the slot is the other end of its row in the recipe.
+        // Whichever of the two takes what was encoded there is the one this slot stands for.
+        final Ingredient straight = ingredientAt(ingredients, slotY * recipeWidth + slotX, slotX, recipeWidth);
+        if (straight == Ingredient.EMPTY || straight.apply(this.crafting.getStackInSlot(slot))) {
+            return straight;
+        }
+
+        final int mirroredX = recipeWidth - 1 - slotX;
+        final Ingredient mirrored = ingredientAt(ingredients, slotY * recipeWidth + mirroredX, mirroredX, recipeWidth);
+        return mirrored.apply(this.crafting.getStackInSlot(slot)) ? mirrored : straight;
+    }
+
+    private static Ingredient ingredientAt(final NonNullList<Ingredient> ingredients, final int index, final int x,
+            final int width) {
+        if (x < 0 || x >= width || index < 0 || index >= ingredients.size()) {
             return Ingredient.EMPTY;
         }
 
-        return ingredients.get(ingredientIndex);
+        return ingredients.get(index);
     }
 
     private Ingredient getShapelessRecipeIngredient(int slot) {
-        // We map the list of *filled* sparse inputs to the shapeless (ergo unordered)
-        // ingredients. While these do not actually correspond to each other,
-        // since both lists have the same length, the mapping is at least stable.
-        int ingredientIndex = 0;
-        for (int i = 0; i < slot; i++) {
-            if (inputs[i] != null) {
-                ingredientIndex++;
+        // The n-th filled slot is not the n-th ingredient of an unordered recipe. The ingredients are handed to
+        // the filled slots in order, each slot taking the first one left that accepts what was encoded in it,
+        // the way the recipe itself matches them up.
+        NonNullList<Ingredient> ingredients = standardRecipe.getIngredients();
+        final boolean[] taken = new boolean[ingredients.size()];
+        Ingredient found = Ingredient.EMPTY;
+
+        for (int i = 0; i <= slot; i++) {
+            if (inputs[i] == null) {
+                continue;
+            }
+
+            found = Ingredient.EMPTY;
+            for (int k = 0; k < ingredients.size(); k++) {
+                if (!taken[k] && ingredients.get(k).apply(this.crafting.getStackInSlot(i))) {
+                    taken[k] = true;
+                    found = ingredients.get(k);
+                    break;
+                }
             }
         }
 
-        NonNullList<Ingredient> ingredients = standardRecipe.getIngredients();
-        if (ingredientIndex < ingredients.size()) {
-            return ingredients.get(ingredientIndex);
-        }
-
-        return Ingredient.EMPTY;
+        return found;
     }
 
     @Override
