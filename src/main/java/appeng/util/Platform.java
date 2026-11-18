@@ -570,10 +570,10 @@ public class Platform {
             for (final ItemStack i : drops) {
                 if (!i.isEmpty()) {
                     if (i.getCount() > 0) {
-                        final double offset_x = (getRandomInt() % 32 - 16) / 82;
-                        final double offset_y = (getRandomInt() % 32 - 16) / 82;
-                        final double offset_z = (getRandomInt() % 32 - 16) / 82;
-                        final EntityItem ei = new EntityItem(w, 0.5 + offset_x + pos.getX(), 0.5 + offset_y + pos.getY(), 0.2 + offset_z + pos.getZ(), i.copy());
+                        final double offset_x = (getRandomInt() % 32 - 16) / 82.0;
+                        final double offset_y = (getRandomInt() % 32 - 16) / 82.0;
+                        final double offset_z = (getRandomInt() % 32 - 16) / 82.0;
+                        final EntityItem ei = new EntityItem(w, 0.5 + offset_x + pos.getX(), 0.5 + offset_y + pos.getY(), 0.5 + offset_z + pos.getZ(), i.copy());
                         w.spawnEntity(ei);
                     }
                 }
