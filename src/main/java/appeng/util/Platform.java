@@ -164,6 +164,7 @@ public class Platform {
     private static final ItemComparisonHelper ITEM_COMPARISON_HELPER = new ItemComparisonHelper();
     private static final P2PHelper P2P_HELPER = new P2PHelper();
     private static Method reflectGTgetMTE;
+    private static boolean reflectGTgetMTEMissing;
     public static final boolean GTLoaded = isModLoaded("gregtech");
 
     public static ItemComparisonHelper itemComparisons() {
@@ -1578,17 +1579,24 @@ public class Platform {
 
     public static MetaTileEntity getMetaTileEntity(IBlockAccess world, BlockPos pos) {
         if (reflectGTgetMTE == null) {
+            if (reflectGTgetMTEMissing) {
+                return null;
+            }
             try {
                 reflectGTgetMTE = ReflectionHelper.findMethod(BlockMachine.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
             } catch (ReflectionHelper.UnableToFindMethodException e) {
-                reflectGTgetMTE = ReflectionHelper.findMethod(GTUtility.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
+                try {
+                    reflectGTgetMTE = ReflectionHelper.findMethod(GTUtility.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
+                } catch (ReflectionHelper.UnableToFindMethodException e2) {
+                    reflectGTgetMTEMissing = true;
+                    return null;
+                }
             }
-        } else {
-            try {
-                return (MetaTileEntity) reflectGTgetMTE.invoke(reflectGTgetMTE, world, pos);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
-            }
+        }
+        try {
+            return (MetaTileEntity) reflectGTgetMTE.invoke(null, world, pos);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
         }
         return null;
     }
