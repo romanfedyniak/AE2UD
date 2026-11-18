@@ -721,7 +721,7 @@ public abstract class AEBaseContainer extends Container {
                             // The slot's own ceiling, like SPLIT_OR_PLACE_SINGLE below. Eight times the
                             // item's stack size is not a limit this slot has: it let a stackable item reach
                             // 512 and stopped a bucket at 8.
-                            is.setCount((int) Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
+                            is.setCount(this.oneMoreIn(s, is));
                             s.putStack(is);
                         }
                         break;
@@ -734,14 +734,14 @@ public abstract class AEBaseContainer extends Container {
                         }
                         break;
                     case SPLIT_OR_PLACE_SINGLE:
-                        ItemStack is = s.getStack();
+                        ItemStack is = s.getStack().copy();
                         if (!is.isEmpty()) {
                             if (hand.isEmpty()) {
                                 is.setCount(Math.max(1, is.getCount() - 1));
                             } else if (hand.isItemEqual(is)) {
                                 // Up to what the slot holds, not the item's own stack size: a config slot is
                                 // a number rather than a stack, and this one stopped at 64 in a slot of 512.
-                                is.setCount((int) Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
+                                is.setCount(this.oneMoreIn(s, is));
                             } else {
                                 is = hand.copy();
                                 is.setCount(1);
@@ -1108,6 +1108,11 @@ public abstract class AEBaseContainer extends Container {
         // A single base unit rather than a whole unit, because a pattern may legitimately ask for less
         // than a bucket.
         return Math.max(floor, amount);
+    }
+
+    /** One more of a filter's item, up to what the slot holds and to what an ItemStack can count. */
+    private int oneMoreIn(final Slot s, final ItemStack is) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.min(this.maxAmountIn(s, AEItemKey.of(is)), is.getCount() + 1L));
     }
 
     /**
