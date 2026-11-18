@@ -102,8 +102,9 @@ public class CraftingCPUCalculator extends MBCalculator {
             for (int y = min.y; y <= max.y; y++) {
                 for (int z = min.z; z <= max.z; z++) {
                     final TileEntity tile = w.getTileEntity(new BlockPos(x, y, z));
-                    // A hole in the box used to throw here and be swallowed, which said nothing to anyone.
-                    if (!(tile instanceof IAEMultiBlock) || !((IAEMultiBlock) tile).isValid()) {
+                    // A hole in the box used to throw here and be swallowed, which said nothing to anyone. So did
+                    // another mod's multiblock block inside it, halfway through handing the blocks their cluster.
+                    if (!this.isValidTile(tile) || !((IAEMultiBlock) tile).isValid()) {
                         this.tqb.reportFormationFailure(PlayerMessages.CraftingCPUNotSolid);
                         return false;
                     }
