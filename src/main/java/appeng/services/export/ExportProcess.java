@@ -55,7 +55,7 @@ public class ExportProcess implements Runnable {
     @Nonnull
     private final File exportDirectory;
     @Nonnull
-    private final Checker<List<ModContainer>> modChecker;
+    private final ModListChecker modChecker;
     @Nonnull
     private final ExportConfig config;
 
@@ -109,6 +109,7 @@ public class ExportProcess implements Runnable {
         final Exporter exporter = new MinecraftItemCSVExporter(this.exportDirectory, itemRegistry, mode);
 
         exporter.export();
+        this.modChecker.remember();
 
         AELog.info(EXPORT_END_MESSAGE, watch.elapsed(TimeUnit.MILLISECONDS));
     }
