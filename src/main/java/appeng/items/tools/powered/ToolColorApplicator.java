@@ -44,6 +44,8 @@ import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.me.helpers.BaseActionSource;
 import appeng.tile.misc.TilePaint;
 import appeng.util.Platform;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockColored;
 import net.minecraft.block.BlockStainedGlass;
@@ -77,6 +79,12 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     private static final double POWER_PER_USE = 100;
     private static final Map<Integer, AEColor> ORE_TO_COLOR = new HashMap<>();
+
+    /**
+     * {@link #getRenderColor}'s answers, by the stack's tag. The tag is replaced, not edited, when the server sends
+     * the stack again, so a changed applicator is a new key; weak keys let the old ones go.
+     */
+    private final Cache<NBTTagCompound, Optional<AEColor>> renderColors = CacheBuilder.newBuilder().weakKeys().build();
 
     static {
         for (final AEColor color : AEColor.VALID_COLORS) {
@@ -248,6 +256,26 @@ public class ToolColorApplicator extends AEBasePoweredItem implements IBasicCell
 
     public AEColor getActiveColor(final ItemStack tol) {
         return this.getColorFromItem(this.getColor(tol));
+    }
+
+    /**
+     * The colour to draw the applicator in, which its item model asks on every frame and its tint for every quad.
+     * Worked out once per tag: {@link #getActiveColor} builds the whole cell inventory of an empty applicator, and an
+     * ItemStack from the tag of a loaded one, each time.
+     */
+    @Nullable
+    public AEColor getRenderColor(final ItemStack is) {
+        final NBTTagCompound tag = is.getTagCompound();
+        if (tag == null) {
+            return null;
+        }
+
+        Optional<AEColor> known = this.renderColors.getIfPresent(tag);
+        if (known == null) {
+            known = Optional.ofNullable(this.getActiveColor(is));
+            this.renderColors.put(tag, known);
+        }
+        return known.orElse(null);
     }
 
     private AEColor getColorFromItem(final ItemStack paintBall) {
