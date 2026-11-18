@@ -84,6 +84,8 @@ public class GridStorageCache implements IStorageService, IGridCache {
      * {@link #cachedAvailableStacks} is modified by mistake.
      */
     private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
+    /** Moves on whenever {@link #cachedAvailableStacks} changes, so a reader can tell it has nothing new. */
+    private long changeStamp;
     private boolean cachedStacksNeedUpdate = true;
     /**
      * What has moved since the last tick, and by how much. This is the whole point of the change: a network is
@@ -269,6 +271,7 @@ public class GridStorageCache implements IStorageService, IGridCache {
         // changes go into a batch of their own, never into the one being walked.
         final Object2LongMap<AEKey> changes = this.pendingChanges;
         this.pendingChanges = new Object2LongOpenHashMap<>();
+        this.changeStamp++;
 
         boolean emptied = false;
 
@@ -299,6 +302,7 @@ public class GridStorageCache implements IStorageService, IGridCache {
 
     private void updateCachedStacks() {
         cachedStacksNeedUpdate = false;
+        changeStamp++;
 
         cachedAvailableStacks.clear();
         storage.getAvailableStacks(cachedAvailableStacks);
@@ -404,6 +408,12 @@ public class GridStorageCache implements IStorageService, IGridCache {
     public KeyCounter getCachedInventory() {
         this.refreshCachedStacks();
         return cachedAvailableStacks;
+    }
+
+    /** A number that is the same for as long as {@link #getCachedInventory()} has not changed. */
+    public long getChangeStamp() {
+        this.refreshCachedStacks();
+        return this.changeStamp;
     }
 
     @Override

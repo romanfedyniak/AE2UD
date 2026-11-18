@@ -96,6 +96,8 @@ public abstract class AEBaseContainer extends Container {
     private boolean sentCustomName;
     private int ticksSinceCheck = 900;
     private AEKey clientRequestedTargetItem = null;
+    private int syncHeld;
+    private boolean syncWanted;
 
     public AEBaseContainer(final InventoryPlayer ip, final TileEntity myTile, final IPart myPart) {
         this(ip, myTile, myPart, null);
@@ -347,6 +349,15 @@ public abstract class AEBaseContainer extends Container {
             return ItemStack.EMPTY;
         }
 
+        this.holdSync();
+        try {
+            return this.moveStackInSlot(p, idx);
+        } finally {
+            this.releaseSync();
+        }
+    }
+
+    private ItemStack moveStackInSlot(final EntityPlayer p, final int idx) {
         final AppEngSlot clickSlot = (AppEngSlot) this.inventorySlots.get(idx); // require AE SLots!
 
         if (clickSlot instanceof SlotDisabled || clickSlot instanceof SlotInaccessible) {
@@ -796,8 +807,13 @@ public abstract class AEBaseContainer extends Container {
             }
 
             if (action == InventoryAction.MOVE_REGION) {
-                for (final Slot fr : this.regionOf(s)) {
-                    this.transferStackInSlot(player, fr.slotNumber);
+                this.holdSync();
+                try {
+                    for (final Slot fr : this.regionOf(s)) {
+                        this.transferStackInSlot(player, fr.slotNumber);
+                    }
+                } finally {
+                    this.releaseSync();
                 }
             }
 
@@ -1555,8 +1571,26 @@ public abstract class AEBaseContainer extends Container {
     }
 
     private void updateSlot(final Slot clickSlot) {
-        // ???
-        this.detectAndSendChanges();
+        if (this.syncHeld > 0) {
+            this.syncWanted = true;
+        } else {
+            this.detectAndSendChanges();
+        }
+    }
+
+    /**
+     * Holds the syncs a move asks for until {@link #releaseSync()}: one move touches many slots, and every
+     * sync diffs the whole screen, which on a wireless terminal means the whole network listing.
+     */
+    private void holdSync() {
+        this.syncHeld++;
+    }
+
+    private void releaseSync() {
+        if (--this.syncHeld == 0 && this.syncWanted) {
+            this.syncWanted = false;
+            this.detectAndSendChanges();
+        }
     }
 
     private void sendCustomName() {

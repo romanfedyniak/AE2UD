@@ -63,6 +63,7 @@ import appeng.core.sync.packets.PacketTerminalPins;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.me.helpers.ChannelPowerSrc;
 import appeng.me.cache.CraftingGridCache;
+import appeng.me.cache.GridStorageCache;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.cluster.implementations.ICraftingCPUListener;
 import appeng.parts.reporting.AbstractPartTerminal;
@@ -146,6 +147,15 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
      * listener.
      */
     private KeyCounter previousAvailableStacks = new KeyCounter();
+
+    /**
+     * What {@link #previousAvailableStacks} was diffed against: the storage service, its change stamp and what
+     * decided which keys are shown. While all three stay the same, the next diff would find nothing, and it
+     * is not worth copying the whole listing every tick to find that out.
+     */
+    private IStorageService diffedService;
+    private long diffedStamp = -1;
+    private Object diffedDisplay;
 
     /**
      * The last set of craftable keys sent to the client. A {@link AEKey} carries no craftable flag any more
@@ -687,7 +697,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                         fakeCraftables.contains(what)));
             }
             this.pendingPushChanges.clear();
-        } else {
+        } else if (this.listingMayHaveChanged()) {
             // Case 2: server-side per-tick diff of a directly-viewed cell (or remote network, for a
             // wireless terminal) snapshot - exactly like upstream's MEStorageMenu.broadcastChanges().
             final KeyCounter current = this.retainAvailableStacks();
@@ -733,6 +743,32 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         this.previousFakeCraftables = fakeCraftables;
 
         return result;
+    }
+
+    /**
+     * Whether the case-2 diff could find anything since the last one: always for a single cell, and for the
+     * network's listing only once it changed or the choice of keys to show did.
+     */
+    private boolean listingMayHaveChanged() {
+        final IStorageService ss = this.networkStorageService();
+        if (!(ss instanceof GridStorageCache cache)) {
+            this.diffedService = null;
+            return true;
+        }
+
+        final long stamp = cache.getChangeStamp();
+        final Object display = Arrays.asList(
+                this.host instanceof KeyTypeSelectionHost h ? h.getKeyTypeSelection().enabledSet() : null,
+                this.terminalPinsRequested, this.showCraftingPins, this.showPlayerPins,
+                new ArrayList<>(this.craftingPins.keySet()), new HashSet<>(this.visiblePlayerPinKeys));
+        if (ss == this.diffedService && stamp == this.diffedStamp && display.equals(this.diffedDisplay)) {
+            return false;
+        }
+
+        this.diffedService = ss;
+        this.diffedStamp = stamp;
+        this.diffedDisplay = display;
+        return true;
     }
 
     private Set<AEKey> computeCraftables() {
