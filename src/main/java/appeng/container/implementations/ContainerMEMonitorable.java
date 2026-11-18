@@ -386,18 +386,20 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                     final List<GridInventoryEntry> changes = this.collectChanges();
 
                     if (!changes.isEmpty()) {
-                        final PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
+                        PacketMEInventoryUpdate piu = new PacketMEInventoryUpdate();
 
                         for (final GridInventoryEntry entry : changes) {
-                            piu.appendItem(entry);
+                            try {
+                                piu.appendItem(entry);
+                            } catch (final BufferOverflowException boe) {
+                                this.sendToListeners(piu);
+                                piu = new PacketMEInventoryUpdate();
+                                piu.appendItem(entry);
+                            }
                         }
 
                         if (!piu.isEmpty()) {
-                            for (final Object c : this.listeners) {
-                                if (c instanceof EntityPlayer) {
-                                    NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
-                                }
-                            }
+                            this.sendToListeners(piu);
                         }
                     }
                 } catch (final IOException e) {
@@ -952,6 +954,14 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             this.refreshCraftingPins(true);
         }
         this.queueInventory(c);
+    }
+
+    private void sendToListeners(final PacketMEInventoryUpdate piu) {
+        for (final Object c : this.listeners) {
+            if (c instanceof EntityPlayer) {
+                NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
+            }
+        }
     }
 
     private void queueInventory(final IContainerListener c) {

@@ -44,6 +44,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -156,7 +157,7 @@ public class ContainerNetworkStatus extends AEBaseContainer {
                         NetworkHandler.instance().sendTo(piu, (EntityPlayerMP) c);
                     }
                 }
-            } catch (final IOException e) {
+            } catch (final IOException | BufferOverflowException e) {
                 // :P
             }
         }

@@ -57,8 +57,8 @@ public abstract class AppEngPacket implements Packet {
     }
 
     public FMLProxyPacket getProxy() {
-        if (this.p.array().length > 2 * 1024 * 1024) // 2k walking room :)
-        {
+        // Forge splits a bigger packet to a client into parts of its own, up to this.
+        if (this.p.array().length > FMLProxyPacket.MAX_LENGTH) {
             throw new IllegalArgumentException("Sorry AE2 made a " + this.p.array().length + " byte packet by accident!");
         }
 

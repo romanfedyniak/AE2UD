@@ -50,6 +50,7 @@ import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.IContainerListener;
 
 import java.io.IOException;
+import java.nio.BufferOverflowException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -264,7 +265,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
                             }
                         }
                     }
-                } catch (final IOException e) {
+                } catch (final IOException | BufferOverflowException e) {
                     // :P
                 }
             }

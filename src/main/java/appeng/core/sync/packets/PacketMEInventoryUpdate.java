@@ -169,7 +169,8 @@ public class PacketMEInventoryUpdate extends AppEngPacket {
         is.writeToPacket(tmp);
 
         this.compressFrame.flush();
-        if (this.writtenBytes + tmp.readableBytes() > UNCOMPRESSED_PACKET_BYTE_LIMIT) {
+        // An entry bigger than the limit still goes, alone in a packet of its own.
+        if (this.writtenBytes > 0 && this.writtenBytes + tmp.readableBytes() > UNCOMPRESSED_PACKET_BYTE_LIMIT) {
             throw new BufferOverflowException();
         } else {
             this.writtenBytes += tmp.readableBytes();
