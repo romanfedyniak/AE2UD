@@ -246,7 +246,7 @@ public class PartAnnihilationPlane extends PartUpgradeable
                 minY = 0;
             }
 
-            if (this.isAnnihilationPlane(te.getWorld().getTileEntity(pos.offset(e)), this.getSide())) {
+            if (this.isAnnihilationPlane(te.getWorld().getTileEntity(pos.offset(u)), this.getSide())) {
                 maxY = 16;
             }
         }
