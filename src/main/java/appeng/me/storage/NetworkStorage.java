@@ -71,7 +71,10 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
     private List<QueuedOperation> queuedOperations;
 
     private final StorageChangeListeners listeners = new StorageChangeListeners();
-    private final Listener forwarder = this.listeners::post;
+    private final Listener forwarder = this::post;
+    /** The thread passing a change on right now, if any. */
+    @Nullable
+    private Thread posting;
 
     /**
      * Whether any mount is sticky, and whether that is still known. Worth keeping because the sticky pass in
@@ -152,7 +155,7 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
         final long inserted = inv.insert(what, amount, type, src);
 
         if (inserted > 0 && type == Actionable.MODULATE && !reportsForItself(inv)) {
-            this.listeners.post(what, inserted);
+            this.post(what, inserted);
         }
 
         return inserted;
@@ -163,10 +166,30 @@ public class NetworkStorage implements MEStorage, IStorageChangeSource {
         final long extracted = inv.extract(what, amount, mode, src);
 
         if (extracted > 0 && mode == Actionable.MODULATE && !reportsForItself(inv)) {
-            this.listeners.post(what, -extracted);
+            this.post(what, -extracted);
         }
 
         return extracted;
+    }
+
+    /**
+     * Tells the listeners, unless this network is already telling them on this thread. A storage bus on an
+     * interface of this same network, or two networks with a bus on each other's interface, hand every change
+     * back here; it has been counted, and passing it on again would never end.
+     */
+    private void post(final AEKey what, final long delta) {
+        final Thread current = Thread.currentThread();
+        if (this.posting == current) {
+            return;
+        }
+
+        final Thread outer = this.posting;
+        this.posting = current;
+        try {
+            this.listeners.post(what, delta);
+        } finally {
+            this.posting = outer;
+        }
     }
 
     public void mount(final int priority, final MEStorage inventory) {
