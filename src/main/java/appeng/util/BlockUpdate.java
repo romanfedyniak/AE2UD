@@ -20,9 +20,12 @@ package appeng.util;
 
 
 import appeng.hooks.TickHandler;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.event.ForgeEventFactory;
 
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -60,8 +63,29 @@ public class BlockUpdate implements IWorldCallable<Boolean> {
     @Override
     public Boolean call(final World world) throws Exception {
         this.queued.remove(this.pos);
-        if (world.isBlockLoaded(this.pos)) {
+        if (!world.isBlockLoaded(this.pos)) {
+            return true;
+        }
+        if (world.isAreaLoaded(this.pos, 1)) {
             world.notifyNeighborsOfStateChange(this.pos, Platform.AIR_BLOCK, true);
+            return true;
+        }
+
+        // At the edge of what is loaded: asking a neighbour in an unloaded chunk would load it.
+        final EnumSet<EnumFacing> loaded = EnumSet.noneOf(EnumFacing.class);
+        for (final EnumFacing side : EnumFacing.VALUES) {
+            if (world.isBlockLoaded(this.pos.offset(side))) {
+                loaded.add(side);
+            }
+        }
+        if (ForgeEventFactory.onNeighborNotify(world, this.pos, world.getBlockState(this.pos), loaded, true).isCanceled()) {
+            return true;
+        }
+        for (final EnumFacing side : loaded) {
+            world.neighborChanged(this.pos.offset(side), Platform.AIR_BLOCK, this.pos);
+        }
+        for (final EnumFacing side : loaded) {
+            world.observedNeighborChanged(this.pos.offset(side), Platform.AIR_BLOCK, this.pos);
         }
 
         return true;
