@@ -144,7 +144,7 @@ public final class AEFluidKey extends AEKey {
         if (stack == null || stack.getFluid() != this.fluid) {
             return false;
         }
-        return Objects.equals(stack.tag, this.tag);
+        return Objects.equals(stack.tag == null || stack.tag.isEmpty() ? null : stack.tag, this.tag);
     }
 
     @Override

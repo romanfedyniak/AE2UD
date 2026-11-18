@@ -259,7 +259,8 @@ public final class AEItemKey extends AEKey {
         if (stack.isEmpty() || stack.getItem() != this.item || stack.getItemDamage() != this.damage) {
             return false;
         }
-        return Objects.equals(stack.getTagCompound(), this.tag) && Objects.equals(capsOf(stack), this.caps);
+        final NBTTagCompound tag = stack.getTagCompound();
+        return Objects.equals(tag == null || tag.isEmpty() ? null : tag, this.tag) && Objects.equals(capsOf(stack), this.caps);
     }
 
     public int getMaxStackSize() {
