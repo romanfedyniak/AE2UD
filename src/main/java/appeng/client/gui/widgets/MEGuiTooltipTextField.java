@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 
+import java.lang.ref.WeakReference;
 import java.util.function.Supplier;
 
 /**
@@ -22,7 +23,8 @@ public class MEGuiTooltipTextField implements ITooltip {
 
     private static final int PADDING = 2;
     private static boolean previousKeyboardRepeatEnabled;
-    private static MEGuiTooltipTextField previousKeyboardRepeatEnabledField;
+    /** Weak: a screen the server closes never unfocuses its field, and this would keep the screen and its world. */
+    private static WeakReference<MEGuiTooltipTextField> previousKeyboardRepeatEnabledField = new WeakReference<>(null);
     private Supplier<String> tooltip;
     private int fontPad;
     private boolean typedIn;
@@ -188,16 +190,16 @@ public class MEGuiTooltipTextField implements ITooltip {
 
         if (focus) {
 
-            if (previousKeyboardRepeatEnabledField == null) {
+            if (previousKeyboardRepeatEnabledField.get() == null) {
                 previousKeyboardRepeatEnabled = Keyboard.areRepeatEventsEnabled();
             }
 
-            previousKeyboardRepeatEnabledField = this;
+            previousKeyboardRepeatEnabledField = new WeakReference<>(this);
             Keyboard.enableRepeatEvents(true);
         } else {
 
-            if (previousKeyboardRepeatEnabledField == this) {
-                previousKeyboardRepeatEnabledField = null;
+            if (previousKeyboardRepeatEnabledField.get() == this) {
+                previousKeyboardRepeatEnabledField = new WeakReference<>(null);
                 Keyboard.enableRepeatEvents(previousKeyboardRepeatEnabled);
             }
         }

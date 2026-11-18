@@ -216,6 +216,9 @@ public class GuiPatternAccessTerminal extends AEBaseGui {
         memoryText[0] = keep ? this.searchFieldInputs.getText() : "";
         memoryText[1] = keep ? this.searchFieldOutputs.getText() : "";
         memoryText[2] = keep ? this.searchFieldNames.getText() : "";
+        this.searchFieldInputs.setFocused(false);
+        this.searchFieldOutputs.setFocused(false);
+        this.searchFieldNames.setFocused(false);
         super.onGuiClosed();
     }
 

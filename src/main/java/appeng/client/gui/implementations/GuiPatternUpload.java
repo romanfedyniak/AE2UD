@@ -115,6 +115,12 @@ public class GuiPatternUpload extends AEBaseGui {
     }
 
     @Override
+    public void onGuiClosed() {
+        this.searchField.setFocused(false);
+        super.onGuiClosed();
+    }
+
+    @Override
     public void drawScreen(final int mouseX, final int mouseY, final float partialTicks) {
         super.drawScreen(mouseX, mouseY, partialTicks);
         this.drawTooltip(this.searchField, mouseX, mouseY);
