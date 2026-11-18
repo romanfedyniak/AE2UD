@@ -66,6 +66,7 @@ public class PartPatternTerminal extends AbstractPartEncoder {
                 ? new ResourceLocation(data.getString("encodingMode"))
                 : data.getBoolean("craftingMode") ? PatternEncodingModes.CRAFTING : PatternEncodingModes.PROCESSING);
         this.setSubstitution(data.getBoolean("substitute"));
+        this.setFluidSubstitution(data.getBoolean("fluidSubstitute"));
         // Straight to the field: setInverted would empty the far side of what was just read back.
         this.inverted = data.getBoolean("inverted");
     }
@@ -75,6 +76,7 @@ public class PartPatternTerminal extends AbstractPartEncoder {
         super.writeToNBT(data);
         data.setString("encodingMode", this.mode.toString());
         data.setBoolean("substitute", this.substitute);
+        data.setBoolean("fluidSubstitute", this.fluidSubstitute);
         data.setBoolean("inverted", this.inverted);
     }
 
