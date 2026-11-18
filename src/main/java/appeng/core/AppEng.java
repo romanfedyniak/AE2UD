@@ -178,14 +178,6 @@ public final class AppEng {
         new PluginLoader().loadPlugins(injectables, event.getAsmData());
     }
 
-    private void startService(final String serviceName, final Thread thread) {
-        thread.setName(serviceName);
-        thread.setPriority(Thread.MIN_PRIORITY);
-
-        AELog.info("Starting " + serviceName);
-        thread.start();
-    }
-
     @EventHandler
     private void init(final FMLInitializationEvent event) {
         final Stopwatch start = Stopwatch.createStarted();
@@ -193,15 +185,8 @@ public final class AppEng {
 
         AppEng.proxy.init();
 
-        if (this.exportConfig.isExportingItemNamesEnabled()) {
-            if (FMLCommonHandler.instance().getSide().isClient()) {
-                final ExportProcess process = new ExportProcess(this.configDirectory, this.exportConfig);
-                final Thread exportProcessThread = new Thread(process);
-
-                this.startService("AE2 CSV Export", exportProcessThread);
-            } else {
-                AELog.info("Disabling item.csv export for custom recipes, since creative tab information is only available on the client.");
-            }
+        if (this.exportConfig.isExportingItemNamesEnabled() && !FMLCommonHandler.instance().getSide().isClient()) {
+            AELog.info("Disabling item.csv export for custom recipes, since creative tab information is only available on the client.");
         }
 
         this.registration.initialize(event, this.configDirectory);
@@ -229,6 +214,17 @@ public final class AppEng {
         NetworkHandler.init("AE2");
 
         AELog.info("Post Initialization ( ended after " + start.elapsed(TimeUnit.MILLISECONDS) + "ms )");
+    }
+
+    /**
+     * The item list export asks every mod's items for their sub items and names. That is not safe while other
+     * mods are still being set up, nor from any thread but this one, so it waits until loading is over.
+     */
+    @EventHandler
+    private void loadComplete(final FMLLoadCompleteEvent event) {
+        if (this.exportConfig.isExportingItemNamesEnabled() && FMLCommonHandler.instance().getSide().isClient()) {
+            new ExportProcess(this.configDirectory, this.exportConfig).run();
+        }
     }
 
     @EventHandler
