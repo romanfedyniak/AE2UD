@@ -29,7 +29,9 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Container;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Keyboard;
 
@@ -89,6 +91,14 @@ public class GuiCraftPriority extends GuiCraftAmount {
         if (btn == this.back) {
             this.mc.displayGuiScreen(this.parent);
         }
+    }
+
+    /**
+     * The picture of the crafting unit sits in a slot of this screen's own container, which the server never
+     * opened: a click on it would go to the container underneath, which has no such slot.
+     */
+    @Override
+    protected void handleMouseClick(final Slot slot, final int slotIdx, final int mouseButton, final ClickType clickType) {
     }
 
     @Override
