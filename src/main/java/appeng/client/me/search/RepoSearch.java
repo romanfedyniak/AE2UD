@@ -136,6 +136,22 @@ public final class RepoSearch {
         return result;
     }
 
+    /** Drops what was worked out about a key that left the listing. */
+    public void forget(final AEKey what) {
+        this.matches.removeBoolean(what);
+        this.names.remove(what);
+        this.tooltips.remove(what);
+        this.oreDictNames.remove(what);
+    }
+
+    /** Drops what was worked out about every key, for a listing emptied outright. */
+    public void forgetAll() {
+        this.matches.clear();
+        this.names.clear();
+        this.tooltips.clear();
+        this.oreDictNames.clear();
+    }
+
     /**
      * Whether a set of keys answers the query - a pattern's ingredients, an interface's configured items.
      * A positive term needs one key in the set to satisfy it; an excluded term needs none to. That is what

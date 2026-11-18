@@ -178,6 +178,7 @@ public class Repo {
         if (!entry.isMeaningful()) {
             old = this.entries.remove(entry.getWhat());
             this.names.remove(entry.getWhat());
+            this.search.forget(entry.getWhat());
         } else {
             old = this.entries.put(entry.getWhat(), entry);
         }
@@ -455,6 +456,7 @@ public class Repo {
     public void reset() {
         this.entries.clear();
         this.names.clear();
+        this.search.forgetAll();
         this.view = new ArrayList<>();
         this.changed = true;
     }
