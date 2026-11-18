@@ -59,8 +59,15 @@ public class PacketCompassRequest extends AppEngPacket {
 
     @Override
     public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        final Optional<BlockPos> result = ServerCompassService.getClosestMeteorite((WorldServer) player.world,
-                this.pos);
+        // A compass asks about the chunk it is in and the eight around it, a placed one about a chunk the client
+        // has loaded. Anything farther comes from a modified client, and every answer costs a search.
+        final WorldServer world = (WorldServer) player.world;
+        final int range = world.getMinecraftServer().getPlayerList().getViewDistance() + 2;
+        if (Math.abs(this.pos.x - player.chunkCoordX) > range || Math.abs(this.pos.z - player.chunkCoordZ) > range) {
+            return;
+        }
+
+        final Optional<BlockPos> result = ServerCompassService.getClosestMeteorite(world, this.pos);
 
         NetworkHandler.instance().sendTo(
                 new PacketCompassResponse(this.pos, result.isPresent(), result.orElse(BlockPos.ORIGIN)),

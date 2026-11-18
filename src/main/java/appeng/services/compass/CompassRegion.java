@@ -28,6 +28,8 @@ import net.minecraft.world.storage.MapStorage;
 import net.minecraft.world.storage.WorldSavedData;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nullable;
+
 import java.util.BitSet;
 import java.util.Objects;
 
@@ -44,10 +46,10 @@ public class CompassRegion extends WorldSavedData {
     private static final int CHUNKS_PER_REGION = 1024;
 
     private static final int BITS_PER_POS = Integer.numberOfTrailingZeros(CHUNKS_PER_REGION);
-    private static final int BITMAP_LENGTH = CHUNKS_PER_REGION * CHUNKS_PER_REGION;
     private static final String NBT_KEY = "data";
 
-    private BitSet data = new BitSet(BITMAP_LENGTH);
+    // Grows to the highest chunk recorded; most regions record none.
+    private BitSet data = new BitSet();
 
     public CompassRegion(final String name) {
         super(name);
@@ -70,6 +72,21 @@ public class CompassRegion extends WorldSavedData {
         final int regionZ = (chunkZ >> BITS_PER_POS) << BITS_PER_POS;
 
         return getByRegion(world, regionX, regionZ);
+    }
+
+    /** The first chunk, on one axis, of the region holding this one. */
+    static int regionStart(final int chunk) {
+        return (chunk >> BITS_PER_POS) << BITS_PER_POS;
+    }
+
+    /**
+     * The region holding this chunk as saved, or null when nothing was ever recorded in it. Only asks: a region that
+     * is not there is not made, so a question about some far-off place leaves nothing behind.
+     */
+    @Nullable
+    public static CompassRegion find(final WorldServer world, final int chunkX, final int chunkZ) {
+        return (CompassRegion) world.getPerWorldStorage().getOrLoadData(CompassRegion.class,
+                getRegionSaveName(regionStart(chunkX), regionStart(chunkZ)));
     }
 
     private static CompassRegion getByRegion(final WorldServer world, final int regionX, final int regionZ) {
@@ -102,6 +119,10 @@ public class CompassRegion extends WorldSavedData {
     public NBTTagCompound writeToNBT(@NotNull final NBTTagCompound compound) {
         compound.setByteArray(NBT_KEY, this.data.toByteArray());
         return compound;
+    }
+
+    public boolean isEmpty() {
+        return this.data.isEmpty();
     }
 
     public boolean hasCompassTarget(final int cx, final int cz) {
