@@ -142,7 +142,8 @@ public class RecipeTransferHandler<T extends Container> implements IRecipeTransf
                     if (slot.getSlotIndex() == gridSlot) {
                         final NBTTagList tags = new NBTTagList();
 
-                        for (final ItemStack is : list) {
+                        // The server reads no more than this many per slot.
+                        for (final ItemStack is : list.subList(0, Math.min(list.size(), PacketJEIRecipe.MAX_OPTIONS))) {
                             final NBTTagCompound tag = stackToNBT(is);
                             tags.appendTag(tag);
                         }
@@ -198,7 +199,7 @@ public class RecipeTransferHandler<T extends Container> implements IRecipeTransf
                 final NBTTagList options = new NBTTagList();
                 for (final GenericStack option : slot.getValue()) {
                     final ItemStack stack = toItemStack(option);
-                    if (!stack.isEmpty()) {
+                    if (!stack.isEmpty() && options.tagCount() < PacketJEIRecipe.MAX_OPTIONS) {
                         options.appendTag(stackToNBT(stack));
                     }
                 }

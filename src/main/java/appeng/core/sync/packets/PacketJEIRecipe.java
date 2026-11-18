@@ -49,6 +49,7 @@ import appeng.container.interfaces.IInventorySlotAware;
 import appeng.core.AELog;
 import appeng.core.sync.AppEngPacket;
 import appeng.core.sync.GuiBridge;
+import appeng.core.sync.PacketCompression;
 import appeng.core.sync.network.INetworkInfo;
 import appeng.crafting.VirtualPatternDetails;
 import appeng.helpers.IContainerCraftingPacket;
@@ -71,6 +72,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTSizeTracker;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
@@ -80,6 +82,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -120,6 +123,13 @@ public class PacketJEIRecipe extends AppEngPacket {
     private Map<String, Map<Integer, List<ItemStack>>> grids;
     static ItemStack[] emptyArray = {ItemStack.EMPTY};
     private static final int MAX_SLOTS = 256;
+    /**
+     * Alternatives read per slot. Each one the network lacks costs an extraction attempt and an inventory scan on
+     * the server thread; a recipe screen lists far fewer.
+     */
+    public static final int MAX_OPTIONS = 256;
+    /** What the recipe may take up once read, the limit vanilla puts on NBT in a packet. */
+    private static final int MAX_NBT_BYTES = 2 * 1024 * 1024;
 
     /**
      * Set by a Ctrl+Move Items transfer - see RecipeTransferHandler. Craft whatever this recipe is
@@ -132,9 +142,11 @@ public class PacketJEIRecipe extends AppEngPacket {
 
     // automatic.
     public PacketJEIRecipe(final ByteBuf stream) throws IOException {
-        final ByteArrayInputStream bytes = this.getPacketByteArray(stream);
-        bytes.skip(stream.readerIndex());
-        final NBTTagCompound comp = CompressedStreamTools.readCompressed(bytes);
+        final byte[] compressed = new byte[stream.readableBytes()];
+        stream.readBytes(compressed);
+        final byte[] raw = PacketCompression.decompress(compressed, MAX_NBT_BYTES);
+        final NBTTagCompound comp = CompressedStreamTools.read(new DataInputStream(new ByteArrayInputStream(raw)),
+                new NBTSizeTracker(MAX_NBT_BYTES));
         if (comp != null && comp.hasKey("mode")) {
             this.mode = new ResourceLocation(comp.getString("mode"));
             this.grids = new HashMap<>();
@@ -144,8 +156,9 @@ public class PacketJEIRecipe extends AppEngPacket {
                 final Map<Integer, List<ItemStack>> slots = new HashMap<>();
                 for (final String slot : gridTag.getKeySet()) {
                     final NBTTagList list = gridTag.getTagList(slot, 10);
-                    final List<ItemStack> options = new ArrayList<>(list.tagCount());
-                    for (int y = 0; y < list.tagCount(); y++) {
+                    final int count = Math.min(list.tagCount(), MAX_OPTIONS);
+                    final List<ItemStack> options = new ArrayList<>(count);
+                    for (int y = 0; y < count; y++) {
                         final ItemStack option = stackFromNBT(list.getCompoundTagAt(y));
                         if (!option.isEmpty()) {
                             options.add(option);
@@ -174,8 +187,8 @@ public class PacketJEIRecipe extends AppEngPacket {
                 }
                 final NBTTagList list = comp.getTagList(key, 10);
                 if (list.tagCount() > 0) {
-                    final ItemStack[] options = new ItemStack[list.tagCount()];
-                    for (int y = 0; y < list.tagCount(); y++) {
+                    final ItemStack[] options = new ItemStack[Math.min(list.tagCount(), MAX_OPTIONS)];
+                    for (int y = 0; y < options.length; y++) {
                         options[y] = stackFromNBT(list.getCompoundTagAt(y));
                     }
                     this.recipe.set(x, options);
@@ -185,7 +198,7 @@ public class PacketJEIRecipe extends AppEngPacket {
             if (comp.hasKey("outputs")) {
                 final NBTTagList outputList = comp.getTagList("outputs", 10);
                 this.output = new ArrayList<>();
-                for (int z = 0; z < outputList.tagCount(); z++) {
+                for (int z = 0; z < Math.min(outputList.tagCount(), MAX_OPTIONS); z++) {
                     this.output.add(stackFromNBT(outputList.getCompoundTagAt(z)));
                 }
             }
