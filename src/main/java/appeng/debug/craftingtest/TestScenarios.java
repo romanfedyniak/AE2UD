@@ -129,6 +129,7 @@ public final class TestScenarios {
                 .pattern("b", in(k.stack("br_a", 1)), out(k.stack("br_b", 2)))
                 .pattern("c", in(k.stack("br_a", 1)), out(k.stack("br_c", 3)))
                 .inStorage(k.stack("br_b", 1))
+                .inStorage(k.stack("br_c", 1))
                 .inStorage(k.stack("br_base", 1000))
                 .request(k.stack("br_a", 100))
                 .build());
