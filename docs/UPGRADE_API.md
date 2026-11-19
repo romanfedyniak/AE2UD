@@ -32,13 +32,13 @@ One speed point is equivalent to one standard Acceleration Card. The default reg
 machine and part registered for standard speed-card support, except the Matter Cannon:
 
 ```java
-upgrades.registerSpeedCard(myFastCardStack, 100);
+upgrades.registerCard(myFastCardStack, CardTraits.SPEED, 100);
 ```
 
 Use the overload with `false` to require exact associations instead:
 
 ```java
-upgrades.registerSpeedCard(myFastCardStack, 100, false);
+upgrades.registerCard(myFastCardStack, CardTraits.SPEED, 100, false);
 upgrades.add(myFastCardStack, myMachineStack, 4);
 ```
 
@@ -51,16 +51,22 @@ extends them past their former maximums. Power consumption continues to scale wi
 Capacity points replace standard Capacity Cards and inherit standard capacity-compatible hosts by default:
 
 ```java
-upgrades.registerCapacityCard(myCapacityCardStack, 5);
+upgrades.registerCard(myCapacityCardStack, CardTraits.CAPACITY, 5);
 ```
 
 Unlike speed, effective capacity is capped by the host. For an addon machine that accepts only an exact
 custom capacity card, register its limit separately:
 
 ```java
-upgrades.registerCapacityCard(myCapacityCardStack, 20, false);
+upgrades.registerCard(myCapacityCardStack, CardTraits.CAPACITY, 20, false);
 upgrades.add(myCapacityCardStack, myMachineStack, 1);
-upgrades.setCapacityLimit(myMachineStack, 20);
+upgrades.setTraitLimit(CardTraits.CAPACITY, myMachineStack, 20);
+```
+
+A host of your own that takes any card carrying a trait, rather than named cards, registers for the trait:
+
+```java
+upgrades.addTraitSupport(CardTraits.SPEED, myMachineStack, 4);
 ```
 
 The same card may carry both speed and capacity traits. It occupies one physical slot and contributes both

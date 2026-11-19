@@ -36,7 +36,7 @@ public class ToolClass {
     }
 
     public static Enum<Interfaces> getGTToolInterface() {
-        if (GTToolClass.getName().equals("IToolItem")) {
+        if (GTToolClass.getSimpleName().equals("IToolItem")) {
             return Interfaces.ITOOLITEM;
         } else {
             return Interfaces.IGTTOOL;

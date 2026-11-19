@@ -23,8 +23,6 @@ import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.core.localization.WailaText;
 import appeng.integration.modules.waila.BaseWailaDataProvider;
 import appeng.util.Platform;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import mcp.mobius.waila.api.ITaggedList;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -35,6 +33,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 
@@ -57,9 +56,11 @@ public final class PowerStorageWailaDataProvider extends BaseWailaDataProvider {
      * This is useful, when a player just started to look at a tile and thus just requested the new information from the
      * server.
      * <p/>
-     * The cache will be updated from the server.
+     * The cache will be updated from the server. Only the tile last looked at, weakly: this provider lives as long
+     * as the game, and a tile holds the client world.
      */
-    private final Object2LongMap<TileEntity> cache = new Object2LongOpenHashMap<>();
+    private WeakReference<TileEntity> cachedTile = new WeakReference<>(null);
+    private long cachedPower;
 
     /**
      * Adds the current and max power to the tool tip
@@ -143,9 +144,10 @@ public final class PowerStorageWailaDataProvider extends BaseWailaDataProvider {
 
         if (tag.hasKey(ID_CURRENT_POWER)) {
             internalCurrentPower = tag.getLong(ID_CURRENT_POWER);
-            this.cache.put(te, internalCurrentPower);
-        } else if (this.cache.containsKey(te)) {
-            internalCurrentPower = this.cache.get(te);
+            this.cachedTile = new WeakReference<>(te);
+            this.cachedPower = internalCurrentPower;
+        } else if (this.cachedTile.get() == te) {
+            internalCurrentPower = this.cachedPower;
         } else {
             internalCurrentPower = -1;
         }

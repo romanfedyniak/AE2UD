@@ -68,7 +68,7 @@ public class IC2PowerSinkAdapter extends BasicSink implements IC2PowerSink {
 
     @Override
     public double injectEnergy(EnumFacing directionFrom, double amount, double voltage) {
-        return PowerUnits.EU.convertTo(PowerUnits.AE, this.powerSink.injectExternalPower(PowerUnits.EU, amount, Actionable.MODULATE));
+        return this.powerSink.injectExternalPower(PowerUnits.EU, amount, Actionable.MODULATE);
     }
 
     @Override
@@ -78,7 +78,16 @@ public class IC2PowerSinkAdapter extends BasicSink implements IC2PowerSink {
 
     @Override
     public void setValidFaces(Set<EnumFacing> faces) {
+        if (this.validFaces.equals(faces)) {
+            return;
+        }
         this.validFaces.clear();
         this.validFaces.addAll(faces);
+
+        // IC2 asks which faces a sink accepts only when it joins the net; to see the new ones it has to join again.
+        if (this.addedToEnet) {
+            super.onChunkUnload();
+            super.onLoad();
+        }
     }
 }

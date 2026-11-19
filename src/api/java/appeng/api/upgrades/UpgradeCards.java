@@ -16,8 +16,12 @@ import net.minecraft.world.World;
 import net.minecraftforge.items.IItemHandler;
 
 import appeng.api.AEApi;
+import appeng.api.config.SecurityPermissions;
 import appeng.api.definitions.IItemDefinition;
 import appeng.api.implementations.IUpgradeableHost;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.ISecurityGrid;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
 import appeng.api.implementations.tiles.ISegmentedInventory;
@@ -111,14 +115,17 @@ public final class UpgradeCards {
 
         final TileEntity te = world.getTileEntity(pos);
         IItemHandler upgrades = null;
+        Object host = null;
 
         if (te instanceof IPartHost) {
             final SelectedPart sp = ((IPartHost) te).selectPart(hit);
             if (sp.part instanceof IUpgradeableHost) {
                 upgrades = ((ISegmentedInventory) sp.part).getInventoryByName("upgrades");
+                host = sp.part;
             }
         } else if (te instanceof IUpgradeableHost) {
             upgrades = ((ISegmentedInventory) te).getInventoryByName("upgrades");
+            host = te;
         }
 
         if (upgrades == null) {
@@ -129,12 +136,26 @@ public final class UpgradeCards {
             return true;
         }
 
+        // The machine's window asks for build rights at the spot and on its network; so does this. Refused, the
+        // click is still used up, so it opens no window either.
+        if (!world.canMineBlockBody(player, pos) || !mayBuild(host, player)) {
+            return true;
+        }
+
         ItemStack remaining = held;
         for (int slot = 0; slot < upgrades.getSlots() && !remaining.isEmpty(); slot++) {
             remaining = upgrades.insertItem(slot, remaining, false);
         }
         player.setHeldItem(hand, remaining);
         return true;
+    }
+
+    private static boolean mayBuild(final Object host, final EntityPlayer player) {
+        final IGridNode node = host instanceof IActionHost ? ((IActionHost) host).getActionableNode() : null;
+        if (node == null || node.getGrid() == null) {
+            return true;
+        }
+        return ((ISecurityGrid) node.getGrid().getCache(ISecurityGrid.class)).hasPermission(player, SecurityPermissions.BUILD);
     }
 
     private static ItemStack stack(final IItemDefinition definition) {

@@ -21,6 +21,7 @@ package appeng.integration.modules.theoneprobe.part;
 
 import appeng.api.parts.IPart;
 import appeng.integration.modules.theoneprobe.TheOneProbeText;
+import appeng.integration.modules.theoneprobe.TranslatedText;
 import appeng.me.GridAccessException;
 import appeng.parts.p2p.PartP2PTunnel;
 import appeng.util.Platform;
@@ -66,20 +67,20 @@ public class P2PStateInfoProvider implements IPartProbInfoProvider {
 
             switch (state) {
                 case STATE_UNLINKED:
-                    probeInfo.text(TheOneProbeText.P2P_UNLINKED.getLocal());
+                    probeInfo.text(TheOneProbeText.P2P_UNLINKED.marker());
                     break;
                 case STATE_OUTPUT:
-                    probeInfo.text(getInputText(inputCount));
+                    probeInfo.element(getInputText(inputCount));
                     break;
                 case STATE_INPUT:
-                    probeInfo.text(getOutputText(outputCount));
+                    probeInfo.element(getOutputText(outputCount));
                     break;
             }
 
             final short freq = tunnel.getFrequency();
             final String freqTooltip = Platform.p2p().toHexString(freq);
 
-            probeInfo.text(String.format(TheOneProbeText.P2P_FREQUENCY.getLocal(), freqTooltip));
+            probeInfo.element(TheOneProbeText.P2P_FREQUENCY.with(freqTooltip));
         }
     }
 
@@ -101,19 +102,19 @@ public class P2PStateInfoProvider implements IPartProbInfoProvider {
         }
     }
 
-    private static String getOutputText(int outputs) {
+    private static TranslatedText getOutputText(int outputs) {
         if (outputs <= 1) {
-            return TheOneProbeText.P2P_INPUT_ONE_OUTPUT.getLocal();
+            return TheOneProbeText.P2P_INPUT_ONE_OUTPUT.with();
         } else {
-            return String.format(TheOneProbeText.P2P_INPUT_MANY_OUTPUTS.getLocal(), outputs);
+            return TheOneProbeText.P2P_INPUT_MANY_OUTPUTS.with((long) outputs);
         }
     }
 
-    private static String getInputText(int inputs) {
+    private static TranslatedText getInputText(int inputs) {
         if (inputs <= 1) {
-            return TheOneProbeText.P2P_OUTPUT_ONE_INPUT.getLocal();
+            return TheOneProbeText.P2P_OUTPUT_ONE_INPUT.with();
         } else {
-            return String.format(TheOneProbeText.P2P_OUTPUT_MANY_INPUTS.getLocal(), inputs);
+            return TheOneProbeText.P2P_OUTPUT_MANY_INPUTS.with((long) inputs);
         }
     }
 

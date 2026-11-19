@@ -69,7 +69,8 @@ public class MovableTileRegistry implements IMovableRegistry {
 
         if (canMove != this.nullHandler) {
             if (te instanceof IMovableTile) {
-                ((IMovableTile) te).prepareToMove();
+                // Called instead of invalidate, and it may refuse.
+                return ((IMovableTile) te).prepareToMove();
             }
 
             te.invalidate();

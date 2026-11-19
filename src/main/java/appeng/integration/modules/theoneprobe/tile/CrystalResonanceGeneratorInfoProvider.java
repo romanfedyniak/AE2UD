@@ -39,7 +39,7 @@ public class CrystalResonanceGeneratorInfoProvider implements ITileProbInfoProvi
     @Override
     public void addProbeInfo(final AEBaseTile tile, final ProbeMode mode, final IProbeInfo probeInfo, final EntityPlayer player, final World world, final IBlockState blockState, final IProbeHitData data) {
         if (tile instanceof TileCrystalResonanceGenerator && ((TileCrystalResonanceGenerator) tile).isSuppressed()) {
-            probeInfo.text(TextFormatting.RED + TheOneProbeText.SUPPRESSED.getLocal());
+            probeInfo.text(TextFormatting.RED + TheOneProbeText.SUPPRESSED.marker());
         }
     }
 }

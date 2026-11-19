@@ -31,18 +31,12 @@ public class PoweredItemManager implements IBackupElectricItemManager {
 
     @Override
     public double charge(ItemStack stack, double amount, int tier, boolean ignoreTransferLimit, boolean simulate) {
-        final double limit = this.getTransferLimit(stack);
         final IAEItemPowerStorage poweredItem = (IAEItemPowerStorage) stack.getItem();
-        final double convertedPower = PowerUnits.EU.convertTo(PowerUnits.AE, amount);
-
-        double toAdd = convertedPower;
-
-        if (!ignoreTransferLimit && amount > limit) {
-            toAdd = limit;
-        }
+        final double toAdd = PowerUnits.EU.convertTo(PowerUnits.AE,
+                ignoreTransferLimit ? amount : Math.min(amount, this.getTransferLimit(stack)));
 
         final double overflow = poweredItem.injectAEPower(stack, toAdd, simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-        final double addedAmount = toAdd - (int) overflow;
+        final double addedAmount = toAdd - overflow;
 
         return PowerUnits.AE.convertTo(PowerUnits.EU, addedAmount);
     }

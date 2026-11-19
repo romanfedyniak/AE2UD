@@ -30,6 +30,7 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 
 import java.util.Map;
@@ -46,12 +47,24 @@ public class AnnihilationPlaneInfoProvider implements IPartProbInfoProvider {
 
             final Map<Enchantment, Integer> enchantments = EnchantmentUtil.getEnchantments(tag);
             if (!enchantments.isEmpty()) {
-                probeInfo.text(TheOneProbeText.ENCHANTED_WITH.getLocal());
+                probeInfo.text(TheOneProbeText.ENCHANTED_WITH.marker());
                 for (final Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
-                    probeInfo.text(entry.getKey().getTranslatedName(entry.getValue()));
+                    probeInfo.text(name(entry.getKey(), entry.getValue()));
                 }
             }
         }
+    }
+
+    /** {@link Enchantment#getTranslatedName}, translated by the client. */
+    private static String name(final Enchantment enchantment, final int level) {
+        String name = IProbeInfo.STARTLOC + enchantment.getName() + IProbeInfo.ENDLOC;
+        if (enchantment.isCurse()) {
+            name = TextFormatting.RED + name;
+        }
+        if (level != 1 || enchantment.getMaxLevel() != 1) {
+            name += " " + IProbeInfo.STARTLOC + "enchantment.level." + level + IProbeInfo.ENDLOC;
+        }
+        return name;
     }
 
 }

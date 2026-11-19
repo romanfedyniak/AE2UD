@@ -218,5 +218,11 @@ public class FluidHandlerAdapter implements MEStorage, ITickingMonitor, IStorage
 
             return new FluidHandlerAdapter(fluidHandler, extractableOnly, injectOrExtractCallback);
         }
+
+        @Override
+        public boolean canWrap() {
+            final TileEntity target = this.world.getTileEntity(this.fromPos);
+            return target != null && target.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, this.fromSide) != null;
+        }
     }
 }
