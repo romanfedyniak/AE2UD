@@ -78,24 +78,19 @@ public class CTModule implements ICraftTweaker {
         if (ingredient == null) {
             return Optional.empty();
         }
-        Set<ItemStack> ret = new TreeSet<>(CTModule::compareItemStacks);
-        ingredient.getItems().stream().map(CTModule::toStackExpand).forEach(ret::addAll);
+        // In the order the script named them, each item once: a comparator that only knows "same" or "not" cannot
+        // keep a sorted set free of duplicates, and its order changed from run to run.
+        final List<ItemStack> ret = new ArrayList<>();
+        ingredient.getItems().stream().map(CTModule::toStackExpand).forEach(stacks -> {
+            for (final ItemStack stack : stacks) {
+                if (ret.stream().noneMatch(seen -> Platform.itemComparisons().isSameItem(seen, stack))) {
+                    ret.add(stack);
+                }
+            }
+        });
         if (ret.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(ret);
-    }
-
-    private static int compareItemStacks(ItemStack a, ItemStack b) {
-        if (Platform.itemComparisons().isSameItem(a, b)) {
-            return 0;
-        }
-        if (a == null) {
-            return -1;
-        }
-        if (b == null) {
-            return 1;
-        }
-        return System.identityHashCode(a) - System.identityHashCode(b);
     }
 }
