@@ -48,6 +48,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
 import java.io.IOException;
 import java.util.EnumSet;
@@ -193,7 +194,7 @@ public class PartCable extends AEBasePart implements IPartCable {
         if (Platform.isServer()) {
             final IGridNode n = this.getGridNode();
             if (n != null) {
-                this.setConnections(n.getConnectedSides());
+                this.refreshConnections(n);
             } else {
                 this.getConnections().clear();
             }
@@ -323,7 +324,8 @@ public class PartCable extends AEBasePart implements IPartCable {
         // Only write the used channels for sides where we have a part or another cable
         for (int i = 0; i < writeSide.length; i++) {
             if (writeSide[i]) {
-                data.writeByte(channelsPerSide[i]);
+                // Not a byte: a pack can let a side carry more than 255.
+                ByteBufUtils.writeVarInt(data, channelsPerSide[i], 5);
             }
         }
     }
@@ -356,7 +358,7 @@ public class PartCable extends AEBasePart implements IPartCable {
                 // This works only because cables are always read *last* from the packet update for
                 // a cable bus
                 if (conOnSide || this.getHost().getPart(d) != null) {
-                    ch = (data.readByte()) & 0xFF;
+                    ch = ByteBufUtils.readVarInt(data, 5);
                 }
 
                 if (ch != this.getChannelsOnSide(d.ordinal())) {
@@ -390,6 +392,21 @@ public class PartCable extends AEBasePart implements IPartCable {
 
     void setConnections(final EnumSet<AEPartLocation> connections) {
         this.connections = connections;
+    }
+
+    /** The node's connected sides, asked on every collision: the set is made anew only when they changed. */
+    void refreshConnections(final IGridNode n) {
+        int count = 0;
+        for (final IGridConnection gc : n.getConnections()) {
+            count++;
+            if (!this.connections.contains(gc.getDirection(n))) {
+                this.setConnections(n.getConnectedSides());
+                return;
+            }
+        }
+        if (count != this.connections.size()) {
+            this.setConnections(n.getConnectedSides());
+        }
     }
 
 }

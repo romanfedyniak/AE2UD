@@ -31,7 +31,7 @@ public class ToolColorApplicatorRendering extends ItemRenderingCustomizer {
         // If the stack has no color, don't use the colored model since the impact of calling getColor for every quad is
         // extremely high,
         // if the stack tries to re-search its inventory for a new paintball everytime
-        AEColor col = ((ToolColorApplicator) itemStack.getItem()).getActiveColor(itemStack);
+        AEColor col = ((ToolColorApplicator) itemStack.getItem()).getRenderColor(itemStack);
         return (col != null) ? MODEL_COLORED : MODEL_UNCOLORED;
     }
 
@@ -40,7 +40,7 @@ public class ToolColorApplicatorRendering extends ItemRenderingCustomizer {
             return -1;
         }
 
-        final AEColor col = ((ToolColorApplicator) itemStack.getItem()).getActiveColor(itemStack);
+        final AEColor col = ((ToolColorApplicator) itemStack.getItem()).getRenderColor(itemStack);
 
         if (col == null) {
             return -1;

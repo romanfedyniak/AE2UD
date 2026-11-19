@@ -151,7 +151,11 @@ public class DelegatingMEInventory implements MEStorage, IStorageChangeSource {
         }
 
         if (listen) {
-            source.addChangeListener(this.forwarder);
+            // One that says it does not report is reported for by whoever moves things through it, and passing
+            // on what parts of it say all the same would count those twice.
+            if (source.reportsChanges()) {
+                source.addChangeListener(this.forwarder);
+            }
         } else {
             source.removeChangeListener(this.forwarder);
         }

@@ -29,7 +29,6 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.StorageCell;
-import appeng.api.util.AEPartLocation;
 import appeng.core.AEConfig;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
@@ -62,6 +61,8 @@ import java.util.function.Supplier;
 public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellItem, IGuiItem, IItemGroup {
 
     private static final String AUTO_PICKUP_TAG = "autoPickup";
+    /** The off hand's index in the player's inventory, after the 36 main and 4 armour slots. */
+    private static final int OFF_HAND_SLOT = 40;
 
     private final int kilobytes;
     // A supplier because the built-in key types are registered after the items are.
@@ -95,7 +96,9 @@ public class ToolPortableCell extends AEBasePoweredItem implements IBasicCellIte
             return new ActionResult<>(EnumActionResult.SUCCESS, stack);
         }
 
-        Platform.openGUI(player, null, AEPartLocation.INTERNAL, GuiBridge.GUI_PORTABLE_CELL);
+        // The slot of the hand used: the selected hotbar slot is not the off hand's.
+        final int slot = hand == EnumHand.OFF_HAND ? OFF_HAND_SLOT : player.inventory.currentItem;
+        Platform.openGUI(player, slot, GuiBridge.GUI_PORTABLE_CELL, false);
         return new ActionResult<>(EnumActionResult.SUCCESS, stack);
     }
 

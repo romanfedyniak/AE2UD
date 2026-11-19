@@ -194,6 +194,8 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
     private boolean doWork() {
         final ItemStack myItem = this.inv.getStackInSlot(0);
         boolean changed = false;
+        // Something in the slot still to charge. Otherwise the charger sleeps until its slot changes.
+        boolean working = false;
 
         if (!myItem.isEmpty()) {
             final IMaterials materials = AEApi.instance().definitions().materials();
@@ -202,6 +204,7 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
                 final IAEItemPowerStorage ps = (IAEItemPowerStorage) myItem.getItem();
 
                 if (ps.getAEMaxPower(myItem) > ps.getAECurrentPower(myItem)) {
+                    working = true;
                     final double chargeRate = AEApi.instance().registries().charger().getChargeRate(myItem.getItem());
 
                     double extractedAmount = this.extractAEPower(chargeRate, Actionable.MODULATE, PowerMultiplier.CONFIG);
@@ -226,8 +229,9 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
                         changed = true;
                     }
                 }
-            } else if (this.getInternalCurrentPower() > POWER_THRESHOLD && (materials.certusQuartzCrystal().isSameAs(myItem) || OreHelper.INSTANCE.sameOre(AEItemKey.of(myItem), materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY)))) {
-                if (Platform.getRandomFloat() > 0.8f) // simulate wait
+            } else if (materials.certusQuartzCrystal().isSameAs(myItem) || OreHelper.INSTANCE.sameOre(AEItemKey.of(myItem), materials.certusQuartzCrystal().maybeStack(1).orElse(ItemStack.EMPTY))) {
+                working = true;
+                if (this.getInternalCurrentPower() > POWER_THRESHOLD && Platform.getRandomFloat() > 0.8f) // simulate wait
                 {
                     this.powerUsage.record(this.world,
                             this.extractAEPower(this.getInternalMaxPower(), Actionable.MODULATE, PowerMultiplier.CONFIG),
@@ -250,15 +254,15 @@ public class TileCharger extends AENetworkPowerTile implements ICrankable, IGrid
             } catch (final GridAccessException e) {
                 // continue!
             }
-
-            changed = true;
         }
 
+        // Only what the client draws: the item. The buffer is not shown, and resending the block every 10 ticks for
+        // it re-rendered the chunk section around the charger for every player watching.
         if (changed) {
             this.markForUpdate();
         }
 
-        return true;
+        return working;
     }
 
     @Override

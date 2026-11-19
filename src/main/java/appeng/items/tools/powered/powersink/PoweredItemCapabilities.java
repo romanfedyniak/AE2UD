@@ -73,10 +73,14 @@ class PoweredItemCapabilities implements ICapabilityProvider, IEnergyStorage {
 
     @Override
     public int receiveEnergy(int maxReceive, boolean simulate) {
+        if (maxReceive <= 0) {
+            return 0;
+        }
+
         final double convertedOffer = PowerUnits.RF.convertTo(PowerUnits.AE, maxReceive);
         final double overflow = this.item.injectAEPower(this.is, convertedOffer, simulate ? Actionable.SIMULATE : Actionable.MODULATE);
 
-        return maxReceive - (int) PowerUnits.AE.convertTo(PowerUnits.RF, overflow);
+        return Math.max(0, maxReceive - (int) PowerUnits.AE.convertTo(PowerUnits.RF, overflow));
     }
 
     @Override
@@ -108,7 +112,7 @@ class PoweredItemCapabilities implements ICapabilityProvider, IEnergyStorage {
 
         @Override
         public long givePower(long power, boolean simulated) {
-            return PoweredItemCapabilities.this.receiveEnergy((int) power, simulated);
+            return PoweredItemCapabilities.this.receiveEnergy((int) Math.min(power, Integer.MAX_VALUE), simulated);
         }
 
         @Override

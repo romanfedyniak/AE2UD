@@ -31,6 +31,9 @@ import appeng.api.util.IConfigManager;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.core.sync.GuiBridge;
+import appeng.entity.EntityChargedQuartz;
+import appeng.entity.EntityGrowingCrystal;
+import appeng.entity.EntitySingularity;
 import appeng.helpers.WirelessTerminalGuiObject;
 import appeng.helpers.WirelessTerminalMigration;
 import appeng.helpers.WirelessTerminalModeRemoval;
@@ -185,8 +188,12 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
 
     @Override
     public IConfigManager getConfigManager(final ItemStack target) {
+        final boolean[] loading = {false};
         final ConfigManager out = new ConfigManager((manager, settingName, newValue) ->
         {
+            if (loading[0]) {
+                return;
+            }
             final NBTTagCompound data = Platform.openNbtData(target);
             manager.writeToNBT(data);
         });
@@ -196,7 +203,13 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
         out.registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING);
         out.registerSetting(Settings.PICK_BLOCK, YesNo.YES);
 
-        out.readFromNBT(Platform.openNbtData(target).copy());
+        // Read without writing: putting each read setting would write the whole set back into the tag being read.
+        final NBTTagCompound data = target.getTagCompound();
+        if (data != null) {
+            loading[0] = true;
+            out.readFromNBT(data);
+            loading[0] = false;
+        }
         return out;
     }
 
@@ -346,7 +359,17 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
             }
 
             if (!entityIn.isSneaking()) {
-                NBTTagCompound upgradeNBT = Platform.openNbtData(stack).getCompoundTag("upgrades");
+                // What there is to pull first: most of the time nothing, and then the cards need not be read.
+                List<EntityItem> ei = worldIn.getEntitiesWithinAABB(EntityItem.class,
+                        new AxisAlignedBB(
+                                entityIn.posX - 5, entityIn.posY - 5, entityIn.posZ - 5,
+                                entityIn.posX + 5, entityIn.posY + 5, entityIn.posZ + 5
+                        ), ToolWirelessTerminal::mayPull);
+                if (ei.isEmpty() || stack.getTagCompound() == null) {
+                    return;
+                }
+
+                NBTTagCompound upgradeNBT = stack.getTagCompound().getCompoundTag("upgrades");
                 ItemStackHandler siu = new ItemStackHandler(0);
                 siu.deserializeNBT(upgradeNBT);
                 for (int s = 0; s < siu.getSlots(); s++) {
@@ -365,11 +388,6 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                         }
                         boolean inverted = u.isInstalled(CardTraits.INVERTER);
 
-                        List<EntityItem> ei = worldIn.getEntitiesWithinAABB(EntityItem.class,
-                                new AxisAlignedBB(
-                                        entityIn.posX - 5, entityIn.posY - 5, entityIn.posZ - 5,
-                                        entityIn.posX + 5, entityIn.posY + 5, entityIn.posZ + 5
-                                ));
                         boolean emptyFilter = true;
 
                         // Resolved lazily: it walks every access point in the grid.
@@ -426,6 +444,17 @@ public class ToolWirelessTerminal extends AEBasePoweredItem implements IWireless
                 }
             }
         }
+    }
+
+    /**
+     * Not AE's own in-world crafting: a seed growing in water, charged quartz waiting in water for its fluix, a
+     * singularity waiting for its explosion.
+     */
+    private static boolean mayPull(@Nullable final EntityItem item) {
+        if (item instanceof EntitySingularity) {
+            return false;
+        }
+        return !((item instanceof EntityGrowingCrystal || item instanceof EntityChargedQuartz) && item.isInWater());
     }
 
     /**

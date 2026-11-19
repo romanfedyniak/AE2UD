@@ -21,6 +21,8 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -75,8 +77,15 @@ public final class CraftingSolver {
 
         final SolverGraph graph = SolverGraph.of(what, this.source, this.limits);
         final Map<SolverPattern, Long> caps = new LinkedHashMap<>();
+        final Set<AEKey> reserved = new HashSet<>();
 
-        Pass pass = new Pass(graph, stock, this.onProgress).run(what, amount, caps);
+        Pass pass = new Pass(graph, stock, this.onProgress, reserved).run(what, amount, caps);
+
+        // A slot with a choice takes what it was encoded with, as long as that leaves enough for the slots that
+        // have no choice. Where it did not, those keys are kept for them and the plan is worked out again.
+        for (int refill = 0; refill < this.limits.getMaxRefills() && reserveContested(graph, pass, reserved); refill++) {
+            pass = new Pass(graph, stock, this.onProgress, reserved).run(what, amount, caps);
+        }
 
         // A pattern that ran out of an ingredient has not disproved the request, only itself. Hold it to
         // what it could really do and let the next pattern for that key take the rest - which is what the
@@ -86,10 +95,40 @@ public final class CraftingSolver {
                 break;
             }
 
-            pass = new Pass(graph, stock, this.onProgress).run(what, amount, caps);
+            pass = new Pass(graph, stock, this.onProgress, reserved).run(what, amount, caps);
         }
 
         return pass.toPlan(graph);
+    }
+
+    /**
+     * Finds keys that a slot with a choice took and that storage then could not cover - so they were crafted or
+     * came up missing - while a slot elsewhere could be fed with nothing else.
+     *
+     * @return whether any key was added, which is when another pass is worth running.
+     */
+    private static boolean reserveContested(final SolverGraph graph, final Pass pass, final Set<AEKey> reserved) {
+        boolean added = false;
+
+        for (final var entry : pass.choiceTaken) {
+            final AEKey key = entry.getKey();
+
+            if (entry.getLongValue() <= 0 || !graph.isExclusive(key) || reserved.contains(key)) {
+                continue;
+            }
+
+            boolean fellShort = pass.missing.get(key) > 0;
+            for (final SolverPattern pattern : graph.patternsFor(key)) {
+                fellShort |= pass.craftsOf(pattern) > 0;
+            }
+
+            if (fellShort) {
+                reserved.add(key);
+                added = true;
+            }
+        }
+
+        return added;
     }
 
     /**
@@ -103,30 +142,77 @@ public final class CraftingSolver {
     private static boolean capExhaustedPattern(final SolverGraph graph, final Pass pass,
             final Map<SolverPattern, Long> caps) {
         for (final var shortfall : pass.missing) {
-            for (final Map.Entry<SolverPattern, KeyCounter> entry : pass.patternInputs.entrySet()) {
-                final SolverPattern pattern = entry.getKey();
-                final long drawn = entry.getValue().get(shortfall.getKey());
-
-                if (drawn <= 0 || !hasUnusedSuccessor(graph, pass, pattern)) {
-                    continue;
-                }
-
-                final long runs = pass.craftsOf(pattern);
-                final long perCraft = Math.max(1, drawn / Math.max(1, runs));
-                final long lacking = Math.min(shortfall.getLongValue(), drawn);
-                final long capped = Math.max(0, runs - Math.max(1, ceilDiv(lacking, perCraft)));
-                final Long current = caps.get(pattern);
-
-                if (current != null && current <= capped) {
-                    continue;
-                }
-
-                caps.put(pattern, capped);
+            if (capAbove(graph, pass, caps, shortfall.getKey(), shortfall.getLongValue(), new HashSet<>())) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Caps the nearest pattern above a shortfall that has a successor. The one that drew the missing key is
+     * tried first; when it has no other way to be made, the shortfall is carried up to whatever drew the key it
+     * served, as many crafts of that as the missing part stood for - an ingot that cannot be smelted is a sword
+     * that cannot be made from it, and the sword may well have another recipe.
+     */
+    private static boolean capAbove(final SolverGraph graph, final Pass pass, final Map<SolverPattern, Long> caps,
+            final AEKey key, final long lacking, final Set<AEKey> visited) {
+        if (lacking <= 0 || !visited.add(key)) {
+            return false;
+        }
+
+        final List<SolverPattern> drawers = new ArrayList<>();
+
+        for (final Map.Entry<SolverPattern, KeyCounter> entry : pass.patternInputs.entrySet()) {
+            final SolverPattern pattern = entry.getKey();
+            final long drawn = entry.getValue().get(key);
+
+            if (drawn <= 0) {
+                continue;
+            }
+
+            drawers.add(pattern);
+
+            if (!hasUnusedSuccessor(graph, pass, pattern)) {
+                continue;
+            }
+
+            final long runs = pass.craftsOf(pattern);
+            final long capped = Math.max(0, runs - lackingRuns(pass, pattern, drawn, lacking));
+            final Long current = caps.get(pattern);
+
+            if (current != null && current <= capped) {
+                continue;
+            }
+
+            caps.put(pattern, capped);
+            return true;
+        }
+
+        for (final SolverPattern pattern : drawers) {
+            final AEKey served = pass.servedBy.get(pattern);
+
+            if (served == null) {
+                continue;
+            }
+
+            final long drawn = pass.patternInputs.get(pattern).get(key);
+            final long crafts = Math.min(pass.craftsOf(pattern), lackingRuns(pass, pattern, drawn, lacking));
+
+            if (capAbove(graph, pass, caps, served, multiply(crafts, pattern.outputOf(served)), visited)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** How many of a pattern's crafts the part of its draw that is lacking stands for. */
+    private static long lackingRuns(final Pass pass, final SolverPattern pattern, final long drawn,
+            final long lacking) {
+        final long perCraft = Math.max(1, drawn / Math.max(1, pass.craftsOf(pattern)));
+        return Math.max(1, ceilDiv(Math.min(lacking, drawn), perCraft));
     }
 
     /**
@@ -166,6 +252,20 @@ public final class CraftingSolver {
         } catch (final ArithmeticException e) {
             throw new SolverTooLargeException("This order does not fit in a plan");
         }
+    }
+
+    private static long add(final long a, final long b) {
+        try {
+            return LongMath.checkedAdd(a, b);
+        } catch (final ArithmeticException e) {
+            throw new SolverTooLargeException("This order does not fit in a plan");
+        }
+    }
+
+    /** Adds to a ledger, refusing the plan rather than letting the sum stick at the largest long. */
+    private static void addTo(final KeyCounter counter, final AEKey what, final long amount) {
+        add(counter.get(what), amount);
+        counter.add(what, amount);
     }
 
     /**
@@ -213,17 +313,24 @@ public final class CraftingSolver {
         private final Map<SolverPattern, AEKey> servedBy = new LinkedHashMap<>();
         /** What each pattern only borrows: per key, how many make one set and how many sets it was given. */
         private final Map<SolverPattern, Map<AEKey, long[]>> lent = new LinkedHashMap<>();
+        /** The demand each key had when it was settled; what was asked of it since is still to be handed out. */
+        private final Map<AEKey, Long> settledAt = new HashMap<>();
+        /** What slots with a choice took, by key: see {@link CraftingSolver#reserveContested}. */
+        private final KeyCounter choiceTaken = new KeyCounter();
+        private final Set<AEKey> reserved;
         private long bytes;
 
-        private Pass(final SolverGraph graph, final KeyCounter stock, final Runnable onProgress) {
+        private Pass(final SolverGraph graph, final KeyCounter stock, final Runnable onProgress,
+                final Set<AEKey> reserved) {
             this.graph = graph;
             this.onProgress = onProgress;
             this.stock = new Stock(stock);
+            this.reserved = reserved;
         }
 
         private Pass run(final AEKey root, final long amount, final Map<SolverPattern, Long> caps) {
             this.root = root;
-            this.demand.add(root, amount);
+            addTo(this.demand, root, amount);
 
             for (final List<AEKey> component : this.graph.getComponents()) {
                 this.onProgress.run();
@@ -267,6 +374,7 @@ public final class CraftingSolver {
 
         private void settle(final AEKey key, final Map<SolverPattern, Long> caps) {
             long need = this.demand.get(key);
+            this.settledAt.put(key, need);
 
             if (need <= 0) {
                 return;
@@ -314,6 +422,7 @@ public final class CraftingSolver {
 
             for (final AEKey key : this.nearestTheWayOutFirst(component, ranks)) {
                 long need = this.demand.get(key);
+                this.settledAt.put(key, need);
 
                 if (need <= 0) {
                     continue;
@@ -825,41 +934,48 @@ public final class CraftingSolver {
          */
         private void lendSeed(final SolverCycle cycle, final long[] madeBefore, final long drawnForKey) {
             final List<AEKey> seeds = cycle.seeds();
+            final long[] inHand = new long[seeds.size()];
 
-            // One thing on the ring in hand is enough: the first craft that takes it starts the rest.
             for (int at = 0; at < seeds.size(); at++) {
-                final long eaten = cycle.eatenOf(seeds.get(at));
-                if (eaten > 0 && madeBefore[at] + (at == 0 ? drawnForKey : 0) >= eaten) {
-                    return;
-                }
+                inHand[at] = madeBefore[at] + (at == 0 ? drawnForKey : 0);
             }
 
-            for (int at = 0; at < seeds.size(); at++) {
-                final AEKey key = seeds.get(at);
-                final long eaten = cycle.eatenOf(key);
-                final long inHand = madeBefore[at] + (at == 0 ? drawnForKey : 0);
+            if (cycle.firstTurn(inHand) != null) {
+                return;
+            }
 
-                if (eaten > 0 && this.stock.get(key) >= eaten - inHand) {
-                    this.drawStock(key, eaten - inHand);
-                    return;
+            final long[] withStock = new long[seeds.size()];
+            for (int at = 0; at < seeds.size(); at++) {
+                withStock[at] = LongMath.saturatedAdd(inHand[at], this.stock.get(seeds.get(at)));
+            }
+
+            final long[] lowest = cycle.firstTurn(withStock);
+            if (lowest == null) {
+                return;
+            }
+
+            // What the first turn goes through below what the plan hands it is lent from the network.
+            for (int at = 0; at < seeds.size(); at++) {
+                if (lowest[at] > inHand[at]) {
+                    this.drawStock(seeds.get(at), lowest[at] - inHand[at]);
                 }
             }
         }
 
         /**
-         * Whether there is enough of anything on the cycle to feed one craft that takes it. A cycle grows
-         * what you have and never conjures the first of it, and one thing on it is enough to start: the
-         * first turn hands that thing back at the end, over and above what the turn netted.
+         * Whether what is in hand of the things on the cycle lets its first turn run to the end. A cycle grows
+         * what you have and never conjures the first of it; the first turn hands back what it started from,
+         * over and above what it netted.
          */
         private boolean canStart(final SolverCycle cycle) {
-            for (final AEKey key : cycle.seeds()) {
-                // Something the ring never takes is no way to start it.
-                if (cycle.eatenOf(key) > 0 && this.surplus.get(key) + this.stock.get(key) >= cycle.eatenOf(key)) {
-                    return true;
-                }
+            final List<AEKey> seeds = cycle.seeds();
+            final long[] inHand = new long[seeds.size()];
+
+            for (int at = 0; at < seeds.size(); at++) {
+                inHand[at] = LongMath.saturatedAdd(this.surplus.get(seeds.get(at)), this.stock.get(seeds.get(at)));
             }
 
-            return false;
+            return cycle.firstTurn(inHand) != null;
         }
 
         /**
@@ -948,14 +1064,14 @@ public final class CraftingSolver {
                 // and anything on a cycle the graph can see is the cycle handling's business
                 if (!what.equals(this.servedBy.get(pattern)) && !this.graph.isOnCycle(what)
                         && this.graph.dependsOn(pattern, what)) {
-                    this.loaned.add(what, total);
+                    addTo(this.loaned, what, total);
                     this.loanPerCraft.merge(what, net, Math::max);
                     this.lenders.computeIfAbsent(what, k -> new LinkedHashSet<>()).add(pattern);
                 } else {
-                    this.surplus.add(what, total);
+                    addTo(this.surplus, what, total);
                 }
 
-                this.produced.add(what, total);
+                addTo(this.produced, what, total);
             }
         }
 
@@ -1041,7 +1157,7 @@ public final class CraftingSolver {
 
                 if (back > 0) {
                     handedBack.add(encoded.what(), back);
-                    this.demand.add(encoded.what(), back);
+                    addTo(this.demand, encoded.what(), back);
                     drawn.add(encoded.what(), back);
 
                     // Lent and nothing more: a mould, or a pattern giving back all of what it took.
@@ -1059,9 +1175,9 @@ public final class CraftingSolver {
                 for (int x = 0; x < options.size() && left > 0; x++) {
                     final GenericStack option = options.get(x);
 
-                    // Contested keys wait for the second time round, by which point anything else at hand
-                    // has been used up.
-                    if (this.graph.isExclusive(option.what()) != (pass == 1)) {
+                    // Keys a slot without a choice turned out to need wait for the second time round, by which
+                    // point anything else at hand has been used up.
+                    if (this.reserved.contains(option.what()) != (pass == 1)) {
                         continue;
                     }
 
@@ -1087,7 +1203,8 @@ public final class CraftingSolver {
         private long runsCovered(final SolverPattern pattern, final SolverIngredient ingredient,
                 final int index) {
             final GenericStack option = ingredient.getOptions().get(index);
-            final long atHand = this.surplus.get(option.what()) + this.stock.get(option.what());
+            final long atHand = this.surplus.get(option.what()) + this.stock.get(option.what())
+                    - this.booked(option.what());
 
             if (atHand <= 0) {
                 return 0;
@@ -1100,6 +1217,15 @@ public final class CraftingSolver {
             final long net = option.amount() - Math.min(option.amount(), pattern.outputOf(option.what()));
 
             return net <= 0 ? Long.MAX_VALUE : atHand / net;
+        }
+
+        /**
+         * What has been asked of a key since it was last settled: by slots that already chose it this pass, and
+         * not yet handed out of storage or surplus, so nobody else can count on it.
+         */
+        private long booked(final AEKey what) {
+            final Long settled = this.settledAt.get(what);
+            return Math.max(0, this.demand.get(what) - (settled == null ? 0 : settled));
         }
 
         /**
@@ -1137,8 +1263,12 @@ public final class CraftingSolver {
                 return;
             }
 
-            this.demand.add(option.what(), total);
+            addTo(this.demand, option.what(), total);
             drawn.add(option.what(), total);
+
+            if (ingredient.hasChoice()) {
+                this.choiceTaken.add(option.what(), total);
+            }
         }
 
         private long takeSurplus(final AEKey key, final long need) {
@@ -1183,7 +1313,7 @@ public final class CraftingSolver {
          * type may charge in larger steps than it displays: see {@link AEKeyType#getAmountPerCraftingByte()}.
          */
         private void chargeBytes(final AEKey key, final long amount) {
-            this.bytes += amount / Math.max(1, key.getType().getAmountPerCraftingByte());
+            this.bytes = add(this.bytes, amount / Math.max(1, key.getType().getAmountPerCraftingByte()));
         }
 
         private long craftsOf(final SolverPattern pattern) {
@@ -1195,7 +1325,7 @@ public final class CraftingSolver {
             long total = this.bytes;
 
             for (final Map.Entry<SolverPattern, Long> entry : this.crafts.entrySet()) {
-                total += multiply(8, entry.getValue());
+                total = add(total, multiply(8, entry.getValue()));
             }
 
             return new SolverPlan(this.crafts, this.patternInputs, this.used, this.produced, this.missing,

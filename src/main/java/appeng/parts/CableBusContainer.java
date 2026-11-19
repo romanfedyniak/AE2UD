@@ -59,14 +59,23 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class CableBusContainer extends CableBusStorage implements AEMultiTile, ICableBusContainer {
 
     private static final ThreadLocal<Boolean> IS_LOADING = new ThreadLocal<>();
+    // One part of each kind, built once to say what kind it is: whether it is a cable and what it may sit on. The
+    // placement preview asks every frame, and building the part (an interface, with all its inventories) each time
+    // only to read that was garbage by the kilobyte.
+    private static final Map<Item, Int2ObjectMap<Object>> PART_PROBES = new ConcurrentHashMap<>();
+    private static final Object NO_PART = new Object();
     private static final AEPartLocation[] LOCATIONS = AEPartLocation.values();
     private YesNo hasRedstone = YesNo.UNDECIDED;
     // Client collision shapes; a facade is shaped differently for a living entity.
@@ -122,12 +131,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
         }
 
         if (is.getItem() instanceof IPartItem) {
-            final IPartItem bi = (IPartItem) is.getItem();
-
-            is = is.copy();
-            is.setCount(1);
-
-            final IPart bp = bi.createPartFromItemStack(is);
+            final IPart bp = probePart(is);
             if (bp != null) {
                 if (bp instanceof IPartCable) {
                     boolean canPlace = true;
@@ -153,6 +157,32 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
             }
         }
         return false;
+    }
+
+    /**
+     * A part of the kind this stack makes, shared and never placed: only for reading what the kind allows, or for
+     * drawing its outline.
+     */
+    @Nullable
+    public static IPart probePart(final ItemStack is) {
+        if (!(is.getItem() instanceof IPartItem)) {
+            return null;
+        }
+        final Int2ObjectMap<Object> byDamage = PART_PROBES.computeIfAbsent(is.getItem(), item -> new Int2ObjectOpenHashMap<>());
+        Object probe;
+        synchronized (byDamage) {
+            probe = byDamage.get(is.getItemDamage());
+        }
+        if (probe == null) {
+            final ItemStack one = is.copy();
+            one.setCount(1);
+            final IPart part = ((IPartItem<?>) is.getItem()).createPartFromItemStack(one);
+            probe = part == null ? NO_PART : part;
+            synchronized (byDamage) {
+                byDamage.put(is.getItemDamage(), probe);
+            }
+        }
+        return probe == NO_PART ? null : (IPart) probe;
     }
 
     @Override
@@ -449,7 +479,42 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     private void updateRedstone() {
         final TileEntity te = this.getTile();
-        this.hasRedstone = te.getWorld().getRedstonePowerFromNeighbors(te.getPos()) != 0 ? YesNo.YES : YesNo.NO;
+        final World world = te.getWorld();
+        final BlockPos pos = te.getPos();
+        // A signal comes from up to two blocks away (strong power through a block beside the bus). Where some of
+        // that is not loaded, only what is loaded is read, since asking the world for the rest would load it; with
+        // nothing found there the answer stays open and is read again next time.
+        if (world.isAreaLoaded(pos, 2)) {
+            this.hasRedstone = world.getRedstonePowerFromNeighbors(pos) != 0 ? YesNo.YES : YesNo.NO;
+        } else if (loadedRedstone(world, pos) != 0) {
+            this.hasRedstone = YesNo.YES;
+        }
+    }
+
+    /** {@link World#getRedstonePowerFromNeighbors}, skipping every block that is not loaded. */
+    private static int loadedRedstone(final World world, final BlockPos pos) {
+        int power = 0;
+        for (final EnumFacing facing : EnumFacing.VALUES) {
+            final BlockPos side = pos.offset(facing);
+            if (!world.isBlockLoaded(side)) {
+                continue;
+            }
+            final IBlockState state = world.getBlockState(side);
+            if (state.getBlock().shouldCheckWeakPower(state, world, side, facing)) {
+                for (final EnumFacing from : EnumFacing.VALUES) {
+                    final BlockPos source = side.offset(from);
+                    if (world.isBlockLoaded(source)) {
+                        power = Math.max(power, world.getStrongPower(source, from));
+                    }
+                }
+            } else {
+                power = Math.max(power, state.getWeakPower(world, side, facing));
+            }
+            if (power >= 15) {
+                return power;
+            }
+        }
+        return power;
     }
 
     private void updateDynamicRender() {
@@ -857,10 +922,8 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
     public void writeToNBT(final NBTTagCompound data) {
         data.setInteger("hasRedstone", this.hasRedstone.ordinal());
 
-        final IFacadeContainer fc = this.getFacadeContainer();
+        this.getFacadeContainer().writeToNBT(data);
         for (final AEPartLocation s : AEPartLocation.values()) {
-            fc.writeToNBT(data);
-
             final IPart part = this.getPart(s);
             if (part != null) {
                 final NBTTagCompound def = new NBTTagCompound();
@@ -978,7 +1041,14 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
 
     @Override
     public CableBusRenderState getRenderState() {
-        final PartCable cable = (PartCable) this.getCenter();
+        return this.getRenderState(this.getTile().getWorld());
+    }
+
+    @Override
+    public CableBusRenderState getRenderState(final IBlockAccess world) {
+        // An addon's cable may implement the interface without being a PartCable: it has no channel counts here.
+        final IPartCable cable = this.getCenter();
+        final PartCable aeCable = cable instanceof PartCable ? (PartCable) cable : null;
 
         final CableBusRenderState renderState = new CableBusRenderState();
 
@@ -1002,7 +1072,7 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
                 // Dense cables however also respect the adjacent cable-type since their outgoing connection
                 // point would look too big for other cable types
                 final BlockPos adjacentPos = this.getTile().getPos().offset(facing);
-                final TileEntity adjacentTe = this.getTile().getWorld().getTileEntity(adjacentPos);
+                final TileEntity adjacentTe = world.getTileEntity(adjacentPos);
 
                 if (adjacentTe instanceof IGridHost) {
                     final IGridHost gridHost = (IGridHost) adjacentTe;
@@ -1018,9 +1088,11 @@ public class CableBusContainer extends CableBusStorage implements AEMultiTile, I
             // We have to do this even for non-smart cables since a glass cable can display a connection as smart if the
             // adjacent tile requires it
             for (EnumFacing facing : EnumFacing.values()) {
-                int channels = cable.getCableConnectionType().isSmart() ? cable.getChannelsOnSide(facing) : 0;
+                int channels = aeCable != null && cable.getCableConnectionType().isSmart() ? aeCable.getChannelsOnSide(facing) : 0;
                 renderState.getChannelsOnSide().put(facing, channels);
-                renderState.setChannelCapacity(GridNode.maxChannelsOf(cable.getProxy()));
+                if (aeCable != null) {
+                    renderState.setChannelCapacity(GridNode.maxChannelsOf(aeCable.getProxy()));
+                }
             }
         }
 

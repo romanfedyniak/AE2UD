@@ -22,6 +22,7 @@ package appeng.items.misc;
 import appeng.api.AEApi;
 import appeng.api.implementations.ICraftingPatternItem;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
+import appeng.api.stacks.AEItemKey;
 import appeng.helpers.PatternOutputs;
 import appeng.core.localization.GuiText;
 import appeng.helpers.InvalidPatternHelper;
@@ -109,17 +110,21 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
         return false;
     }
 
+    private AEItemKey tooltipKey;
+    private World tooltipWorld;
+    private ICraftingPatternDetails tooltipDetailsCached;
+
     @Override
     @SideOnly(Side.CLIENT)
     public void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
-        final ICraftingPatternDetails details = this.getPatternForItem(stack, world);
+        final ICraftingPatternDetails details = this.tooltipDetails(stack, world);
 
         if (details == null) {
             if (!stack.hasTagCompound()) {
                 return;
             }
 
-            stack.setStackDisplayName(TextFormatting.RED + GuiText.InvalidPattern.getLocal());
+            stack.setStackDisplayName(invalidName());
 
             InvalidPatternHelper invalid = new InvalidPatternHelper(stack);
 
@@ -150,11 +155,40 @@ public class ItemEncodedPattern extends AEBaseItem implements ICraftingPatternIt
             return;
         }
 
-        if (stack.hasDisplayName()) {
-            stack.removeSubCompound("display");
+        // Only the name put there above when the pattern did not decode; a name or lore the player gave it stays.
+        if (stack.hasDisplayName() && stack.getDisplayName().equals(invalidName())) {
+            stack.clearCustomName();
         }
 
         AEApi.instance().client().addPatternInformation(details, stack, lines);
+    }
+
+    @SideOnly(Side.CLIENT)
+    private static String invalidName() {
+        return TextFormatting.RED + GuiText.InvalidPattern.getLocal();
+    }
+
+    /**
+     * The pattern last hovered, decoded once: a tooltip is built every frame, and decoding reads the whole tag
+     * and looks the recipe up. Keyed without the display name, which the tooltip itself may change.
+     */
+    @SideOnly(Side.CLIENT)
+    private ICraftingPatternDetails tooltipDetails(final ItemStack stack, final World world) {
+        final ItemStack keyed = stack.copy();
+        if (keyed.hasTagCompound()) {
+            keyed.getTagCompound().removeTag("display");
+        }
+        final AEItemKey key = AEItemKey.of(keyed);
+
+        if (key != null && key.equals(this.tooltipKey) && world == this.tooltipWorld) {
+            return this.tooltipDetailsCached;
+        }
+
+        final ICraftingPatternDetails details = this.getPatternForItem(stack, world);
+        this.tooltipKey = key;
+        this.tooltipWorld = world;
+        this.tooltipDetailsCached = details;
+        return details;
     }
 
 

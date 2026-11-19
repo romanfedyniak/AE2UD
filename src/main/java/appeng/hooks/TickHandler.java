@@ -170,6 +170,8 @@ public class TickHandler {
             for (final IGridNode n : toDestroy) {
                 n.destroy();
             }
+
+            Platform.forgetFakePlayers(ev.getWorld());
         }
     }
 

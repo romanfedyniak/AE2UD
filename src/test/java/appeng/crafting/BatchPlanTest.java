@@ -111,6 +111,13 @@ class BatchPlanTest {
     }
 
     @Test
+    void anInputOfNothingIsNoPlanRatherThanADivisionByZero() {
+        final Pattern nothing = Pattern.processing().slots(iron, stick).amount(1, 0);
+
+        assertNull(BatchPlan.of(nothing, inventory(iron, 100, stick, 100).getItemList(), 10, null));
+    }
+
+    @Test
     void notEvenOneCopyIsNoPlan() {
         final Pattern block = Pattern.crafting().slots(iron, iron, iron, iron, iron, iron, iron, iron, iron);
 
@@ -328,6 +335,11 @@ class BatchPlanTest {
             for (int x = 0; x < keys.length; x++) {
                 this.inputs[x] = keys[x] == null ? null : new GenericStack(keys[x], 1);
             }
+            return this;
+        }
+
+        Pattern amount(final int x, final long amount) {
+            this.inputs[x] = new GenericStack(this.inputs[x].what(), amount);
             return this;
         }
 

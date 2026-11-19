@@ -31,6 +31,7 @@ public class OreReference {
     private final List<String> otherOptions = new ArrayList<>();
     private final Set<Integer> ores = new HashSet<>();
     private List<AEItemKey> aeOtherOptions = null;
+    private int[] oreIds;
 
     Collection<String> getEquivalents() {
         return this.otherOptions;
@@ -55,5 +56,19 @@ public class OreReference {
 
     public Collection<Integer> getOres() {
         return this.ores;
+    }
+
+    /** {@link #getOres()} unboxed, for checks that run on every insert. Filled before this is handed out. */
+    public int[] getOreIds() {
+        int[] ids = this.oreIds;
+        if (ids == null) {
+            ids = new int[this.ores.size()];
+            int i = 0;
+            for (final Integer ore : this.ores) {
+                ids[i++] = ore;
+            }
+            this.oreIds = ids;
+        }
+        return ids;
     }
 }

@@ -134,11 +134,7 @@ public abstract class AEBaseBlock extends Block {
                 double lastDist = 0;
 
                 for (final AxisAlignedBB bb : bbs) {
-                    this.boundingBox = bb;
-
-                    final RayTraceResult r = super.collisionRayTrace(state, w, pos, ld.getA(), ld.getB());
-
-                    this.boundingBox = FULL_BLOCK_AABB;
+                    final RayTraceResult r = this.rayTrace(pos, ld.getA(), ld.getB(), bb);
 
                     if (r != null) {
                         final double xLen = (ld.getA().x - r.hitVec.x);
@@ -209,11 +205,9 @@ public abstract class AEBaseBlock extends Block {
             double lastDist = 0;
 
             for (final AxisAlignedBB bb : bbs) {
-                this.boundingBox = bb;
-
-                final RayTraceResult r = super.collisionRayTrace(state, w, pos, a, b);
-
-                this.boundingBox = FULL_BLOCK_AABB;
+                // Traced against the box itself: swapping it into the block, which every thread shares, showed it
+                // to whatever asked the block for its box at that moment.
+                final RayTraceResult r = this.rayTrace(pos, a, b, bb);
 
                 if (r != null) {
                     final double xLen = (a.x - r.hitVec.x);

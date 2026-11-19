@@ -31,7 +31,6 @@ import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.upgrades.CardTraits;
 import appeng.api.util.AEColor;
-import appeng.api.util.DimensionalCoord;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.AppEng;
@@ -72,6 +71,7 @@ import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -129,8 +129,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                         final Vec3d Vec3d = dir.getA();
                         final Vec3d Vec3d1 = dir.getB();
-                        final Vec3d direction = Vec3d1.subtract(Vec3d);
-                        direction.normalize();
+                        final Vec3d direction = Vec3d1.subtract(Vec3d).normalize();
 
                         final double d0 = Vec3d.x;
                         final double d1 = Vec3d.y;
@@ -203,8 +202,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
         try {
             AppEng.proxy.sendToAllNearExcept(null, d0, d1, d2, 128, w,
-                    new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, (byte) (pos == null ? 32 : pos.hitVec
-                            .squareDistanceTo(vec) + 1)));
+                    new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, trailLength(pos, vec)));
         } catch (final Exception err) {
             AELog.debug(err);
         }
@@ -231,7 +229,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                 final EnumFacing side = pos.sideHit;
                 final BlockPos hitPos = pos.getBlockPos().offset(side);
 
-                if (!Platform.hasPermissions(new DimensionalCoord(w, hitPos), p)) {
+                if (!Platform.mayPlace(w, hitPos, side, p)) {
                     return;
                 }
 
@@ -252,8 +250,15 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
         }
     }
 
+    /** How many blocks of trail the clients draw: as far as the hit (the trail steps one block at a time), not its square. */
+    private static byte trailLength(@Nullable final RayTraceResult hit, final Vec3d from) {
+        return (byte) (hit == null ? 32 : Math.sqrt(hit.hitVec.squareDistanceTo(from)) + 1);
+    }
+
     private void standardAmmo(float penetration, final World w, final EntityPlayer p, final Vec3d Vec3d, final Vec3d Vec3d1, final Vec3d direction, final double d0, final double d1, final double d2) {
         boolean hasDestroyed = true;
+        // A ghast fireball or a dragon part takes a hit and lives on; found again by the same ray, it would be hit forever.
+        final Set<Entity> hit = new HashSet<>();
         while (penetration > 0 && hasDestroyed) {
             hasDestroyed = false;
 
@@ -267,7 +272,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
             for (int l = 0; l < list.size(); ++l) {
                 final Entity entity1 = (Entity) list.get(l);
 
-                if (!entity1.isDead && entity1 != p && !(entity1 instanceof EntityItem)) {
+                if (!entity1.isDead && entity1 != p && !(entity1 instanceof EntityItem) && !hit.contains(entity1)) {
                     if (entity1.isEntityAlive()) {
                         // prevent killing / flying of mounts.
                         if (entity1.isRidingOrBeingRiddenBy(p)) {
@@ -301,8 +306,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
             try {
                 AppEng.proxy.sendToAllNearExcept(null, d0, d1, d2, 128, w,
-                        new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, (byte) (pos == null ? 32 : pos.hitVec
-                                .squareDistanceTo(vec) + 1)));
+                        new PacketMatterCannon(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z, trailLength(pos, vec)));
             } catch (final Exception err) {
                 AELog.debug(err);
             }
@@ -313,6 +317,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                 if (pos.typeOfHit == RayTraceResult.Type.ENTITY) {
                     final int dmg = (int) Math.ceil(penetration / 20.0f);
+                    hit.add(pos.entityHit);
                     if (pos.entityHit instanceof EntityLivingBase) {
                         final EntityLivingBase el = (EntityLivingBase) pos.entityHit;
                         penetration -= dmg;
@@ -326,8 +331,10 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
                     } else if (pos.entityHit instanceof EntityItem) {
                         hasDestroyed = true;
                         pos.entityHit.setDead();
-                    } else if (pos.entityHit.attackEntityFrom(dmgSrc, dmg)) {
-                        hasDestroyed = pos.entityHit.isEntityAlive();
+                    } else {
+                        penetration -= dmg;
+                        pos.entityHit.attackEntityFrom(dmgSrc, dmg);
+                        hasDestroyed = !pos.entityHit.isEntityAlive();
                     }
                 } else if (pos.typeOfHit == RayTraceResult.Type.BLOCK) {
                     if (!AEConfig.instance().isFeatureEnabled(AEFeature.MASS_CANNON_BLOCK_DAMAGE)) {
@@ -339,7 +346,7 @@ public class ToolMatterCannon extends AEBasePoweredItem implements IBasicCellIte
 
                         final float hardness = bs.getBlockHardness(w, pos.getBlockPos()) * 9.0f;
                         if (hardness >= 0.0) {
-                            if (penetration > hardness && Platform.hasPermissions(new DimensionalCoord(w, pos.getBlockPos()), p)) {
+                            if (penetration > hardness && Platform.mayBreak(w, pos.getBlockPos(), p)) {
                                 hasDestroyed = true;
                                 penetration -= hardness;
                                 penetration *= 0.60;

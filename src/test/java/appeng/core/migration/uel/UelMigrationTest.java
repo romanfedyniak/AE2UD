@@ -181,6 +181,37 @@ public final class UelMigrationTest {
         assertThat(result.hasKey("tasks") || result.hasKey("waitingFor") || result.hasKey("link"), is(false));
     }
 
+    @Test
+    public void wirelessPatternTerminalKeepsCraftingMode() throws NBTException {
+        final NBTTagCompound terminal = nbt("{id:\"appliedenergistics2:wireless_pattern_terminal\",Count:1b,"
+                + "Damage:0s,tag:{isCraftingMode:1b}}");
+        LegacyRewrites.rewriteStack(terminal);
+
+        assertThat(terminal.getCompoundTag("tag").getString("encodingMode"), is("appliedenergistics2:crafting"));
+    }
+
+    @Test
+    public void busAlreadyInOurFormatKeepsItsKeyTypes() throws NBTException {
+        final NBTTagCompound bus = nbt("{id:\"appliedenergistics2:blockcablebus\",x:0,y:0,z:0,"
+                + "\"def:1\":{id:\"appliedenergistics2:part\",Count:1b,Damage:220s},"
+                + "\"extra:1\":{enabledKeyTypes:[\"appliedenergistics2:fluid\"]}}");
+        final NBTTagCompound result = LegacyRewrites.rewriteTile(bus);
+
+        assertThat(result.getCompoundTag("extra:1").getTag("enabledKeyTypes").toString(),
+                is("[\"appliedenergistics2:fluid\"]"));
+    }
+
+    /** Forge hands a chunk's tiles to the fix again for every other mod whose fixer is behind as well. */
+    @Test
+    public void aTileHandedOverTwiceIsRewrittenOnce() throws NBTException {
+        final NBTTagCompound bus = nbt("{id:\"appliedenergistics2:blockcablebus\",x:0,y:0,z:0,"
+                + "\"def:2\":{id:\"appliedenergistics2:part\",Count:1b,Damage:301s},\"extra:2\":{}}");
+        final NBTTagCompound once = LegacyRewrites.rewriteTile(bus);
+        final NBTTagCompound twice = LegacyRewrites.rewriteTile(once);
+
+        assertThat(twice.getCompoundTag("extra:2").getTag("Enchantments").toString(), is("[{lvl:1s,id:33s}]"));
+    }
+
     private static NBTTagCompound nbt(final String snbt) throws NBTException {
         return JsonToNBT.getTagFromJson(snbt);
     }

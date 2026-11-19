@@ -89,7 +89,7 @@ public class FluidPickupStrategy implements PickupStrategy {
 
     @Override
     public Result tryPickup(IEnergySource energySource, PickupSink sink) {
-        if (!this.isAccepting) {
+        if (!this.isAccepting || !this.world.isBlockLoaded(this.pos)) {
             return Result.CANT_PICKUP;
         }
 

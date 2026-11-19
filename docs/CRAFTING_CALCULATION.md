@@ -84,8 +84,8 @@ For each key, in order:
 4. Otherwise run its **patterns**, in priority order, each taking as much of the remainder as it is allowed.
 5. Whatever is still wanted is **missing**.
 
-Every number is `long`, and every multiplication goes through `LongMath.checkedMultiply` — it throws rather
-than saturating, and the throw becomes a refusal the player is shown. Saturating here would answer a question
+Every number is `long`, and every multiplication and every sum of demand, production and bytes is checked —
+it throws rather than saturating or wrapping, and the throw becomes a refusal the player is shown. Saturating here would answer a question
 nobody asked.
 
 ### What was asked for is never spent
@@ -102,10 +102,13 @@ each can really cover, in the order they are preferred. One worn tool and nine f
 
 Two rules sit on top of that:
 
-* **A key nothing else can be fed with goes last.** A slot with a choice should not take the last of what a
-  slot without one is going to need.
+* **A key nothing else can be fed with goes last, when it has to.** A slot with a choice should not take the
+  last of what a slot without one is going to need. A pass takes the encoded item first; when a key a choosing
+  slot took then had to be crafted or came up missing, and some slot elsewhere takes nothing else, that key is
+  kept for last and the plan is worked out again. With plenty for everyone, the encoded item is used.
 * **What is really covered is not how many there are.** A tool serves as many crafts as it has left in it,
-  and a thing handed back covers the whole run on its own.
+  and a thing handed back covers the whole run on its own. What other slots have already asked of a key in
+  this pass is taken off what is at hand of it, so eight plank slots do not all count the same four planks.
 
 Whatever no option can cover falls to the first option something can *make*, or failing that to the encoded
 one, where it is reported missing.
@@ -226,7 +229,9 @@ a few more times than strictly needed. Never a plan that cannot run.
 A single forward pass cannot see a shortfall coming. A pattern that ran out of an ingredient has not
 disproved the request, only itself — so the solver **caps that pattern at what it could really do and runs
 the whole pass again**, letting the next pattern for that key take the rest. That is what the old tree did
-one craft at a time.
+one craft at a time. When the pattern that ran out has no other pattern behind it, the shortfall is carried up
+to what it was making for, and the nearest pattern up there that has a successor is capped instead: an ingot
+with no ore to smelt is a sword that cannot be made from it, and the sword may have another recipe.
 
 Each refill lowers a cap that was not lower already, so the loop cannot circle: there are only so many
 patterns and each can only be brought down so far. `SolverLimits.maxRefills` (4096) is a backstop, not the

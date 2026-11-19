@@ -40,6 +40,8 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.util.Constants;
 
+import com.google.common.collect.MapMaker;
+
 /**
  * What a world saved by AE2 UEL and its addons turns into on AE2UD. AE2UD, its addons and the migrator register
  * here, during pre-init or init; AE2UD applies it.
@@ -81,6 +83,11 @@ public final class LegacyRewrites {
 
     // Kept until the next chunk: the walk over a chunk's tile entities, which comes after it, has no end to hook.
     private static final ThreadLocal<NBTTagCompound> chunk = new ThreadLocal<>();
+
+    // Forge walks a chunk's tiles once for every mod whose data is behind, handing each tile to every such mod's fix
+    // again: a tag already rewritten comes back as the same object. Weak keys compare by identity.
+    private static final Set<NBTTagCompound> rewrittenTiles = Collections.newSetFromMap(
+            new MapMaker().weakKeys().<NBTTagCompound, Boolean>makeMap());
 
     @Nullable
     private static volatile MigrationLog log;
@@ -241,10 +248,16 @@ public final class LegacyRewrites {
             return tile;
         }
         final List<TileRewriter> rewriters = tiles.get(tile.getString("id"));
-        if (rewriters == null) {
+        if (rewriters == null || rewrittenTiles.contains(tile)) {
             return tile;
         }
+        final NBTTagCompound result = rewriteTileOnce(current, rewriters, tile);
+        rewrittenTiles.add(result);
+        return result;
+    }
 
+    private static NBTTagCompound rewriteTileOnce(final MigrationLog current, final List<TileRewriter> rewriters,
+            final NBTTagCompound tile) {
         final NBTTagCompound original = tile.copy();
         final NBTTagList spill = new NBTTagList();
         spilled.set(spill);

@@ -37,6 +37,10 @@ public class FacadePart implements IFacadePart, IBoxProvider {
 
     private final ItemStack facade;
     private final AEPartLocation side;
+    // Read from the facade's tag on first use: it never changes, and it was asked for on every tick something
+    // walked on the facade and for every face drawn.
+    private ItemStack textureItem;
+    private IBlockState blockState;
 
     public FacadePart(final ItemStack facade, final AEPartLocation side) {
         if (facade == null) {
@@ -106,30 +110,26 @@ public class FacadePart implements IFacadePart, IBoxProvider {
 
     @Override
     public ItemStack getTextureItem() {
-        final Item maybeFacade = this.facade.getItem();
+        if (this.textureItem == null) {
+            final Item maybeFacade = this.facade.getItem();
 
-        // AE Facade
-        if (maybeFacade instanceof IFacadeItem) {
-            final IFacadeItem facade = (IFacadeItem) maybeFacade;
-
-            return facade.getTextureItem(this.facade);
+            // AE Facade
+            this.textureItem = maybeFacade instanceof IFacadeItem ? ((IFacadeItem) maybeFacade).getTextureItem(this.facade)
+                    : ItemStack.EMPTY;
         }
-
-        return ItemStack.EMPTY;
+        return this.textureItem;
     }
 
     @Override
     public IBlockState getBlockState() {
-        final Item maybeFacade = this.facade.getItem();
+        if (this.blockState == null) {
+            final Item maybeFacade = this.facade.getItem();
 
-        // AE Facade
-        if (maybeFacade instanceof IFacadeItem) {
-            final IFacadeItem facade = (IFacadeItem) maybeFacade;
-
-            return facade.getTextureBlockState(this.facade);
+            // AE Facade
+            this.blockState = maybeFacade instanceof IFacadeItem ? ((IFacadeItem) maybeFacade).getTextureBlockState(this.facade)
+                    : Blocks.GLASS.getDefaultState();
         }
-
-        return Blocks.GLASS.getDefaultState();
+        return this.blockState;
     }
 
     @Override

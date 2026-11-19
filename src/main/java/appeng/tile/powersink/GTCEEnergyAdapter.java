@@ -34,8 +34,8 @@ public class GTCEEnergyAdapter implements IEnergyContainer {
         // determine how many amps are being used
         final double usedEU = power + oldBuffer - EUBuffer;
         final long ampsUsed = (long) Math.ceil(usedEU / ((double) voltage));
-        // adjust the overflow
-        EUBuffer += usedEU % voltage;
+        // what was paid for and not used waits for the next tick
+        EUBuffer = oldBuffer + ampsUsed * voltage - usedEU;
 
         return ampsUsed;
     }

@@ -19,6 +19,7 @@
 package appeng.client;
 
 
+import appeng.helpers.PatternOutputs;
 import appeng.api.parts.CableRenderMode;
 import appeng.api.util.AEColor;
 import appeng.block.AEBaseBlock;
@@ -156,6 +157,7 @@ public class ClientHelper extends ServerHelper {
             MultiblockLimits.restoreLocal();
             PacketTerminalPins.clearPendingSnapshots();
             NetworkVisualiserData.clear();
+            PatternOutputs.clear();
         });
     }
 

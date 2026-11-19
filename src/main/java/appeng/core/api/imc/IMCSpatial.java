@@ -41,7 +41,7 @@ public class IMCSpatial implements IIMCProcessor {
             final Class classInstance = Class.forName(m.getStringValue(), false, Launch.classLoader);
             AEApi.instance().registries().movable().whiteListTileEntity(classInstance);
         } catch (final ClassNotFoundException e) {
-            AELog.info("Bad Class Registered: " + m.getStringValue() + " by " + m.getSender());
+            AELog.info("Bad Class Registered: %s by %s", m.getStringValue(), m.getSender());
         }
     }
 }

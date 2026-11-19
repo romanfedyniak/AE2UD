@@ -2,7 +2,9 @@ package appeng.util.prioritylist;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -13,12 +15,15 @@ import appeng.util.item.OreReference;
 
 
 public class OreDictPriorityList implements IPartitionList {
-    private final Set<Integer> oreIDs;
+    private final IntSet oreIDs;
     private final boolean matchesEmptyOreDict;
+    /** No expression at all, which is what leaves the bus unfiltered; one that names no ore filters out everything. */
+    private final boolean blank;
 
     public OreDictPriorityList(List<MatchRule> oreMatch) {
-        this.oreIDs = OreHelper.INSTANCE.getMatchingOre(oreMatch);
+        this.oreIDs = new IntOpenHashSet(OreHelper.INSTANCE.getMatchingOre(oreMatch));
         this.matchesEmptyOreDict = OreDictFilterMatcher.matches(oreMatch, "");
+        this.blank = oreMatch.isEmpty();
     }
 
     @Override
@@ -27,10 +32,10 @@ public class OreDictPriorityList implements IPartitionList {
             return matchesEmptyOreDict;
         }
 
-        OreReference or = OreHelper.INSTANCE.getOre(itemKey.getReadOnlyStack()).orElse(null);
+        OreReference or = OreHelper.INSTANCE.getOre(itemKey);
         if (or == null) return matchesEmptyOreDict;
 
-        for (Integer oreID : or.getOres()) {
+        for (int oreID : or.getOreIds()) {
             if (this.oreIDs.contains(oreID)) {
                 return true;
             }
@@ -40,7 +45,7 @@ public class OreDictPriorityList implements IPartitionList {
 
     @Override
     public boolean isEmpty() {
-        return oreIDs.isEmpty();
+        return this.blank;
     }
 
     @Override

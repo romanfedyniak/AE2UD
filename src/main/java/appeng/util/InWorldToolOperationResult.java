@@ -57,7 +57,13 @@ public class InWorldToolOperationResult {
                 final Block bl = Block.getBlockFromItem(l.getItem());
 
                 if (bl != null && !(bl instanceof BlockAir)) {
-                    b = bl.getDefaultState();
+                    // The variant the item stands for (cracked stone bricks, not stone bricks); the rest of the stack drops.
+                    b = bl.getStateFromMeta(l.getItem().getMetadata(l.getMetadata()));
+                    if (l.getCount() > 1) {
+                        final ItemStack rest = l.copy();
+                        rest.shrink(1);
+                        temp.add(rest);
+                    }
                     continue;
                 }
             }

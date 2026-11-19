@@ -515,10 +515,6 @@ public class BasicCellInventory implements StorageCell {
         final long currentAmount = stored.get(what);
         long remainingItemCount = this.getRemainingItemCount(type);
 
-        if (this.equalDistribution) {
-            remainingItemCount = Math.max(0, Math.min(this.getMaxAmountPerType(type) - currentAmount, remainingItemCount));
-        }
-
         if (currentAmount <= 0) {
             if (!this.canHoldNewItem(type)) {
                 // No room for a new type.
@@ -529,6 +525,11 @@ public class BasicCellInventory implements StorageCell {
             if (remainingItemCount <= 0) {
                 return 0;
             }
+        }
+
+        // After the new type's bytes: a share already leaves out the bytes every type costs.
+        if (this.equalDistribution) {
+            remainingItemCount = Math.max(0, Math.min(this.getMaxAmountPerType(type) - currentAmount, remainingItemCount));
         }
 
         long toInsert = amount;
@@ -577,6 +578,12 @@ public class BasicCellInventory implements StorageCell {
         for (final Object2LongMap.Entry<AEKey> entry : this.contents().amounts().object2LongEntrySet()) {
             out.add(entry.getKey(), entry.getLongValue());
         }
+    }
+
+    @Override
+    public boolean isEmpty() {
+        this.followTag();
+        return this.contents().amounts().isEmpty();
     }
 
     /** The id to ask the server for, when all that is known here of this cell is its summary. */
@@ -876,6 +883,16 @@ public class BasicCellInventory implements StorageCell {
     @Nullable
     private UUID readId() {
         return this.tagCompound.hasUniqueId(CELL_ID_TAG) ? this.tagCompound.getUniqueId(CELL_ID_TAG) : null;
+    }
+
+    /** Whether a stack is the cell whose contents have this id, read off the item without opening it. */
+    public static boolean isCell(final ItemStack stack, final UUID id) {
+        return isCell(stack.getTagCompound(), id);
+    }
+
+    /** The same, from the item's tag. */
+    public static boolean isCell(@Nullable final NBTTagCompound tag, final UUID id) {
+        return tag != null && tag.hasUniqueId(CELL_ID_TAG) && id.equals(tag.getUniqueId(CELL_ID_TAG));
     }
 
     private void writeId(final UUID id) {

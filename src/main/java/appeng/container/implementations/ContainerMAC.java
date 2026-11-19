@@ -85,7 +85,7 @@ public class ContainerMAC extends ContainerUpgradeable implements IProgressProvi
             final World w = this.getTileEntity().getWorld();
             final ItemEncodedPattern iep = (ItemEncodedPattern) is.getItem();
             final ICraftingPatternDetails ph = iep.getPatternForItem(is, w);
-            if (ph.isCraftable()) {
+            if (ph != null && ph.isCraftable()) {
                 return ph.isValidItemForSlot(slotIndex, i, w);
             }
         }

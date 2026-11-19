@@ -195,10 +195,11 @@ public class AdaptorItemHandler extends InventoryAdaptor {
             return ItemStack.EMPTY;
         }
 
+        // One copy keeps the caller's stack out of the handler; what a slot hands back is a new stack or this one.
+        if (!simulate) {
+            itemsToAdd = itemsToAdd.copy();
+        }
         for (int slot = 0; slot < this.itemHandler.getSlots(); slot++) {
-            if (!simulate) {
-                itemsToAdd = itemsToAdd.copy();
-            }
             itemsToAdd = this.itemHandler.insertItem(slot, itemsToAdd, simulate);
 
             if (itemsToAdd.isEmpty()) {

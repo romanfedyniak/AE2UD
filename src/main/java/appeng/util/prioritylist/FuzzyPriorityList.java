@@ -36,7 +36,7 @@ public class FuzzyPriorityList implements IPartitionList {
 
     @Override
     public boolean isListed(final AEKey input) {
-        return !this.list.findFuzzy(input, this.mode).isEmpty();
+        return this.list.anyFuzzy(input, this.mode);
     }
 
     @Override

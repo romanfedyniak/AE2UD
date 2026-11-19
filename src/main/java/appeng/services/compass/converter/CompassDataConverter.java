@@ -23,12 +23,17 @@ import com.google.common.base.Stopwatch;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.gen.ChunkProviderServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -63,19 +68,51 @@ public final class CompassDataConverter implements IOnWorldStartable, IOnWorldSt
         AELog.info("Found outdated compass metadata [version=%d] in dimension [%d] - converting old compass data...",
                 metadata.getVersion(Converters.COMPASS), dimId);
 
-        new OldCompassReader(dimId, this.worldCompassFolder).loadRegions().forEach(region -> {
-            for (final ChunkPos pos : region.getBeacons()) {
-                // Once the world is running: the chunk has to be there to be scanned.
-                TickHandler.INSTANCE.addCallable(world, w -> {
-                    // The chest may predate the natural property, so take any of them.
-                    ServerCompassService.updateArea((WorldServer) w, pos, false);
-                    return null;
-                });
-            }
-        });
+        final List<ChunkPos> targets = new ArrayList<>();
+        new OldCompassReader(dimId, this.worldCompassFolder).loadRegions().forEach(region -> targets.addAll(region.getBeacons()));
 
-        AELog.info("Finished converting old compass data in %d ms", watch.elapsed(TimeUnit.MILLISECONDS));
-        metadata.setVersion(ConverterMetadata.CURRENT_VERSION, Converters.COMPASS);
+        AELog.info("Read %d old compass targets in %d ms", targets.size(), watch.elapsed(TimeUnit.MILLISECONDS));
+        if (targets.isEmpty()) {
+            metadata.setVersion(ConverterMetadata.CURRENT_VERSION, Converters.COMPASS);
+            return;
+        }
+
+        // Done only once every target is scanned: a stop before that converts again on the next start.
+        final AtomicInteger left = new AtomicInteger(targets.size());
+        for (final ChunkPos pos : targets) {
+            // Once the world is running: the chunk has to be there to be scanned.
+            TickHandler.INSTANCE.addCallable(world, w -> {
+                try {
+                    scan((WorldServer) w, pos);
+                } finally {
+                    if (left.decrementAndGet() == 0) {
+                        ConverterMetadata.get((WorldServer) w).setVersion(ConverterMetadata.CURRENT_VERSION, Converters.COMPASS);
+                        AELog.info("Finished converting old compass data in dimension [%d]", dimId);
+                    }
+                }
+                return null;
+            });
+        }
+    }
+
+    /**
+     * A chunk the world no longer has (trimmed since) holds no meteorite now and is not generated again; one that
+     * is not loaded is loaded for the scan and let go again.
+     */
+    private static void scan(final WorldServer world, final ChunkPos pos) {
+        final ChunkProviderServer provider = world.getChunkProvider();
+        if (!provider.isChunkGeneratedAt(pos.x, pos.z)) {
+            return;
+        }
+        final boolean wasLoaded = provider.getLoadedChunk(pos.x, pos.z) != null;
+        // The chest may predate the natural property, so take any of them.
+        ServerCompassService.updateArea(world, pos, false);
+        if (!wasLoaded) {
+            final Chunk chunk = provider.getLoadedChunk(pos.x, pos.z);
+            if (chunk != null) {
+                provider.queueUnload(chunk);
+            }
+        }
     }
 
     @Override

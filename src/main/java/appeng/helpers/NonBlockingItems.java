@@ -27,6 +27,9 @@ public class NonBlockingItems {
             if (s.startsWith("[") && s.endsWith("]")) {
                 modids = s.substring(1, s.length() - 1).split("\\|");
             } else {
+                if (modids.length == 0) {
+                    AELog.error("Non blocking item entry %s comes before any [modid] line; it is ignored", s);
+                }
                 for (String modid : modids) {
                     if (!Platform.isModLoaded(modid)) {
                         continue;
@@ -36,7 +39,14 @@ public class NonBlockingItems {
                     String[] ModItemMeta = s.split(":");
 
                     if (ModItemMeta.length < 2 || ModItemMeta.length > 3) {
-                        AELog.error("Invalid non blocking item entry: " + s);
+                        AELog.error("Invalid non blocking item entry: %s", s);
+                        continue;
+                    }
+                    final int meta;
+                    try {
+                        meta = ModItemMeta.length == 3 ? Integer.parseInt(ModItemMeta[2]) : 0;
+                    } catch (NumberFormatException e) {
+                        AELog.error("Invalid non blocking item entry: %s", s);
                         continue;
                     }
 
@@ -54,7 +64,7 @@ public class NonBlockingItems {
                                     return intSet;
                                 });
                             } else {
-                                ItemStack itemStack = GameRegistry.makeItemStack(ModItemMeta[0] + ":" + ModItemMeta[1], ModItemMeta.length == 3 ? Integer.parseInt(ModItemMeta[2]) : 0, 1, null);
+                                ItemStack itemStack = GameRegistry.makeItemStack(ModItemMeta[0] + ":" + ModItemMeta[1], meta, 1, null);
                                 if (!itemStack.isEmpty()) {
                                     NON_BLOCKING_MAP.get(modid).putIfAbsent(itemStack.getItem(), new IntOpenHashSet());
                                     NON_BLOCKING_MAP.get(modid).computeIfPresent(itemStack.getItem(), (item, intSet) ->
@@ -66,9 +76,10 @@ public class NonBlockingItems {
                             }
                         }
                         if (!found) {
-                            AELog.error("Item not found on nonBlocking config: " + s);
+                            AELog.error("Item not found on nonBlocking config: %s", s);
                         }
                     } else if (ModItemMeta[0].equals("ore")) {
+                        // An ore registered for every meta keeps WILDCARD_VALUE, which BlockingItemHandler reads as any.
                         OreDictionary.getOres(ModItemMeta[1]).forEach(itemStack ->
                         {
                             NON_BLOCKING_MAP.get(modid).putIfAbsent(itemStack.getItem(), new IntOpenHashSet());
@@ -79,7 +90,7 @@ public class NonBlockingItems {
                             });
                         });
                     } else {
-                        ItemStack itemStack = GameRegistry.makeItemStack(ModItemMeta[0] + ":" + ModItemMeta[1], ModItemMeta.length == 3 ? Integer.parseInt(ModItemMeta[2]) : 0, 1, null);
+                        ItemStack itemStack = GameRegistry.makeItemStack(ModItemMeta[0] + ":" + ModItemMeta[1], meta, 1, null);
                         if (!itemStack.isEmpty()) {
                             NON_BLOCKING_MAP.get(modid).putIfAbsent(itemStack.getItem(), new IntOpenHashSet());
                             NON_BLOCKING_MAP.get(modid).computeIfPresent(itemStack.getItem(), (item, intSet) ->
@@ -88,7 +99,7 @@ public class NonBlockingItems {
                                 return intSet;
                             });
                         } else {
-                            AELog.error("Item not found on nonBlocking config: " + s);
+                            AELog.error("Item not found on nonBlocking config: %s", s);
                         }
                     }
                 }

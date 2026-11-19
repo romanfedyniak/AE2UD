@@ -163,10 +163,11 @@ public final class MemoryCardSettings {
 
             if (current.getItem() instanceof ICraftingPatternItem) {
                 if (!creative) {
-                    final ItemStack blank = materials.blankPattern().maybeStack(current.getCount()).get();
-                    if (!player.addItemStackToInventory(blank)) {
-                        player.dropItem(blank, true);
-                    }
+                    materials.blankPattern().maybeStack(current.getCount()).ifPresent(blank -> {
+                        if (!player.addItemStackToInventory(blank)) {
+                            player.dropItem(blank, true);
+                        }
+                    });
                 }
 
                 target.setStackInSlot(slot, ItemStack.EMPTY);

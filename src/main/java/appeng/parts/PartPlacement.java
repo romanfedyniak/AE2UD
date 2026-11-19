@@ -21,6 +21,7 @@ package appeng.parts;
 import appeng.api.AEApi;
 import appeng.api.parts.*;
 import appeng.api.util.AEPartLocation;
+import appeng.util.Platform;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.state.IBlockState;
@@ -33,6 +34,8 @@ import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.event.entity.player.PlayerDestroyItemEvent;
 
 import javax.annotation.Nullable;
@@ -46,7 +49,7 @@ public class PartPlacement {
 
         // determine where the part would be placed
         Placement placement = getPartPlacement(player, world, held, pos, side);
-        if (placement == null) {
+        if (placement == null || !mayPlaceAt(player, world, held, placement, hand)) {
             return EnumActionResult.FAIL;
         }
 
@@ -59,9 +62,10 @@ public class PartPlacement {
         // handle placement logic with the stack
         if (!world.isRemote) {
             if (player != null && !player.isCreative()) {
+                // Only shrunk, as a block item is: a placement a protection undoes puts the count back on this very
+                // stack, and one replaced in the hand was lost.
                 held.shrink(1);
-                if (held.getCount() == 0) {
-                    player.setHeldItem(hand, ItemStack.EMPTY);
+                if (held.isEmpty()) {
                     MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(player, held, hand));
                 }
             }
@@ -70,6 +74,25 @@ public class PartPlacement {
             player.swingArm(hand);
             return EnumActionResult.PASS;
         }
+    }
+
+    /**
+     * Whether the player may change the block the part goes into, which is often not the block clicked, the only one
+     * the game and claims were asked about. A new cable bus is asked about by the game itself as it is placed; a part
+     * added to one that is there changes no block, so nobody would be.
+     */
+    private static boolean mayPlaceAt(@Nullable EntityPlayer player, World world, ItemStack held, Placement placement, EnumHand hand) {
+        if (player == null) {
+            return true;
+        }
+        if (!player.canPlayerEdit(placement.pos(), placement.side(), held)) {
+            return false;
+        }
+        if (world.isRemote || AEApi.instance().partHelper().getPartHost(world, placement.pos()) == null) {
+            return true;
+        }
+        return Platform.hasPermissions(world, placement.pos(), player) && !ForgeEventFactory.onPlayerBlockPlace(player,
+                BlockSnapshot.getBlockSnapshot(world, placement.pos()), placement.side(), hand).isCanceled();
     }
 
     public static IPart placePart(@Nullable EntityPlayer player, World world, ItemStack partItem, BlockPos pos, EnumFacing side, EnumHand hand) {

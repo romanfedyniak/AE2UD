@@ -36,9 +36,7 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.ICellGuiHandler;
-import appeng.api.storage.IStorageChangeSource;
 import appeng.api.storage.IStorageMonitorableAccessor;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -59,6 +57,7 @@ import appeng.helpers.IPriorityHost;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.DriveWatcher;
+import appeng.me.storage.MEInventoryHandler;
 import appeng.me.storage.NullInventory;
 import appeng.tile.grid.AENetworkPowerTile;
 import appeng.tile.inventory.AppEngInternalInventory;
@@ -75,7 +74,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
-import net.minecraft.util.text.ITextComponent;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
@@ -83,6 +81,7 @@ import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.FluidTankProperties;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import net.minecraftforge.fluids.capability.templates.EmptyFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
@@ -153,6 +152,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
         final int oldCellState = this.cellState;
         final boolean oldPowered = this.powered;
 
+        this.cellState = 0;
         for (int x = 0; x < this.getCellCount(); x++) {
             this.cellState |= (this.getCellStatus(x) << (3 * x));
         }
@@ -218,12 +218,13 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             this.accessor = null;
 
             final ItemStack is = this.getCell();
+            double idlePower = 1.0;
             if (!is.isEmpty()) {
                 this.isCached = true;
                 final StorageCell cell = StorageCells.getCellInventory(is, this);
 
                 if (cell != null) {
-                    this.getProxy().setIdlePowerUsage(1.0 + cell.getIdleDrain());
+                    idlePower += cell.getIdleDrain();
 
                     this.driveWatcher = new DriveWatcher(cell, () -> this.blinkCell(0));
                     this.cellStorage = new SecurityAwareCellStorage(this.driveWatcher);
@@ -235,6 +236,10 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
                         this.fluidHandler = new FluidHandler();
                     }
                 }
+            }
+            // Only on a change: with no cell this runs on every capability query.
+            if (this.getProxy().getIdlePowerUsage() != idlePower) {
+                this.getProxy().setIdlePowerUsage(idlePower);
             }
         }
     }
@@ -299,7 +304,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             return false;
         }
 
-        return (this.blinking & (1 << slot)) == 1;
+        return (this.blinking & (1 << slot)) != 0;
     }
 
     @Override
@@ -510,6 +515,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     public void setPriority(final int newValue) {
         this.priority = newValue;
         this.isCached = false; // recalculate the storage cell.
+        this.saveChanges();
 
         IStorageProvider.requestUpdate(this.getProxy().getNode());
 
@@ -621,27 +627,22 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
      * <p>
      * It passes on what the cell reports: the chest's input slot and its own screen write to the cell past the
      * network, and a network that is not told counts less than the cell holds until something remounts it.
+     * <p>
+     * A mount handler itself, so the network sees the cell's Sticky Card, and it asks the cell's own handler
+     * whether the cell is the place for something, as a drive's cell is asked.
      */
-    private class SecurityAwareCellStorage implements MEStorage, IStorageChangeSource {
+    private class SecurityAwareCellStorage extends MEInventoryHandler {
         private final DriveWatcher inner;
 
         SecurityAwareCellStorage(final DriveWatcher inner) {
+            super(inner);
             this.inner = inner;
+            this.setSticky(inner.isSticky());
         }
 
         @Override
-        public boolean reportsChanges() {
-            return this.inner.reportsChanges();
-        }
-
-        @Override
-        public void addChangeListener(final Listener listener) {
-            this.inner.addChangeListener(listener);
-        }
-
-        @Override
-        public void removeChangeListener(final Listener listener) {
-            this.inner.removeChangeListener(listener);
+        public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
+            return this.inner.isPreferredStorageFor(input, source);
         }
 
         @Override
@@ -649,7 +650,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             if (source.player().map(player -> !TileChest.this.securityCheck(player, SecurityPermissions.INJECT)).orElse(false)) {
                 return 0;
             }
-            return this.inner.insert(what, amount, mode, source);
+            return super.insert(what, amount, mode, source);
         }
 
         @Override
@@ -657,17 +658,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             if (source.player().map(player -> !TileChest.this.securityCheck(player, SecurityPermissions.EXTRACT)).orElse(false)) {
                 return 0;
             }
-            return this.inner.extract(what, amount, mode, source);
-        }
-
-        @Override
-        public void getAvailableStacks(final KeyCounter out) {
-            this.inner.getAvailableStacks(out);
-        }
-
-        @Override
-        public ITextComponent getDescription() {
-            return this.inner.getDescription();
+            return super.extract(what, amount, mode, source);
         }
     }
 
@@ -742,7 +733,7 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
             if (TileChest.this.cellStorage != null) {
                 return this.TANK_PROPS;
             }
-            return null;
+            return EmptyFluidHandler.EMPTY_TANK_PROPERTIES_ARRAY;
         }
     }
 
@@ -791,6 +782,12 @@ public class TileChest extends AENetworkPowerTile implements IMEChest, ITerminal
     @Override
     public ItemStack getItemStackRepresentation() {
         return AEApi.instance().definitions().blocks().chest().maybeStack(1).orElse(ItemStack.EMPTY);
+    }
+
+    /** The chest's own screen, where its priority tab is; the terminal is what it is for everything else. */
+    @Override
+    public GuiBridge getPriorityGuiBridge() {
+        return GuiBridge.GUI_CHEST;
     }
 
     @Override

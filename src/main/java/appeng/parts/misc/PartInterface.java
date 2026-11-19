@@ -47,7 +47,6 @@ import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartBasicState;
 import appeng.parts.PartModel;
-import appeng.tile.misc.TileInterface;
 import appeng.util.MemoryCardSettings;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
@@ -314,10 +313,7 @@ public class PartInterface extends PartBasicState implements IGridTickable, IInv
 
     @Override
     public void onNeighborChanged(IBlockAccess w, BlockPos pos, BlockPos neighbor) {
-        TileEntity tileEntity = getTileEntity();
-        if (tileEntity instanceof TileInterface) {
-            ((TileInterface) tileEntity).updateRedstoneState();
-        }
+        this.duality.updateRedstoneState();
     }
 
     @Override

@@ -44,6 +44,8 @@ import appeng.tile.networking.TileCableBus;
 import appeng.tile.networking.TileCableBusTESR;
 import appeng.util.Platform;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockMagma;
+import net.minecraft.block.BlockSlime;
 import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.BlockFaceShape;
 import net.minecraft.block.state.BlockStateContainer;
@@ -117,7 +119,7 @@ public class BlockCableBus extends AEBaseTileBlock implements IAEFacade {
 
     @Override
     public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
-        CableBusRenderState renderState = this.cb(world, pos).getRenderState();
+        CableBusRenderState renderState = this.cb(world, pos).getRenderState(world);
         renderState.setWorld(world);
         renderState.setPos(pos);
         return ((IExtendedBlockState) state).withProperty(RENDER_STATE_PROPERTY, renderState);
@@ -513,7 +515,12 @@ public class BlockCableBus extends AEBaseTileBlock implements IAEFacade {
         if (container != null) {
             IFacadePart facade = container.getFacade(AEPartLocation.fromFacing(EnumFacing.UP));
             if (facade != null) {
-                facade.getBlockState().getBlock().onEntityWalk(world, pos, entityIn);
+                // Only blocks whose walk effect is on the entity alone: a facade's block is told it stands where
+                // the bus stands, and redstone ore, for one, replaced the bus with itself and dropped everything.
+                final Block block = facade.getBlockState().getBlock();
+                if (block instanceof BlockSlime || block instanceof BlockMagma) {
+                    block.onEntityWalk(world, pos, entityIn);
+                }
             }
         }
         super.onEntityWalk(world, pos, entityIn);

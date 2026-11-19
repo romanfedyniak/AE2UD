@@ -522,8 +522,11 @@ public class GridStorageCache implements IStorageService, IGridCache {
             // Mount this inventory into the network storage
             storage.mount(priority, inventory);
 
-            // Everything it already holds has just appeared as far as the running total is concerned.
-            for (final var entry : inventory.getAvailableStacks()) {
+            // Everything it already holds has just appeared as far as the running total is concerned. Listed into
+            // a counter of our own: a wrapper's no-argument listing goes straight past its filter.
+            final KeyCounter shown = new KeyCounter();
+            inventory.getAvailableStacks(shown);
+            for (final var entry : shown) {
                 recordChange(entry.getKey(), entry.getLongValue());
             }
         }

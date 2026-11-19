@@ -20,7 +20,6 @@ package appeng.items.tools.powered;
 
 
 import appeng.api.config.Actionable;
-import appeng.api.util.DimensionalCoord;
 import appeng.block.misc.BlockTinyTNT;
 import appeng.core.AEConfig;
 import appeng.hooks.IBlockTool;
@@ -126,7 +125,9 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
                 return false;
             }
             final InWorldToolOperationIngredient other = (InWorldToolOperationIngredient) obj;
-            return this.state == other.state && (this.blockOnly && this.state.getBlock() == other.state.getBlock());
+            // An entry for one state matches that state only; one for the whole block, any of its states.
+            return this.blockOnly == other.blockOnly
+                    && (this.blockOnly ? this.state.getBlock() == other.state.getBlock() : this.state == other.state);
         }
     }
 
@@ -137,8 +138,14 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             r = this.heatUp.get(new InWorldToolOperationIngredient(state.getBlock(), true));
         }
 
-        if (r.getBlockState() != null) {
-            w.setBlockState(pos, r.getBlockState(), 3);
+        IBlockState result = r.getBlockState();
+        // Where water boils away (the Nether), melted ice leaves nothing, as it does when broken there.
+        if (result != null && result.getMaterial() == Material.WATER && w.provider.doesWaterVaporize()) {
+            result = null;
+        }
+
+        if (result != null) {
+            w.setBlockState(pos, result, 3);
         } else {
             w.setBlockToAir(pos);
         }
@@ -206,7 +213,7 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             if (target.typeOfHit == RayTraceResult.Type.BLOCK) {
                 final IBlockState state = w.getBlockState(target.getBlockPos());
                 if (state.getMaterial() == Material.LAVA || state.getMaterial() == Material.WATER) {
-                    if (Platform.hasPermissions(new DimensionalCoord(w, target.getBlockPos()), p)) {
+                    if (Platform.mayBreak(w, target.getBlockPos(), p)) {
                         this.onItemUse(p, w, target.getBlockPos(), hand, EnumFacing.UP, 0.0F, 0.0F, 0.0F);
                     }
                 }
@@ -240,7 +247,9 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
             } else {
                 if (blockID instanceof BlockTNT) {
                     w.setBlockToAir(pos);
-                    ((BlockTNT) blockID).explode(w, pos, state, p);
+                    // Lit, as flint and steel lights it: a placed block's own state says not to explode.
+                    final IBlockState lit = state.getPropertyKeys().contains(BlockTNT.EXPLODE) ? state.withProperty(BlockTNT.EXPLODE, true) : state;
+                    ((BlockTNT) blockID).explode(w, pos, lit, p);
                     return EnumActionResult.SUCCESS;
                 }
 
@@ -272,7 +281,10 @@ public class ToolEntropyManipulator extends AEBasePoweredItem implements IBlockT
                             }
                         }
                         hasFurnaceable = true;
-                        out.add(result);
+                        // One result per item smelted: a drop of several gives as many.
+                        final ItemStack smelted = result.copy();
+                        smelted.setCount(result.getCount() * i.getCount());
+                        out.add(smelted);
                     } else {
                         canFurnaceable = false;
                         out.add(i);

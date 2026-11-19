@@ -31,9 +31,18 @@ import net.minecraft.entity.player.InventoryPlayer;
  */
 public class GuiSetPriority extends GuiSetAmount {
 
+    private final IPriorityHost host;
+
     @Reflected
     public GuiSetPriority(final InventoryPlayer inventoryPlayer, final IPriorityHost host) {
         super(new ContainerSetPriority(inventoryPlayer, host));
+        this.host = host;
+    }
+
+    @Override
+    public void initGui() {
+        super.initGui();
+        this.originalGui = this.host.getPriorityGuiBridge();
     }
 
     @Override

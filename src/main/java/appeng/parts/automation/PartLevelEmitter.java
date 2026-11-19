@@ -66,6 +66,7 @@ import appeng.api.util.AECableType;
 import appeng.api.util.AEPartLocation;
 import appeng.api.util.IConfigManager;
 import appeng.core.AppEng;
+import appeng.hooks.TickHandler;
 import appeng.core.sync.GuiBridge;
 import appeng.helpers.ISubMenuHost;
 import appeng.helpers.Reflected;
@@ -105,7 +106,7 @@ public class PartLevelEmitter extends PartUpgradeable
 
     private long lastReportedValue = 0;
     private long reportingValue = 0;
-    private long lastWatcherRescanTick = -1;
+    private boolean rescanQueued;
 
     private IStackWatcher myWatcher;
     private IEnergyWatcher myEnergyWatcher;
@@ -166,8 +167,12 @@ public class PartLevelEmitter extends PartUpgradeable
         }
 
         if (this.isInstalled(CardTraits.CRAFTING)) {
+            final AEKey key = this.getConfiguredKey();
+            if (key == null) {
+                return false;
+            }
             try {
-                return this.getProxy().getCrafting().isRequesting(this.getConfiguredKey());
+                return this.getProxy().getCrafting().isRequesting(key);
             } catch (final GridAccessException e) {
                 // :P
             }
@@ -325,20 +330,25 @@ public class PartLevelEmitter extends PartUpgradeable
         }
 
         // Either a fuzzy filter or no filter at all -- both watch every key in the network, so a
-        // single change has to trigger a full rescan. Guard against rescanning more than once per
-        // tick when many keys change at once, same idea as the pre-port "once per tick" concern.
-        final TileEntity te = this.getHost() != null ? this.getHost().getTile() : null;
-        final long tick = te != null && te.getWorld() != null ? te.getWorld().getTotalWorldTime() : -1;
-        if (tick == this.lastWatcherRescanTick) {
+        // single change has to trigger a full rescan. Done once, at the end of the tick: a network hands its
+        // changes over in a batch to whoever reads it, so a tick can bring several, and a rescan for the first
+        // only missed what came later in the same tick.
+        if (this.rescanQueued) {
             return;
         }
-        this.lastWatcherRescanTick = tick;
-
-        try {
-            this.updateReportingValue(this.getProxy().getStorage());
-        } catch (final GridAccessException e) {
-            // :P
-        }
+        this.rescanQueued = true;
+        TickHandler.INSTANCE.addCallable(null, world -> {
+            this.rescanQueued = false;
+            if (this.getHost() == null || !this.getProxy().isActive()) {
+                return null;
+            }
+            try {
+                this.updateReportingValue(this.getProxy().getStorage());
+            } catch (final GridAccessException e) {
+                // :P
+            }
+            return null;
+        });
     }
 
     @Override

@@ -44,9 +44,13 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -83,6 +87,25 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
             return (TunnelCollection<T>) this.getProxy().getP2P().getOutputs(this.getFrequency(), this.getClass());
         }
         return new TunnelCollection(new ArrayList(), this.getClass());
+    }
+
+    /**
+     * The tile in front, or null when there is none or its chunk is not loaded: asking the world for a block in an
+     * unloaded chunk loads it (or generates it), and a tunnel at the edge of a loaded area would keep doing so.
+     */
+    @Nullable
+    protected TileEntity getLoadedFacingTile() {
+        final TileEntity self = this.getTile();
+        if (self == null || self.getWorld() == null) {
+            return null;
+        }
+        final World world = self.getWorld();
+        final BlockPos target = self.getPos().offset(this.getSide().getFacing());
+        if (!world.isBlockLoaded(target)) {
+            return null;
+        }
+        final TileEntity te = world.getTileEntity(target);
+        return te == null || te.isInvalid() ? null : te;
     }
 
     @Override
@@ -327,17 +350,18 @@ public abstract class PartP2PTunnel<T extends PartP2PTunnel> extends PartBasicSt
                         newTunnel.getProxy().getP2P().updateFreq(newTunnel, newFreq);
 
                         newTunnel.onTunnelNetworkChange();
+                        // On the part now there: this one is gone, and an IC2 tunnel brought its energy tile back.
+                        newTunnel.onTunnelConfigChange();
                     }
                 } else {
                     this.getProxy().getP2P().updateFreq(this, newFreq);
                     this.onTunnelNetworkChange();
+                    this.onTunnelConfigChange();
                 }
                 Platform.notifyBlocksOfNeighbors(this.getTile().getWorld(), this.getTile().getPos());
             } catch (final GridAccessException e) {
                 // :P
             }
-
-            this.onTunnelConfigChange();
 
             final ItemStack p2pItem = this.getItemStack(PartItemStack.WRENCH);
             final String type = p2pItem.getTranslationKey();

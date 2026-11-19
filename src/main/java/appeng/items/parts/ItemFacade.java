@@ -55,7 +55,7 @@ public class ItemFacade extends AEBaseItem implements IFacadeItem, IAlphaPassIte
     private static final String TAG_ITEM_ID = "item";
     private static final String TAG_DAMAGE = "damage";
 
-    private List<ItemStack> subTypes = null;
+    private volatile List<ItemStack> subTypes = null;
 
     public ItemFacade() {
         this.setHasSubtypes(true);
@@ -69,6 +69,10 @@ public class ItemFacade extends AEBaseItem implements IFacadeItem, IAlphaPassIte
         }
 
         FacadePart facade = createPartFromItemStack(stack, AEPartLocation.fromFacing(side));
+        // No texture (no tag, or its mod is gone): nothing to put on.
+        if (facade == null) {
+            return EnumActionResult.PASS;
+        }
         if (!placeFacade(facade, world, pos)) {
             return EnumActionResult.FAIL;
         }
@@ -143,7 +147,8 @@ public class ItemFacade extends AEBaseItem implements IFacadeItem, IAlphaPassIte
 
     private void calculateSubTypes() {
         if (this.subTypes == null) {
-            this.subTypes = new ArrayList<>(1000);
+            // Published once filled: the item export walks this off the main thread, and JEI may ask meanwhile.
+            final List<ItemStack> subTypes = new ArrayList<>(1000);
             for (final Object blk : Block.REGISTRY) {
                 final Block b = (Block) blk;
                 try {
@@ -157,13 +162,14 @@ public class ItemFacade extends AEBaseItem implements IFacadeItem, IAlphaPassIte
                     for (final ItemStack l : tmpList) {
                         final ItemStack facade = this.createFacadeForItem(l, false);
                         if (!facade.isEmpty()) {
-                            this.subTypes.add(facade);
+                            subTypes.add(facade);
                         }
                     }
                 } catch (final Throwable t) {
                     // just absorb..
                 }
             }
+            this.subTypes = subTypes;
         }
     }
 

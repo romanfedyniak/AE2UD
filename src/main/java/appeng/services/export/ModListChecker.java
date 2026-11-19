@@ -37,6 +37,7 @@ import java.util.List;
  */
 final class ModListChecker implements Checker<List<ModContainer>> {
     private final String configHashValue;
+    private String newHashValue;
 
     @Nonnull
     private final ExportConfig config;
@@ -76,9 +77,18 @@ final class ModListChecker implements Checker<List<ModContainer>> {
         if (hex.equals(this.configHashValue)) {
             return CheckType.EQUAL;
         } else {
-            this.config.setCache(hex);
+            this.newHashValue = hex;
 
             return CheckType.UNEQUAL;
+        }
+    }
+
+    /**
+     * Stores the mod list last compared, once the export it asked for is written: an export that dies is tried again.
+     */
+    void remember() {
+        if (this.newHashValue != null) {
+            this.config.setCache(this.newHashValue);
         }
     }
 }

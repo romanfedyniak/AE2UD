@@ -20,6 +20,7 @@
 package appeng.services.compass.converter;
 
 
+import appeng.core.AELog;
 import appeng.core.worlddata.converter.IOldFileRegion;
 import appeng.core.worlddata.converter.OldDataReader;
 import com.google.common.base.Preconditions;
@@ -29,9 +30,9 @@ import org.apache.commons.lang3.math.NumberUtils;
 
 import javax.annotation.Nonnull;
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -114,11 +115,13 @@ public final class OldCompassRegion implements IOldFileRegion {
         final File file = new File(this.worldCompassFolder, fileName);
 
         if (this.isFileExistent(file)) {
+            // A file cut short (the old code created it before filling it) still holds what it got to.
             try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-                final FileChannel fc = raf.getChannel();
-                this.buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, (long) REGION_CHUNKS * REGION_CHUNKS);
-            } catch (final Throwable t) {
-                throw new CompassException(t);
+                final byte[] bytes = new byte[(int) Math.min(raf.length(), (long) REGION_CHUNKS * REGION_CHUNKS)];
+                raf.readFully(bytes);
+                this.buffer = ByteBuffer.wrap(bytes);
+            } catch (final IOException e) {
+                AELog.warn(e, "Could not read the old compass file " + fileName + "; its meteorites are not carried over");
             }
         }
     }

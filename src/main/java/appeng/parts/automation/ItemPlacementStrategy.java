@@ -80,7 +80,13 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
     @Override
     public void clearBlocked() {
-        this.blocked = !this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
+        this.blocked = !this.isReplaceable();
+    }
+
+    /** False for a block in a chunk that is not loaded: reading it would load the chunk, or generate it. */
+    private boolean isReplaceable() {
+        return this.world.isBlockLoaded(this.pos)
+                && this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
     }
 
     @Override
@@ -100,7 +106,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
         EnumFacing hostToExternal = this.fromSide.getOpposite();
         AEPartLocation sideLoc = AEPartLocation.fromFacing(hostToExternal);
 
-        if (this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos)) {
+        if (this.isReplaceable()) {
             if (placeAsEntity) {
                 int sum = this.countEntitiesAround(this.world, this.pos);
 
@@ -109,7 +115,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
                     if (type == Actionable.MODULATE) {
                         is.setCount((int) maxStorage);
-                        this.spawnItemEntity(this.world, this.host, sideLoc, is);
+                        worked = this.spawnItemEntity(this.world, this.host, sideLoc, is);
                     }
                 }
             } else if (i instanceof ItemBlock || i instanceof ItemBlockSpecial || i instanceof IPlantable
@@ -163,7 +169,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
                 if (sum < AEConfig.instance().getFormationPlaneEntityLimit()) {
                     if (type == Actionable.MODULATE) {
                         is.setCount((int) maxStorage);
-                        this.spawnItemEntity(this.world, this.host, sideLoc, is);
+                        worked = this.spawnItemEntity(this.world, this.host, sideLoc, is);
                     }
                 } else {
                     worked = false;
@@ -171,7 +177,7 @@ class ItemPlacementStrategy implements PlacementStrategy {
             }
         }
 
-        this.blocked = !this.world.getBlockState(this.pos).getBlock().isReplaceable(this.world, this.pos);
+        this.blocked = !this.isReplaceable();
 
         return worked ? maxStorage : 0;
     }
@@ -183,7 +189,8 @@ class ItemPlacementStrategy implements PlacementStrategy {
                 sideLoc.xOffset, sideLoc.yOffset, sideLoc.zOffset, hand);
     }
 
-    private void spawnItemEntity(World w, TileEntity te, AEPartLocation side, ItemStack is) {
+    /** @return false when the world refused the entity (a mod cancelling item spawns): nothing was placed. */
+    private boolean spawnItemEntity(World w, TileEntity te, AEPartLocation side, ItemStack is) {
         double x = (side.xOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.xOffset + .5 + te.getPos().getX();
         double y = (side.yOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.yOffset + .5 + te.getPos().getY();
         double z = (side.zOffset != 0 ? 0 : .7 * (Platform.getRandomFloat() - .5)) + side.zOffset + .5 + te.getPos().getZ();
@@ -206,7 +213,9 @@ class ItemPlacementStrategy implements PlacementStrategy {
 
         if (!w.spawnEntity(result)) {
             result.setDead();
+            return false;
         }
+        return true;
     }
 
     private int countEntitiesAround(World world, BlockPos pos) {

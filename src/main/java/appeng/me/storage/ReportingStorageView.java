@@ -136,6 +136,11 @@ public final class ReportingStorageView implements MEStorage, IStorageChangeSour
     }
 
     @Override
+    public boolean isEmpty() {
+        return this.source.isEmpty();
+    }
+
+    @Override
     public ITextComponent getDescription() {
         return this.source.getDescription();
     }

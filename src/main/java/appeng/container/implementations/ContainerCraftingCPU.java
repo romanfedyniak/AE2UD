@@ -71,9 +71,11 @@ import java.util.Set;
 public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCPUListener, ICustomNameObject, ICraftPriorityTarget {
 
     /**
-     * Every key this container has ever reported to its GUI. Replaces the old {@code IItemList<IAEItemStack>}
-     * that {@code postChange} fed with size-1 markers: since only key identity mattered there (the amounts
-     * were always re-read fresh via {@code getItemStack}), a plain key set carries the same information.
+     * The keys whose amounts changed since they were last sent, emptied by each send. Replaces the old
+     * {@code IItemList<IAEItemStack>} that {@code postChange} fed with size-1 markers: only key identity
+     * mattered there (the amounts are re-read fresh via {@code getItemStack}), so a plain key set carries the
+     * same information. Keeping every key ever seen resent the whole job three packets a tick, for as long
+     * as the screen stayed open.
      */
     private final Set<AEKey> trackedKeys = new LinkedHashSet<>();
     private IGrid network;
@@ -137,12 +139,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
             this.cpuName = c.getName();
             this.setMonitor((CraftingCPUCluster) c);
             this.trackedKeys.clear();
-
-            final KeyCounter all = new KeyCounter();
-            this.getMonitor().getListOfItem(all, CraftingItemList.ALL);
-            for (final var entry : all) {
-                this.trackedKeys.add(entry.getKey());
-            }
+            this.trackAll();
 
             this.getMonitor().addListener(this, null);
             this.setEstimatedTime(0);
@@ -150,6 +147,24 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
             this.setMonitor(null);
             this.cpuName = "";
             this.setEstimatedTime(-1);
+        }
+    }
+
+    /** Everything the job holds, waits for or still has to make: what a screen that knows nothing yet needs. */
+    private void trackAll() {
+        final KeyCounter all = new KeyCounter();
+        this.getMonitor().getListOfItem(all, CraftingItemList.ALL);
+        for (final var entry : all) {
+            this.trackedKeys.add(entry.getKey());
+        }
+    }
+
+    @Override
+    public void addListener(final IContainerListener listener) {
+        super.addListener(listener);
+
+        if (this.getMonitor() != null) {
+            this.trackAll();
         }
     }
 
@@ -249,6 +264,8 @@ public class ContainerCraftingCPU extends AEBaseContainer implements ICraftingCP
                                 this.getMonitor().getPromised(what), false));
                         c.appendItem(new GridInventoryEntry(what, pending.amount(), 0, false));
                     }
+
+                    this.trackedKeys.clear();
 
                     for (final Object g : this.listeners) {
                         if (g instanceof EntityPlayer) {

@@ -66,7 +66,6 @@ import appeng.items.parts.PartModels;
 import appeng.me.GridAccessException;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.PartModel;
-import appeng.util.InventoryAdaptor;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 
@@ -75,14 +74,7 @@ import appeng.util.prioritylist.IPartitionList;
  * Moves the bus' configured keys from the network into the adjacent block. Like {@link PartImportBus},
  * this class has no item-specific logic of its own -- {@link StackExportStrategy}s registered per
  * {@code AEKeyType} (see {@link InitStackWorldBehaviors}) do the actual work of pushing content into
- * the adjacent block.
- * <p>
- * The one exception is craft-on-demand: {@link MultiCraftingTracker#handleCrafting} still needs an
- * {@link InventoryAdaptor} to pre-check whether the destination can even accept the crafted result
- * before a job is started (see CONTRACT.md &sect;9, wave 1b's frozen shape for {@code appeng.helpers}).
- * Autocrafting itself is still entirely item/{@link GenericStack}-based in this codebase (a
- * deliberately out-of-scope alignment per CONTRACT.md &sect;4.4), so this is not a regression this
- * wave introduced.
+ * the adjacent block. Craft-on-demand asks the same strategy, simulated, whether a result would fit.
  */
 public class PartExportBus extends PartSharedItemBus implements ICraftingRequester, ICraftPriorityTarget {
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/export_bus_base");
@@ -230,14 +222,13 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
         }
     }
 
+    /** Asks the strategy that will deliver the result whether it fits, so a fluid or any other key is ordered too. */
     private boolean attemptCrafting(StackTransferContextImpl context, ICraftingGrid cg, int slotToExport, AEKey what) {
-        final InventoryAdaptor destination = this.getHandler();
-        if (destination == null) {
-            return false;
-        }
+        final long amount = (long) context.getOperationsRemaining() * Math.max(1, what.getAmountPerOperation());
         try {
-            return this.craftingTracker.handleCrafting(slotToExport, context.getOperationsRemaining(), what,
-                    destination, this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.mySrc);
+            return this.craftingTracker.handleCrafting(slotToExport, amount, what,
+                    () -> this.getExportStrategy().push(what, amount, Actionable.SIMULATE) >= amount,
+                    this.getTile().getWorld(), this.getProxy().getGrid(), cg, this.mySrc);
         } catch (final GridAccessException e) {
             return false;
         }
@@ -284,7 +275,8 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
         try {
             if (this.getProxy().isActive()) {
                 final IEnergyGrid energy = this.getProxy().getEnergy();
-                final double power = items.amount();
+                // What moving it costs anywhere else: per operation, which is a bucket of a fluid.
+                final double power = (double) items.amount() / Math.max(1, items.what().getAmountPerOperation());
 
                 if (energy.extractAEPower(power, mode, PowerMultiplier.CONFIG) > power - 0.01) {
                     final long inserted = this.getExportStrategy().push(items.what(), items.amount(), mode);
@@ -309,7 +301,7 @@ public class PartExportBus extends PartSharedItemBus implements ICraftingRequest
     }
 
     private boolean craftOnly() {
-        return this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
+        return this.isCraftingEnabled() && this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
     }
 
     private boolean isCraftingEnabled() {

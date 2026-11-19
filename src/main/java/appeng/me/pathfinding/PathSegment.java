@@ -97,12 +97,18 @@ public class PathSegment {
     private boolean useDenseChannel(final IPathItem start) {
         final int cost = AEConfig.instance().getP2PTunnelChannelCost();
         if (cost <= 0) {
+            // Free, but the tunnel still needs a channel of its own to count as on.
+            start.incrementChannelCount(1);
             return true;
         }
 
+        // The tunnel's own node, and its link to the cable it sits on, are what is being paid for, not cables that
+        // have to carry it, so their eight do not cap the price.
+        final IPathItem link = start.getControllerRoute();
         IPathItem pi = start;
         while (pi != null) {
-            if (!pi.canSupportMoreChannels(cost) || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
+            if (pi != start && pi != link && !pi.canSupportMoreChannels(cost)
+                    || pi.getFlags().contains(GridFlags.CANNOT_CARRY_COMPRESSED)) {
                 return false;
             }
 

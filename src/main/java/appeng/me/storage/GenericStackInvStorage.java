@@ -70,6 +70,11 @@ public class GenericStackInvStorage implements MEStorage {
     }
 
     @Override
+    public boolean isEmpty() {
+        return this.inv.isEmpty();
+    }
+
+    @Override
     public ITextComponent getDescription() {
         return this.description;
     }

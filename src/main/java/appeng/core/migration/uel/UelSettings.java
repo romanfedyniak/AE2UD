@@ -88,7 +88,9 @@ final class UelSettings {
      */
     private static void wirelessPatternTerminal(final NBTTagCompound stack) {
         final NBTTagCompound tag = stack.getCompoundTag("tag");
-        if (!tag.getBoolean("isCraftingMode")) {
+        if (tag.getBoolean("isCraftingMode")) {
+            tag.setString("encodingMode", "appliedenergistics2:crafting");
+        } else {
             UelGrids.moveToProcessing(tag, "craftingGrid", "processing", 3);
         }
         tag.removeTag("isCraftingMode");

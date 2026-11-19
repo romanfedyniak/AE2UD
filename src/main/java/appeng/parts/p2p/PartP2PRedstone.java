@@ -134,6 +134,9 @@ public class PartP2PRedstone extends PartP2PTunnel<PartP2PRedstone> {
     public void onNeighborChanged(IBlockAccess w, BlockPos pos, BlockPos neighbor) {
         if (!this.isOutput()) {
             final BlockPos target = this.getTile().getPos().offset(this.getSide().getFacing());
+            if (!this.getTile().getWorld().isBlockLoaded(target)) {
+                return;
+            }
 
             final IBlockState state = this.getTile().getWorld().getBlockState(target);
             final Block b = state.getBlock();

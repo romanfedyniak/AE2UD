@@ -104,6 +104,9 @@ public class FluidPlacementStrategy implements PlacementStrategy {
     }
 
     private boolean canReplace() {
+        if (!this.world.isBlockLoaded(this.pos)) {
+            return false;
+        }
         IBlockState state = this.world.getBlockState(this.pos);
         Block block = state.getBlock();
         return block.isReplaceable(this.world, this.pos) && !(block instanceof IFluidBlock) && !(block instanceof BlockLiquid)

@@ -25,6 +25,8 @@ import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
+import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -35,6 +37,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
+import javax.annotation.Nullable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.BooleanSupplier;
@@ -49,6 +53,16 @@ public class MultiCraftingTracker {
 
     private Future<ICraftingJob>[] jobs = null;
     private ICraftingLink[] links = null;
+    /**
+     * Per slot, the world time before which no new calculation is started, and how many orders in a row came to
+     * nothing. A slot asking for something it cannot get used to recalculate the whole plan every time it was
+     * asked; the wait doubles with each failure, up to {@link #MAX_BACKOFF}, and a submitted job ends it.
+     */
+    private long[] retryAt = null;
+    private int[] failures = null;
+
+    private static final long FIRST_BACKOFF = 20;
+    private static final long MAX_BACKOFF = 600;
 
     public MultiCraftingTracker(final ICraftingRequester o, final int size, final ICraftPriorityTarget priority) {
         this.owner = o;
@@ -101,6 +115,9 @@ public class MultiCraftingTracker {
         final Future<ICraftingJob> craftingJob = this.getJob(x);
 
         if (craftingJob == null) {
+            if (this.retryAt != null && w.getTotalWorldTime() < this.retryAt[x]) {
+                return false;
+            }
             if (destinationAccepts.getAsBoolean()) {
                 this.setJob(x, cg.beginCraftingJob(w, g, mySrc, new GenericStack(what, itemToCraft), null));
             }
@@ -115,24 +132,60 @@ public class MultiCraftingTracker {
             final ICraftingJob job = craftingJob.get();
 
             if (job != null && destinationAccepts.getAsBoolean()) {
-                final ICraftingLink link = cg.submitJob(job, this.owner, null, false, mySrc,
-                        this.priority.getCraftPriority()).link();
-
-                this.setJob(x, null);
+                final ICraftingSubmitResult submitted = cg.submitJob(job, this.owner, null, false, mySrc,
+                        this.priority.getCraftPriority());
+                final ICraftingLink link = submitted.link();
 
                 if (link != null) {
+                    this.setJob(x, null);
                     this.setLink(x, link);
+                    this.backOff(x, w, false);
 
                     return true;
                 }
+
+                // A plan that only lacked a free CPU is still good: it is offered again rather than worked out
+                // again. Taking its ingredients checks that they are still there.
+                if (!waitsForCpu(submitted.errorCode()) || job.isSimulation()) {
+                    this.setJob(x, null);
+                }
+                this.backOff(x, w, true);
+            } else if (job == null) {
+                this.setJob(x, null);
+                this.backOff(x, w, true);
             }
         } catch (final InterruptedException e) {
             // :P
-        } catch (final ExecutionException e) {
-            // :P
+        } catch (final ExecutionException | CancellationException e) {
+            // A calculation that threw or was cancelled is over: kept, it held the slot busy for good.
+            this.setJob(x, null);
+            this.backOff(x, w, true);
         }
 
         return false;
+    }
+
+    private static boolean waitsForCpu(@Nullable final CraftingSubmitErrorCode code) {
+        return code == CraftingSubmitErrorCode.NO_CPU_FOUND || code == CraftingSubmitErrorCode.NO_SUITABLE_CPU_FOUND
+                || code == CraftingSubmitErrorCode.CPU_BUSY || code == CraftingSubmitErrorCode.CPU_OFFLINE;
+    }
+
+    private void backOff(final int slot, final World w, final boolean failed) {
+        if (!failed) {
+            if (this.failures != null) {
+                this.failures[slot] = 0;
+                this.retryAt[slot] = 0;
+            }
+            return;
+        }
+
+        if (this.failures == null) {
+            this.failures = new int[this.size];
+            this.retryAt = new long[this.size];
+        }
+
+        final int n = Math.min(this.failures[slot]++, 10);
+        this.retryAt[slot] = w.getTotalWorldTime() + Math.min(FIRST_BACKOFF << n, MAX_BACKOFF);
     }
 
     public ImmutableSet<ICraftingLink> getRequestedJobs() {

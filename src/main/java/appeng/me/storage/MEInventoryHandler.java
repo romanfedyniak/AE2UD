@@ -143,14 +143,23 @@ public class MEInventoryHandler extends DelegatingMEInventory {
             return 0;
         }
 
+        // A cell's own Overflow Destruction card answers that it took all of it, kept or not.
+        final boolean measured = mode == Actionable.MODULATE && this.getDelegate() instanceof BasicCellInventory cell
+                && cell.isVoidOverflow();
+        final long before = measured ? this.held(what, source) : 0;
+
         final long inserted = super.insert(what, amount, mode, source);
 
         if (mode == Actionable.MODULATE && !this.delegateReportsChanges()) {
             // What really landed, not what the void card claims: the network counts what is there.
-            this.report(what, inserted);
+            this.report(what, measured ? this.held(what, source) - before : inserted);
         }
 
         return this.voidOverflow ? amount : inserted;
+    }
+
+    private long held(final AEKey what, final IActionSource source) {
+        return super.extract(what, Long.MAX_VALUE, Actionable.SIMULATE, source);
     }
 
     @Override
@@ -198,14 +207,33 @@ public class MEInventoryHandler extends DelegatingMEInventory {
     }
 
     @Override
+    public boolean isEmpty() {
+        if (this.gettingAvailableContent || this.filterAvailableContents && !this.allowExtraction) {
+            return true;
+        }
+        if (this.filterAvailableContents) {
+            return super.isEmpty();
+        }
+
+        this.gettingAvailableContent = true;
+        try {
+            return this.getDelegate().isEmpty();
+        } finally {
+            this.gettingAvailableContent = false;
+        }
+    }
+
+    @Override
     public boolean isPreferredStorageFor(final AEKey input, final IActionSource source) {
         if (this.partitionListMode == IncludeExclude.WHITELIST && this.partitionList.isListed(input)) {
             return true;
         }
 
         // Inventories that already contain some equal stack are also preferred; a simulated extraction of size 1
-        // is enough to check, and avoids forcing sub-inventories to compute a larger simulated extraction.
-        if (super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
+        // is enough to check, and avoids forcing sub-inventories to compute a larger simulated extraction. One that
+        // keeps a count is asked that instead: the extraction walks every slot of a big inventory.
+        if (this.getDelegate() instanceof ICountedStorage counted ? counted.holds(input)
+                : super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
             return true;
         }
 

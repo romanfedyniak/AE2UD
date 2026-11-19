@@ -24,18 +24,20 @@ import appeng.api.events.LocatableEventAnnounce.LocatableEvent;
 import appeng.api.features.ILocatable;
 import appeng.api.features.ILocatableRegistry;
 import appeng.util.Platform;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public final class LocatableRegistry implements ILocatableRegistry {
     private final Map<Long, ILocatable> set;
 
     public LocatableRegistry() {
-        this.set = new HashMap<>();
+        this.set = new ConcurrentHashMap<>();
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -48,8 +50,17 @@ public final class LocatableRegistry implements ILocatableRegistry {
         if (e.change == LocatableEvent.REGISTER) {
             this.set.put(e.target.getLocatableSerial(), e.target);
         } else if (e.change == LocatableEvent.UNREGISTER) {
-            this.set.remove(e.target.getLocatableSerial());
+            // A copy of a station with the same serial going away leaves the one still standing.
+            this.set.remove(e.target.getLocatableSerial(), e.target);
         }
+    }
+
+    /**
+     * An unloading world tells none of its tiles, and a station kept here would keep its whole world alive.
+     */
+    @SubscribeEvent
+    public void unloadWorld(final WorldEvent.Unload e) {
+        this.set.values().removeIf(l -> l instanceof TileEntity && ((TileEntity) l).getWorld() == e.getWorld());
     }
 
     @Override

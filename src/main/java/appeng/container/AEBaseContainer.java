@@ -942,7 +942,7 @@ public abstract class AEBaseContainer extends Container {
 
                     final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
                     if (extracted > 0) {
-                        adp.addItems(slotItemKey.toStack((int) extracted));
+                        this.giveBack(player, adp.addItems(slotItemKey.toStack((int) extracted)));
                     }
                 }
                 break;
@@ -1096,7 +1096,7 @@ public abstract class AEBaseContainer extends Container {
 
                         final long extracted = Platform.poweredExtraction(this.getPowerSource(), this.getCellInventory(), slotItemKey, toExtract, this.getActionSource());
                         if (extracted > 0) {
-                            adp.addItems(slotItemKey.toStack((int) extracted));
+                            this.giveBack(player, adp.addItems(slotItemKey.toStack((int) extracted)));
                         } else {
                             return;
                         }
@@ -1106,6 +1106,20 @@ public abstract class AEBaseContainer extends Container {
                 break;
             default:
                 break;
+        }
+    }
+
+    /** What was taken out of the network for the player's inventory but did not fit there goes back in. */
+    private void giveBack(final EntityPlayerMP player, final ItemStack left) {
+        if (left.isEmpty()) {
+            return;
+        }
+        final long inserted = Platform.poweredInsert(this.getPowerSource(), this.getCellInventory(), AEItemKey.of(left),
+                left.getCount(), this.getActionSource());
+        if (inserted < left.getCount()) {
+            final ItemStack rest = left.copy();
+            rest.setCount(left.getCount() - (int) inserted);
+            player.dropItem(rest, false);
         }
     }
 

@@ -66,6 +66,7 @@ import appeng.me.helpers.AENetworkProxy;
 import appeng.util.helpers.ItemComparisonHelper;
 import appeng.util.helpers.P2PHelper;
 import appeng.util.item.OreHelper;
+import appeng.util.item.OreReference;
 import appeng.util.prioritylist.IPartitionList;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -100,6 +101,7 @@ import net.minecraft.server.management.PlayerChunkMap;
 import net.minecraft.server.management.PlayerChunkMapEntry;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.*;
 import net.minecraft.util.registry.RegistryNamespaced;
@@ -108,7 +110,11 @@ import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.event.ForgeEventFactory;
+import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
@@ -125,6 +131,7 @@ import java.lang.reflect.Method;
 import java.security.InvalidParameterException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 
@@ -149,12 +156,16 @@ public class Platform {
      * random source, use it for item drop locations...
      */
     private static final Random RANDOM_GENERATOR = new Random();
-    private static final Map<World, EntityPlayer> FAKE_PLAYERS = Collections.synchronizedMap(new WeakHashMap<>());
+    // Per world, then per profile: Forge keeps one fake player per profile, bound to the world that asked first.
+    // A player's world references its key, so entries go only when the world unloads (forgetFakePlayers).
+    private static final Map<World, Map<UUID, EntityPlayer>> FAKE_PLAYERS = new ConcurrentHashMap<>();
+    private static final UUID MINECRAFT_PLAYER = UUID.fromString("41C82C87-7AfB-4024-BA57-13D2C99CAE77");
     // private static Method getEntry;
 
     private static final ItemComparisonHelper ITEM_COMPARISON_HELPER = new ItemComparisonHelper();
     private static final P2PHelper P2P_HELPER = new P2PHelper();
     private static Method reflectGTgetMTE;
+    private static boolean reflectGTgetMTEMissing;
     public static final boolean GTLoaded = isModLoaded("gregtech");
 
     public static ItemComparisonHelper itemComparisons() {
@@ -440,6 +451,22 @@ public class Platform {
         return world.canMineBlockBody(player, pos);
     }
 
+    /**
+     * Whether a tool may break or change the block there for the player: {@link #hasPermissions} (spawn protection,
+     * the world border) and the block break event, which is what claim mods answer. A tool used in the air reaches
+     * no other event that names the block.
+     */
+    public static boolean mayBreak(final World world, final BlockPos pos, final EntityPlayer player) {
+        return hasPermissions(world, pos, player)
+                && !MinecraftForge.EVENT_BUS.post(new BlockEvent.BreakEvent(world, pos, world.getBlockState(pos), player));
+    }
+
+    /** The same for a block a tool puts there, asked as the player placing it against {@code face}. */
+    public static boolean mayPlace(final World world, final BlockPos pos, final EnumFacing face, final EntityPlayer player) {
+        return hasPermissions(world, pos, player) && !ForgeEventFactory.onPlayerBlockPlace(player,
+                BlockSnapshot.getBlockSnapshot(world, pos), face, EnumHand.MAIN_HAND).isCanceled();
+    }
+
     /*
      * Checks to see if a block is air?
      */
@@ -544,10 +571,10 @@ public class Platform {
             for (final ItemStack i : drops) {
                 if (!i.isEmpty()) {
                     if (i.getCount() > 0) {
-                        final double offset_x = (getRandomInt() % 32 - 16) / 82;
-                        final double offset_y = (getRandomInt() % 32 - 16) / 82;
-                        final double offset_z = (getRandomInt() % 32 - 16) / 82;
-                        final EntityItem ei = new EntityItem(w, 0.5 + offset_x + pos.getX(), 0.5 + offset_y + pos.getY(), 0.2 + offset_z + pos.getZ(), i.copy());
+                        final double offset_x = (getRandomInt() % 32 - 16) / 82.0;
+                        final double offset_y = (getRandomInt() % 32 - 16) / 82.0;
+                        final double offset_z = (getRandomInt() % 32 - 16) / 82.0;
+                        final EntityItem ei = new EntityItem(w, 0.5 + offset_x + pos.getX(), 0.5 + offset_y + pos.getY(), 0.5 + offset_z + pos.getZ(), i.copy());
                         w.spawnEntity(ei);
                     }
                 }
@@ -737,14 +764,7 @@ public class Platform {
             throw new InvalidParameterException("World is null.");
         }
 
-        final EntityPlayer wrp = FAKE_PLAYERS.get(w);
-        if (wrp != null) {
-            return wrp;
-        }
-
-        final EntityPlayer p = FakePlayerFactory.getMinecraft(w);
-        FAKE_PLAYERS.put(w, p);
-        return p;
+        return fakePlayer(w, MINECRAFT_PLAYER, "[Minecraft]");
     }
 
     /**
@@ -752,7 +772,17 @@ public class Platform {
      * machine nobody owns. Claims also judge it by where it stands - see {@link #configurePlayer}.
      */
     public static EntityPlayer getPlayer(final WorldServer w, @Nullable final UUID owner) {
-        return owner == null ? getPlayer(w) : FakePlayerFactory.get(w, new GameProfile(owner, "[AE2]"));
+        return owner == null ? getPlayer(w) : fakePlayer(w, owner, "[AE2]");
+    }
+
+    /** One per world, standing in it: claims look up the player's own dimension. */
+    private static EntityPlayer fakePlayer(final WorldServer w, final UUID id, final String name) {
+        return FAKE_PLAYERS.computeIfAbsent(w, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(id, k -> new FakePlayer(w, new GameProfile(id, name)));
+    }
+
+    public static void forgetFakePlayers(final World w) {
+        FAKE_PLAYERS.remove(w);
     }
 
     public static int MC2MEColor(final int color) {
@@ -1386,13 +1416,22 @@ public class Platform {
 
             final KeyCounter listing = checkFuzzy ? items.get() : null;
             if (listing != null) {
+                // Every entry of the network is looked at: no stack is made for one until it is the same item or
+                // shares an ore name, both answered from the key.
+                final OreReference reqOre = OreHelper.INSTANCE.getOre(ae_req);
                 for (final Object2LongMap.Entry<AEKey> entry : listing) {
                     if (!(entry.getKey() instanceof AEItemKey x)) {
                         continue;
                     }
 
+                    final boolean sameItem = x.getItem() == providedTemplate.getItem();
+                    final boolean sameOre = reqOre != null && OreHelper.INSTANCE.sameOre(reqOre, OreHelper.INSTANCE.getOre(x));
+                    if (!sameItem && !sameOre) {
+                        continue;
+                    }
+
                     final ItemStack sh = x.getReadOnlyStack();
-                    if ((Platform.itemComparisons().isEqualItemType(providedTemplate, sh) || OreHelper.INSTANCE.sameOre(ae_req, x)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
+                    if ((sameOre || Platform.itemComparisons().isEqualItemType(providedTemplate, sh)) && !ItemStack.areItemsEqual(sh, output)) { // Platform.isSameItemType( sh, providedTemplate )
                         final ItemStack cp = sh.copy();
                         cp.setCount(1);
                         ci.setInventorySlotContents(slot, cp);
@@ -1429,7 +1468,8 @@ public class Platform {
         }
 
         ItemStack ci = i.getContainerItem(stackInSlot.copy());
-        if (!ci.isEmpty() && ci.isItemStackDamageable() && ci.getItemDamage() == ci.getMaxDamage()) {
+        // As the game breaks a tool: past its maximum damage, not at it.
+        if (!ci.isEmpty() && ci.isItemStackDamageable() && ci.getItemDamage() > ci.getMaxDamage()) {
             ci = ItemStack.EMPTY;
         }
 
@@ -1557,17 +1597,24 @@ public class Platform {
 
     public static MetaTileEntity getMetaTileEntity(IBlockAccess world, BlockPos pos) {
         if (reflectGTgetMTE == null) {
+            if (reflectGTgetMTEMissing) {
+                return null;
+            }
             try {
                 reflectGTgetMTE = ReflectionHelper.findMethod(BlockMachine.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
             } catch (ReflectionHelper.UnableToFindMethodException e) {
-                reflectGTgetMTE = ReflectionHelper.findMethod(GTUtility.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
+                try {
+                    reflectGTgetMTE = ReflectionHelper.findMethod(GTUtility.class, "getMetaTileEntity", null, IBlockAccess.class, BlockPos.class);
+                } catch (ReflectionHelper.UnableToFindMethodException e2) {
+                    reflectGTgetMTEMissing = true;
+                    return null;
+                }
             }
-        } else {
-            try {
-                return (MetaTileEntity) reflectGTgetMTE.invoke(reflectGTgetMTE, world, pos);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                e.printStackTrace();
-            }
+        }
+        try {
+            return (MetaTileEntity) reflectGTgetMTE.invoke(null, world, pos);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
         }
         return null;
     }

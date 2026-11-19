@@ -11,6 +11,8 @@
 package appeng.util.inv;
 
 
+import java.util.Arrays;
+
 import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
@@ -37,8 +39,22 @@ public class GenericStackItemHandler implements IItemHandlerModifiable {
 
     private final GenericInternalInventory inv;
 
+    // Pipes and hoppers read a slot every tick; a slot's stack is replaced whenever it changes, so the stack made
+    // from it is good until then. Callers must not change what they are given (IItemHandler's contract).
+    private volatile Shown[] shown = new Shown[0];
+
     public GenericStackItemHandler(GenericInternalInventory inv) {
         this.inv = inv;
+    }
+
+    private static final class Shown {
+        final GenericStack from;
+        final ItemStack stack;
+
+        Shown(GenericStack from, ItemStack stack) {
+            this.from = from;
+            this.stack = stack;
+        }
     }
 
     @Override
@@ -53,7 +69,23 @@ public class GenericStackItemHandler implements IItemHandlerModifiable {
         if (stack == null || !(stack.what() instanceof AEItemKey itemKey)) {
             return ItemStack.EMPTY;
         }
-        return itemKey.toStack((int) Math.min(stack.amount(), Integer.MAX_VALUE));
+        final int count = (int) Math.min(stack.amount(), Integer.MAX_VALUE);
+        Shown[] shown = this.shown;
+        if (slot < shown.length) {
+            final Shown last = shown[slot];
+            // The count check catches a caller that changed the stack after all.
+            if (last != null && last.from == stack && last.stack.getCount() == count) {
+                return last.stack;
+            }
+        } else {
+            shown = Arrays.copyOf(shown, this.inv.size());
+            this.shown = shown;
+        }
+        final ItemStack made = itemKey.toStack(count);
+        if (slot < shown.length) {
+            shown[slot] = new Shown(stack, made);
+        }
+        return made;
     }
 
     @Override

@@ -34,9 +34,11 @@ import net.minecraftforge.energy.IEnergyStorage;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Queue;
+import java.util.Set;
 
 
 public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
@@ -44,7 +46,10 @@ public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
     private static final IEnergyStorage NULL_ENERGY_STORAGE = new NullEnergyStorage();
     private final IEnergyStorage inputHandler = new InputEnergyStorage();
     private final IEnergyStorage outputHandler = new OutputEnergyStorage();
-    private final Queue<PartP2PFEPower> outputs = new ArrayDeque<>();
+    // The inputs being asked on this thread: two pairs whose outputs face each other's inputs pass energy round in
+    // a circle, and the stack overflowed.
+    private static final ThreadLocal<Set<PartP2PFEPower>> ASKING = ThreadLocal.withInitial(
+            () -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     public PartP2PFEPower(ItemStack is) {
         super(is);
@@ -67,8 +72,7 @@ public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
 
     private IEnergyStorage getAttachedEnergyStorage() {
         if (this.isActive()) {
-            final TileEntity self = this.getTile();
-            final TileEntity te = self.getWorld().getTileEntity(self.getPos().offset(this.getSide().getFacing()));
+            final TileEntity te = this.getLoadedFacingTile();
 
             if (te != null && te.hasCapability(Capabilities.FORGE_ENERGY, this.getSide().getOpposite().getFacing())) {
                 return te.getCapability(Capabilities.FORGE_ENERGY, this.getSide().getOpposite().getFacing());
@@ -97,9 +101,54 @@ public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
         return super.getCapability(capability);
     }
 
-    private class InputEnergyStorage implements IEnergyStorage {
-        private boolean iteratingOutputs;
+    private List<IEnergyStorage> getOutputStorages() throws GridAccessException {
+        final List<IEnergyStorage> storages = new ArrayList<>();
+        for (final PartP2PFEPower output : this.getOutputs()) {
+            storages.add(output.getAttachedEnergyStorage());
+        }
+        return storages;
+    }
 
+    /**
+     * Shares what is offered out evenly, then offers what some could not take to the rest, never handing on more
+     * than was offered. A simulation asks each storage for its total in one go, since a simulated storage does not
+     * remember what it was offered a moment before.
+     */
+    static int receive(final List<IEnergyStorage> targets, final int maxReceive, final boolean simulate) {
+        if (targets.isEmpty() || maxReceive <= 0) {
+            return 0;
+        }
+
+        final int share = Math.max(1, maxReceive / targets.size());
+        final int[] taken = new int[targets.size()];
+        int total = 0;
+
+        for (int i = 0; i < targets.size() && total < maxReceive; i++) {
+            taken[i] = targets.get(i).receiveEnergy(Math.min(share, maxReceive - total), simulate);
+            total += taken[i];
+        }
+
+        for (int i = 0; i < targets.size() && total < maxReceive; i++) {
+            final int more = maxReceive - total;
+            final int got = simulate
+                    ? Math.max(0, targets.get(i).receiveEnergy(taken[i] + more, true) - taken[i])
+                    : targets.get(i).receiveEnergy(more, false);
+            total += Math.min(got, more);
+        }
+
+        return total;
+    }
+
+    /** Sums without wrapping round: batteries near the int limit read as full, not as negative. */
+    static int sum(final List<IEnergyStorage> targets, final boolean max) {
+        long total = 0;
+        for (final IEnergyStorage target : targets) {
+            total += max ? target.getMaxEnergyStored() : target.getEnergyStored();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, total);
+    }
+
+    private class InputEnergyStorage implements IEnergyStorage {
         @Override
         public int extractEnergy(int maxExtract, boolean simulate) {
             return 0;
@@ -107,60 +156,20 @@ public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
 
         @Override
         public int receiveEnergy(int maxReceive, boolean simulate) {
-            int total = 0;
-
+            if (!ASKING.get().add(PartP2PFEPower.this)) {
+                return 0;
+            }
             try {
-                final int outputTunnels = PartP2PFEPower.this.getOutputs().size();
-
-                if (outputTunnels == 0 | maxReceive == 0) {
-                    return 0;
-                }
-
-                final int amountPerOutput = Math.max(1, maxReceive / outputTunnels);
-                int overflow = 0;
-
-                for (PartP2PFEPower o : PartP2PFEPower.this.getOutputs())
-                    outputs.add(o);
-
-                while (!outputs.isEmpty()) {
-                    PartP2PFEPower target = outputs.poll();
-                    final IEnergyStorage output = target.getAttachedEnergyStorage();
-                    final int received = output.receiveEnergy(amountPerOutput, simulate);
-
-                    overflow += amountPerOutput - received;
-                    total += received;
-
-                    if (total >= maxReceive) {
-                        outputs.clear();
-                        break;
-                    }
-                }
-
-                if (overflow > 0) {
-                    for (PartP2PFEPower o : PartP2PFEPower.this.getOutputs())
-                        outputs.add(o);
-
-                    while (!outputs.isEmpty()) {
-                        PartP2PFEPower target = outputs.poll();
-                        final IEnergyStorage output = target.getAttachedEnergyStorage();
-                        final int received = output.receiveEnergy(overflow, simulate);
-
-                        overflow -= received;
-                        total += received;
-                        if (overflow == 0) {
-                            outputs.clear();
-                            break;
-                        }
-                    }
-                }
-
+                final int total = receive(PartP2PFEPower.this.getOutputStorages(), maxReceive, simulate);
                 if (!simulate) {
                     PartP2PFEPower.this.queueTunnelDrain(PowerUnits.RF, total);
                 }
+                return total;
             } catch (GridAccessException ignored) {
+                return 0;
+            } finally {
+                ASKING.get().remove(PartP2PFEPower.this);
             }
-
-            return total;
         }
 
         @Override
@@ -175,32 +184,25 @@ public class PartP2PFEPower extends PartP2PTunnel<PartP2PFEPower> {
 
         @Override
         public int getMaxEnergyStored() {
-            int total = 0;
-
-            try {
-                for (PartP2PFEPower t : PartP2PFEPower.this.getOutputs()) {
-                    total += t.getAttachedEnergyStorage().getMaxEnergyStored();
-                }
-            } catch (GridAccessException e) {
-                return 0;
-            }
-
-            return total;
+            return this.stored(true);
         }
 
         @Override
         public int getEnergyStored() {
-            int total = 0;
+            return this.stored(false);
+        }
 
-            try {
-                for (PartP2PFEPower t : PartP2PFEPower.this.getOutputs()) {
-                    total += t.getAttachedEnergyStorage().getEnergyStored();
-                }
-            } catch (GridAccessException e) {
+        private int stored(final boolean max) {
+            if (!ASKING.get().add(PartP2PFEPower.this)) {
                 return 0;
             }
-
-            return total;
+            try {
+                return sum(PartP2PFEPower.this.getOutputStorages(), max);
+            } catch (GridAccessException e) {
+                return 0;
+            } finally {
+                ASKING.get().remove(PartP2PFEPower.this);
+            }
         }
     }
 

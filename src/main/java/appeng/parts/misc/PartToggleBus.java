@@ -23,6 +23,9 @@ import appeng.api.AEApi;
 import appeng.api.exceptions.FailedConnectionException;
 import appeng.api.networking.IGridConnection;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.networking.ticking.TickRateModulation;
+import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartModel;
@@ -32,6 +35,7 @@ import appeng.core.AELog;
 import appeng.core.AppEng;
 import appeng.helpers.Reflected;
 import appeng.items.parts.PartModels;
+import appeng.me.GridAccessException;
 import appeng.me.helpers.AENetworkProxy;
 import appeng.parts.PartBasicState;
 import appeng.parts.PartModel;
@@ -47,7 +51,13 @@ import net.minecraft.world.IBlockAccess;
 import java.util.EnumSet;
 
 
-public class PartToggleBus extends PartBasicState {
+public class PartToggleBus extends PartBasicState implements IGridTickable {
+
+    /**
+     * Joining or splitting two networks repaths both and starts their boot again, which takes this long anyway: a
+     * signal that changes sooner is followed when this has passed, by its last state.
+     */
+    private static final int MIN_SWITCH_TICKS = 20;
 
     @PartModels
     public static final ResourceLocation MODEL_BASE = new ResourceLocation(AppEng.MOD_ID, "part/toggle_bus_base");
@@ -66,6 +76,7 @@ public class PartToggleBus extends PartBasicState {
     private final AENetworkProxy outerProxy = new AENetworkProxy(this, "outer", ItemStack.EMPTY, true);
     private IGridConnection connection;
     private boolean hasRedstone = false;
+    private long lastSwitch = Long.MIN_VALUE;
 
     @Reflected
     public PartToggleBus(final ItemStack is) {
@@ -106,7 +117,7 @@ public class PartToggleBus extends PartBasicState {
         this.hasRedstone = this.getHost().hasRedstone(this.getSide());
 
         if (this.hasRedstone != oldHasRedstone) {
-            this.updateInternalState();
+            this.requestSwitch();
             this.getHost().markForUpdate();
         }
     }
@@ -157,6 +168,39 @@ public class PartToggleBus extends PartBasicState {
     public void onPlacement(final EntityPlayer player, final EnumHand hand, final ItemStack held, final AEPartLocation side) {
         super.onPlacement(player, hand, held, side);
         this.getOuterProxy().setOwner(player);
+    }
+
+    private void requestSwitch() {
+        final long now = this.getTile().getWorld().getTotalWorldTime();
+        if (now - this.lastSwitch >= MIN_SWITCH_TICKS) {
+            this.switchNow();
+            return;
+        }
+        try {
+            this.getProxy().getTick().wakeDevice(this.getProxy().getNode());
+        } catch (final GridAccessException e) {
+            this.switchNow();
+        }
+    }
+
+    private void switchNow() {
+        final boolean joined = this.connection != null;
+        this.updateInternalState();
+        if (joined != (this.connection != null)) {
+            this.lastSwitch = this.getTile().getWorld().getTotalWorldTime();
+        }
+    }
+
+    @Override
+    public TickingRequest getTickingRequest(final IGridNode node) {
+        return new TickingRequest(MIN_SWITCH_TICKS, MIN_SWITCH_TICKS, true, true);
+    }
+
+    /** Woken for a signal that changed too soon after the last switch: follows it now. */
+    @Override
+    public TickRateModulation tickingRequest(final IGridNode node, final int ticksSinceLastCall) {
+        this.switchNow();
+        return TickRateModulation.SLEEP;
     }
 
     private void updateInternalState() {

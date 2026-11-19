@@ -71,4 +71,9 @@ public interface ICableBusContainer {
 
     CableBusRenderState getRenderState();
 
+    /** The same, reading neighbours through the given access: a chunk render thread's cache, not the live world. */
+    default CableBusRenderState getRenderState(final IBlockAccess world) {
+        return this.getRenderState();
+    }
+
 }

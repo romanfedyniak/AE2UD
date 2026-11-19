@@ -261,17 +261,23 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
         this.sqRange = this.myRange = Double.MAX_VALUE;
 
         if (this.targetGrid != null && this.networkStorage != null) {
+            // What served last time is asked first; once it no longer does (out of range, off, broken), the
+            // network's other access points and bridges are, rather than giving up while another one covers.
             if (this.myWap != null) {
-                if (this.myWap.getGrid() == this.targetGrid) {
-                    return this.testWap(this.myWap);
+                if (this.myWap.getGrid() == this.targetGrid && this.testWap(this.myWap)) {
+                    return true;
                 }
-                return false;
+                this.myWap = null;
+            }
+            if (this.myQC != null) {
+                if (this.bridgeServes(this.myQC)) {
+                    this.myRange = 1;
+                    return true;
+                }
+                this.myQC = null;
             }
 
             IMachineSet tw = this.targetGrid.getMachines(TileWireless.class);
-
-            this.myWap = null;
-            this.myQC = null;
 
             for (final IGridNode n : tw) {
                 final IWirelessAccessPoint wap = (IWirelessAccessPoint) n.getMachine();
@@ -285,21 +291,24 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
             tw = this.targetGrid.getMachines(TileQuantumBridge.class);
             for (final IGridNode n : tw) {
                 TileQuantumBridge tqb = (TileQuantumBridge) n.getMachine();
-                if (tqb.getCluster() != null) {
-                    TileQuantumBridge center = ((QuantumCluster) tqb.getCluster()).getCenter();
-                    if (center != null) {
-                        if (center.getInternalInventory().getStackInSlot(1).isItemEqual(AEApi.instance().definitions().materials().cardQuantumLink().maybeStack(1).get())) {
-                            myQC = (QuantumCluster) tqb.getCluster();
-                            myRange = 1;
-                            return true;
-                        }
-                    }
+                if (tqb.getCluster() instanceof QuantumCluster cluster && this.bridgeServes(cluster)) {
+                    myQC = cluster;
+                    myRange = 1;
+                    return true;
                 }
             }
 
-            return this.myWap != null || this.myQC != null;
+            return false;
         }
         return false;
+    }
+
+    /** A bridge of the linked network whose link chamber holds a quantum link card. */
+    private boolean bridgeServes(final QuantumCluster cluster) {
+        final TileQuantumBridge center = cluster.getCenter();
+        final IGridNode node = center == null || center.isInvalid() ? null : center.getProxy().getNode();
+        return node != null && node.getGrid() == this.targetGrid && center.getCluster() == cluster
+                && AEApi.instance().definitions().materials().cardQuantumLink().isSameAs(center.getInternalInventory().getStackInSlot(1));
     }
 
     private boolean testWap(final IWirelessAccessPoint wap) {
@@ -346,11 +355,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
 
     @Override
     public void saveChanges() {
-        NBTTagCompound data = effectiveItem.getTagCompound();
-        if (data == null) {
-            data = new NBTTagCompound();
-        }
-        viewCell.writeToNBT(data, "viewCell");
+        viewCell.writeToNBT(Platform.openNbtData(effectiveItem), "viewCell");
     }
     
     public void saveChanges(NBTTagCompound data) {
@@ -364,7 +369,7 @@ public class WirelessTerminalGuiObject implements IPortableCell, IActionHost, II
     public void loadFromNBT() {
         NBTTagCompound data = effectiveItem.getTagCompound();
         if (data != null) {
-            viewCell.readFromNBT(data);
+            viewCell.readFromNBT(data, "viewCell");
             upgrades.readFromNBT(data, "upgrades");
             this.keyTypeSelection.readFromNBT(data);
         }

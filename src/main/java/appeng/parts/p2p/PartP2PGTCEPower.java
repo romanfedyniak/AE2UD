@@ -16,14 +16,21 @@ import net.minecraftforge.common.capabilities.Capability;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 
 public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
     private static final P2PTunnelModels MODELS = new P2PTunnelModels(new ResourceLocation(AppEng.MOD_ID, "part/p2p/p2p_tunnel_gteu"));
     private static final IEnergyContainer NULL_ENERGY_STORAGE = new NullEnergyStorage();
     private final IEnergyContainer inputHandler = new InputEnergyStorage();
     private final Queue<PartP2PGTCEPower> outputs = new ArrayDeque<>();
+    // The inputs being asked on this thread: two pairs whose outputs face each other's inputs ask each other in a
+    // circle, and the stack overflowed.
+    private static final ThreadLocal<Set<PartP2PGTCEPower>> ASKING = ThreadLocal.withInitial(
+            () -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     public PartP2PGTCEPower(ItemStack is) {
         super(is);
@@ -46,8 +53,7 @@ public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
 
     private IEnergyContainer getAttachedEnergyStorage() {
         if (this.isActive()) {
-            final TileEntity self = this.getTile();
-            final TileEntity te = self.getWorld().getTileEntity(self.getPos().offset(this.getSide().getFacing()));
+            final TileEntity te = this.getLoadedFacingTile();
 
             if (te != null && te.hasCapability(GregtechCapabilities.CAPABILITY_ENERGY_CONTAINER, this.getSide().getOpposite().getFacing())) {
                 return te.getCapability(GregtechCapabilities.CAPABILITY_ENERGY_CONTAINER, this.getSide().getOpposite().getFacing());
@@ -81,6 +87,17 @@ public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
     class InputEnergyStorage implements IEnergyContainer {
         @Override
         public long getEnergyCanBeInserted() {
+            if (!ASKING.get().add(PartP2PGTCEPower.this)) {
+                return 0;
+            }
+            try {
+                return this.roomInOutputs();
+            } finally {
+                ASKING.get().remove(PartP2PGTCEPower.this);
+            }
+        }
+
+        private long roomInOutputs() {
             long canInsert = 0;
             if (outputs.isEmpty()) {
                 try {
@@ -111,6 +128,17 @@ public class PartP2PGTCEPower extends PartP2PTunnel<PartP2PGTCEPower> {
 
         @Override
         public long acceptEnergyFromNetwork(EnumFacing facing, long voltage, long amperage) {
+            if (!ASKING.get().add(PartP2PGTCEPower.this)) {
+                return 0;
+            }
+            try {
+                return this.passOn(voltage, amperage);
+            } finally {
+                ASKING.get().remove(PartP2PGTCEPower.this);
+            }
+        }
+
+        private long passOn(long voltage, final long amperage) {
             long amperesUsed = 0L;
 
             if (outputs.isEmpty()) {

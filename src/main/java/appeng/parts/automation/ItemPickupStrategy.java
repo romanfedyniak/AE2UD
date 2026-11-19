@@ -170,7 +170,8 @@ class ItemPickupStrategy implements PickupStrategy {
             return true;
         }
 
-        entityItem.getItem().setCount(overflow.getCount());
+        // Set, not changed in place: only a set stack is sent to clients.
+        entityItem.setItem(overflow);
         return false;
     }
 
@@ -194,6 +195,10 @@ class ItemPickupStrategy implements PickupStrategy {
      * Checks if this plane can handle the block at the specific coordinates.
      */
     protected boolean canHandleBlock(WorldServer w, BlockPos pos) {
+        // First: reading a block in a chunk that is not loaded loads it, or generates it.
+        if (!w.isBlockLoaded(pos)) {
+            return false;
+        }
         IBlockState state = w.getBlockState(pos);
         Material material = state.getMaterial();
         float hardness = state.getBlockHardness(w, pos);
@@ -202,7 +207,7 @@ class ItemPickupStrategy implements PickupStrategy {
         boolean ignoreBlocks = state.getBlock() == Blocks.BEDROCK || state.getBlock() == Blocks.END_PORTAL
                 || state.getBlock() == Blocks.END_PORTAL_FRAME || state.getBlock() == Blocks.COMMAND_BLOCK;
 
-        return !ignoreMaterials && !ignoreBlocks && hardness >= 0f && !w.isAirBlock(pos) && w.isBlockLoaded(pos)
+        return !ignoreMaterials && !ignoreBlocks && hardness >= 0f && !w.isAirBlock(pos)
                 && w.canMineBlockBody(Platform.getPlayer(w), pos);
     }
 
@@ -242,26 +247,34 @@ class ItemPickupStrategy implements PickupStrategy {
             requiredEnergy += is.getCount();
         }
 
-        if (!this.enchantments.isEmpty()) {
-            float efficiencyFactor = 1f;
-            int efficiencyLevel = 0;
-            if (this.enchantments.containsKey(Enchantments.EFFICIENCY)) {
-                // Reduce total energy usage incurred by other enchantments by 15% per Efficiency level.
-                efficiencyLevel = this.enchantments.get(Enchantments.EFFICIENCY);
-                efficiencyFactor *= Math.pow(0.85, efficiencyLevel);
-            }
-            if (this.enchantments.containsKey(Enchantments.UNBREAKING)) {
-                // Give the plane only a (100 / (level + 1))% chance to use energy at all.
-                int unbreakingLevel = this.enchantments.get(Enchantments.UNBREAKING);
-                int randomNumber = ThreadLocalRandom.current().nextInt(unbreakingLevel + 1);
-                useEnergy = randomNumber == 0;
-            }
-            // Preserved verbatim from the pre-port formula, including its rounding behaviour.
-            int levelSum = this.enchantments.values().stream().reduce(0, Integer::sum) - efficiencyLevel;
-            requiredEnergy *= 8 * levelSum * efficiencyFactor;
+        if (this.enchantments.containsKey(Enchantments.UNBREAKING)) {
+            // Give the plane only a (100 / (level + 1))% chance to use energy at all.
+            int unbreakingLevel = this.enchantments.get(Enchantments.UNBREAKING);
+            int randomNumber = ThreadLocalRandom.current().nextInt(unbreakingLevel + 1);
+            useEnergy = randomNumber == 0;
         }
+        requiredEnergy *= enchantmentFactor(this.enchantments);
 
         return useEnergy ? requiredEnergy : 0;
+    }
+
+    /**
+     * What the plane's enchantments multiply the cost of a block by, Unbreaking's chance aside. Efficiency only
+     * takes off what the others add, and Unbreaking adds nothing of its own: as one factor of the level sum, Efficiency
+     * alone made breaking free and Unbreaking made it dearer on average.
+     */
+    static float enchantmentFactor(final Map<Enchantment, Integer> enchantments) {
+        float efficiencyFactor = 1f;
+        int levelSum = 0;
+        for (final Map.Entry<Enchantment, Integer> e : enchantments.entrySet()) {
+            if (e.getKey() == Enchantments.EFFICIENCY) {
+                // Reduce total energy usage incurred by other enchantments by 15% per Efficiency level.
+                efficiencyFactor *= Math.pow(0.85, e.getValue());
+            } else if (e.getKey() != Enchantments.UNBREAKING) {
+                levelSum += e.getValue();
+            }
+        }
+        return Math.max(1f, 8 * levelSum * efficiencyFactor);
     }
 
     /**

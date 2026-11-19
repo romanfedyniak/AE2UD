@@ -31,6 +31,7 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -91,6 +92,10 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
                     if (cellInv != null && !cellInv.getAvailableStacks().isEmpty()) {
                         return ItemStack.EMPTY;
                     }
+                    // The grid hands back only the housing: cards still in the cell would be lost with it.
+                    if (hasCards(stackInSlot)) {
+                        return ItemStack.EMPTY;
+                    }
 
                     output = storageCellStack;
                 }
@@ -113,6 +118,16 @@ public final class DisassembleRecipe extends net.minecraftforge.registries.IForg
             return Optional.of(((AbstractStorageCell) compared.getItem()).getComponent());
         }
         return Optional.empty();
+    }
+
+    private static boolean hasCards(final ItemStack cell) {
+        final IItemHandler upgrades = ((AbstractStorageCell) cell.getItem()).getUpgradesInventory(cell);
+        for (int slot = 0; slot < upgrades.getSlots(); slot++) {
+            if (!upgrades.getStackInSlot(slot).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Nonnull

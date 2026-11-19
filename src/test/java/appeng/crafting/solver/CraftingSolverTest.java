@@ -528,7 +528,7 @@ public final class CraftingSolverTest {
         // Three a from one b and one c together, and each of those from one a. There is no ring to walk
         // here - a turn has to make two things at once, not one after another - but it is the same question
         // with one more unknown in it, and a turn nets one a.
-        final SolverTestNetwork network = branching(3).inStorage("b", 1);
+        final SolverTestNetwork network = branching(3).inStorage("b", 1).inStorage("c", 1);
 
         final SolverPlan plan = network.solve("a", 100);
 
@@ -541,12 +541,47 @@ public final class CraftingSolverTest {
     }
 
     @Test
+    public void aBranchingCycleWithOnlyOneOfTwoInputsInHandCannotStart() {
+        // pa wants a b and a c together, pb and pc want an a. With one b and nothing else on the cycle no
+        // craft on it can ever run, so a plan through it would be accepted and never push anything.
+        final SolverPlan plan = branching(3).inStorage("b", 1).solve("a", 100);
+
+        assertThat(plan.isComplete(), is(false));
+    }
+
+    @Test
+    public void aRingWhoseSeedFeedsTooLittleForTheNextCraftCannotStart() {
+        // One a from one b, three b from two a. One b makes one a, and nothing takes a single a.
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 3) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 2)));
+
+        assertThat(network.inStorage("b", 1).solve("a", 100).isComplete(), is(false));
+    }
+
+    @Test
+    public void aRingWithEnoughSeedForEveryCraftOfATurnStarts() {
+        final SolverTestNetwork network = new SolverTestNetwork();
+        network.pattern("pa", new GenericStack[] { network.stack("a", 1) },
+                Arrays.asList(SolverIngredient.of(network.key("b"), 1)));
+        network.pattern("pb", new GenericStack[] { network.stack("b", 3) },
+                Arrays.asList(SolverIngredient.of(network.key("a"), 2)));
+
+        final SolverPlan plan = network.inStorage("b", 2).solve("a", 100);
+
+        assertThat(plan.isComplete(), is(true));
+        assertThat(plan.getUsed().get(network.key("b")), is(2L));
+    }
+
+    @Test
     public void everythingThatFlowsThroughACycleIsCharged() {
         // A thing on a cycle is wanted only because turning it asks for it, so it has to be settled after the
         // turn and not before. Settled first, while nothing wants it yet, it is passed over and never
         // returned to - the crafts and the storage still come out right, but the job is charged for less
         // than really flows through it, and the byte total would depend on the order the graph was built in.
-        final SolverPlan plan = branching(3).inStorage("b", 1).solve("a", 100);
+        final SolverPlan plan = branching(3).inStorage("b", 1).inStorage("c", 1).solve("a", 100);
 
         assertThat(plan.isComplete(), is(true));
         // Three hundred crafts at eight bytes each, and one byte for each of the hundred a, b, c and base
@@ -601,6 +636,7 @@ public final class CraftingSolverTest {
                 Arrays.asList(SolverIngredient.of(network.key("a"), 1)));
         network.inStorage("base", 1000);
         network.inStorage("b", 1);
+        network.inStorage("c", 1);
 
         final SolverPlan plan = network.solve("a", 100);
 

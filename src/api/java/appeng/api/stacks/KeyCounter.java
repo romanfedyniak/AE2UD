@@ -201,6 +201,24 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
         return matches;
     }
 
+    /**
+     * @return whether any entry sharing the key's primary identity matches it under the given mode; what
+     *         {@link #findFuzzy} answers, without collecting the matches.
+     */
+    public boolean anyFuzzy(AEKey key, FuzzyMode fuzzy) {
+        Object2LongMap<AEKey> sub = this.byPrimary.get(key.getPrimaryKey());
+        if (sub == null) {
+            return false;
+        }
+
+        for (AEKey candidate : sub.keySet()) {
+            if (key.fuzzyEquals(candidate, fuzzy)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Nullable
     public AEKey getFirstKey() {
         Object2LongMap.Entry<AEKey> entry = this.getFirstEntry();

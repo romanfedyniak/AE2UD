@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.Iterator;
 
@@ -21,8 +22,9 @@ public class BlockingItemHandler extends BlockingInventoryAdaptor {
 
     boolean isBlockableItem(ItemStack stack) {
         Object2ObjectOpenHashMap<Item, IntSet> map = NonBlockingItems.INSTANCE.getMap().get(domain);
-        if (map.get(stack.getItem()) != null) {
-            return !map.get(stack.getItem()).contains(stack.getMetadata());
+        final IntSet metas = map.get(stack.getItem());
+        if (metas != null) {
+            return !metas.contains(stack.getMetadata()) && !metas.contains(OreDictionary.WILDCARD_VALUE);
         }
         return true;
     }

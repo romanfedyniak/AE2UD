@@ -100,6 +100,9 @@ public final class BatchPlan {
                 drawn = inputs[x].what();
                 need = inputs[x].amount();
                 placed[x] = drawn;
+                if (need <= 0) {
+                    return null;
+                }
                 if (free(available, perCopy, drawn) < need) {
                     return null;
                 }

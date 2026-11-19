@@ -103,7 +103,10 @@ public class FluidHandlerAdapter implements MEStorage, ITickingMonitor, IStorage
         }
 
         final int toDrain = (int) Math.min(amount, Integer.MAX_VALUE);
-        final FluidStack drained = this.fluidHandler.drain(fluidKey.toStack(toDrain), mode == Actionable.MODULATE);
+        FluidStack drained = this.fluidHandler.drain(fluidKey.toStack(toDrain), mode == Actionable.MODULATE);
+        if (drained == null && fluidKey.getTag() == null && this.currentlyCached.get(fluidKey) > 0) {
+            drained = this.fluidHandler.drain(this.asHeld(fluidKey, toDrain), mode == Actionable.MODULATE);
+        }
         final long extracted = drained != null ? drained.amount : 0;
 
         if (extracted > 0 && mode == Actionable.MODULATE) {
@@ -112,6 +115,22 @@ public class FluidHandlerAdapter implements MEStorage, ITickingMonitor, IStorage
         }
 
         return extracted;
+    }
+
+    /**
+     * The fluid as the tank holds it. A key with no tag also stands for the fluid with an empty one, which a tank
+     * refuses to give for a stack without.
+     */
+    private FluidStack asHeld(final AEFluidKey fluidKey, final int amount) {
+        for (final IFluidTankProperties tankProperty : this.fluidHandler.getTankProperties()) {
+            final FluidStack contents = tankProperty.getContents();
+            if (contents != null && contents.tag != null && fluidKey.matches(contents)) {
+                final FluidStack request = contents.copy();
+                request.amount = amount;
+                return request;
+            }
+        }
+        return fluidKey.toStack(amount);
     }
 
     @Override

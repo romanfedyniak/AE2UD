@@ -23,6 +23,7 @@ import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
+import org.apache.logging.log4j.Level;
 
 import appeng.api.migration.LegacyRewrites;
 import appeng.core.AEConfig;
@@ -114,7 +115,7 @@ public final class LegacyWorld {
             try (InputStream in = new FileInputStream(flagFile)) {
                 return CompressedStreamTools.readCompressed(in).getString(MIGRATED_FROM);
             } catch (final IOException e) {
-                AELog.error(e, "Could not read " + flagFile + "; the world is not migrated this time");
+                AELog.log(Level.ERROR, e, "Could not read %s; the world is not migrated this time", flagFile);
                 return null;
             }
         }
@@ -134,7 +135,7 @@ public final class LegacyWorld {
         try (OutputStream out = new FileOutputStream(flagFile)) {
             CompressedStreamTools.writeCompressed(flag, out);
         } catch (final IOException e) {
-            AELog.error(e, "Could not write " + flagFile + "; the world is not migrated this time");
+            AELog.log(Level.ERROR, e, "Could not write %s; the world is not migrated this time", flagFile);
             return null;
         }
         return from;
@@ -154,7 +155,7 @@ public final class LegacyWorld {
         try (InputStream in = new FileInputStream(levelDat)) {
             level = CompressedStreamTools.readCompressed(in);
         } catch (final IOException e) {
-            AELog.error(e, "Could not read " + levelDat + "; the world is not migrated this time");
+            AELog.log(Level.ERROR, e, "Could not read %s; the world is not migrated this time", levelDat);
             return null;
         }
 

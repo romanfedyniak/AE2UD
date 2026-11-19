@@ -46,7 +46,7 @@ public class FacadeContainer implements IFacadeContainer {
 
     @Override
     public boolean canAddFacade(IFacadePart a) {
-        return this.getFacade(a.getSide()) == null;
+        return a != null && this.getFacade(a.getSide()) == null;
     }
 
     @Override

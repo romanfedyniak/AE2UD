@@ -1,6 +1,7 @@
 package appeng.parts.automation;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,6 +45,7 @@ import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartHost;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
@@ -280,7 +282,12 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
 
         final long placed = this.placeInWorld(what, taken, Actionable.MODULATE);
         if (placed < taken) {
-            storage.insert(what, taken - placed, Actionable.MODULATE, this.source);
+            final long back = storage.insert(what, taken - placed, Actionable.MODULATE, this.source);
+            if (back < taken - placed && what instanceof AEItemKey itemKey) {
+                final TileEntity te = this.getHost().getTile();
+                Platform.spawnDrops(te.getWorld(), te.getPos(),
+                        Collections.singletonList(itemKey.toStack((int) Math.min(Integer.MAX_VALUE, taken - placed - back))));
+            }
         }
 
         return placed > 0;
@@ -340,7 +347,8 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         try {
             if (this.getProxy().isActive()) {
                 final IEnergyGrid energy = this.getProxy().getEnergy();
-                final double power = items.amount();
+                // What moving it costs anywhere else: per operation, which is a bucket of a fluid.
+                final double power = (double) items.amount() / Math.max(1, items.what().getAmountPerOperation());
 
                 if (energy.extractAEPower(power, mode, PowerMultiplier.CONFIG) > power - 0.01) {
                     final long placed = this.placeInWorld(items.what(), items.amount(), mode);
@@ -509,7 +517,7 @@ public abstract class PartAbstractFormationPlane extends PartUpgradeable
         final World w = te.getWorld();
         final BlockPos tePos = te.getPos().offset(this.getSide().getFacing());
 
-        this.blocked = !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
+        this.blocked = !w.isBlockLoaded(tePos) || !w.getBlockState(tePos).getBlock().isReplaceable(w, tePos);
         if (this.placementStrategy != null) {
             this.placementStrategy.clearBlocked();
         }

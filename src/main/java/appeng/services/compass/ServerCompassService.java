@@ -128,8 +128,13 @@ public final class ServerCompassService {
         final int cx = chunkPos.x;
         final int cz = chunkPos.z;
 
+        final Nearby nearby = new Nearby(world, cx, cz);
+        if (nearby.isEmpty()) {
+            return null;
+        }
+
         // Am I standing on it?
-        if (CompassRegion.get(world, chunkPos).hasCompassTarget(cx, cz)) {
+        if (nearby.hasTarget(cx, cz)) {
             return chunkPos;
         }
 
@@ -145,7 +150,7 @@ public final class ServerCompassService {
             int chosenZ = cz;
 
             for (int z = minZ; z <= maxZ; z++) {
-                if (CompassRegion.get(world, minX, z).hasCompassTarget(minX, z)) {
+                if (nearby.hasTarget(minX, z)) {
                     final int closeness = dist(cx, cz, minX, z);
                     if (closeness < closest) {
                         closest = closeness;
@@ -154,7 +159,7 @@ public final class ServerCompassService {
                     }
                 }
 
-                if (CompassRegion.get(world, maxX, z).hasCompassTarget(maxX, z)) {
+                if (nearby.hasTarget(maxX, z)) {
                     final int closeness = dist(cx, cz, maxX, z);
                     if (closeness < closest) {
                         closest = closeness;
@@ -165,7 +170,7 @@ public final class ServerCompassService {
             }
 
             for (int x = minX + 1; x < maxX; x++) {
-                if (CompassRegion.get(world, x, minZ).hasCompassTarget(x, minZ)) {
+                if (nearby.hasTarget(x, minZ)) {
                     final int closeness = dist(cx, cz, x, minZ);
                     if (closeness < closest) {
                         closest = closeness;
@@ -174,7 +179,7 @@ public final class ServerCompassService {
                     }
                 }
 
-                if (CompassRegion.get(world, x, maxZ).hasCompassTarget(x, maxZ)) {
+                if (nearby.hasTarget(x, maxZ)) {
                     final int closeness = dist(cx, cz, x, maxZ);
                     if (closeness < closest) {
                         closest = closeness;
@@ -190,6 +195,43 @@ public final class ServerCompassService {
         }
 
         return null;
+    }
+
+    /**
+     * The regions a search can reach, looked up once: the square it walks is narrower than a region, so it touches
+     * at most two on each axis. Looking one up per chunk built a name and searched the saved data some 120,000
+     * times for a search that finds nothing.
+     */
+    private static final class Nearby {
+        private final int firstX;
+        private final int firstZ;
+        private final CompassRegion[] regions = new CompassRegion[4];
+
+        Nearby(final WorldServer world, final int cx, final int cz) {
+            this.firstX = CompassRegion.regionStart(cx - MAX_RANGE);
+            this.firstZ = CompassRegion.regionStart(cz - MAX_RANGE);
+            for (int i = 0; i < 4; i++) {
+                final CompassRegion region = CompassRegion.find(world, (i & 1) == 0 ? cx - MAX_RANGE : cx + MAX_RANGE,
+                        (i & 2) == 0 ? cz - MAX_RANGE : cz + MAX_RANGE);
+                this.regions[i] = region == null || region.isEmpty() ? null : region;
+            }
+        }
+
+        boolean isEmpty() {
+            for (final CompassRegion region : this.regions) {
+                if (region != null) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        boolean hasTarget(final int cx, final int cz) {
+            final int i = (CompassRegion.regionStart(cx) == this.firstX ? 0 : 1)
+                    | (CompassRegion.regionStart(cz) == this.firstZ ? 0 : 2);
+            final CompassRegion region = this.regions[i];
+            return region != null && region.hasCompassTarget(cx, cz);
+        }
     }
 
     private static int dist(final int ax, final int az, final int bx, final int bz) {

@@ -31,6 +31,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -50,15 +51,21 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.world.ChunkDataEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.tile.AEBaseTile;
 
 
 /**
@@ -70,12 +77,14 @@ import appeng.core.AELog;
  * still holding them is handed back the same object, never a second copy read from disk that the two would then
  * overwrite each other with.
  * <p/>
- * Writing follows the world's own saves. What changed is copied on the server thread when the overworld saves,
- * and compressed and written on a thread of its own; {@code /save-off} stops it along with everything else.
+ * Writing follows the world's own saves. What changed is copied on the server thread when a world saves, a
+ * chunk with AE machines in it saves (as it does when it unloads) or a player is written, and compressed and
+ * written on a thread of its own; {@code /save-off} stops it along with everything else.
  */
 public final class CellContentsStore {
 
     static final long IDLE_MILLIS = TimeUnit.MINUTES.toMillis(5);
+    private static final long STOP_WAIT_MILLIS = TimeUnit.MINUTES.toMillis(1);
 
     private static final String FORMAT_TAG = "format";
     private static final int FORMAT = 1;
@@ -96,7 +105,13 @@ public final class CellContentsStore {
     private final Map<UUID, NBTTagCompound> pending = new ConcurrentHashMap<>();
     // Writes the disk refused. Their snapshot stays pending, and the next save tries it again.
     private final Set<UUID> failed = ConcurrentHashMap.newKeySet();
+    // Cells with a write waiting for the writer, which will take whatever snapshot is pending by then.
+    private final Set<UUID> queued = ConcurrentHashMap.newKeySet();
+    // Files that could not be read nor set aside. Never written over: what they hold is not what this cell shows.
+    private final Set<UUID> unreadable = ConcurrentHashMap.newKeySet();
     private final ExecutorService writer;
+    /** A chunk holding AE machines, or a player, was saved this tick. */
+    private volatile boolean saveRequested;
 
     CellContentsStore(final File directory, final LongSupplier clock) {
         this.directory = directory;
@@ -122,7 +137,7 @@ public final class CellContentsStore {
         final CellContentsStore stopped = current;
         current = null;
         if (stopped != null) {
-            stopped.close();
+            stopped.close(STOP_WAIT_MILLIS);
         }
     }
 
@@ -210,9 +225,47 @@ public final class CellContentsStore {
         this.idle.values().removeIf(ref -> ref.get() == null);
     }
 
+    /**
+     * Every world's save, not only the overworld's: a dimension that unloads saves its chunks and then itself, and
+     * the cells in its drives have to go with them.
+     */
     @SubscribeEvent
     public void onWorldSave(final WorldEvent.Save event) {
-        if (!event.getWorld().isRemote && event.getWorld().provider.getDimension() == 0) {
+        if (!event.getWorld().isRemote) {
+            this.save();
+        }
+    }
+
+    /**
+     * A chunk is saved on its own when it unloads, drives and the chests beside them with it; the cells in those
+     * drives are taken at the end of the same tick rather than at the next world save, which a crash may not
+     * reach.
+     */
+    @SubscribeEvent
+    public void onChunkSave(final ChunkDataEvent.Save event) {
+        if (event.getWorld().isRemote || this.saveRequested) {
+            return;
+        }
+        for (final TileEntity tile : event.getChunk().getTileEntityMap().values()) {
+            if (tile instanceof AEBaseTile) {
+                this.saveRequested = true;
+                return;
+            }
+        }
+    }
+
+    /** A player's inventory, portable cells and what they took out of a network included, is written at once. */
+    @SubscribeEvent
+    public void onPlayerSave(final PlayerEvent.SaveToFile event) {
+        if (event.getEntityPlayer().world instanceof WorldServer world && !world.disableLevelSaving) {
+            this.saveRequested = true;
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerTick(final TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && this.saveRequested) {
+            this.saveRequested = false;
             this.save();
         }
     }
@@ -233,15 +286,26 @@ public final class CellContentsStore {
         done.await();
     }
 
-    private void close() {
+    /**
+     * Waits for the disk, but not past the deadline: a server that does not stop is killed by its host, which loses
+     * more than the few cells still unwritten. The writer is a daemon thread; what it has not written when the game
+     * exits is lost, and named in the log.
+     *
+     * @return the cells not on disk when the wait ended
+     */
+    Set<UUID> close(final long timeoutMillis) {
         this.writer.shutdown();
         try {
-            if (!this.writer.awaitTermination(1, TimeUnit.MINUTES)) {
-                AELog.warn("Storage cells were still being written a minute after the server stopped");
+            if (!this.writer.awaitTermination(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                final Set<UUID> unwritten = new HashSet<>(this.pending.keySet());
+                AELog.error("Storage cells were still being written %d s after the server stopped; %d not saved: %s",
+                        TimeUnit.MILLISECONDS.toSeconds(timeoutMillis), unwritten.size(), unwritten);
+                return unwritten;
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        return new HashSet<>(this.pending.keySet());
     }
 
     @Nullable
@@ -265,17 +329,32 @@ public final class CellContentsStore {
         this.active.put(contents.getId(), contents);
     }
 
+    /**
+     * Writes the newest snapshot of a cell, once: a cell that changes at every save while the disk is slow would
+     * otherwise have every one of its snapshots waiting in line, each written over the last.
+     */
     private void queue(final UUID id, final NBTTagCompound tag) {
+        if (this.unreadable.contains(id)) {
+            return;
+        }
         this.pending.put(id, tag);
+        if (!this.queued.add(id)) {
+            return; // a write of this cell has not started yet, and takes the snapshot just put
+        }
         this.writer.execute(() -> {
+            this.queued.remove(id);
+            final NBTTagCompound latest = this.pending.get(id);
+            if (latest == null) {
+                return;
+            }
             try {
-                if (tag == DELETED) {
+                if (latest == DELETED) {
                     Files.deleteIfExists(this.fileFor(id).toPath());
                 } else {
-                    this.writeFile(id, tag);
+                    this.writeFile(id, latest);
                 }
                 // Only if nothing newer was queued meanwhile.
-                this.pending.remove(id, tag);
+                this.pending.remove(id, latest);
             } catch (final IOException | RuntimeException e) {
                 AELog.error(e, "Could not save storage cell " + id + "; trying again on the next save");
                 this.failed.add(id);
@@ -331,9 +410,20 @@ public final class CellContentsStore {
                 tag = CompressedStreamTools.readCompressed(in);
             } catch (final IOException | RuntimeException e) {
                 // Kept for whoever wants to look at it; the cell reads as empty.
-                AELog.error(e, "Storage cell " + id + " could not be read; its file was renamed to .corrupt");
-                if (!file.renameTo(new File(file.getPath() + ".corrupt"))) {
-                    AELog.warn("Could not rename %s", file);
+                final File kept = new File(file.getPath() + ".corrupt");
+                if (file.renameTo(kept)) {
+                    AELog.error(e, "Storage cell " + id + " could not be read; its file was renamed to .corrupt");
+                    return;
+                }
+                try {
+                    Files.copy(file.toPath(), kept.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    AELog.error(e, "Storage cell " + id + " could not be read; its file was copied to .corrupt");
+                } catch (final IOException | RuntimeException notCopied) {
+                    // Held open by another program, which on Windows also keeps it from being renamed or read.
+                    // Left as it is, and not written over by the empty cell this reads as.
+                    this.unreadable.add(id);
+                    AELog.error(e, "Storage cell " + id + " could not be read, renamed or copied; it is left as it "
+                            + "is and will not be saved until the server starts again");
                 }
                 return;
             }

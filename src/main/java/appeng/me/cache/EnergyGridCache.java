@@ -705,7 +705,8 @@ public class EnergyGridCache implements IEnergyGrid {
 
         @Override
         public double injectAEPower(double amt, Actionable mode) {
-            double toStore = Math.min(amt, MAX_BUFFER_STORAGE - this.stored);
+            // Past full after another network's buffer joined this one: it takes nothing, and gives nothing back.
+            double toStore = Math.max(0, Math.min(amt, MAX_BUFFER_STORAGE - this.stored));
 
             if (mode == Actionable.MODULATE) {
                 this.addCurrentAEPower(toStore);

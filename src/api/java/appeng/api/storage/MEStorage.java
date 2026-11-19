@@ -82,6 +82,17 @@ public interface MEStorage {
     }
 
     /**
+     * Whether {@link #getAvailableStacks(KeyCounter)} would add nothing. Asked often - a blocking interface asks the
+     * network beside it once a tick for every crafting CPU it serves - so a storage that can tell without listing
+     * everything it holds should say so.
+     */
+    default boolean isEmpty() {
+        KeyCounter counter = new KeyCounter();
+        this.getAvailableStacks(counter);
+        return counter.isEmpty();
+    }
+
+    /**
      * Human-readable name of this storage, shown in the storage bus tooltip and the ME chest.
      */
     default ITextComponent getDescription() {

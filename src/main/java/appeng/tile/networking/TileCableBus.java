@@ -309,7 +309,7 @@ public class TileCableBus extends AEBaseTile implements AEMultiTile, ICustomColl
     @Override
     public void addCollidingBlockToList(final World w, final BlockPos pos, final AxisAlignedBB bb, final List<AxisAlignedBB> out, final Entity e) {
         for (final AxisAlignedBB bx : this.getSelectedBoundingBoxesFromPool(w, pos, e, false)) {
-            out.add(new AxisAlignedBB(bx.minX, bx.minY, bx.minZ, bx.maxX, bx.maxY, bx.maxZ));
+            out.add(bx);
         }
     }
 

@@ -52,7 +52,12 @@ public class AdaptorItemHandlerPlayerInv extends AdaptorItemHandler {
             }
         }
 
+        // The slots of the first pass were offered all they take; offered again while simulating, their room
+        // would be counted twice.
         for (int slot = 0; slot < this.itemHandler.getSlots(); slot++) {
+            if (Platform.itemComparisons().isSameItem(this.itemHandler.getStackInSlot(slot), itemsToAdd)) {
+                continue;
+            }
             left = this.itemHandler.insertItem(slot, left, simulate);
             if (left.isEmpty()) {
                 return ItemStack.EMPTY;

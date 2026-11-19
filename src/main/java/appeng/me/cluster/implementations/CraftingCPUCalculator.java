@@ -32,6 +32,7 @@ import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.MBCalculator;
 import appeng.tile.crafting.TileCraftingTile;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -69,6 +70,21 @@ public class CraftingCPUCalculator extends MBCalculator {
     }
 
     @Override
+    protected boolean reachesIntoUnloadedChunks() {
+        return !AEConfig.instance().craftingCPURequiresSingleChunk();
+    }
+
+    @Override
+    protected int getMaxSpan(final EnumFacing.Axis axis) {
+        final AEConfig config = AEConfig.instance();
+        return switch (axis) {
+            case X -> config.getCraftingCPUMaxSizeX();
+            case Y -> config.getCraftingCPUMaxSizeY();
+            case Z -> config.getCraftingCPUMaxSizeZ();
+        };
+    }
+
+    @Override
     public IAECluster createCluster(final World w, final WorldCoord min, final WorldCoord max) {
         return new CraftingCPUCluster(min, max);
     }
@@ -86,8 +102,9 @@ public class CraftingCPUCalculator extends MBCalculator {
             for (int y = min.y; y <= max.y; y++) {
                 for (int z = min.z; z <= max.z; z++) {
                     final TileEntity tile = w.getTileEntity(new BlockPos(x, y, z));
-                    // A hole in the box used to throw here and be swallowed, which said nothing to anyone.
-                    if (!(tile instanceof IAEMultiBlock) || !((IAEMultiBlock) tile).isValid()) {
+                    // A hole in the box used to throw here and be swallowed, which said nothing to anyone. So did
+                    // another mod's multiblock block inside it, halfway through handing the blocks their cluster.
+                    if (!this.isValidTile(tile) || !((IAEMultiBlock) tile).isValid()) {
                         this.tqb.reportFormationFailure(PlayerMessages.CraftingCPUNotSolid);
                         return false;
                     }

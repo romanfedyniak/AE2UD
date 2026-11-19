@@ -9,6 +9,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
 import appeng.api.storage.IStorageChangeSource;
+import appeng.me.storage.ICountedStorage;
 import appeng.me.storage.ITickingMonitor;
 import appeng.me.storage.StorageChangeListeners;
 import com.jaquadro.minecraft.storagedrawers.api.capabilities.IItemRepository;
@@ -26,7 +27,7 @@ import java.util.Map;
  * {@link appeng.api.behaviors.StackWorldBehaviors} because {@code IItemRepository} is not keyed by
  * {@link appeng.api.stacks.AEKeyType} at all, it is a capability specific to one third-party inventory mod.
  */
-class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource {
+class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChangeSource, ICountedStorage {
     private final IItemRepository itemRepository;
     private KeyCounter currentlyCached = new KeyCounter();
     // The key of each drawer's prototype stack, which a drawer keeps as one object while it holds that item: a
@@ -97,6 +98,11 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
     }
 
     @Override
+    public boolean holds(final AEKey what) {
+        return this.currentlyCached.get(what) > 0;
+    }
+
+    @Override
     public void getAvailableStacks(final KeyCounter out) {
         for (final var entry : this.currentlyCached) {
             out.add(entry.getKey(), entry.getLongValue());
@@ -117,8 +123,12 @@ class ItemRepositoryAdapter implements MEStorage, ITickingMonitor, IStorageChang
      * else changed with it, such as the other tiers of a compacting drawer.
      */
     private void moved(final AEItemKey key, final long delta) {
-        this.currentlyCached.set(key, Math.max(0, this.currentlyCached.get(key) + delta));
-        this.listeners.post(key, delta);
+        // What the count did, not what moved: drawers may give more than was counted, and the rescan has nothing
+        // left to correct once the count is already at zero.
+        final long before = this.currentlyCached.get(key);
+        final long after = Math.max(0, before + delta);
+        this.currentlyCached.set(key, after);
+        this.listeners.post(key, after - before);
     }
 
     private void updateCache() {
