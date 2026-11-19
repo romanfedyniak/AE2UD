@@ -49,6 +49,15 @@ public interface ExternalStorageStrategy {
      */
     MEStorage createWrapper(boolean extractableOnly, Runnable injectOrExtractCallback);
 
+    /**
+     * Whether {@link #createWrapper} would answer something now. A machine's window asks this every tick, so a
+     * strategy that can tell without building the wrapper should.
+     */
+    default boolean canWrap() {
+        return this.createWrapper(false, () -> {
+        }) != null;
+    }
+
     @FunctionalInterface
     interface Factory {
         ExternalStorageStrategy create(World world, BlockPos fromPos, EnumFacing fromSide);

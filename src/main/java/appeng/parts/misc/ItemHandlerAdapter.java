@@ -281,5 +281,11 @@ class ItemHandlerAdapter implements MEStorage, ITickingMonitor, IStorageChangeSo
 
             return new ItemHandlerAdapter(itemHandler, extractableOnly, injectOrExtractCallback);
         }
+
+        @Override
+        public boolean canWrap() {
+            final TileEntity target = this.world.getTileEntity(this.fromPos);
+            return target != null && target.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, this.fromSide) != null;
+        }
     }
 }
