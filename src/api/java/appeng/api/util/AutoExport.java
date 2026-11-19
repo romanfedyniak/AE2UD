@@ -49,6 +49,9 @@ public final class AutoExport {
 
     private final Map<EnumFacing, List<StackExportStrategy>> exporters = new EnumMap<>(EnumFacing.class);
     private final Map<EnumFacing, Map<AEKeyType, ExternalStorageStrategy>> storages = new EnumMap<>(EnumFacing.class);
+    /** Where the strategies above were made for; spatial IO moves the same tile object somewhere else. */
+    private World cachedWorld;
+    private BlockPos cachedPos;
 
     private int sides;
     /** The face tried first: the one after the last face that took something. */
@@ -160,23 +163,34 @@ public final class AutoExport {
             return false;
         }
 
-        final Map<AEKeyType, ExternalStorageStrategy> strategies = this.storages.computeIfAbsent(facing,
-                f -> StackWorldBehaviors.createExternalStorageStrategies(world, target, f.getOpposite()));
+        this.forgetIfMoved(world);
+        Map<AEKeyType, ExternalStorageStrategy> strategies = this.storages.get(facing);
+        if (strategies == null) {
+            strategies = StackWorldBehaviors.createExternalStorageStrategies(world, target, facing.getOpposite());
+            this.storages.put(facing, strategies);
+        }
         for (final AEKeyType type : this.host.getAutoExportTypes()) {
             final ExternalStorageStrategy strategy = strategies.get(type);
-            if (strategy != null && strategy.createWrapper(false, AutoExport::nothing) != null) {
+            if (strategy != null && strategy.canWrap()) {
                 return true;
             }
         }
         return false;
     }
 
-    private static void nothing() {
-    }
-
     private List<StackExportStrategy> exporters(final World world, final EnumFacing facing) {
+        this.forgetIfMoved(world);
         return this.exporters.computeIfAbsent(facing, f -> StackWorldBehaviors.createExportStrategies(world,
                 this.tile.getPos().offset(f), f.getOpposite()));
+    }
+
+    private void forgetIfMoved(final World world) {
+        if (world != this.cachedWorld || !this.tile.getPos().equals(this.cachedPos)) {
+            this.exporters.clear();
+            this.storages.clear();
+            this.cachedWorld = world;
+            this.cachedPos = this.tile.getPos();
+        }
     }
 
     public void writeToNBT(final NBTTagCompound data) {
