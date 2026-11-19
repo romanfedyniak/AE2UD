@@ -111,9 +111,27 @@ public class KeyTypeSelection {
         return out;
     }
 
+    /**
+     * Turns on exactly the types listed that this selection covers. A list naming none of them would leave the
+     * machine acting on nothing, so it changes nothing, as {@link #setEnabled} refuses the last one.
+     */
     public void setEnabledSet(final List<AEKeyType> selected) {
+        boolean any = false;
+        for (final AEKeyType type : this.keyTypes.keySet()) {
+            any |= selected.contains(type);
+        }
+        if (!any) {
+            return;
+        }
+
+        boolean changed = false;
         for (final Map.Entry<AEKeyType, Boolean> entry : this.keyTypes.entrySet()) {
-            entry.setValue(selected.contains(entry.getKey()));
+            final boolean on = selected.contains(entry.getKey());
+            changed |= entry.getValue() != on;
+            entry.setValue(on);
+        }
+        if (changed) {
+            this.listener.onKeyTypeSelectionChanged(this);
         }
     }
 
