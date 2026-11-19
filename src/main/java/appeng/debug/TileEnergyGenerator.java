@@ -25,6 +25,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ITickable;
 import net.minecraft.util.math.BlockPos.MutableBlockPos;
+import net.minecraft.world.chunk.Chunk.EnumCreateEntityType;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.energy.CapabilityEnergy;
 import net.minecraftforge.energy.IEnergyStorage;
@@ -48,9 +49,11 @@ public class TileEnergyGenerator extends AEBaseTile implements ITickable, IEnerg
 
         for (final EnumFacing facing : EnumFacing.VALUES) {
             this.neighbourPos.setPos(this.getPos()).move(facing);
-            // Asking for a tile in a chunk that is not loaded would load it.
+            // Asking for a tile in a chunk that is not loaded would load it. CHECK, since the world's own lookup
+            // makes an immutable copy of the position for every empty block.
             final TileEntity te = this.getWorld().isBlockLoaded(this.neighbourPos)
-                    ? this.getWorld().getTileEntity(this.neighbourPos) : null;
+                    ? this.getWorld().getChunk(this.neighbourPos).getTileEntity(this.neighbourPos, EnumCreateEntityType.CHECK)
+                    : null;
             this.neighbours[facing.ordinal()] = te;
 
             if (te instanceof TileEnergyGenerator) {
