@@ -498,7 +498,7 @@ public enum GuiBridge implements IGuiHandler {
         ItemStack it = ItemStack.EMPTY;
         if (bauble) {
             it = BaublesApi.getBaublesHandler(player).getStackInSlot(slot);
-        } else if (slot >= 0 && slot < player.inventory.mainInventory.size()) {
+        } else if (slot >= 0 && slot < player.inventory.getSizeInventory()) {
             it = player.inventory.getStackInSlot(slot);
         }
         final Object host = this.getGuiObject(it, player, player.world, slot, bauble ? 1 : 0, Integer.MIN_VALUE, null);
