@@ -26,8 +26,6 @@ import appeng.parts.networking.PartCable;
 import appeng.core.features.AEFeature;
 import appeng.core.localization.WailaText;
 import it.unimi.dsi.fastutil.objects.Object2ByteMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -36,6 +34,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 
@@ -58,9 +57,11 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
      * This is useful, when a player just started to look at a tile and thus just requested the new information from the
      * server.
      * <p/>
-     * The cache will be updated from the server.
+     * The cache will be updated from the server. Only the part last looked at, weakly: this provider lives as long
+     * as the game, and a part holds its tile and the client world.
      */
-    private final Object2IntMap<IPart> cache = new Object2IntOpenHashMap<>();
+    private WeakReference<IPart> cachedPart = new WeakReference<>(null);
+    private int cachedChannels;
 
     /**
      * Adds the used and max channel to the tool tip
@@ -79,7 +80,7 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
         if (part instanceof PartCable && ((PartCable) part).getCableConnectionType().isSmart()) {
             final NBTTagCompound tag = accessor.getNBTData();
 
-            final int usedChannels = this.getUsedChannels(part, tag, this.cache);
+            final int usedChannels = this.getUsedChannels(part, tag);
 
             if (usedChannels >= 0) {
                 final int maxChannels = GridNode.maxChannelsOf(((PartCable) part).getProxy());
@@ -103,14 +104,15 @@ public final class ChannelWailaDataProvider extends BasePartWailaDataProvider {
      * @param cache cache with previous knowledge
      * @return used channels on the cable
      */
-    private int getUsedChannels(final IPart part, final NBTTagCompound tag, final Object2IntMap<IPart> cache) {
+    private int getUsedChannels(final IPart part, final NBTTagCompound tag) {
         final int usedChannels;
 
         if (tag.hasKey(ID_USED_CHANNELS)) {
             usedChannels = tag.getInteger(ID_USED_CHANNELS);
-            this.cache.put(part, usedChannels);
-        } else if (this.cache.containsKey(part)) {
-            usedChannels = this.cache.get(part);
+            this.cachedPart = new WeakReference<>(part);
+            this.cachedChannels = usedChannels;
+        } else if (this.cachedPart.get() == part) {
+            usedChannels = this.cachedChannels;
         } else {
             usedChannels = -1;
         }
