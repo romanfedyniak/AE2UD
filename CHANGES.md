@@ -14,6 +14,93 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - Back up the world before installing or updating the mod.
 - **What a storage cell holds is kept in the world's `AE2/cells` folder, not in the cell item.** Every cell a world touches moves there. Going back to an older version shows those cells empty, a backup or copy of the world without that folder loses them, and a cell item taken to another world or server arrives empty.
 
+## Unreleased
+
+A full code audit of 1.6.20: about 330 confirmed problems fixed, each reproduced in game or in a unit test first and
+checked again after the fix. Server and client must be updated together (two packets changed).
+
+**Item duplication**
+
+- **Clicking an interface storage slot that holds more than 64 of an item with a few of it in hand no longer adds
+  items to the cursor.** Every click made up to 448 items out of nothing.
+- **Screens no longer hand out real items from places that must not give them:** filter and ghost slots, locked
+  slots, the pattern terminal's crafting preview, the renamer's icon, the Molecular Assembler grid (filled buckets)
+  and slots the player may not take from. Space+click and every region move now ask the slot first, and a move
+  takes items out of the slot instead of copying them.
+- **Shift-clicking encoded patterns into the network keeps only what the network refused.**
+- **The Network Tool and Quartz Knife screens close when the held item changes**, so two slots can no longer share
+  one item.
+- **A storage bus pointed at an interface of its own network, or two networks linked both ways, no longer loops.**
+  It crashed the server, or from a click kept the stack and stored it too.
+- **A crafting CPU built across a chunk border keeps its job when part of it unloads.** Reloading the core's chunk
+  duplicated everything the CPU held; reloading the other half cancelled the job.
+- **An item P2P input no longer takes items out of a chest whose chunk has already unloaded.**
+- **The IC2 and GregTech energy adapters no longer make energy from nothing.**
+
+**Server crashes and hangs**
+
+- No longer crash or hang the server: an ore dictionary bus expression such as `* *a`, item / FE / GregTech EU P2P
+  tunnels feeding each other, a level emitter with a crafting card and no filter, an interface waiting for another
+  network's interface, a blocking interface next to a block without an inventory, a Matter Cannon hitting a ghast
+  fireball or a dragon part, a Matter Cannon in a dispenser, and a huge terminal update.
+- **Turning off a card or material feature in the config no longer stops the game from starting** or crashes the
+  wireless terminal.
+- **What a client sends is checked.** The Network Tool works only on blocks in reach and where the player may
+  build; crafting recipes from HEI, compass requests, ore dictionary expressions and names have size limits; a
+  screen can switch only to its own sub-screens; screens opened from an item check the player's rights; AE screens
+  close past 8 blocks like a chest.
+
+**Items lost**
+
+- **Shift-clicking out of a terminal into a nearly full inventory** puts what does not fit back into the network.
+- **Breaking a pattern terminal drops its view cells**, and disassembling a storage cell with upgrade cards in a
+  crafting grid is refused instead of destroying the cards.
+- **The Molecular Assembler, P2P tunnels and planes forget a neighbour whose chunk unloaded** instead of pushing into
+  it, and items that nothing takes are dropped instead of vanishing.
+- **Storage cell contents are saved with every world save**, with the chunk and with the player, not only when the
+  overworld saves.
+
+**Crafting**
+
+- **The calculator falls back to another pattern higher up** when one deep in the tree cannot be made, shares an
+  ingredient's stock between the slots that use it, and prefers a slot's own item to substitutes.
+- **A processing pattern uses up the bucket or tool it takes**, as the machine does: a job no longer waits for ever
+  for a bucket that never comes back.
+- **A cycle is planned only if its first turn can run** from what is in hand; such jobs used to sit busy for ever.
+- **Replan and Force start wait for the running calculation**, and interfaces and buses with a crafting card wait a
+  little longer after each failed order instead of asking every tick.
+- **HEI "craft missing" jobs and the tools a job holds survive a reload.**
+- **Fluids can be ordered by export buses and interfaces with a crafting card.**
+
+**Machines and parts**
+
+- **Interfaces:** every redstone mode works on the part interface, "lock until pulse" unlocks on the rising edge,
+  the comparator reads the whole interface (one full slot is 2, all full is 15), and an interface without a channel
+  no longer feeds the network.
+- **Planes, buses, P2P tunnels, interfaces, the assembler and the pattern access terminal no longer load or generate
+  chunks** around them.
+- **The Matter Cannon, Tiny TNT and the Entropy Manipulator respect claims**; the manipulator lights TNT instead of
+  deleting it and changes blocks to the right variant.
+- **The IO Port slows down while nothing moves**, an ME P2P channel cost of 0 or above 8 works, an ME Chest honours
+  its cell's Sticky Card and preference, and the toggle bus switches at most once a second.
+- **Placing a part into an existing cable bus and pasting a memory card check the player's rights.**
+- **A spatial region with its own IO port inside it is invalid** instead of moving the port into the storage
+  dimension.
+
+**Screens**
+
+- **A bare search word no longer matches F3+H tooltip lines** (registry names, ids); use `&` or `*` for that.
+- **The terminal no longer rewrites HEI's search box**, the Inventory Tweaks sort follows the direction button, and
+  number keys no longer swap the hotbar while a text field is focused.
+- **The Pattern Access Terminal, the job priority screen and the assembler screen no longer crash the client.**
+- **The One Probe shows AE's lines in the player's own language.**
+
+**Performance**
+
+- Many per-tick and per-frame costs are gone: the CPU screen sends only what changed, wireless terminals no longer
+  copy the network every tick, the pattern access terminal no longer re-decodes every pattern per keystroke, a
+  fluid icon is drawn once instead of seven times, and terminal slots, monitors and cable models allocate far less.
+
 ## 1.6.20 - 2026-11-18
 
 - **A storage bus no longer reads its whole inventory again after every item the network puts in or takes out.**
