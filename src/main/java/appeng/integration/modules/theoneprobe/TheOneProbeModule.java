@@ -35,6 +35,8 @@ public class TheOneProbeModule implements IIntegrationModule, Function<ITheOnePr
 
     @Override
     public Void apply(ITheOneProbe input) {
+        TranslatedText.register(input);
+
         input.registerProbeConfigProvider(new AEConfigProvider());
 
         input.registerProvider(new TileInfoProvider());

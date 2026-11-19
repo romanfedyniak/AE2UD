@@ -47,11 +47,11 @@ public class PowerStateInfoProvider implements IPartProbInfoProvider {
         final String result;
 
         if (isActive && isPowered) {
-            result = TheOneProbeText.DEVICE_ONLINE.getLocal();
+            result = TheOneProbeText.DEVICE_ONLINE.marker();
         } else if (isPowered) {
-            result = TheOneProbeText.DEVICE_MISSING_CHANNEL.getLocal();
+            result = TheOneProbeText.DEVICE_MISSING_CHANNEL.marker();
         } else {
-            result = TheOneProbeText.DEVICE_OFFLINE.getLocal();
+            result = TheOneProbeText.DEVICE_OFFLINE.marker();
         }
 
         return result;

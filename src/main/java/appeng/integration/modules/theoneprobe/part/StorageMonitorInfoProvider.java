@@ -23,6 +23,7 @@ import appeng.api.implementations.parts.IPartStorageMonitor;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.GenericStack;
 import appeng.integration.modules.theoneprobe.TheOneProbeText;
+import appeng.integration.modules.theoneprobe.TranslatedText;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
 import mcjty.theoneprobe.api.ProbeMode;
@@ -45,10 +46,10 @@ public class StorageMonitorInfoProvider implements IPartProbInfoProvider {
             // type now answers getDisplayName() for itself. A monitor showing a key type this fork has
             // never heard of names it correctly with no change here.
             if (displayed != null) {
-                probeInfo.text(TheOneProbeText.SHOWING.getLocal() + ": " + displayed.what().getDisplayName().getFormattedText());
+                probeInfo.element(new TranslatedText(null, TranslatedText.key(TheOneProbeText.SHOWING.getUnlocalized()), ": ", displayed.what()));
             }
 
-            probeInfo.text(isLocked ? TheOneProbeText.LOCKED.getLocal() : TheOneProbeText.UNLOCKED.getLocal());
+            probeInfo.text(isLocked ? TheOneProbeText.LOCKED.marker() : TheOneProbeText.UNLOCKED.marker());
         }
     }
 

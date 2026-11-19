@@ -41,11 +41,11 @@ public class PowerStateInfoProvider implements ITileProbInfoProvider {
             final boolean isPowered = state.isPowered();
 
             if (isActive && isPowered) {
-                probeInfo.text(TheOneProbeText.DEVICE_ONLINE.getLocal());
+                probeInfo.text(TheOneProbeText.DEVICE_ONLINE.marker());
             } else if (isPowered) {
-                probeInfo.text(TheOneProbeText.DEVICE_MISSING_CHANNEL.getLocal());
+                probeInfo.text(TheOneProbeText.DEVICE_MISSING_CHANNEL.marker());
             } else {
-                probeInfo.text(TheOneProbeText.DEVICE_OFFLINE.getLocal());
+                probeInfo.text(TheOneProbeText.DEVICE_OFFLINE.marker());
             }
         }
 

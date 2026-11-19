@@ -46,14 +46,12 @@ public class CraftingMonitorInfoProvider implements ITileProbInfoProvider {
                 // item, exactly as the terminal shows it. The name comes from the key rather than from
                 // that wrapper, so a fluid job still reads as the fluid and not as the placeholder.
                 final ItemStack itemStack = displayStack.what().wrapForDisplayOrFilter();
-                final String itemName = displayStack.what().getDisplayName().getFormattedText();
-                final String formattedCrafting = String.format(TheOneProbeText.CRAFTING.getLocal(), itemName);
 
                 final IProbeInfo centerAlignedHorizontalLayout = probeInfo
                         .horizontal(probeInfo.defaultLayoutStyle().alignment(ElementAlignment.ALIGN_CENTER));
 
                 centerAlignedHorizontalLayout.item(itemStack);
-                centerAlignedHorizontalLayout.text(formattedCrafting);
+                centerAlignedHorizontalLayout.element(TheOneProbeText.CRAFTING.with(displayStack.what()));
             }
         }
     }

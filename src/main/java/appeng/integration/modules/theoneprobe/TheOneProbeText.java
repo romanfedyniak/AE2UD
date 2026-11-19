@@ -19,7 +19,7 @@
 package appeng.integration.modules.theoneprobe;
 
 
-import net.minecraft.util.text.translation.I18n;
+import mcjty.theoneprobe.api.IProbeInfo;
 
 import java.util.Locale;
 
@@ -56,8 +56,14 @@ public enum TheOneProbeText {
         this.root = "theoneprobe.appliedenergistics2";
     }
 
-    public String getLocal() {
-        return I18n.translateToLocal(this.getUnlocalized());
+    /** The line as TOP's client translates it, for a line with nothing filled in. */
+    public String marker() {
+        return IProbeInfo.STARTLOC + this.getUnlocalized() + IProbeInfo.ENDLOC;
+    }
+
+    /** The line with arguments, filled in on the client: see {@link TranslatedText}. */
+    public TranslatedText with(final Object... args) {
+        return new TranslatedText(this.getUnlocalized(), args);
     }
 
     public String getUnlocalized() {
