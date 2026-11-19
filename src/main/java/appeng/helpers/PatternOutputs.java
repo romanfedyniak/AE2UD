@@ -12,6 +12,7 @@ package appeng.helpers;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
@@ -47,6 +48,13 @@ public final class PatternOutputs {
         }
     };
 
+    /**
+     * The key and output last found for a stack, by identity: a slot draws the same stack every frame, and making
+     * its key copies the whole pattern tag. Checked against the stack on every use, so one changed in place is
+     * looked up again.
+     */
+    private static final Map<ItemStack, Seen> SEEN = new WeakHashMap<>();
+
     private PatternOutputs() {
     }
 
@@ -56,11 +64,19 @@ public final class PatternOutputs {
             return ItemStack.EMPTY;
         }
 
+        synchronized (CACHE) {
+            final Seen seen = SEEN.get(stack);
+            if (seen != null && seen.key.matches(stack)) {
+                return seen.output;
+            }
+        }
+
         final AEItemKey key = AEItemKey.of(stack);
 
         synchronized (CACHE) {
             final ItemStack cached = CACHE.get(key);
             if (cached != null) {
+                SEEN.put(stack, new Seen(key, cached));
                 return cached;
             }
         }
@@ -76,6 +92,7 @@ public final class PatternOutputs {
 
         synchronized (CACHE) {
             CACHE.put(key, out);
+            SEEN.put(stack, new Seen(key, out));
         }
         return out;
     }
@@ -88,6 +105,7 @@ public final class PatternOutputs {
 
         synchronized (CACHE) {
             CACHE.remove(AEItemKey.of(stack));
+            SEEN.remove(stack);
         }
     }
 
@@ -95,6 +113,17 @@ public final class PatternOutputs {
     public static void clear() {
         synchronized (CACHE) {
             CACHE.clear();
+            SEEN.clear();
+        }
+    }
+
+    private static final class Seen {
+        final AEItemKey key;
+        final ItemStack output;
+
+        Seen(final AEItemKey key, final ItemStack output) {
+            this.key = key;
+            this.output = output;
         }
     }
 }
