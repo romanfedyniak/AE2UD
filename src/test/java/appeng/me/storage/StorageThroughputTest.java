@@ -11,15 +11,20 @@
 package appeng.me.storage;
 
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.function.LongConsumer;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
@@ -30,6 +35,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.registry.GameRegistry;
+import net.minecraftforge.fml.common.thread.SidedThreadGroups;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
@@ -311,21 +317,62 @@ public final class StorageThroughputTest {
     // ------------------------------------------------------------------------------------------------
 
     @Test
-    public void cellInsertAndPersist() {
+    public void cellInsertAndPersist() throws Throwable {
         heading("3. BasicCellInventory: one operation, in nanoseconds");
         row("types held", "insert (a drive)", "insert+persist (a chest)", "the NBT alone");
 
-        for (final int held : new int[] { 1, 8, 32, 63 }) {
-            // A drive only marks its chunk dirty; a chest rewrites the cell's NBT there and then.
-            final StorageCell drive = cell(held, () -> {});
-            final StorageCell chest = cell(held, null);
-            final AEKey what = keyPool.get(0);
+        // As in game: on the server thread, with the cell file store open. Anywhere else a cell writes its whole
+        // list into the item's NBT, which is the format before the store.
+        final Path directory = Files.createTempDirectory("ae2-cells-bench");
+        final CellContentsStore store = new CellContentsStore(directory.toFile(), System::currentTimeMillis);
+        CellContentsStore.setCurrent(store);
+        try {
+            onServer(() -> {
+                for (final int held : new int[] { 1, 8, 32, 63 }) {
+                    // A drive only marks its chunk dirty; a chest persists the cell there and then.
+                    final StorageCell drive = cell(new ItemStack(TestCellItem.INSTANCE), held, () -> {});
+                    final ItemStack chestStack = new ItemStack(TestCellItem.INSTANCE);
+                    final StorageCell chest = cell(chestStack, held, null);
+                    final AEKey what = keyPool.get(0);
 
-            final long inserted = time(20000, i -> drive.insert(what, 1, Actionable.MODULATE, SOURCE));
-            final long withNbt = time(20000, i -> chest.insert(what, 1, Actionable.MODULATE, SOURCE));
+                    final long inserted = time(20000, i -> drive.insert(what, 1, Actionable.MODULATE, SOURCE));
+                    final long withNbt = time(20000, i -> chest.insert(what, 1, Actionable.MODULATE, SOURCE));
 
-            row(held, inserted, withNbt, withNbt - inserted);
+                    assertThat("the cell's list went into its item NBT, not the cell file store",
+                            chestStack.getTagCompound().hasKey("Items"), is(false));
+                    row(held, inserted, withNbt, withNbt - inserted);
+                }
+            });
+        } finally {
+            store.awaitWrites();
+            store.close(1000);
+            CellContentsStore.setCurrent(null);
+            try (Stream<Path> paths = Files.walk(directory)) {
+                paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            }
         }
+    }
+
+    private static void onServer(final Body body) throws Throwable {
+        final Throwable[] failure = new Throwable[1];
+        final Thread thread = new Thread(SidedThreadGroups.SERVER, () -> {
+            try {
+                body.run();
+            } catch (final Throwable t) {
+                failure[0] = t;
+            }
+        }, "Server thread");
+        thread.start();
+        thread.join();
+
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+    }
+
+    @FunctionalInterface
+    private interface Body {
+        void run() throws Exception;
     }
 
     // ------------------------------------------------------------------------------------------------
@@ -444,7 +491,10 @@ public final class StorageThroughputTest {
      * {@code saver} is how a cell with no holder behaves: it writes its NBT on every single change.
      */
     private StorageCell cell(final int types, final ISaveProvider saver) {
-        final ItemStack stack = new ItemStack(TestCellItem.INSTANCE);
+        return this.cell(new ItemStack(TestCellItem.INSTANCE), types, saver);
+    }
+
+    private StorageCell cell(final ItemStack stack, final int types, final ISaveProvider saver) {
         final StorageCell inventory = BasicCellInventory.createInventory(stack, saver);
 
         for (int t = 0; t < types; t++) {
