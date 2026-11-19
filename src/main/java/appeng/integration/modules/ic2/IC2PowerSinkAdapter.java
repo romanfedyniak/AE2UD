@@ -68,7 +68,7 @@ public class IC2PowerSinkAdapter extends BasicSink implements IC2PowerSink {
 
     @Override
     public double injectEnergy(EnumFacing directionFrom, double amount, double voltage) {
-        return PowerUnits.EU.convertTo(PowerUnits.AE, this.powerSink.injectExternalPower(PowerUnits.EU, amount, Actionable.MODULATE));
+        return this.powerSink.injectExternalPower(PowerUnits.EU, amount, Actionable.MODULATE);
     }
 
     @Override
