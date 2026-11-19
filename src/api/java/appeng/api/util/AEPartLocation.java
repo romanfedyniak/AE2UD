@@ -104,7 +104,7 @@ public enum AEPartLocation
 		{
 			return INTERNAL;
 		}
-		return values()[side.ordinal()];
+		return SIDE_LOCATIONS[side.ordinal()];
 	}
 
 	/**
