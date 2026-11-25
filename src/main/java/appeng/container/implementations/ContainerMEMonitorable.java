@@ -89,6 +89,7 @@ import java.io.IOException;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -159,6 +160,11 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     private IStorageService diffedService;
     private long diffedStamp = -1;
     private Object diffedDisplay;
+    /**
+     * What {@link GridStorageCache#changedSince} had for the last {@link #listingMayHaveChanged} that found a
+     * change: the keys to look at, or null to compare the whole listing.
+     */
+    private Collection<Set<AEKey>> changedKeys;
 
     /**
      * The last set of craftable keys sent to the client. A {@link AEKey} carries no craftable flag any more
@@ -719,34 +725,38 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
             }
             this.pendingPushChanges.clear();
         } else if (this.listingMayHaveChanged()) {
-            // Case 2: server-side per-tick diff of a directly-viewed cell (or remote network, for a
-            // wireless terminal) snapshot - exactly like upstream's MEStorageMenu.broadcastChanges().
-            final KeyCounter current = this.retainAvailableStacks();
+            if (this.changedKeys != null) {
+                this.diffChangedKeys(result, craftables, fakeCraftables, newlyCraftable, noLongerCraftable, fakeFlipped);
+            } else {
+                // Case 2: server-side per-tick diff of a directly-viewed cell (or remote network, for a
+                // wireless terminal) snapshot - exactly like upstream's MEStorageMenu.broadcastChanges().
+                final KeyCounter current = this.retainAvailableStacks();
 
-            for (final var entry : current) {
-                final AEKey what = entry.getKey();
-                final long amount = entry.getLongValue();
-                if (amount != this.previousAvailableStacks.get(what)) {
-                    newlyCraftable.remove(what);
-                    noLongerCraftable.remove(what);
-                    fakeFlipped.remove(what);
-                    result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what),
-                            fakeCraftables.contains(what)));
+                for (final var entry : current) {
+                    final AEKey what = entry.getKey();
+                    final long amount = entry.getLongValue();
+                    if (amount != this.previousAvailableStacks.get(what)) {
+                        newlyCraftable.remove(what);
+                        noLongerCraftable.remove(what);
+                        fakeFlipped.remove(what);
+                        result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what),
+                                fakeCraftables.contains(what)));
+                    }
                 }
-            }
 
-            for (final var entry : this.previousAvailableStacks) {
-                final AEKey what = entry.getKey();
-                if (entry.getLongValue() != 0 && current.get(what) == 0) {
-                    newlyCraftable.remove(what);
-                    noLongerCraftable.remove(what);
-                    fakeFlipped.remove(what);
-                    result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what),
-                            fakeCraftables.contains(what)));
+                for (final var entry : this.previousAvailableStacks) {
+                    final AEKey what = entry.getKey();
+                    if (entry.getLongValue() != 0 && current.get(what) == 0) {
+                        newlyCraftable.remove(what);
+                        noLongerCraftable.remove(what);
+                        fakeFlipped.remove(what);
+                        result.add(new GridInventoryEntry(what, 0, 0, craftables.contains(what),
+                                fakeCraftables.contains(what)));
+                    }
                 }
-            }
 
-            this.previousAvailableStacks = current;
+                this.previousAvailableStacks = current;
+            }
         }
 
         // Craftable-only changes: the amount for `what` did not change, but its craftable status did.
@@ -775,6 +785,40 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
     }
 
     /**
+     * Case 2 on the network's listing when it can say what changed since the last diff: only those keys are looked
+     * at, against the snapshot, which is brought up to date in place. Copying the whole listing every tick to find
+     * a few changes cost a busy network's wireless terminal more than everything else it does. The keys shown are
+     * the same as at the last diff, or {@link #changedKeys} would be null.
+     */
+    private void diffChangedKeys(final List<GridInventoryEntry> result, final Set<AEKey> craftables,
+            final Set<AEKey> fakeCraftables, final Set<AEKey> newlyCraftable, final Set<AEKey> noLongerCraftable,
+            final Set<AEKey> fakeFlipped) {
+        final KeyCounter live = this.readAvailableStacks();
+        for (final Set<AEKey> batch : this.changedKeys) {
+            for (final AEKey what : batch) {
+                if (!this.isDisplayedKey(what)) {
+                    continue;
+                }
+                final long amount = live.get(what);
+                if (amount == this.previousAvailableStacks.get(what)) {
+                    continue;
+                }
+                if (amount == 0) {
+                    this.previousAvailableStacks.remove(what);
+                } else {
+                    this.previousAvailableStacks.set(what, amount);
+                }
+                newlyCraftable.remove(what);
+                noLongerCraftable.remove(what);
+                fakeFlipped.remove(what);
+                result.add(new GridInventoryEntry(what, amount, 0, craftables.contains(what),
+                        fakeCraftables.contains(what)));
+            }
+        }
+        this.changedKeys = null;
+    }
+
+    /**
      * Whether the case-2 diff could find anything since the last one: always for a single cell, and for the
      * network's listing only once it changed or the choice of keys to show did.
      */
@@ -782,6 +826,7 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
         final IStorageService ss = this.networkStorageService();
         if (!(ss instanceof GridStorageCache cache)) {
             this.diffedService = null;
+            this.changedKeys = null;
             return true;
         }
 
@@ -790,10 +835,12 @@ public class ContainerMEMonitorable extends AEBaseContainer implements IConfigMa
                 this.host instanceof KeyTypeSelectionHost h ? h.getKeyTypeSelection().enabledSet() : null,
                 this.terminalPinsRequested, this.showCraftingPins, this.showPlayerPins,
                 new ArrayList<>(this.craftingPins.keySet()), new HashSet<>(this.visiblePlayerPinKeys));
-        if (ss == this.diffedService && stamp == this.diffedStamp && display.equals(this.diffedDisplay)) {
+        final boolean sameView = ss == this.diffedService && display.equals(this.diffedDisplay);
+        if (sameView && stamp == this.diffedStamp) {
             return false;
         }
 
+        this.changedKeys = sameView ? cache.changedSince(this.diffedStamp) : null;
         this.diffedService = ss;
         this.diffedStamp = stamp;
         this.diffedDisplay = display;

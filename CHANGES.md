@@ -23,6 +23,8 @@ All notable AE2UD changes are grouped by the version in which they first appeare
   so a tunnel to many full machines no longer simulates the insert into each of them again for every push, and
   whether a machine stands behind it is asked only after a refusal. Busy machines are still asked again the next
   tick.
+- **A wireless terminal open on a busy network looks only at what changed since its last update** instead of copying
+  and comparing the whole network listing every tick: 0.2 ms instead of 19 ms a tick on a network of 5000 kinds.
 
 ## 1.6.21 - 2026-11-19
 

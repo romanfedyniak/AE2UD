@@ -18,12 +18,17 @@
 
 package appeng.me.cache;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
@@ -86,6 +91,14 @@ public class GridStorageCache implements IStorageService, IGridCache {
     private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
     /** Moves on whenever {@link #cachedAvailableStacks} changes, so a reader can tell it has nothing new. */
     private long changeStamp;
+    /**
+     * The keys of the last few batches {@link #applyPendingChanges} counted, oldest first, the n-th ending at
+     * {@link #changeStamp} minus (size - 1 - n). A terminal that diffed the listing at an earlier stamp only has
+     * to look at these keys, not copy and compare the whole listing; a full recount empties it, since what moved
+     * then is not known.
+     */
+    private final ArrayDeque<Set<AEKey>> journal = new ArrayDeque<>();
+    private static final int JOURNAL_LENGTH = 32;
     private boolean cachedStacksNeedUpdate = true;
     /**
      * What has moved since the last tick, and by how much. This is the whole point of the change: a network is
@@ -272,6 +285,12 @@ public class GridStorageCache implements IStorageService, IGridCache {
         final Object2LongMap<AEKey> changes = this.pendingChanges;
         this.pendingChanges = new Object2LongOpenHashMap<>();
         this.changeStamp++;
+        synchronized (this.journal) {
+            if (this.journal.size() == JOURNAL_LENGTH) {
+                this.journal.removeFirst();
+            }
+            this.journal.addLast(changes.keySet());
+        }
 
         boolean emptied = false;
 
@@ -303,6 +322,9 @@ public class GridStorageCache implements IStorageService, IGridCache {
     private void updateCachedStacks() {
         cachedStacksNeedUpdate = false;
         changeStamp++;
+        synchronized (this.journal) {
+            this.journal.clear();
+        }
 
         cachedAvailableStacks.clear();
         storage.getAvailableStacks(cachedAvailableStacks);
@@ -408,6 +430,31 @@ public class GridStorageCache implements IStorageService, IGridCache {
     public KeyCounter getCachedInventory() {
         this.refreshCachedStacks();
         return cachedAvailableStacks;
+    }
+
+    /**
+     * The keys whose amounts may have changed since the listing stood at {@code stamp} (an earlier
+     * {@link #getChangeStamp()}), one set per batch, possibly repeating a key; or null when that is not known any
+     * more and the whole listing has to be compared.
+     */
+    @Nullable
+    public Collection<Set<AEKey>> changedSince(final long stamp) {
+        this.refreshCachedStacks();
+        final long behind = this.changeStamp - stamp;
+        if (behind == 0) {
+            return Collections.emptyList();
+        }
+        synchronized (this.journal) {
+            if (behind < 0 || behind > this.journal.size()) {
+                return null;
+            }
+            final List<Set<AEKey>> sets = new ArrayList<>((int) behind);
+            final var it = this.journal.descendingIterator();
+            for (long i = 0; i < behind; i++) {
+                sets.add(it.next());
+            }
+            return sets;
+        }
     }
 
     /** A number that is the same for as long as {@link #getCachedInventory()} has not changed. */
