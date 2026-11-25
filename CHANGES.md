@@ -26,6 +26,11 @@ All notable AE2UD changes are grouped by the version in which they first appeare
 - **A wireless terminal open on a busy network looks only at what changed since its last update** instead of copying
   and comparing the whole network listing every tick: 0.2 ms instead of 19 ms a tick on a network of 5000 kinds.
 
+**Fixes**
+
+- **A crafting CPU's name in the CPU list is shortened to the space it has**, so the icon of what it crafts no longer
+  covers the end of it.
+
 ## 1.6.21 - 2026-11-19
 
 A full code audit of 1.6.20: about 330 confirmed problems fixed, each reproduced in game or in a unit test first and
