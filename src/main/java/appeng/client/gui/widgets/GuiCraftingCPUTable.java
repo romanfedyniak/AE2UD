@@ -407,9 +407,11 @@ public class GuiCraftingCPUTable extends Gui {
     }
 
     private void drawCpuRow(final FontRenderer font, final CraftingCPUStatus cpu, final int x, final int y) {
+        // Trimmed to the pixels left of the crafted item's icon, drawn at 0.8 scale.
+        final int nameWidth = (int) ((cpu.getCrafting() != null ? SLOT_WIDTH - 23 : SLOT_WIDTH - 6) / 0.8f);
         String name = displayName(cpu);
-        if (name.length() > 12) {
-            name = name.substring(0, 11) + "..";
+        if (font.getStringWidth(name) > nameWidth) {
+            name = font.trimStringToWidth(name, nameWidth - font.getStringWidth("..")) + "..";
         }
         GL11.glPushMatrix();
         GL11.glTranslatef(x + 3, y + 3, 0);
