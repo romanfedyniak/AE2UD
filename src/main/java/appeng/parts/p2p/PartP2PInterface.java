@@ -99,6 +99,15 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
      */
     private ICraftingPatternDetails lastRan;
 
+    /**
+     * Output side: the patterns this output turned away in tick {@link #refusedTick}. Whatever its machine refused
+     * stays refused until the machine works on its next tick, but the crafting CPU offers the pattern again on
+     * every pass it makes over its tasks within one tick, and each time the tunnel would simulate the insert into
+     * every full machine behind it once more. Next tick they are all asked again.
+     */
+    private long refusedTick = -1;
+    private final List<ICraftingPatternDetails> refused = new ArrayList<>(2);
+
     public PartP2PInterface(final ItemStack is) {
         super(is);
     }
@@ -241,14 +250,20 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             final int count = outputs.size();
 
             final BlockingMode blocking = this.sourceBlockingMode();
+            final long now = this.getTile().getWorld().getTotalWorldTime();
 
             for (int i = 0; i < count; i++) {
                 final int index = Math.floorMod(this.nextOutput + i, count);
-                if (outputs.get(index).accept(patternDetails, table, extraInputs, blocking)) {
+                final PartP2PInterface output = outputs.get(index);
+                if (output.refusedThisTick(patternDetails, now)) {
+                    continue;
+                }
+                if (output.accept(patternDetails, table, extraInputs, blocking)) {
                     // Start at the next one, so a second pattern in the same tick goes to a second machine.
                     this.nextOutput = Math.floorMod(index + 1, count);
                     return true;
                 }
+                output.markRefused(patternDetails, now);
             }
             return false;
         } finally {
@@ -371,6 +386,26 @@ public class PartP2PInterface extends PartP2PTunnel<PartP2PInterface> implements
             }
         }
         return true;
+    }
+
+    private boolean refusedThisTick(final ICraftingPatternDetails pattern, final long now) {
+        if (this.refusedTick != now) {
+            return false;
+        }
+        for (final ICraftingPatternDetails p : this.refused) {
+            if (p == pattern) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void markRefused(final ICraftingPatternDetails pattern, final long now) {
+        if (this.refusedTick != now) {
+            this.refusedTick = now;
+            this.refused.clear();
+        }
+        this.refused.add(pattern);
     }
 
     /** As {@code DualityInterface.ranLastOnFace}: hash as the gate, comparison as the answer. */

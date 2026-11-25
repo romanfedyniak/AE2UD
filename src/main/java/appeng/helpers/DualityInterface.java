@@ -1439,11 +1439,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
             // is the only route from an interface to one.
             final ICraftingMachine cm = ICraftingMachine.of(te, s.getOpposite());
             if (cm != null && (!fabricated || cm.acceptsFabricatedContainers())) {
-                // A tunnel answers canRun for a plain block too, whose refusal is the expensive kind.
-                this.refusedAsBusy |= cm instanceof PartP2PInterface
-                        ? ((PartP2PInterface) cm).hasMachineFor(patternDetails)
-                        : cm.canRun(patternDetails);
-                if (cm.acceptsPlans()) {
+                if (!cm.acceptsPlans()) {
+                    this.refusedAsBusy |= refusesAsBusy(cm, patternDetails);
+                } else {
                     visitedFaces.remove(s);
                     if (cm.canRun(patternDetails) && cm.pushPattern(patternDetails, table, extraInputs, s.getOpposite())) {
                         // Taking the face out of the rotation spreads consecutive patterns over the machines
@@ -1458,6 +1456,9 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
                         onPushPatternSuccess(patternDetails);
                         return true;
                     }
+                    // Asked only now: a tunnel finds the answer by walking every machine behind it, and a
+                    // push that went through never needs it.
+                    this.refusedAsBusy |= refusesAsBusy(cm, patternDetails);
                     continue;
                 }
             }
@@ -1806,6 +1807,14 @@ public class DualityInterface implements IGridTickable, MEStorage, IInventoryDes
      */
     public boolean refusedAsBusy() {
         return this.refusedAsBusy;
+    }
+
+    /** Whether a refusal from this machine is a busy one. A tunnel answers canRun for a plain block too, whose
+     * refusal is the expensive kind. */
+    private static boolean refusesAsBusy(final ICraftingMachine cm, final ICraftingPatternDetails patternDetails) {
+        return cm instanceof PartP2PInterface
+                ? ((PartP2PInterface) cm).hasMachineFor(patternDetails)
+                : cm.canRun(patternDetails);
     }
 
     private boolean ranLastOnFace(final EnumFacing side, final ICraftingPatternDetails pattern) {

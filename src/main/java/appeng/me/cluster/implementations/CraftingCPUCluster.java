@@ -115,6 +115,13 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     private int storeRetry;
     /** Mediums already found busy this tick. Cleared every tick, so nothing stays skipped. */
     private final Set<ICraftingMedium> busyMediums = new HashSet<>();
+    /**
+     * Per pattern, the mediums that turned it away this tick because the machine behind them was at work. Such a
+     * refusal is not backed off - the machine may take the next one a tick later - but nothing it is waiting for
+     * happens before the tick is over, and a tunnel walks every machine behind it to give that answer, on every
+     * pass the CPU makes over its tasks. Cleared every tick, like {@link #busyMediums}.
+     */
+    private final Map<ICraftingPatternDetails, Set<ICraftingMedium>> busyRefusals = new HashMap<>();
     /** Per pattern and medium: {@code {interval, earliest tick to try again}}. See {@link #backedOff}. */
     private final Map<ICraftingPatternDetails, Map<ICraftingMedium, long[]>> pushBackoff = new HashMap<>();
     /**
@@ -884,6 +891,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             this.workableTasks.add(task);
         }
         this.busyMediums.clear();
+        this.busyRefusals.clear();
         this.pushBackoff.keySet().retainAll(this.tasks.keySet());
         this.drafts.keySet().retainAll(this.tasks.keySet());
         this.keepSeeds();
@@ -897,6 +905,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
         this.workableTasks.clear();
         this.busyMediums.clear();
+        this.busyRefusals.clear();
 
         this.usedOps[2] = this.usedOps[1];
         this.usedOps[1] = this.usedOps[0];
@@ -972,6 +981,11 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
                     }
 
                     if (this.backedOff(details, m)) {
+                        continue;
+                    }
+
+                    final Set<ICraftingMedium> refusedBusy = this.busyRefusals.get(details);
+                    if (refusedBusy != null && refusedBusy.contains(m)) {
                         continue;
                     }
 
@@ -1407,6 +1421,7 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return;
         }
         if (medium.refusedAsBusy()) {
+            this.busyRefusals.computeIfAbsent(details, d -> new HashSet<>()).add(medium);
             return;
         }
 
